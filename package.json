@@ -16,7 +16,7 @@
     "format": "biome format --write .",
     "check": "biome check . && turbo run typecheck",
     "check:fix": "biome check --write .",
-    "test:integration": "pnpm --filter @dive-center/database test:integration"
+    "test:integration": "pnpm --filter @dive-center/database test:integration && pnpm --filter @dive-center/api test:e2e"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
