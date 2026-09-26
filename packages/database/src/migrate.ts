@@ -16,8 +16,9 @@ export const productMigrationsFolder = join(
  */
 export async function migrateProduct(
   folder = productMigrationsFolder,
+  connectionString = migrationDatabaseUrl(),
 ): Promise<void> {
-  const client = new Client({ connectionString: migrationDatabaseUrl() });
+  const client = new Client({ connectionString });
   await client.connect();
   try {
     const db = drizzle(client);

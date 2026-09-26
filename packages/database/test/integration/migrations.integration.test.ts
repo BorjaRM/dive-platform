@@ -5,6 +5,7 @@ import { getTableConfig } from 'drizzle-orm/pg-core';
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { bootstrapRoles } from '../../src/bootstrap-roles.js';
+import { migrationDatabaseUrl, spikeAdminDatabaseUrl } from '../../src/env.js';
 import * as iamSchema from '../../src/iam-schema.js';
 import { migrateProduct, productMigrationsFolder } from '../../src/migrate.js';
 import { createAdminPool, createAppPool } from './harness.js';
@@ -19,36 +20,81 @@ const iamTables = [
   iamSchema.iamOutboxEvents,
 ];
 
+const emptyDatabaseName = 'dive_migrate_empty';
+
+function urlForDatabase(sourceUrl: string, databaseName: string): string {
+  const url = new URL(sourceUrl);
+  url.pathname = `/${databaseName}`;
+  return url.toString();
+}
+
 describe('product migrations', () => {
   let adminPool: Pool;
   let appPool: Pool;
+  let emptyAdminPool: Pool;
 
   beforeAll(async () => {
     adminPool = createAdminPool();
     appPool = createAppPool();
-    await adminPool.query('DROP SCHEMA IF EXISTS mt_spike CASCADE');
     await bootstrapRoles(adminPool);
     await migrateProduct();
+
+    const maintenance = new Pool({
+      connectionString: spikeAdminDatabaseUrl(),
+      max: 1,
+    });
+    try {
+      await maintenance.query(`DROP DATABASE IF EXISTS ${emptyDatabaseName}`);
+      await maintenance.query(`CREATE DATABASE ${emptyDatabaseName}`);
+    } finally {
+      await maintenance.end();
+    }
+
+    await adminPool.query(
+      `GRANT CONNECT, CREATE ON DATABASE ${emptyDatabaseName} TO dive_migration`,
+    );
+    emptyAdminPool = new Pool({
+      connectionString: urlForDatabase(
+        spikeAdminDatabaseUrl(),
+        emptyDatabaseName,
+      ),
+      max: 1,
+    });
+    await migrateProduct(
+      productMigrationsFolder,
+      urlForDatabase(migrationDatabaseUrl(), emptyDatabaseName),
+    );
   });
 
   afterAll(async () => {
+    await emptyAdminPool.end();
     await appPool.end();
     await adminPool.end();
+    const maintenance = new Pool({
+      connectionString: spikeAdminDatabaseUrl(),
+      max: 1,
+    });
+    try {
+      await maintenance.query(`DROP DATABASE IF EXISTS ${emptyDatabaseName}`);
+    } finally {
+      await maintenance.end();
+    }
   });
 
   it('creates iam_app from an empty database without the spike harness', async () => {
-    const schemas = await adminPool.query<{ nspname: string }>(
+    const schemas = await emptyAdminPool.query<{ nspname: string }>(
       `SELECT nspname FROM pg_namespace WHERE nspname IN ('iam_app', 'mt_spike') ORDER BY nspname`,
     );
     expect(schemas.rows.map((row) => row.nspname)).toEqual(['iam_app']);
   });
 
   it('is a no-op on a second run', async () => {
-    const before = await adminPool.query<{ count: string }>(
+    const emptyUrl = urlForDatabase(migrationDatabaseUrl(), emptyDatabaseName);
+    const before = await emptyAdminPool.query<{ count: string }>(
       `SELECT count(*)::text AS count FROM drizzle.__drizzle_migrations`,
     );
-    await migrateProduct();
-    const after = await adminPool.query<{ count: string }>(
+    await migrateProduct(productMigrationsFolder, emptyUrl);
+    const after = await emptyAdminPool.query<{ count: string }>(
       `SELECT count(*)::text AS count FROM drizzle.__drizzle_migrations`,
     );
     expect(after.rows[0]?.count).toBe(before.rows[0]?.count);
@@ -140,17 +186,18 @@ DO $$ BEGIN RAISE EXCEPTION 'intentional migration failure'; END $$;
 `,
     );
 
-    const before = await adminPool.query<{ count: string }>(
+    const emptyUrl = urlForDatabase(migrationDatabaseUrl(), emptyDatabaseName);
+    const before = await emptyAdminPool.query<{ count: string }>(
       `SELECT count(*)::text AS count FROM drizzle.__drizzle_migrations`,
     );
-    await expect(migrateProduct(tempFolder)).rejects.toThrow();
+    await expect(migrateProduct(tempFolder, emptyUrl)).rejects.toThrow();
 
-    const leftover = await adminPool.query<{ to_regclass: string | null }>(
+    const leftover = await emptyAdminPool.query<{ to_regclass: string | null }>(
       `SELECT to_regclass('iam_app.should_not_exist')`,
     );
     expect(leftover.rows[0]?.to_regclass).toBeNull();
 
-    const after = await adminPool.query<{ count: string }>(
+    const after = await emptyAdminPool.query<{ count: string }>(
       `SELECT count(*)::text AS count FROM drizzle.__drizzle_migrations`,
     );
     expect(after.rows[0]?.count).toBe(before.rows[0]?.count);
