@@ -1,35 +1,35 @@
 # SPIKE-DIVE-002 — Eligibility and emergency data discovery
 
 - **Status:** Deferred
-- **Hypothesis:** A purpose-limited model can support operational eligibility and emergency handling using minimal structured facts, explicit retention, and no medical answers or document images.
+- **Type:** regulatory and data discovery for the operations evolution
+- **Gate:** does not block the booking MVP
 
 ## Question
 
-What minimum data may and must a future trip-operations capability process in Spain without becoming a medical or document repository?
+What minimum data may and must a future trip-operations capability process in Spain to identify participants, check eligibility, and respond to an emergency without becoming a medical or document repository?
 
 ## Scope
 
-Regulatory and data discovery for the deferred operations evolution. It does not block the booking MVP.
+Deferred with SPEC-DIVE-OPS-001. Before a **booking** pilot, a separate privacy review of contact, communications, consent, retention, and rights is still required; this spike does not perform that review.
 
-## Method
+## Decisions it must produce
 
-Implement the smallest representative slice, execute deterministic positive and negative scenarios against real infrastructure where applicable, record commands and environment, and store reproducible evidence without real personal data.
+- Strictly necessary identity and contact data
+- Need, access, and retention of emergency contact
+- Meaning of “check performed” and whether it infers health information
+- Certification or experience facts that can be stored without document copies
+- Explicitly forbidden or deferred data
+- Roles authorized per datum, purpose, and trip state
+- Export, rectification, restriction, erasure, audit, and backups
 
-## Required scenarios
+## Guardrails
 
-1. Inventory processing purposes and data categories.
-2. Distinguish law, contract, certification rules, insurer requirements, and local practice.
-3. Define allowed, forbidden, and deferred fields.
-4. Define role × data × purpose access and masking.
-5. Define retention, correction, export, restriction, deletion, audit, and backup handling.
-6. Obtain dated local legal/privacy validation before real data is used.
-
-## Dependencies
-
-- specs/domain/SPEC-DIVE-OPS-001.md
-- specs/iam/SPEC-DIVE-IAM-001.md
-- specs/foundation/security-privacy-baseline.md
+- No real customer data
+- No medical history design
+- No diagnoses, questionnaire answers, or document images
+- Distinguish law, contract, certifier standard, and local practice
+- Record uncertainties; do not add fields “just in case”
 
 ## Closure outcomes
 
-`Accepted`, `Accepted with conditions`, `Requires modification`, or `Rejected`. A conclusion requires committed tests and reproducible evidence; this document alone is not evidence.
+`Accepted`, `Accepted with conditions`, `Requires modification`, or `Rejected`, plus no-go conditions for activating operations.

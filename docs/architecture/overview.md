@@ -1,20 +1,23 @@
 # Architecture overview (non-normative)
 
-This document provides a **high-level overview**. For normative decisions, see:
+Normative decisions:
 
 - `specs/architecture/adrs/ADR-DIVE-001.md`
 - `specs/architecture/adrs/ADR-DIVE-002.md`
 - `specs/foundation/multitenancy-architecture.md`
 
-## High-level topology
+## Intended topology
 
-- **Web** (Next.js): dashboard + hosted public booking page + embedded widget (iframe)
+- **Web** (Next.js): dashboard + hosted public booking page + iframe widget
 - **API** (NestJS): modular monolith
-- **Worker**: outbox processing + async tasks
-- **Database**: PostgreSQL (shared DB/schema, defense-in-depth with RLS)
+- **Worker**: outbox + async tasks
+- **Database**: PostgreSQL shared DB/schema, RLS as defense in depth
 
-## Core design principles
+This topology is not fully provisioned. The repo currently has starters and empty domain/database packages.
 
-- Tenant context is explicit and server-authorized end-to-end
-- Outbox for reliable, idempotent side effects (emails, notifications)
+## Principles
+
+- Tenant context is explicit and server-authorized
+- Outbox for reliable, idempotent side effects
 - Vendor-neutral observability via OpenTelemetry
+- Domain must not import framework or vendor SDKs

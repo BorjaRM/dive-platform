@@ -1,12 +1,16 @@
 # Normative specs (`specs/`)
 
-This folder is the **source of truth** for all normative artifacts:
+This folder is the **source of truth** for:
 
-- Product profiles (scope + gates)
-- ADRs (architecture decisions)
-- SPECS (normative contracts + requirements)
+- Product profiles
+- Foundation baselines
+- ADRs
+- SPECs and numbered requirements
+- Spikes
 - Traceability maps
 
-If something is a **MUST / SHALL**, it belongs here.
+If something is a MUST / SHALL, it belongs here.
 
-Project navigation, onboarding, and overviews live in `docs/`.
+Notion pages for this product are indexes. They may link here; they must not duplicate requirement lists.
+
+Project navigation lives in `docs/`.

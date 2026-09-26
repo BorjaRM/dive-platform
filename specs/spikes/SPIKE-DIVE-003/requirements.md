@@ -2,17 +2,17 @@
 
 - **Status:** Draft
 
-- **SPIKE-DIVE-003-REQ-001:** The iframe uses an opaque server-resolved channel configuration.
-- **SPIKE-DIVE-003-REQ-002:** Production embedding is restricted to explicit authorized origins.
-- **SPIKE-DIVE-003-REQ-003:** postMessage is minimal, versioned, schema-validated, and origin-validated.
-- **SPIKE-DIVE-003-REQ-004:** No secrets or complete personal payloads cross the host messaging boundary.
-- **SPIKE-DIVE-003-REQ-005:** The widget remains usable with internal scrolling when auto-height fails.
-- **SPIKE-DIVE-003-REQ-006:** A hosted booking page is always available as secure fallback.
-- **SPIKE-DIVE-003-REQ-007:** Customization is catalog-based and cannot execute tenant-provided code.
-- **SPIKE-DIVE-003-REQ-008:** The flow meets the approved keyboard, focus, contrast, error, language, and responsive criteria.
-- **SPIKE-DIVE-003-REQ-009:** Tests cover WordPress, Wix, Squarespace, and generic HTML.
-- **SPIKE-DIVE-003-REQ-010:** Presentation remains an adapter; the booking domain does not depend on iframe APIs.
+- **SPIKE-DIVE-003-REQ-001:** iframe + hosted fallback is usable on WordPress, Wix, Squarespace, and generic HTML (`DIVE-BOOK-REQ-040`).
+- **SPIKE-DIVE-003-REQ-002:** Tenant/center/activity cannot be substituted from the browser (`DIVE-BOOK-REQ-004`).
+- **SPIKE-DIVE-003-REQ-003:** Origin, CSP, CORS, and postMessage reject unauthorized senders (`DIVE-BOOK-REQ-041`).
+- **SPIKE-DIVE-003-REQ-004:** WCAG 2.2 AA target holds from 320 px for widget and hosted page.
+- **SPIKE-DIVE-003-REQ-005:** Customization cannot inject arbitrary HTML, CSS, or JavaScript.
+- **SPIKE-DIVE-003-REQ-006:** Fallback to the hosted page remains available on embed failure.
+- **SPIKE-DIVE-003-REQ-007:** Anti-abuse controls do not enumerate tenants, slots, or personal data (`DIVE-BOOK-REQ-047`).
+- **SPIKE-DIVE-003-REQ-008:** Locale `es`/`en` persists through booking and email (`DIVE-BOOK-REQ-042`).
+- **SPIKE-DIVE-003-REQ-009:** Analytics avoid third-party cookies and unnecessary PII.
+- **SPIKE-DIVE-003-REQ-010:** Evidence records trade-offs versus Web Component and host-DOM script.
 
 ## Completion rule
 
-Every requirement must map to at least one executable test or an explicitly reviewed non-executable validation, plus evidence in `results.md` or the referenced evidence directory.
+Every requirement maps to executable evidence or an explicitly reviewed non-executable validation, plus `results.md`.

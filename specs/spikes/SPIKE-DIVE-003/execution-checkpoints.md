@@ -1,14 +1,15 @@
 # SPIKE-DIVE-003 — Execution checkpoints
 
-- **Status:** Not started
+- **Status:** Draft / not executed
 
-- [ ] Confirm normative dependencies and record their commit SHA.
-- [ ] Prepare isolated synthetic fixtures and environment.
-- [ ] Implement the minimum model or prototype needed by the scenarios.
-- [ ] Add deterministic positive tests.
-- [ ] Add negative, concurrency, abuse, or failure tests as applicable.
-- [ ] Run the documented commands from a clean environment.
-- [ ] Capture measurements, logs, traces, and limitations without PII or secrets.
-- [ ] Map every requirement to tests and evidence in `traceability.md`.
-- [ ] Complete `results.md` with commit, environment, observations, and conclusion.
-- [ ] Update `specs/traceability/TRACE-DIVE-MVP-001.md` if coverage or decisions change.
+1. Hosted booking page prototype.
+2. iframe embed with initial height 720 px.
+3. Origin allow-list and CSP `frame-ancestors`.
+4. Versioned postMessage validation.
+5. Negative origin and payload tests.
+6. Fallback link.
+7. WCAG 2.2 AA and 320 px checks.
+8. `es`/`en` persistence.
+9. WordPress, Wix, Squarespace, and generic HTML evidence for closure.
+
+Prototype may start on one test page. Closure requires all four targets.
