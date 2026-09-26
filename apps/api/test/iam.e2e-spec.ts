@@ -22,16 +22,21 @@ const centerB1 = 'bbbbbbbb-0002-0002-0002-000000000001';
 const ownerA = 'a1111111-1111-1111-1111-111111111111';
 const ownerA2 = 'a2222222-2222-2222-2222-222222222222';
 const managerA = 'a3333333-3333-3333-3333-333333333333';
+const pendingA = 'a4444444-4444-4444-4444-444444444444';
 const memberB = 'b1111111-1111-1111-1111-111111111111';
 const membershipOwnerA = 'aa111111-1111-1111-1111-111111111111';
 const membershipOwnerA2 = 'aa222222-2222-2222-2222-222222222222';
 const membershipManagerA = 'aa333333-3333-3333-3333-333333333333';
+const membershipPendingA = 'aa444444-4444-4444-4444-444444444444';
 const membershipB = 'bb111111-1111-1111-1111-111111111111';
+const invalidIdentity = 'cccccccc-3333-3333-3333-333333333333';
 
 const principals = new Map([
   ['owner-a-token', { issuer: 'test', subject: 'owner-a' }],
   ['owner-a2-token', { issuer: 'test', subject: 'owner-a2' }],
   ['manager-a-token', { issuer: 'test', subject: 'manager-a' }],
+  ['pending-a-token', { issuer: 'test', subject: 'pending-a' }],
+  ['wrong-issuer-token', { issuer: 'other', subject: 'owner-a' }],
   ['member-b-token', { issuer: 'test', subject: 'member-b' }],
 ]);
 
@@ -68,9 +73,17 @@ describe('IAM/API vertical (e2e)', () => {
       `INSERT INTO iam_app.identities(id) VALUES ($1),($2),($3),($4)`,
       [ownerA, ownerA2, managerA, memberB],
     );
+    await admin.query('INSERT INTO iam_app.identities(id) VALUES ($1)', [
+      pendingA,
+    ]);
     await admin.query(
       `INSERT INTO iam_app.external_identities(identity_id,issuer,subject) VALUES ($1,'test','owner-a'),($2,'test','owner-a2'),($3,'test','manager-a'),($4,'test','member-b')`,
       [ownerA, ownerA2, managerA, memberB],
+    );
+    await admin.query(
+      `INSERT INTO iam_app.external_identities(identity_id,issuer,subject)
+       VALUES ($1,'test','pending-a')`,
+      [pendingA],
     );
     await admin.query(
       `INSERT INTO iam_app.centers(id,tenant_id,name) VALUES ($1,$2,'A1'),($3,$2,'A2'),($4,$5,'B1')`,
@@ -95,6 +108,11 @@ describe('IAM/API vertical (e2e)', () => {
         tenantB,
         memberB,
       ],
+    );
+    await admin.query(
+      `INSERT INTO iam_app.memberships(id,tenant_id,identity_id,status,roles,center_ids)
+       VALUES ($1,$2,$3,'pending',ARRAY['center_manager'],ARRAY[$4::uuid])`,
+      [membershipPendingA, tenantA, pendingA, centerA1],
     );
   });
 
@@ -142,6 +160,54 @@ describe('IAM/API vertical (e2e)', () => {
       .expect(403);
   });
 
+  it('requires issuer plus subject and an active membership', async () => {
+    await request(app.getHttpServer())
+      .get(`/v1/tenants/${tenantA}/centers/${centerA1}`)
+      .set('authorization', 'Bearer wrong-issuer-token')
+      .expect(403);
+    await request(app.getHttpServer())
+      .get(`/v1/tenants/${tenantA}/centers/${centerA1}`)
+      .set('authorization', 'Bearer pending-a-token')
+      .expect(403);
+  });
+
+  it('applies role revocation on the next request', async () => {
+    await request(app.getHttpServer())
+      .get(`/v1/tenants/${tenantA}/centers/${centerA1}`)
+      .set('authorization', 'Bearer manager-a-token')
+      .expect(200);
+    await admin.query(
+      `UPDATE iam_app.memberships
+       SET roles=ARRAY['external_collaborator']
+       WHERE tenant_id=$1 AND id=$2`,
+      [tenantA, membershipManagerA],
+    );
+    await request(app.getHttpServer())
+      .get(`/v1/tenants/${tenantA}/centers/${centerA1}`)
+      .set('authorization', 'Bearer manager-a-token')
+      .expect(403);
+  });
+
+  it('rejects unknown roles and center scopes from another tenant', async () => {
+    await admin.query('INSERT INTO iam_app.identities(id) VALUES ($1)', [
+      invalidIdentity,
+    ]);
+    await expect(
+      admin.query(
+        `INSERT INTO iam_app.memberships(id,tenant_id,identity_id,status,roles,center_ids)
+         VALUES ('cccccccc-1111-1111-1111-111111111111',$1,$2,'active',ARRAY['unknown_role'],NULL)`,
+        [tenantA, invalidIdentity],
+      ),
+    ).rejects.toThrow();
+    await expect(
+      admin.query(
+        `INSERT INTO iam_app.memberships(id,tenant_id,identity_id,status,roles,center_ids)
+         VALUES ('cccccccc-2222-2222-2222-222222222222',$1,$2,'active',ARRAY['center_manager'],ARRAY[$3::uuid])`,
+        [tenantA, invalidIdentity, centerB1],
+      ),
+    ).rejects.toThrow('Invalid membership center scope');
+  });
+
   it('disables a membership with atomic audit and outbox derived from context', async () => {
     await request(app.getHttpServer())
       .patch(`/v1/tenants/${tenantA}/memberships/${membershipManagerA}/disable`)
@@ -149,13 +215,15 @@ describe('IAM/API vertical (e2e)', () => {
       .expect(200)
       .expect({ status: 'disabled' });
     const result = await admin.query(
-      `SELECT m.status, a.tenant_id audit_tenant, o.tenant_id outbox_tenant, a.correlation_id audit_correlation, o.correlation_id outbox_correlation, o.payload
+      `SELECT m.status, a.tenant_id audit_tenant, a.result audit_result, a.reason audit_reason, o.tenant_id outbox_tenant, a.correlation_id audit_correlation, o.correlation_id outbox_correlation, o.payload
       FROM iam_app.memberships m JOIN iam_app.audit_records a ON a.resource_id=m.id JOIN iam_app.outbox_events o ON o.payload->>'membershipId'=m.id::text WHERE m.id=$1`,
       [membershipManagerA],
     );
     expect(result.rows[0]).toMatchObject({
       status: 'disabled',
       audit_tenant: tenantA,
+      audit_result: 'success',
+      audit_reason: null,
       outbox_tenant: tenantA,
       payload: { membershipId: membershipManagerA },
     });
@@ -213,6 +281,69 @@ describe('IAM/API vertical (e2e)', () => {
         error: 'Forbidden',
         statusCode: 403,
       });
+    const denied = await admin.query(
+      `SELECT actor_identity_id, result, reason
+       FROM iam_app.audit_records
+       WHERE tenant_id=$1 AND resource_id=$2`,
+      [tenantA, membershipOwnerA],
+    );
+    expect(denied.rows).toEqual([
+      {
+        actor_identity_id: ownerA,
+        result: 'denied',
+        reason: 'last_owner',
+      },
+    ]);
+    const outbox = await admin.query<{ count: number }>(
+      `SELECT count(*)::int count
+       FROM iam_app.outbox_events
+       WHERE tenant_id=$1 AND payload->>'membershipId'=$2`,
+      [tenantA, membershipOwnerA],
+    );
+    expect(outbox.rows[0]?.count).toBe(0);
+  });
+
+  it('keeps one active owner under concurrent disable requests', async () => {
+    await admin.query(`
+      CREATE OR REPLACE FUNCTION iam_app.test_delay_owner_disable()
+      RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        PERFORM pg_sleep(0.1);
+        RETURN NEW;
+      END $$;
+      CREATE TRIGGER test_delay_owner_disable
+      BEFORE UPDATE OF status ON iam_app.memberships
+      FOR EACH ROW WHEN (OLD.status = 'active' AND NEW.status = 'disabled')
+      EXECUTE FUNCTION iam_app.test_delay_owner_disable();
+    `);
+    try {
+      const responses = await Promise.all([
+        request(app.getHttpServer())
+          .patch(
+            `/v1/tenants/${tenantA}/memberships/${membershipOwnerA}/disable`,
+          )
+          .set('authorization', 'Bearer owner-a-token'),
+        request(app.getHttpServer())
+          .patch(
+            `/v1/tenants/${tenantA}/memberships/${membershipOwnerA2}/disable`,
+          )
+          .set('authorization', 'Bearer owner-a-token'),
+      ]);
+
+      expect(responses.map(({ status }) => status).sort()).toEqual([200, 403]);
+      const owners = await admin.query<{ count: number }>(
+        `SELECT count(*)::int count
+         FROM iam_app.memberships
+         WHERE tenant_id=$1 AND status='active' AND roles @> ARRAY['tenant_owner']::text[]`,
+        [tenantA],
+      );
+      expect(owners.rows[0]?.count).toBe(1);
+    } finally {
+      await admin.query(`
+        DROP TRIGGER IF EXISTS test_delay_owner_disable ON iam_app.memberships;
+        DROP FUNCTION IF EXISTS iam_app.test_delay_owner_disable();
+      `);
+    }
   });
 
   it('does not grant membership.disable to center managers', async () => {
@@ -220,6 +351,22 @@ describe('IAM/API vertical (e2e)', () => {
       .patch(`/v1/tenants/${tenantA}/memberships/${membershipOwnerA}/disable`)
       .set('authorization', 'Bearer manager-a-token')
       .expect(403);
+    const audits = await admin.query(
+      `SELECT actor_identity_id, result, reason
+       FROM iam_app.audit_records
+       WHERE tenant_id=$1 AND resource_id=$2`,
+      [tenantA, membershipOwnerA],
+    );
+    expect(audits.rows).toEqual([
+      {
+        actor_identity_id: managerA,
+        result: 'denied',
+        reason: 'permission_missing',
+      },
+    ]);
+    expect(logs).toEqual([
+      expect.objectContaining({ action: 'membership.disable' }),
+    ]);
   });
 
   afterAll(async () => {

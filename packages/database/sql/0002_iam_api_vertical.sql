@@ -28,6 +28,44 @@ CREATE TABLE IF NOT EXISTS iam_app.memberships (
   PRIMARY KEY (tenant_id, id),
   UNIQUE (tenant_id, identity_id)
 );
+
+ALTER TABLE iam_app.memberships
+  DROP CONSTRAINT IF EXISTS memberships_roles_known;
+ALTER TABLE iam_app.memberships
+  ADD CONSTRAINT memberships_roles_known CHECK (
+    cardinality(roles) > 0
+    AND roles <@ ARRAY[
+      'tenant_owner',
+      'tenant_admin',
+      'operations_lead',
+      'auditor_compliance',
+      'center_manager',
+      'reception_booking_manager',
+      'external_collaborator'
+    ]::text[]
+  );
+
+CREATE OR REPLACE FUNCTION iam_app.validate_membership_centers()
+RETURNS trigger LANGUAGE plpgsql SET search_path = iam_app, pg_temp AS $$
+BEGIN
+  IF NEW.center_ids IS NOT NULL AND EXISTS (
+    SELECT 1
+    FROM unnest(NEW.center_ids) AS assigned(center_id)
+    LEFT JOIN iam_app.centers AS center
+      ON center.tenant_id = NEW.tenant_id AND center.id = assigned.center_id
+    WHERE center.id IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Invalid membership center scope' USING ERRCODE = '23503';
+  END IF;
+  RETURN NEW;
+END $$;
+
+REVOKE ALL ON FUNCTION iam_app.validate_membership_centers() FROM PUBLIC;
+DROP TRIGGER IF EXISTS memberships_centers_same_tenant ON iam_app.memberships;
+CREATE TRIGGER memberships_centers_same_tenant
+BEFORE INSERT OR UPDATE OF tenant_id, center_ids ON iam_app.memberships
+FOR EACH ROW EXECUTE FUNCTION iam_app.validate_membership_centers();
+
 CREATE TABLE IF NOT EXISTS iam_app.audit_records (
   id uuid NOT NULL,
   tenant_id uuid NOT NULL REFERENCES iam_app.tenants(id),
@@ -36,10 +74,12 @@ CREATE TABLE IF NOT EXISTS iam_app.audit_records (
   resource_type text NOT NULL,
   resource_id uuid NOT NULL,
   result text NOT NULL,
+  reason text,
   correlation_id uuid NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (tenant_id, id)
 );
+ALTER TABLE iam_app.audit_records ADD COLUMN IF NOT EXISTS reason text;
 CREATE TABLE IF NOT EXISTS iam_app.outbox_events (
   id uuid NOT NULL,
   tenant_id uuid NOT NULL REFERENCES iam_app.tenants(id),
@@ -96,6 +136,9 @@ END $$;
 REVOKE ALL ON FUNCTION iam_app.resolve_access(text, text, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION iam_app.resolve_access(text, text, uuid) TO dive_app;
 GRANT USAGE ON SCHEMA iam_app TO dive_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON iam_app.tenants, iam_app.centers, iam_app.memberships, iam_app.audit_records, iam_app.outbox_events TO dive_app;
+REVOKE ALL ON iam_app.tenants, iam_app.centers, iam_app.memberships, iam_app.audit_records, iam_app.outbox_events FROM dive_app;
+GRANT SELECT ON iam_app.tenants, iam_app.centers, iam_app.memberships TO dive_app;
+GRANT UPDATE (status) ON iam_app.memberships TO dive_app;
+GRANT INSERT ON iam_app.audit_records, iam_app.outbox_events TO dive_app;
 REVOKE ALL ON iam_app.identities, iam_app.external_identities FROM dive_app;
 RESET ROLE;

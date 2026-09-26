@@ -33,6 +33,14 @@ Implement web and widget surfaces from approved requirements. Iframe is provisio
 - When touching embed security, read SPIKE-DIVE-003 IDs instead of inventing rules. Documented spike requirements include iframe+hosted fallback, origin/CSP/CORS/postMessage, WCAG 2.2 AA from 320px, no arbitrary HTML/CSS/JS, locale `es`/`en`, and anti-abuse without enumeration.
 - Prefer manual validation steps while e2e is absent.
 
+## Implementation design
+
+- Keep server authorization and data resolution in server-owned code; client components handle only interaction that requires browser state.
+- Keep state at the closest owning component or route. Introduce shared state only when multiple independent consumers require it.
+- Prefer composition and existing `packages/ui` primitives over duplicated components or configuration-heavy universal components.
+- Separate data loading, domain decisions, and presentation when they change for different reasons; do not mirror backend domain logic in the browser.
+- Test user-visible behavior and accessibility through public component/page behavior, not component internals.
+
 ## You do not
 
 - Treat iframe, CSP, postMessage event names, or theming as Accepted. ADR-DIVE-002 iframe is provisional; SPIKE-DIVE-003 is Draft / not executed.

@@ -16,7 +16,7 @@ import {
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
 import type { Pool } from 'pg';
-import { DATABASE_POOL } from './iam.tokens.js';
+import { DATABASE_POOL, IAM_ACTIONS } from './iam.tokens.js';
 
 function denied(): never {
   throw new ForbiddenException('Access denied');
@@ -36,25 +36,29 @@ export class IamService {
       principal,
       tenantId,
     ).catch(denied);
-    const permissions = permissionsForRoles(context.roles);
-    if (!permissions.has('center.read')) denied();
-    if (
-      !hasTenantWideScope(context.roles) &&
-      !context.centerIds?.includes(centerId)
-    )
-      denied();
-
-    return withIamAuthorizedTenant(this.pool, context, async ({ db }) => {
-      const rows = await db
-        .select({ id: iamCenters.id, name: iamCenters.name })
-        .from(iamCenters)
-        .where(
-          and(eq(iamCenters.tenantId, tenantId), eq(iamCenters.id, centerId)),
+    return withIamAuthorizedTenant(
+      this.pool,
+      context,
+      async ({ db }, current) => {
+        const permissions = permissionsForRoles(current.roles);
+        if (!permissions.has('center.read')) denied();
+        if (
+          !hasTenantWideScope(current.roles) &&
+          !current.centerIds?.includes(centerId)
         )
-        .limit(1);
-      if (!rows[0]) denied();
-      return rows[0];
-    }).catch(denied);
+          denied();
+
+        const rows = await db
+          .select({ id: iamCenters.id, name: iamCenters.name })
+          .from(iamCenters)
+          .where(
+            and(eq(iamCenters.tenantId, tenantId), eq(iamCenters.id, centerId)),
+          )
+          .limit(1);
+        if (!rows[0]) denied();
+        return rows[0];
+      },
+    ).catch(denied);
   }
 
   async disableMembership(
@@ -68,74 +72,96 @@ export class IamService {
       principal,
       tenantId,
     ).catch(denied);
-    if (!permissionsForRoles(context.roles).has('membership.disable')) denied();
+    const outcome = await withIamAuthorizedTenant(
+      this.pool,
+      context,
+      async ({ db }, current) => {
+        const appendAudit = (result: 'success' | 'denied', reason?: string) =>
+          db.insert(iamAuditRecords).values({
+            id: randomUUID(),
+            tenantId,
+            actorIdentityId: current.identityId,
+            action: IAM_ACTIONS.membershipDisable,
+            resourceType: 'membership',
+            resourceId: membershipId,
+            result,
+            reason,
+            correlationId,
+            createdAt: new Date(),
+          });
 
-    return withIamAuthorizedTenant(this.pool, context, async ({ db }) => {
-      const targets = await db
-        .select({
-          id: iamMemberships.id,
-          roles: iamMemberships.roles,
-          status: iamMemberships.status,
-        })
-        .from(iamMemberships)
-        .where(
-          and(
-            eq(iamMemberships.tenantId, tenantId),
-            eq(iamMemberships.id, membershipId),
-          ),
-        )
-        .limit(1);
-      const target = targets[0];
-      if (target?.status !== 'active') denied();
+        if (!permissionsForRoles(current.roles).has('membership.disable')) {
+          await appendAudit('denied', 'permission_missing');
+          return { denied: true as const, reason: 'access' as const };
+        }
 
-      if (target.roles.includes(IAM_ROLES.tenantOwner)) {
-        const owners = await db.execute<{ owner_count: number }>(sql`
+        const targets = await db
+          .select({
+            id: iamMemberships.id,
+            roles: iamMemberships.roles,
+            status: iamMemberships.status,
+          })
+          .from(iamMemberships)
+          .where(
+            and(
+              eq(iamMemberships.tenantId, tenantId),
+              eq(iamMemberships.id, membershipId),
+            ),
+          )
+          .limit(1);
+        const target = targets[0];
+        if (target?.status !== 'active') {
+          await appendAudit('denied', 'target_inactive_or_missing');
+          return { denied: true as const, reason: 'access' as const };
+        }
+
+        if (target.roles.includes(IAM_ROLES.tenantOwner)) {
+          const owners = await db.execute<{ owner_count: number }>(sql`
           SELECT count(*)::int AS owner_count
           FROM iam_app.memberships
           WHERE tenant_id = ${tenantId}::uuid
             AND status = 'active'
             AND roles @> ARRAY[${IAM_ROLES.tenantOwner}]::text[]
         `);
-        if ((owners.rows[0]?.owner_count ?? 0) <= 1) {
-          throw new ForbiddenException('Operation not allowed');
+          if ((owners.rows[0]?.owner_count ?? 0) <= 1) {
+            await appendAudit('denied', 'last_owner');
+            return { denied: true as const, reason: 'last_owner' as const };
+          }
         }
-      }
 
-      await db
-        .update(iamMemberships)
-        .set({ status: 'disabled' })
-        .where(
-          and(
-            eq(iamMemberships.tenantId, tenantId),
-            eq(iamMemberships.id, membershipId),
-          ),
-        );
+        await db
+          .update(iamMemberships)
+          .set({ status: 'disabled' })
+          .where(
+            and(
+              eq(iamMemberships.tenantId, tenantId),
+              eq(iamMemberships.id, membershipId),
+            ),
+          );
 
-      const eventId = randomUUID();
-      await db.insert(iamAuditRecords).values({
-        id: randomUUID(),
-        tenantId,
-        actorIdentityId: context.identityId,
-        action: 'membership.disable',
-        resourceType: 'membership',
-        resourceId: membershipId,
-        result: 'success',
-        correlationId,
-        createdAt: new Date(),
-      });
-      await db.insert(iamOutboxEvents).values({
-        id: eventId,
-        tenantId,
-        eventType: 'iam.membership.disabled.v1',
-        payload: { membershipId },
-        correlationId,
-        idempotencyKey: `membership.disable:${membershipId}`,
-        createdAt: new Date(),
-      });
-      return { status: 'disabled' as const };
-    }).catch((error: unknown) => {
+        await appendAudit('success');
+        await db.insert(iamOutboxEvents).values({
+          id: randomUUID(),
+          tenantId,
+          eventType: 'iam.membership.disabled.v1',
+          payload: { membershipId },
+          correlationId,
+          idempotencyKey: `${IAM_ACTIONS.membershipDisable}:${membershipId}`,
+          createdAt: new Date(),
+        });
+        return { denied: false as const, status: 'disabled' as const };
+      },
+      { lockTenant: true },
+    ).catch((error: unknown) => {
       if (error instanceof ForbiddenException) throw error;
       denied();
     });
+    if (outcome.denied) {
+      if (outcome.reason === 'last_owner') {
+        throw new ForbiddenException('Operation not allowed');
+      }
+      denied();
+    }
+    return { status: outcome.status };
   }
 }

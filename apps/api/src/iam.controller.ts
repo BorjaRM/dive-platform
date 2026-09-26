@@ -14,7 +14,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { IamService } from './iam.service.js';
-import { SECURITY_LOGGER, type SecurityLoggerPort } from './iam.tokens.js';
+import {
+  IAM_ACTIONS,
+  type IamAction,
+  SECURITY_LOGGER,
+  type SecurityLoggerPort,
+} from './iam.tokens.js';
 
 @Controller('v1/tenants/:tenantId')
 export class IamController {
@@ -37,6 +42,7 @@ export class IamController {
 
   private async execute<T>(
     authorization: string | undefined,
+    actionName: IamAction,
     action: (
       principal: Awaited<ReturnType<IamController['principal']>>,
       correlationId: string,
@@ -46,7 +52,11 @@ export class IamController {
     try {
       return await action(await this.principal(authorization), correlationId);
     } catch (error) {
-      this.logger.warn({ event: 'iam_request_denied', correlationId });
+      this.logger.warn({
+        event: 'iam_request_denied',
+        action: actionName,
+        correlationId,
+      });
       if (
         error instanceof UnauthorizedException ||
         error instanceof ForbiddenException
@@ -62,7 +72,7 @@ export class IamController {
     @Param('tenantId') tenantId: string,
     @Param('centerId') centerId: string,
   ) {
-    return this.execute(authorization, (principal) =>
+    return this.execute(authorization, IAM_ACTIONS.centerRead, (principal) =>
       this.iam.readCenter(principal, tenantId, centerId),
     );
   }
@@ -73,13 +83,16 @@ export class IamController {
     @Param('tenantId') tenantId: string,
     @Param('membershipId') membershipId: string,
   ) {
-    return this.execute(authorization, (principal, correlationId) =>
-      this.iam.disableMembership(
-        principal,
-        tenantId,
-        membershipId,
-        correlationId,
-      ),
+    return this.execute(
+      authorization,
+      IAM_ACTIONS.membershipDisable,
+      (principal, correlationId) =>
+        this.iam.disableMembership(
+          principal,
+          tenantId,
+          membershipId,
+          correlationId,
+        ),
     );
   }
 }

@@ -31,6 +31,14 @@ Protect tenant isolation. The dive operator is the tenant; center/base is operat
 - Maintain cross-tenant tests with at least two tenants.
 - Keep `MT-REQ-*` results separate from `DIVE-*`.
 
+## Implementation design
+
+- Make tenant context explicit at application, repository, and transaction boundaries; never recover it from arbitrary request data or mutable global state.
+- Centralize repeated tenant-scoping mechanics in established database/repository primitives, while keeping authorization decisions visible at the use-case boundary.
+- Keep transaction-scoped tenant context on the same connection for the full operation, including outbox writes when applicable.
+- Prefer constraints and RLS policies for invariant enforcement, backed by application checks for clear failures; do not rely on query filters alone.
+- Test permitted same-tenant access, denied cross-tenant access, missing context, and pooled-connection context reset through public data-access behavior.
+
 ## You do not
 
 - Change product requirements.

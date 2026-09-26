@@ -37,6 +37,15 @@ export const IAM_ROLES = {
   externalCollaborator: 'external_collaborator',
 } as const;
 
+const centerReaderRoles: ReadonlySet<string> = new Set([
+  IAM_ROLES.tenantOwner,
+  IAM_ROLES.tenantAdmin,
+  IAM_ROLES.operationsLead,
+  IAM_ROLES.auditorCompliance,
+  IAM_ROLES.centerManager,
+  IAM_ROLES.receptionBookingManager,
+]);
+
 const tenantWideRoles: ReadonlySet<string> = new Set([
   IAM_ROLES.tenantOwner,
   IAM_ROLES.tenantAdmin,
@@ -48,7 +57,7 @@ export function permissionsForRoles(
   roles: readonly string[],
 ): ReadonlySet<string> {
   const result = new Set<string>();
-  if (roles.some((role) => role !== IAM_ROLES.externalCollaborator)) {
+  if (roles.some((role) => centerReaderRoles.has(role))) {
     result.add('center.read');
   }
   if (
