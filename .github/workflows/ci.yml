@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   check-and-test:
@@ -19,7 +19,14 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
+        if: github.event_name != 'pull_request'
         uses: actions/checkout@v4
+
+      - name: Checkout PR branch
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -32,6 +39,24 @@ jobs:
 
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      - name: Apply Biome format and lint
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: pnpm check:fix
+
+      - name: Commit Biome fixes
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No Biome fixes to commit"
+            exit 0
+          fi
+          git commit -m "chore: apply biome format and lint"
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
 
       - name: Check
         run: pnpm check

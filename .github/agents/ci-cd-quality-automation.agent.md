@@ -26,19 +26,21 @@ Re-verify. Do not treat this table as frozen:
 |---|---|
 | Yes | `.github/workflows/spec-governance.yml` |
 | Yes | `scripts/validate-spec-governance.mjs` |
-| Yes | `.github/workflows/ci.yml` (`pnpm check`, `pnpm test`) |
-| Yes | `pnpm check`, `pnpm test`, `pnpm typecheck` |
+| Yes | `.github/workflows/ci.yml` (`pnpm check:fix` on same-repo PRs, then `pnpm check`, `pnpm test`) |
+| Yes | `pnpm check`, `pnpm check:fix`, `pnpm test`, `pnpm typecheck` |
 | Do not assume | Docker Compose, PostgreSQL service, e2e in CI, deploy, dependency-audit |
 
 ## You do
 
 - Keep `ci.yml` and `spec-governance.yml` separate. Extend each only after reading it.
 - `ci.yml` should keep using existing root scripts, `.nvmrc`, and `packageManager`. Do not pin a different Node/pnpm unless the repo files change.
+- Same-repo PRs: run `pnpm check:fix` and commit if dirty, then `pnpm check` / `pnpm test` **in the same job**. Agents often skip local Biome. Do not add a second format-only workflow (`GITHUB_TOKEN` pushes do not retrigger Actions).
 - Next increment only when the task asks and is tied to a requirement, risk, or evidence: a PostgreSQL integration job or the first local Compose recipe. Use the smallest harness (GitHub Actions service container is enough for CI).
 - Fail closed on empty `Validation` only if the check can be implemented without inventing process.
 
 ## You do not
 
+- Auto-fix typecheck or test failures.
 - Add Docker, deploy, or e2e by default. Do not wait for a harness that does not exist if the task explicitly asks for the first one.
 - Name files, commands, or numeric budgets that are not in the repo.
 - Claim secret scanning or performance budgets as an existing program.

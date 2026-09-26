@@ -31,8 +31,8 @@ Inspect the repository before claiming CI, Docker, e2e, or integration infrastru
 Verify before use (do not treat this list as frozen):
 
 - Spec CI: `.github/workflows/spec-governance.yml` and `scripts/validate-spec-governance.mjs`
-- App CI: `.github/workflows/ci.yml` (`pnpm check`, `pnpm test`)
-- Root scripts in `package.json`: `pnpm check`, `pnpm test`, `pnpm typecheck`
+- App CI: `.github/workflows/ci.yml` (same-repo PRs apply `pnpm check:fix`, then `pnpm check` and `pnpm test`)
+- Root scripts in `package.json`: `pnpm check`, `pnpm check:fix`, `pnpm test`, `pnpm typecheck`
 - Apps: `apps/web`, `apps/api`, `apps/worker` (starters; topology is not fully provisioned)
 
 Do not claim Docker, e2e, integration PostgreSQL, or other tooling unless the files exist.
@@ -48,3 +48,5 @@ Do not claim Docker, e2e, integration PostgreSQL, or other tooling unless the fi
 ## Pull requests
 
 Follow `.github/pull_request_template.md`. Every PR needs a `Validation` section. Draft PRs must state what is incomplete and are not merge approval.
+
+Before pushing code, run `pnpm check:fix` then `pnpm check`. Same-repo PRs also get Biome applied by CI; typecheck and test failures are not auto-fixed.

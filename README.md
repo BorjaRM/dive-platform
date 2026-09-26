@@ -24,7 +24,7 @@ The repository is a TypeScript monorepo skeleton:
 - `packages/typescript-config` — shared TypeScript presets
 - `specs/` — normative SDD artifacts
 - Tooling: pnpm, Turborepo, Biome, Node `22.22.3`, TypeScript `7.0.2`
-- CI: `.github/workflows/ci.yml` (`pnpm check`, `pnpm test`) and `.github/workflows/spec-governance.yml`
+- CI: `.github/workflows/ci.yml` (`pnpm check:fix` on same-repo PRs, then `pnpm check`, `pnpm test`) and `.github/workflows/spec-governance.yml`
 
 Not in the repository yet (planned, do not assume they exist):
 
@@ -85,7 +85,7 @@ Workspace packages are scoped as `@dive-center/*`. TypeScript options live in `p
 
 GitHub Actions:
 
-- `.github/workflows/ci.yml` — `pnpm install --frozen-lockfile`, `pnpm check`, `pnpm test` on pull requests and pushes to `main`
+- `.github/workflows/ci.yml` — on same-repo PRs, `pnpm check:fix` (commit if needed), then `pnpm check` and `pnpm test`; on `main`, `pnpm check` and `pnpm test`
 - `.github/workflows/spec-governance.yml` — SPEC validator on `specs/**` paths
 
 Database, integration, and e2e commands will be documented when those tools land.
