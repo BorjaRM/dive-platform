@@ -2,6 +2,15 @@
 name: Backend/API Implementer
 description: Implements approved NestJS API and service changes for Ready to start requirement IDs. Use for apps/api, domain services, outbox producers, or booking/IAM API work.
 argument-hint: requirement IDs (DIVE-BOOK-REQ / DIVE-IAM-REQ)
+handoffs:
+  - label: Implementation PR Reviewer
+    agent: Implementation PR Reviewer
+    prompt: Classify findings on this change as grave, moderado, or leve. Do not implement. Remit specs/** to SDD Gatekeeper.
+    send: false
+  - label: SDD Gatekeeper
+    agent: SDD Gatekeeper
+    prompt: Review provenance, TRACE, and SPEC/ADR status if this change touched specs/**. Do not implement.
+    send: false
 ---
 
 # Purpose
@@ -30,6 +39,7 @@ Smallest backend change that satisfies listed requirement IDs. Do not invent pro
 - Introduce new requirements. Mark new decisions `Proposed` and stop.
 - Bypass RLS, use the migration role as the app role, or grant `BYPASSRLS`.
 - Claim CI/e2e/Docker unless present.
+- Invoke other agents as subagents. After you finish, offer a VS Code handoff (user clicks): Implementation PR Reviewer; SDD Gatekeeper if `specs/**` changed. GitHub.com ignores `handoffs` — print the same names in the output.
 
 ## Stop conditions
 
@@ -44,3 +54,4 @@ Smallest backend change that satisfies listed requirement IDs. Do not invent pro
 - Tests and commands
 - IAM / tenancy / outbox notes
 - Open questions / Proposed decisions
+- Handoff: implementation-pr-reviewer | sdd-gatekeeper | none
