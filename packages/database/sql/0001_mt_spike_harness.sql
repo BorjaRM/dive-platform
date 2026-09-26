@@ -10,6 +10,18 @@ CREATE TABLE IF NOT EXISTS mt_spike.tenants (
   id uuid PRIMARY KEY
 );
 
+
+-- Identities are global (no tenant key). Memberships are tenant-owned.
+CREATE TABLE IF NOT EXISTS mt_spike.identities (
+  id uuid PRIMARY KEY
+);
+
+CREATE TABLE IF NOT EXISTS mt_spike.memberships (
+  tenant_id uuid NOT NULL REFERENCES mt_spike.tenants (id),
+  identity_id uuid NOT NULL REFERENCES mt_spike.identities (id),
+  permissions text[] NOT NULL,
+  PRIMARY KEY (tenant_id, identity_id)
+);
 CREATE TABLE IF NOT EXISTS mt_spike.centers (
   id uuid NOT NULL,
   tenant_id uuid NOT NULL REFERENCES mt_spike.tenants (id),
@@ -59,6 +71,9 @@ CREATE TABLE IF NOT EXISTS mt_spike.consumer_receipts (
   FOREIGN KEY (tenant_id, event_id) REFERENCES mt_spike.outbox_events (tenant_id, id)
 );
 
+
+ALTER TABLE mt_spike.memberships ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE mt_spike.tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mt_spike.tenants FORCE ROW LEVEL SECURITY;
 ALTER TABLE mt_spike.centers ENABLE ROW LEVEL SECURITY;
@@ -102,7 +117,34 @@ CREATE POLICY receipts_isolation ON mt_spike.consumer_receipts
   USING (tenant_id = current_setting('app.tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.tenant_id')::uuid);
 
+
+DROP POLICY IF EXISTS memberships_isolation ON mt_spike.memberships;
+CREATE POLICY memberships_isolation ON mt_spike.memberships
+  USING (tenant_id = current_setting('app.tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id')::uuid);
+
+CREATE OR REPLACE FUNCTION mt_spike.membership_permissions(
+  p_identity uuid,
+  p_tenant uuid
+)
+RETURNS text[]
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = mt_spike, pg_temp
+AS $$
+  SELECT m.permissions
+  FROM mt_spike.memberships AS m
+  WHERE m.identity_id = p_identity
+    AND m.tenant_id = p_tenant
+$$;
+
+REVOKE ALL ON FUNCTION mt_spike.membership_permissions(uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION mt_spike.membership_permissions(uuid, uuid) TO dive_app;
+
 GRANT USAGE ON SCHEMA mt_spike TO dive_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA mt_spike TO dive_app;
+REVOKE ALL ON TABLE mt_spike.identities FROM dive_app;
+REVOKE ALL ON TABLE mt_spike.memberships FROM dive_app;
 
 RESET ROLE;

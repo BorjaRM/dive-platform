@@ -40,6 +40,14 @@ describe('MT-SPIKE-001 isolation', () => {
   });
 
   it('requires a non-null tenant key on every tenant-owned table (MT-REQ-001)', async () => {
+    const tenantOwnedTables = [
+      'audit_records',
+      'centers',
+      'consumer_receipts',
+      'memberships',
+      'notes',
+      'outbox_events',
+    ];
     const tenantColumns = await adminPool.query<{
       is_nullable: 'NO' | 'YES' | null;
       table_name: string;
@@ -51,13 +59,15 @@ describe('MT-SPIKE-001 isolation', () => {
         AND columns.table_name = tables.tablename
         AND columns.column_name = 'tenant_id'
        WHERE tables.schemaname = 'mt_spike'
-         AND tables.tablename <> 'tenants'
+         AND tables.tablename = ANY($1)
        ORDER BY tables.tablename`,
+      [tenantOwnedTables],
     );
     expect(tenantColumns.rows).toEqual([
       { is_nullable: 'NO', table_name: 'audit_records' },
       { is_nullable: 'NO', table_name: 'centers' },
       { is_nullable: 'NO', table_name: 'consumer_receipts' },
+      { is_nullable: 'NO', table_name: 'memberships' },
       { is_nullable: 'NO', table_name: 'notes' },
       { is_nullable: 'NO', table_name: 'outbox_events' },
     ]);
@@ -75,6 +85,8 @@ describe('MT-SPIKE-001 isolation', () => {
        VALUES ('04040404-0404-0404-0404-040404040404', NULL, 'invalid', 'invalid', 'invalid', 'invalid', 'invalid')`,
       `INSERT INTO mt_spike.consumer_receipts (tenant_id, event_id, consumer)
        VALUES (NULL, '03030303-0303-0303-0303-030303030303', 'invalid')`,
+      `INSERT INTO mt_spike.memberships (tenant_id, identity_id, permissions)
+       VALUES (NULL, 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', ARRAY['center.read'])`,
     ];
     for (const statement of nullTenantInserts) {
       await expect(adminPool.query(statement)).rejects.toThrow();

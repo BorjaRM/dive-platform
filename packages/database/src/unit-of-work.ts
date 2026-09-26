@@ -7,6 +7,7 @@ export type TenantUnitOfWork = {
   db: NodePgDatabase<typeof schema>;
 };
 
+/** Sets transaction-local tenant context. Callers that need membership must use `withAuthorizedTenant`. */
 export async function withTenant<T>(
   pool: Pool,
   tenantId: string,

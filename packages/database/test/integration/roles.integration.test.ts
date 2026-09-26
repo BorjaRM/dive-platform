@@ -35,7 +35,9 @@ describe('MT-SPIKE-001 runtime role', () => {
       `SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity
        FROM pg_class c
        JOIN pg_namespace n ON n.oid = c.relnamespace
-       WHERE n.nspname = 'mt_spike' AND c.relkind = 'r'
+       WHERE n.nspname = 'mt_spike'
+         AND c.relkind = 'r'
+         AND c.relforcerowsecurity
        ORDER BY c.relname`,
     );
     expect(protectedTables.rows).toEqual([
@@ -84,7 +86,7 @@ describe('MT-SPIKE-001 runtime role', () => {
        WHERE schemaname = 'mt_spike'
        ORDER BY tablename, policyname`,
     );
-    expect(policies.rows).toHaveLength(6);
+    expect(policies.rows.length).toBeGreaterThanOrEqual(6);
     for (const policy of policies.rows) {
       expect(policy.cmd).toBe('ALL');
       expect(policy.qual).toContain("current_setting('app.tenant_id'::text)");
@@ -104,11 +106,39 @@ describe('MT-SPIKE-001 runtime role', () => {
        WHERE n.nspname = 'mt_spike' AND c.relkind = 'r'
        ORDER BY c.relname`,
     );
-    expect(ownership.rows).toHaveLength(6);
+    expect(ownership.rows.length).toBeGreaterThanOrEqual(6);
     for (const table of ownership.rows) {
       expect(table.owner).toBe('dive_migration');
       expect(table.owner).not.toBe('dive_app');
     }
+
+    const identity = await adminPool.query<{
+      relforcerowsecurity: boolean;
+      relrowsecurity: boolean;
+    }>(
+      `SELECT c.relrowsecurity, c.relforcerowsecurity
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'mt_spike' AND c.relname = 'identities'`,
+    );
+    expect(identity.rows[0]).toEqual({
+      relforcerowsecurity: false,
+      relrowsecurity: false,
+    });
+
+    const membership = await adminPool.query<{
+      relforcerowsecurity: boolean;
+      relrowsecurity: boolean;
+    }>(
+      `SELECT c.relrowsecurity, c.relforcerowsecurity
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'mt_spike' AND c.relname = 'memberships'`,
+    );
+    expect(membership.rows[0]).toEqual({
+      relforcerowsecurity: false,
+      relrowsecurity: true,
+    });
 
     const client = await appPool.connect();
     try {

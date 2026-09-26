@@ -22,18 +22,22 @@ These ten IDs are unchanged. The bullets under each ID are verifiable criteria u
 
 Verifiable criteria below are `Derived` unpackings of those sources. Scenario IDs in `MT-SPIKE-001-traceability.md` are a `Proposed` index for the matrix. Option B is a `Proposed` scope decision recorded in this Draft spike; it is not a status promotion.
 
+Drizzle schema-alignment and escaped-handle tests are `Derived` from `ADR-DIVE-002` and the SPIKE-001 `tenant-schema` / application UoW tests. Prototype memberships are `Proposed` tables. Permission strings `center.read` and `booking.create` are `Documented` names from `SPEC-DIVE-IAM-001`, reused here as typical membership payload until product IAM is implemented.
+
 ## Requirements
 
 - **MT-REQ-001:** Every tenant-owned row has a non-null tenant key.
   - Inserting a tenant-owned row under authorized context persists the tenant key of that context.
   - Inserting a tenant-owned row with a null tenant key is rejected.
-  - Every tenant-owned table in the representative slice (`centers`, `notes`, `outbox_events`, `audit_records`, `consumer_receipts`) has a non-null tenant column.
+  - Every tenant-owned table in the representative slice (`centers`, `notes`, `outbox_events`, `audit_records`, `consumer_receipts`, `memberships`) has a non-null tenant column.
+  - Drizzle table definitions match PostgreSQL columns, nullability, and foreign keys for the representative slice.
 - **MT-REQ-002:** Every tenant-owned operation runs under explicit authorized tenant context.
   - Authorized reads and writes succeed inside the tenant and center scope of that context.
   - Tenant context is created only after the actor’s identity–tenant relationship is validated.
   - An identity without membership in tenant T cannot establish tenant context for T.
   - A client-supplied tenant identifier is not sufficient to authorize the operation.
   - The unit of work receives an already-authorized tenant identifier; it does not treat an arbitrary UUID as authorization.
+  - Prototype membership uses documented IAM permission names (`center.read`, `booking.create`) as payload only; they are not the product permission matrix.
 - **MT-REQ-003:** Cross-tenant relationships are rejected by constraints.
   - Inserting a tenant-owned child that references another tenant’s operational scope is rejected by application and database controls.
   - Updating an existing relationship so that the two tenant-owned ends belong to different tenants is rejected.
@@ -54,6 +58,9 @@ Verifiable criteria below are `Derived` unpackings of those sources. Scenario ID
   - `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on tenant-owned tables without context fail closed.
   - Missing, empty, and malformed tenant context fail closed.
   - A spoofed tenant key on the row that does not match the authorized context is rejected (`WITH CHECK` / equivalent).
+  - Drizzle queries and inserts outside the unit of work fail closed.
+  - Parameterized SQL executed through Drizzle inside the unit of work remains tenant-scoped.
+  - A Drizzle handle captured after the unit of work ends cannot read or write tenant-owned rows.
 - **MT-REQ-007:** Async work propagates tenant and correlation identifiers.
   - Producer records tenant and correlation ID from authorized context.
   - Consumer rebuilds a tenant-aware unit of work before read or write.

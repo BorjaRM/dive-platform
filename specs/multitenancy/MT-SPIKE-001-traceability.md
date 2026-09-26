@@ -26,11 +26,11 @@ Evidence for every executable row remains `Pending CI` until `results.md` record
 | MT-REQ-001 | MT-SC-001 Authorized insert persists `tenant_id` | `isolation.integration.test.ts` — “allows authorized writes and reads…” | inserted note `tenantId === tenantA` | Pending CI | Covered |
 | MT-REQ-001 | MT-SC-002 Null tenant key rejected | `isolation.integration.test.ts` — “requires a non-null tenant key…” | null `tenant_id` insert fails on every representative tenant-owned table | Pending CI | Covered |
 | MT-REQ-001 | MT-SC-003 Non-null tenant column on all tenant-owned tables | same test | catalog includes every representative table with `is_nullable = NO` | Pending CI | Covered |
-| MT-REQ-002 | MT-SC-004 Authorized read/write inside tenant and center | `isolation.integration.test.ts` — “allows authorized writes and reads…” | insert + select by id returns one row | Pending CI | Partial (UUID passed to `withTenant`; no identity/membership) |
-| MT-REQ-002 | MT-SC-005 Context only after identity–tenant validation | — | unauthorized identity cannot obtain a tenant UoW | — | Gap |
-| MT-REQ-002 | MT-SC-006 Membership required | — | identity without membership in T cannot set context for T | — | Gap |
-| MT-REQ-002 | MT-SC-007 Client tenant id is not authorization | — | spoofed client tenant id rejected before UoW | — | Gap |
-| MT-REQ-002 | MT-SC-008 UoW does not treat arbitrary UUID as authorized context | — | `withTenant` (or caller) rejects unauthorized tenant ids | — | Gap |
+| MT-REQ-002 | MT-SC-004 Authorized read/write inside tenant and center | `authorization.integration.test.ts` — membership validated then insert/select | insert + select by id returns one row after `authorize` | Pending CI | Covered |
+| MT-REQ-002 | MT-SC-005 Context only after identity–tenant validation | `authorization.integration.test.ts` — “creates tenant context only after…” | `authorize(identityA, tenantA)` returns tenant, identity, typical permissions | Pending CI | Covered |
+| MT-REQ-002 | MT-SC-006 Membership required | `authorization.integration.test.ts` — “rejects identities without membership…” | unaffiliated identity and A-in-B throw `Access denied` | Pending CI | Covered |
+| MT-REQ-002 | MT-SC-007 Client tenant id is not authorization | `authorization.integration.test.ts` — “does not treat a client-supplied tenant id…” | `authorize(identityA, tenantB)` throws `Access denied` | Pending CI | Covered |
+| MT-REQ-002 | MT-SC-008 UoW does not treat arbitrary UUID as authorized context | `authorization.integration.test.ts` — forged context object | `withAuthorizedTenant` re-checks membership and denies A on tenant B | Pending CI | Covered |
 | MT-REQ-003 | MT-SC-009 Insert note A → center B rejected | `isolation.integration.test.ts` — “rejects cross-tenant center relationships” | insert throws | Pending CI | Covered |
 | MT-REQ-003 | MT-SC-010 Update existing note to other-tenant center rejected | same test | `UPDATE notes.center_id` to `centerB1` throws | Pending CI | Covered |
 | MT-REQ-003 | MT-SC-011 Cross-tenant receipt/outbox relation rejected | same test | tenant B receipt cannot reference tenant A event | Pending CI | Covered |
@@ -66,6 +66,11 @@ Evidence for every executable row remains `Pending CI` until `results.md` record
 | MT-REQ-009 | MT-SC-041 Errors/logs do not disclose payloads, tokens, or emails | `outbox.integration.test.ts` — first test | cross-tenant worker error is generic and omits event/correlation identifiers | Pending CI | Partial (no application logger or token/email-bearing fixture exists) |
 | MT-REQ-010 | MT-SC-042 Fixtures: two tenants, two+ centers | `harness.ts`; isolation tests | tenants A/B and centers A1/A2/B1 are created and exercised | Pending CI | Covered |
 | MT-REQ-010 | MT-SC-043 Repeatable negatives across tenants and centers | `isolation.integration.test.ts` — “rejects spoofed tenant changes…” | tenant B cross-center inserts fail against both A1 and A2 | Pending CI | Covered |
+| MT-REQ-001 | MT-SC-055 Drizzle columns/nullability match PostgreSQL | `drizzle.integration.test.ts` — “keeps Drizzle columns and foreign keys aligned…” | `getTableConfig` columns equal `pg_attribute` for every representative table | Pending CI | Covered |
+| MT-REQ-003 | MT-SC-056 Drizzle foreign keys match PostgreSQL | same test | each Drizzle FK matches `pg_constraint` target, columns, and on-delete | Pending CI | Covered |
+| MT-REQ-006 | MT-SC-057 Drizzle outside UoW fails closed | `drizzle.integration.test.ts` — “fails closed for Drizzle queries outside…” | `drizzle(pool)` select/insert on `notes` throws | Pending CI | Covered |
+| MT-REQ-006 | MT-SC-058 SQL through Drizzle stays tenant-scoped | `drizzle.integration.test.ts` — “keeps parameterized SQL through Drizzle…” | tenant A `db.execute` sees A; tenant B sees none | Pending CI | Covered |
+| MT-REQ-006 | MT-SC-059 Escaped Drizzle handle cannot be reused | `drizzle.integration.test.ts` — “rejects a Drizzle handle escaped…” | `db` captured after `withTenant` throws on select | Pending CI | Covered |
 | — | MT-SC-044 Cache isolation | — | n/a until cache exists | — | Deferred |
 | — | MT-SC-045 File isolation | — | n/a until files exist | — | Deferred |
 | — | MT-SC-046 Search isolation | — | n/a until search exists | — | Deferred |
@@ -82,8 +87,7 @@ Evidence for every executable row remains `Pending CI` until `results.md` record
 
 | Scenarios | Why they cannot be proved now | Must be tested when |
 |---|---|---|
-| MT-SC-004–008 | `packages/identity` and `packages/application` have no identity, membership, permission, or typed authorization-context implementation. The database UoW currently accepts a UUID and cannot prove who authorized it. | The first IAM/API vertical implements `DIVE-IAM-REQ-003` and `DIVE-IAM-REQ-006`; before `MT-SPIKE-001` closes unless a human resolves the HTTP/open-scope question otherwise. |
-| MT-SC-027 producer half | There is no authorized application command that derives tenant/correlation from immutable request context; the harness inserts those fields directly. | The same first IAM/API vertical introduces the producer command and before it emits production outbox events. |
+| MT-SC-027 producer half | There is no authorized application command that derives tenant/correlation from immutable request context; the harness inserts those fields directly. `withAuthorizedTenant` covers membership, not outbox producers. | The first IAM/API vertical introduces the producer command and before it emits production outbox events. |
 | MT-SC-031 dead-letter/log half; MT-SC-036 | `apps/worker` is a starter. No approved retry limit, backoff, exhaustion state, dead-letter transport, or worker logging/redaction contract exists. Choosing values here would invent normative behavior. | The first real outbox worker change, after retry/dead-letter/observability policy is approved; before the worker handles production events. |
 | MT-SC-041 application-log half | No tenant-aware API error mapper or structured worker logger exists, and fixtures contain no tokens/emails. PostgreSQL and the prototype consumer can only prove generic non-disclosing failures. | The first IAM/API error boundary and worker logger implementation; before handling real identity or personal data. |
 
@@ -93,9 +97,9 @@ The HTTP part of the spike question remains the open question recorded in the re
 
 | Coverage | Rows |
 |---|---|
-| Covered | 34 |
-| Partial | 4 |
-| Gap | 5 |
+| Covered | 44 |
+| Partial | 3 |
+| Gap | 1 |
 | Deferred (Option B) | 8 |
 | Excluded (product) | 3 |
 

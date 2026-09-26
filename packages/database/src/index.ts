@@ -1,4 +1,9 @@
 export { applyMtSpikeHarness } from './apply-harness.js';
+export type { AuthorizedTenantContext } from './authorize.js';
+export {
+  authorize,
+  withAuthorizedTenant,
+} from './authorize.js';
 export {
   spikeAdminDatabaseUrl,
   spikeAppDatabaseUrl,
