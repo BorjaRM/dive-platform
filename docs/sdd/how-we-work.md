@@ -21,6 +21,20 @@ Notion must not keep an editable copy of a SPEC. If Notion and GitHub disagree, 
 6. Review and merge
 7. Update Notion status and links only
 
+## Pull requests
+
+The normative entry criteria are defined in `specs/foundation/sdd-specs-traceability.md`. A non-draft pull request should make its scope, motivation, affected requirements, implementation, tests, risk, and rollback impact clear. Draft pull requests are allowed for collaboration when their incomplete work and blockers are explicit.
+
+Every pull request description must include a `Validation` section:
+
+- **Automated checks:** commands run and their results, such as `pnpm check` and `pnpm test`.
+- **Focused tests:** the command, fixture, or test case that exercises the changed behavior.
+- **Manual validation:** setup, steps, expected result, and observed result for paths not covered by automation.
+- **Evidence:** links to the required proof for spikes, isolation, performance, security, or other non-functional changes.
+- **Known gaps:** skipped checks, limitations, and follow-up work.
+
+Reviewers use this section to reproduce the change and verify that the evidence supports the affected requirements. Do not claim integration, end-to-end, or CI validation until those tools are available in the repository.
+
 ## Definition of Ready / Done
 
 See `specs/foundation/sdd-specs-traceability.md`.
