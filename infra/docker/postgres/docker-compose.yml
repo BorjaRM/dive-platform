@@ -9,9 +9,13 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: dive_spike
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d dive_spike"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dive_spike && psql -U postgres -d dive_spike -c 'SELECT 1' >/dev/null"]
       interval: 3s
       timeout: 5s
       retries: 20
     volumes:
-      - ../../../.volumes/postgres:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
+
+volumes:
+  postgres_data:
+    name: dive-platform-postgres-data

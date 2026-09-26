@@ -96,7 +96,7 @@ GitHub Actions:
 - `.github/workflows/spec-governance.yml` — SPEC validator on `specs/**` paths
 
 ```bash
-docker compose -f infra/docker/postgres/docker-compose.yml up -d
+docker compose -f infra/docker/postgres/docker-compose.yml up -d --wait
 pnpm test:integration
 ```
 
