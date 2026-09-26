@@ -4,7 +4,7 @@
 
 Requirements, ADRs, spikes, and TRACE live in `specs/`. Implementation lives in code. Proof lives in tests and `evidence/`. Notion is navigation and status only.
 
-Do not restate requirement text. Reference exact files and IDs (`DIVE-*`, `MT-REQ-*`, `SPIKE-DIVE-*-REQ-*`). If GitHub and Notion disagree, GitHub wins.
+Do not restate requirement text. Reference exact files and IDs (`DIVE-*`, `MT-REQ-*`, `MT-SPIKE-001`, `SPIKE-DIVE-001`, `SPIKE-DIVE-*-REQ-*`). Never write `SPIKE-001` in this repo; that ID is another product. If GitHub and Notion disagree, GitHub wins.
 
 Required reading before product or architecture work:
 

@@ -12,6 +12,7 @@ GitHub `specs/` is the source of truth. Notion is navigation and status only.
 - **Activity:** catalog offering, e.g. “Discover Scuba Dive”
 - **Slot / scheduled activity:** concrete occurrence with its own capacity and state (`Slot` in code)
 - **Session:** authentication lifecycle only
+- **Spike IDs:** always `MT-SPIKE-001` (isolation) and `SPIKE-DIVE-001` (last seat). There is no `SPIKE-001` in this repository.
 
 ## What exists today
 
