@@ -22,6 +22,34 @@
       "when": 1790446871697,
       "tag": "0002_add_iam_timestamp_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790450097419,
+      "tag": "0003_add_iam_invitation_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790452215570,
+      "tag": "0004_harden_identity_assertions_and_invitation_commands",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790454227862,
+      "tag": "0005_add_identity_webhook_inbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790454426777,
+      "tag": "0006_harden_identity_webhook_tenant_resolution",
+      "breakpoints": true
     }
   ]
 }

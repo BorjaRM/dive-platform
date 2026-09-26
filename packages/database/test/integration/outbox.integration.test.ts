@@ -1,14 +1,14 @@
 import { eq } from 'drizzle-orm';
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { processOutboxOnce } from '../../src/outbox-consumer.js';
 import {
   auditRecords,
   consumerReceipts,
   notes,
   outboxEvents,
-} from '../../src/schema.js';
-import { withTenant } from '../../src/unit-of-work.js';
+} from '../../src/harness-schema.js';
+import { withTenant } from '../../src/harness-unit-of-work.js';
+import { processOutboxOnce } from '../../src/outbox-consumer.js';
 import {
   centerA1,
   createAdminPool,

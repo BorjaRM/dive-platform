@@ -21,6 +21,8 @@
     "db:bootstrap": "node --env-file=../../.env.example --import tsx scripts/bootstrap.ts"
   },
   "dependencies": {
+    "@dive-center/contracts": "workspace:*",
+    "@dive-center/identity": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "pg": "^8.16.3"
   },

@@ -2,6 +2,7 @@ import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { bootstrapRoles } from '../../src/bootstrap-roles.js';
 import { resolveIamAccess } from '../../src/iam-authorize.js';
+import { disableIamMembership } from '../../src/iam-membership-commands.js';
 import { migrateProduct } from '../../src/migrate.js';
 import { createAdminPool, createAppPool } from './harness.js';
 
@@ -64,6 +65,7 @@ describe('IAM/API persistence controls', () => {
       [
         'audit_records',
         'centers',
+        'invitations',
         'memberships',
         'outbox_events',
         'tenants',
@@ -85,7 +87,7 @@ describe('IAM/API persistence controls', () => {
        WHERE schemaname = 'iam_app'
        ORDER BY tablename`,
     );
-    expect(policies.rows).toHaveLength(5);
+    expect(policies.rows).toHaveLength(6);
     for (const policy of policies.rows) {
       expect(policy.qual).toContain("current_setting('app.tenant_id'::text)");
       expect(policy.with_check).toContain(
@@ -105,14 +107,16 @@ describe('IAM/API persistence controls', () => {
       ),
     ).rejects.toThrow();
 
-    const bootstrapFunction = await adminPool.query<{
+    const commandFunctions = await adminPool.query<{
       app_can_execute: boolean;
       owner: string;
+      proname: string;
       proconfig: string[] | null;
       prosecdef: boolean;
       public_can_execute: boolean;
     }>(
       `SELECT
+        routine.proname,
          owner.rolname AS owner,
          routine.prosecdef,
          routine.proconfig,
@@ -122,22 +126,41 @@ describe('IAM/API persistence controls', () => {
        JOIN pg_namespace namespace ON namespace.oid = routine.pronamespace
        JOIN pg_roles owner ON owner.oid = routine.proowner
        WHERE namespace.nspname = 'iam_app'
-         AND routine.proname = 'resolve_access'`,
+         AND routine.proname IN (
+           'apply_identity_webhook_command',
+           'disable_membership_command',
+           'issue_invitation_command',
+           'respond_invitation_command',
+           'revoke_invitation_command',
+           'resolve_access'
+         )
+       ORDER BY routine.proname`,
     );
-    expect(bootstrapFunction.rows).toEqual([
-      {
+    expect(commandFunctions.rows).toEqual(
+      [
+        'apply_identity_webhook_command',
+        'disable_membership_command',
+        'issue_invitation_command',
+        'resolve_access',
+        'respond_invitation_command',
+        'revoke_invitation_command',
+      ].map((proname) => ({
         app_can_execute: true,
         owner: 'dive_migration',
+        proname,
         proconfig: ['search_path=iam_app, pg_temp'],
         prosecdef: true,
         public_can_execute: false,
-      },
-    ]);
+      })),
+    );
 
     const privileges = await adminPool.query<{
       can_delete_membership: boolean;
       can_insert_audit: boolean;
+      can_insert_invitation: boolean;
       can_insert_membership: boolean;
+      can_insert_outbox: boolean;
+      can_update_invitation: boolean;
       can_update_membership_roles: boolean;
       can_update_membership_status: boolean;
     }>(
@@ -146,14 +169,20 @@ describe('IAM/API persistence controls', () => {
          has_table_privilege('dive_app', 'iam_app.memberships', 'INSERT') AS can_insert_membership,
          has_column_privilege('dive_app', 'iam_app.memberships', 'status', 'UPDATE') AS can_update_membership_status,
          has_column_privilege('dive_app', 'iam_app.memberships', 'roles', 'UPDATE') AS can_update_membership_roles,
-         has_table_privilege('dive_app', 'iam_app.audit_records', 'INSERT') AS can_insert_audit`,
+         has_table_privilege('dive_app', 'iam_app.invitations', 'INSERT') AS can_insert_invitation,
+         has_table_privilege('dive_app', 'iam_app.invitations', 'UPDATE') AS can_update_invitation,
+         has_table_privilege('dive_app', 'iam_app.audit_records', 'INSERT') AS can_insert_audit,
+         has_table_privilege('dive_app', 'iam_app.outbox_events', 'INSERT') AS can_insert_outbox`,
     );
     expect(privileges.rows[0]).toEqual({
       can_delete_membership: false,
-      can_insert_audit: true,
+      can_insert_audit: false,
+      can_insert_invitation: false,
       can_insert_membership: false,
+      can_insert_outbox: false,
+      can_update_invitation: false,
       can_update_membership_roles: false,
-      can_update_membership_status: true,
+      can_update_membership_status: false,
     });
   });
 
@@ -230,7 +259,7 @@ describe('IAM/API persistence controls', () => {
     }
   });
 
-  it('enforces the last-owner invariant for direct app-role updates (DIVE-IAM-REQ-018)', async () => {
+  it('denies direct app-role updates and enforces last-owner through the command (DIVE-IAM-REQ-018, DIVE-IAM-REQ-025)', async () => {
     await adminPool.query(
       `INSERT INTO iam_app.tenants(id,name) VALUES ($1,'A')`,
       [tenantA],
@@ -263,7 +292,7 @@ describe('IAM/API persistence controls', () => {
            WHERE tenant_id=$1 AND id='aaaaaaaa-1111-1111-1111-111111111111'`,
           [tenantA],
         ),
-      ).rejects.toThrow('Cannot remove last tenant owner');
+      ).rejects.toThrow('permission denied for table memberships');
       await client.query('ROLLBACK');
     } finally {
       client.release();
@@ -275,5 +304,21 @@ describe('IAM/API persistence controls', () => {
       [tenantA],
     );
     expect(result.rows[0]?.status).toBe('active');
+
+    await expect(
+      disableIamMembership(
+        appPool,
+        {
+          issuer: 'test',
+          subject: 'owner',
+          verifiedAddresses: ['owner@example.test'],
+        },
+        {
+          tenantId: tenantA,
+          membershipId: 'aaaaaaaa-1111-1111-1111-111111111111',
+          correlationId: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+        },
+      ),
+    ).resolves.toEqual({ deniedReason: 'last_owner' });
   });
 });

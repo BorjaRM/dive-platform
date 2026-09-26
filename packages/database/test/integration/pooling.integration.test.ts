@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { notes } from '../../src/schema.js';
-import { withTenant } from '../../src/unit-of-work.js';
+import { notes } from '../../src/harness-schema.js';
+import { withTenant } from '../../src/harness-unit-of-work.js';
 import {
   centerA1,
   createAdminPool,

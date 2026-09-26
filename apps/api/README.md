@@ -1,3 +1,40 @@
+# API
+
+## Clerk configuration
+
+The approved topology is one API process for dashboard authentication and Clerk webhooks. The Nest module therefore creates one `ClerkIdentityAdapter` and aliases it as both `IDENTITY_PROVIDER` and `IDENTITY_WEBHOOK_VERIFIER`; these are two ports backed by one configuration boundary, not separate deployables. Startup fails closed when any required value is missing or invalid, so the process cannot serve either path with partial identity configuration:
+
+- `CLERK_SECRET_KEY`: Clerk Backend API secret used by `verifyToken` and the Backend API client. It must use Clerk's `sk_test_` or `sk_live_` format.
+- `CLERK_WEBHOOK_SIGNING_SECRET`: endpoint signing secret used by `verifyWebhook`. It must use Clerk's `whsec_` format.
+- `CLERK_ISSUER`: exact expected `iss` claim as a canonical HTTPS origin. Wildcards, credentials, paths, queries, and fragments are rejected.
+- `CLERK_AUTHORIZED_PARTIES`: comma-separated canonical origins or a JSON string array. Empty entries, wildcard entries, credentials, paths, queries, fragments, and trailing slashes are rejected.
+
+`.env.example` contains synthetic placeholders only. Never commit real Clerk secrets.
+
+For every dashboard request, the adapter calls official `@clerk/backend@3.20.1` APIs `verifyToken`, `sessions.getSession`, and `users.getUser`. It accepts only the standard Clerk session-token profile: exact configured issuer, `sid` and `sub`, an `azp` accepted through the SDK's `authorizedParties`, no `aud` claim, and a provider-confirmed active, unexpired session and usable user. Tokens carrying `aud` are rejected whether the claim is a string or array. Any invalid token, ended/revoked/expired session, mismatch, or provider failure returns the same unauthenticated response.
+
+Ordinary dashboard authentication binds by `issuer + subject` and may return no provider-verified email addresses. Invitation acceptance is stricter: it requires at least one provider-verified address and an exact match to the invitation target.
+
+Clerk's optional experimental `fva` claim is kept inside the adapter. Valid factor ages map to provider-neutral assurance. When `fva` is absent, ordinary MVP dashboard authentication returns `single_factor` with `verifiedAt: null`; no MFA requirement or factor timestamp is fabricated. Exact future step-up use of Clerk's experimental claim remains an open Phase 4 question under `ADR-DIVE-006`.
+
+## Clerk webhook
+
+Configure Clerk to send webhooks to `POST /v1/webhooks/clerk`. Nest raw-body capture is enabled and the route passes the original bytes and request headers to official `verifyWebhook` before creating a provider-neutral event.
+
+The explicit identity inventory is `user.created`, `user.updated`, `user.deleted`, `session.created`, `session.ended`, `session.removed`, and `session.revoked`. All are synchronization signals only; live session and user validation remains request-time. A resolved `user.deleted` event is recorded, audited per associated tenant, and emits `iam.identity.provider_deletion_recorded.v1`, but it never disables an external identity or membership. Verified unknown events are recorded as ignored or unresolved and never create identities, memberships, roles, or scopes.
+
+Duplicate, ignored, unresolved, and applied verified events return `200 {"received":true}`. Invalid signatures, missing signed headers, and invalid envelopes return a non-disclosing `400`. Persistence failures return a non-disclosing `503` so the provider can retry. Logs contain only safe action, reason, and correlation metadata; never log the body, signature, address, or bearer token.
+
+The local verifier contract test executes the real Clerk SDK against an RS256 fixture signed with a generated local key and the documented `jwtKey` option. Session and user Backend API fetches remain mocked; no Clerk sandbox or production validation is claimed.
+
+## Local commands
+
+```bash
+pnpm --filter @dive-center/api test
+pnpm --filter @dive-center/api test:e2e
+pnpm --filter @dive-center/api typecheck
+```
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>

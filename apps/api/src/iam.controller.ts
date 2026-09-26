@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
+  authenticateIdentity,
   IDENTITY_PROVIDER,
   type IdentityProviderPort,
 } from '@dive-center/identity';
@@ -34,7 +35,7 @@ export class IamController {
     const token = authorization?.match(/^Bearer (.+)$/)?.[1];
     if (!token) throw new UnauthorizedException('Unauthenticated');
     try {
-      return await this.identities.authenticate(token);
+      return await authenticateIdentity(this.identities, token);
     } catch {
       throw new UnauthorizedException('Unauthenticated');
     }
@@ -52,17 +53,19 @@ export class IamController {
     try {
       return await action(await this.principal(authorization), correlationId);
     } catch (error) {
-      this.logger.warn({
-        event: 'iam_request_denied',
-        action: actionName,
-        correlationId,
-      });
-      if (
-        error instanceof UnauthorizedException ||
-        error instanceof ForbiddenException
-      )
+      if (error instanceof UnauthorizedException) {
+        this.logger.warn({
+          event: 'iam_security_event',
+          action: actionName,
+          reason: 'authentication_missing_or_invalid',
+          correlationId,
+        });
         throw error;
-      throw new ForbiddenException('Access denied');
+      }
+      if (error instanceof ForbiddenException) {
+        throw error;
+      }
+      throw error;
     }
   }
 
@@ -72,8 +75,11 @@ export class IamController {
     @Param('tenantId') tenantId: string,
     @Param('centerId') centerId: string,
   ) {
-    return this.execute(authorization, IAM_ACTIONS.centerRead, (principal) =>
-      this.iam.readCenter(principal, tenantId, centerId),
+    return this.execute(
+      authorization,
+      IAM_ACTIONS.centerRead,
+      (principal, correlationId) =>
+        this.iam.readCenter(principal, tenantId, centerId, correlationId),
     );
   }
 

@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.7
+- **Version:** 0.14
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -18,14 +18,18 @@
 | ADR-DIVE-001 | `specs/architecture/adrs/ADR-DIVE-001.md` | Ready to start | 0.2 |
 | ADR-DIVE-002 | `specs/architecture/adrs/ADR-DIVE-002.md` | Ready to start | 0.2 |
 | ADR-DIVE-003 | `specs/architecture/adrs/ADR-DIVE-003.md` | Ready to start | 0.1 |
-| SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 0.4 |
+| ADR-DIVE-004 | `specs/architecture/adrs/ADR-DIVE-004.md` | Ready to start | 0.3 |
+| ADR-DIVE-005 | `specs/architecture/adrs/ADR-DIVE-005.md` | Ready to start | 0.1 |
+| ADR-DIVE-006 | `specs/architecture/adrs/ADR-DIVE-006.md` | Ready to start | 0.1 |
+| ADR-DIVE-007 | `specs/architecture/adrs/ADR-DIVE-007.md` | Ready to start | 0.2 |
+| SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 0.5 |
 | SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.4 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.2-draft |
 | MT-SPIKE-001 | `specs/multitenancy/` | Accepted with conditions | 0.3 |
 | SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.7 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.14 |
 
 Notion indexes must show this map’s version. They must not invent an independent version sequence.
 
@@ -113,11 +117,19 @@ The first IAM/API vertical is partially implemented in `apps/api`, `packages/ide
 | Slice | IDs | Proof |
 |---|---|---|
 | Identity resolution, independent memberships, issuer + subject, and requested-tenant enforcement | `DIVE-IAM-REQ-001`, `002`, `005`, `006` | `packages/database/test/integration/iam-api.integration.test.ts`, `apps/api/test/iam.e2e-spec.ts` |
-| Exposed permission mapping, assigned-center scope, default deny, and non-disclosure for center reads (partial role-matrix coverage) | `DIVE-IAM-REQ-003`, `010..014`, `023`, `024` | `apps/api/src/iam.roles.spec.ts`, `apps/api/test/iam.e2e-spec.ts` |
-| Last-owner protection at the service and database boundaries | `DIVE-IAM-REQ-018` | `apps/api/test/iam.e2e-spec.ts`, `packages/database/test/integration/iam-api.integration.test.ts` |
+| Explicit Phase 1 role grants, permission-granting-role scope, inactive membership denial, and disabled external-collaborator fail-closed behavior | `DIVE-IAM-REQ-003`, `010..014`, `023` | `apps/api/src/iam.roles.spec.ts`, `apps/api/test/iam.e2e-spec.ts` |
+| Provider-neutral identity assertion; invitation and pending-membership lifecycle; no-bearer retries; deliberate reissue; concurrent acceptance/reissue; non-disclosing scope denial; transactional audit/outbox | `DIVE-IAM-REQ-005`, `017`, `024`, `025` | `apps/api/src/iam.identity.spec.ts`, `packages/database/test/integration/iam-invitations.integration.test.ts` |
+| Command-only membership mutation, last-owner protection, and atomic disable audit/outbox | `DIVE-IAM-REQ-018`, `025` | `apps/api/test/iam.e2e-spec.ts`, `packages/database/test/integration/iam-api.integration.test.ts`, `packages/database/test/integration/migrations.integration.test.ts` |
+| Non-disclosing errors for the exposed center, membership-disable, and invitation persistence paths | `DIVE-IAM-REQ-024` | `apps/api/test/iam.e2e-spec.ts`, `packages/database/test/integration/iam-invitations.integration.test.ts` |
+| Provider-neutral assurance and ordinary authentication without a verified address | `DIVE-IAM-REQ-005`, `019` | `packages/identity/src/clerk.spec.ts`, `apps/api/src/iam.identity.spec.ts`, `apps/api/test/iam.e2e-spec.ts` |
+| Official raw-body webhook verification plus database tenant resolution, idempotency, no grants, no authorization mutation, audit, and safe outbox signals | `DIVE-IAM-REQ-021` | `packages/identity/src/clerk-webhook.spec.ts`, `packages/database/test/integration/iam-identity-webhooks.integration.test.ts` |
 
 ### Partial or not yet demonstrated
 
-The role/permission/scope matrix, including the complete behavior for `DIVE-IAM-REQ-010..014` and stable permission coverage for `DIVE-IAM-REQ-023`, is not complete. Membership-operation non-disclosure and complete sensitive-operation audit coverage (`DIVE-IAM-REQ-024`, `DIVE-IAM-REQ-025`) are also pending beyond the exposed center-read and membership-disable paths.
+Clerk authentication and session revocation (`DIVE-IAM-REQ-004`, `016`, `022`) remain Partial. `packages/identity/src/clerk-token-verifier.spec.ts` executes the real Clerk SDK against a locally signed standard session-token fixture and checks `azp`; Backend API session/user fetches and provider session termination use mocked or deterministic seams, so no Clerk sandbox or production integration is demonstrated. See `evidence/releases/iam-phase-2-revocation.md`.
 
-Public capabilities and token limits (`DIVE-IAM-REQ-007..009`, `DIVE-IAM-REQ-026`), Clerk integration and session lifecycle (`DIVE-IAM-REQ-004`, `DIVE-IAM-REQ-016`, `DIVE-IAM-REQ-021..022`), invitations and step-up readiness (`DIVE-IAM-REQ-017`, `DIVE-IAM-REQ-019`), and support access plus expiry evidence (`DIVE-IAM-REQ-020`, `DIVE-IAM-REQ-028`) remain follow-ups. See `docs/architecture/iam-vertical-follow-ups.md`. `DIVE-IAM-REQ-027` remains governed by deferred `SPEC-DIVE-OPS-001` scope. `MT-COND-IAM-001` and `MT-COND-WORKER-001` remain activation gates; Option B channels remain deferred. Do not treat this map as additional verification.
+Non-disclosure and complete sensitive-operation audit coverage (`DIVE-IAM-REQ-024`, `DIVE-IAM-REQ-025`) remain partial beyond the exposed center-read, membership-disable, and invitation persistence paths. Purpose-limited customer-contact access and booking-operation audit belong to later approved slices and are not demonstrated here.
+
+Public capabilities and token limits (`DIVE-IAM-REQ-007..009`, `DIVE-IAM-REQ-026`) and support access plus expiry evidence (`DIVE-IAM-REQ-020`, `DIVE-IAM-REQ-028`) remain follow-ups. Provider-neutral assurance is demonstrated for current dashboard authentication, while the exact Clerk step-up contract remains open for Phase 4. See `docs/architecture/iam-vertical-follow-ups.md`. `DIVE-IAM-REQ-027` remains governed by deferred `SPEC-DIVE-OPS-001` scope. `MT-COND-IAM-001` and `MT-COND-WORKER-001` remain activation gates; Option B channels remain deferred. Do not treat this map as additional verification.
+
+Approved Phase 0 decision relationships are recorded in `ADR-DIVE-004` through `ADR-DIVE-007`. Approval authorizes implementation but is not implementation evidence.

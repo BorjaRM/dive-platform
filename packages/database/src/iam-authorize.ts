@@ -1,5 +1,13 @@
+import type { IamDenialReason } from '@dive-center/contracts';
 import type { Pool, PoolClient } from 'pg';
 import { type TenantUnitOfWork, withTenant } from './unit-of-work.js';
+
+export class IamAccessDeniedError extends Error {
+  constructor(readonly reason: IamDenialReason) {
+    super('Access denied');
+    this.name = 'IamAccessDeniedError';
+  }
+}
 
 export type IamAccessContext = Readonly<{
   issuer: string;
@@ -24,14 +32,17 @@ export async function resolveIamAccess(
   principal: Readonly<{ issuer: string; subject: string }>,
   requestedTenantId: string,
 ): Promise<IamAccessContext> {
-  if (!principal.issuer || !principal.subject || !requestedTenantId)
-    throw new Error('Access denied');
+  if (!principal.issuer || !principal.subject || !requestedTenantId) {
+    throw new IamAccessDeniedError('membership_missing_or_inactive');
+  }
   const result = await connection.query<{ access: ResolvedAccess | null }>(
     'SELECT iam_app.resolve_access($1, $2, $3::uuid) AS access',
     [principal.issuer, principal.subject, requestedTenantId],
   );
   const access = result.rows[0]?.access;
-  if (!access) throw new Error('Access denied');
+  if (!access) {
+    throw new IamAccessDeniedError('membership_missing_or_inactive');
+  }
   return Object.freeze({
     ...access,
     issuer: principal.issuer,
@@ -63,7 +74,7 @@ export async function withIamAuthorizedTenant<T>(
       current.identityId !== context.identityId ||
       current.membershipId !== context.membershipId
     ) {
-      throw new Error('Access denied');
+      throw new IamAccessDeniedError('membership_missing_or_inactive');
     }
     return fn(uow, current);
   });

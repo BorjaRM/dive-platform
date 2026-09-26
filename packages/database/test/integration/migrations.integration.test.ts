@@ -14,8 +14,11 @@ const iamTables = [
   iamSchema.iamTenants,
   iamSchema.iamIdentities,
   iamSchema.iamExternalIdentities,
+  iamSchema.iamIdentityWebhookInbox,
   iamSchema.iamCenters,
   iamSchema.iamMemberships,
+  iamSchema.iamIdentityTenants,
+  iamSchema.iamInvitations,
   iamSchema.iamAuditRecords,
   iamSchema.iamOutboxEvents,
 ];
@@ -131,6 +134,26 @@ describe('product migrations', () => {
           }))
           .sort((left, right) => left.name.localeCompare(right.name)),
       );
+    }
+  });
+
+  it('keeps Drizzle check constraints aligned with PostgreSQL', async () => {
+    const migratedPool = requireEmptyAdminPool(emptyAdminPool);
+    for (const table of iamTables) {
+      const definition = getTableConfig(table);
+      const qualifiedName = `iam_app.${definition.name}`;
+      const actual = await migratedPool.query<{ name: string }>(
+        `SELECT conname AS name
+         FROM pg_constraint
+         WHERE conrelid = $1::regclass
+           AND contype = 'c'
+         ORDER BY conname`,
+        [qualifiedName],
+      );
+      expect(
+        actual.rows.map(({ name }) => name),
+        qualifiedName,
+      ).toEqual(definition.checks.map(({ name }) => name).sort());
     }
   });
 

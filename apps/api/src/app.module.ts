@@ -1,16 +1,19 @@
 import { appDatabaseUrl } from '@dive-center/database';
 import {
+  ClerkIdentityAdapter,
   IDENTITY_PROVIDER,
-  RejectingIdentityProvider,
+  IDENTITY_WEBHOOK_VERIFIER,
 } from '@dive-center/identity';
 import { Module } from '@nestjs/common';
 import { createObserveModule } from '@nestjs/observe';
 import { Pool } from 'pg';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { clerkIdentityConfigFromEnvironment } from './clerk.config.js';
 import { IamController } from './iam.controller.js';
 import { IamService } from './iam.service.js';
 import { DATABASE_POOL, SECURITY_LOGGER } from './iam.tokens.js';
+import { IdentityWebhookController } from './identity-webhook.controller.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -22,11 +25,19 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       serviceId: 'api',
     }),
   ],
-  controllers: [AppController, IamController],
+  controllers: [AppController, IamController, IdentityWebhookController],
   providers: [
     AppService,
     IamService,
-    { provide: IDENTITY_PROVIDER, useClass: RejectingIdentityProvider },
+    {
+      provide: ClerkIdentityAdapter,
+      useFactory: () =>
+        new ClerkIdentityAdapter(
+          clerkIdentityConfigFromEnvironment(process.env),
+        ),
+    },
+    { provide: IDENTITY_PROVIDER, useExisting: ClerkIdentityAdapter },
+    { provide: IDENTITY_WEBHOOK_VERIFIER, useExisting: ClerkIdentityAdapter },
     {
       provide: DATABASE_POOL,
       useFactory: () => new Pool({ connectionString: appDatabaseUrl() }),

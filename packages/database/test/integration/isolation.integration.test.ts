@@ -6,8 +6,8 @@ import {
   consumerReceipts,
   notes,
   outboxEvents,
-} from '../../src/schema.js';
-import { withTenant } from '../../src/unit-of-work.js';
+} from '../../src/harness-schema.js';
+import { withTenant } from '../../src/harness-unit-of-work.js';
 import {
   centerA1,
   centerA2,
