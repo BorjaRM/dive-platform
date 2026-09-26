@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.5
+- **Version:** 0.6
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -14,14 +14,14 @@
 | Foundation — security/privacy | `specs/foundation/security-privacy-baseline.md` | Ready to start | 0.2 |
 | Foundation — operations | `specs/foundation/operations-quality-recovery.md` | Ready to start | 0.2 |
 | Foundation — SDD | `specs/foundation/sdd-specs-traceability.md` | Ready to start | 0.3 |
-| Adoption profile | `specs/multitenancy/adoption-profile.md` | Draft | 0.3 |
+| Adoption profile | `specs/multitenancy/adoption-profile.md` | Draft | 0.4 |
 | ADR-DIVE-001 | `specs/architecture/adrs/ADR-DIVE-001.md` | Ready to start | 0.2 |
 | ADR-DIVE-002 | `specs/architecture/adrs/ADR-DIVE-002.md` | Ready to start | 0.2 |
 | ADR-DIVE-003 | `specs/architecture/adrs/ADR-DIVE-003.md` | Ready to start | 0.1 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 0.4 |
 | SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.3 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.2-draft |
-| MT-SPIKE-001 | `specs/multitenancy/` | Draft / harness in PR, not closed | see spike files |
+| MT-SPIKE-001 | `specs/multitenancy/` | Accepted with conditions | 0.3 |
 | SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
@@ -71,7 +71,16 @@ Not copied as requirement text. Owners:
 | Support access | SPEC-DIVE-IAM-001 |
 | Noisy neighbor | Future operations SPEC; until opened, operations-quality-recovery baseline |
 
-These rows block declaring the reusable baseline fully adopted. They do not block closing `MT-SPIKE-001` once every `Gap` in that spike’s matrix is gone.
+These rows block declaring the reusable baseline fully adopted. They do not invalidate the accepted PostgreSQL/Drizzle persistence result.
+
+### MT-SPIKE-001 activation conditions
+
+| Condition | Evidence owner | Gate |
+|---|---|---|
+| `MT-COND-IAM-001` | First IAM/API vertical | Before production traffic or production outbox emission |
+| `MT-COND-WORKER-001` | First real outbox worker | Before external effects |
+
+Owning verticals must link their tests and evidence back to the existing `MT-SC-*` rows; they must not duplicate or silently weaken `MT-REQ-*`.
 
 ## Maintenance rule
 
@@ -97,4 +106,4 @@ Traceability: TRACE-DIVE-MVP-001
 
 ## Current coverage
 
-All MVP booking and IAM requirements are **specified, not implemented**. MT-SPIKE-001 has a PostgreSQL harness and tests; the scenario matrix still has `Gap` and `Partial` rows; results remain `Not executed` until CI evidence is recorded. Option B channels are deferred. Do not treat this map as verification.
+All MVP booking and product IAM requirements are **specified, not implemented**. MT-SPIKE-001 is Accepted with conditions for its PostgreSQL/Drizzle persistence slice, evidenced by the green CI run at `2f55ad85`. `MT-COND-IAM-001` and `MT-COND-WORKER-001` remain activation gates; Option B channels remain deferred. Do not treat this map as additional verification.

@@ -1,7 +1,7 @@
 # Multi-tenant adoption profile — Dive platform
 
 - **Status:** Draft
-- **Version:** 0.3
+- **Version:** 0.4
 - **Product:** Dive platform
 - **solution_name:** Plataforma para centros de buceo
 - **solution_slug:** `dive-platform`
@@ -41,7 +41,7 @@ Booking capacity, booking states, widget behavior, and trip operations remain in
 
 ### Option B — channels not in MT-SPIKE-001
 
-**Provenance:** `Proposed` (product owner instruction to apply Option B on 2026-09-26). Remains Draft. Does not waive baseline invariants.
+**Provenance:** approved scope decision (product owner, 2026-09-26). This adoption profile remains Draft. The decision does not waive baseline invariants.
 
 Cache, files, search, export, deletion, restore, support access, and noisy-neighbor are **out of MT-SPIKE-001** because those channels do not exist in the current slice. Assignment:
 
@@ -63,9 +63,17 @@ This profile becomes Ready to start when ADR-DIVE-001 and ADR-DIVE-002 are Accep
 
 The baseline is adopted only when:
 
-1. MT-SPIKE-001 passes, and
+1. MT-SPIKE-001 is Accepted with conditions and every condition is satisfied before its activation gate, and
 2. the product-critical concurrency spike (SPIKE-DIVE-001) passes, and
 3. each Option B channel has isolation evidence in its owning artifact (or that channel is still absent and remains explicitly deferred).
+
+
+### Activated follow-ups from MT-SPIKE-001
+
+- `MT-COND-IAM-001`: first IAM/API vertical owns HTTP isolation, authorized producer context, and API error/log redaction.
+- `MT-COND-WORKER-001`: first real outbox worker owns external delivery, retry/backoff/exhaustion, dead-letter, and worker-log evidence.
+
+The parent `MT-REQ-*` obligations remain in the multitenancy baseline. The follow-up verticals own evidence, not a rewritten copy of the requirements.
 
 ## Expected GitHub evidence
 

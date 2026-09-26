@@ -1,7 +1,7 @@
 # MT-SPIKE-001 — Requirements
 
-- **Status:** Draft
-- **Version:** 0.2
+- **Status:** Accepted with conditions
+- **Version:** 0.3
 
 These ten IDs are unchanged. The bullets under each ID are verifiable criteria unpacked from documented sources. They are not new product requirements.
 
@@ -9,18 +9,18 @@ These ten IDs are unchanged. The bullets under each ID are verifiable criteria u
 
 | Requirement IDs | Provenance | Exact source | Decision status |
 |---|---|---|---|
-| `MT-REQ-001` | `Documented` | `specs/foundation/multitenancy-architecture.md` §4, §7; `specs/multitenancy/MT-SPIKE-001-specification.md` required scenario 1 | Spike Draft; not promoted |
-| `MT-REQ-002` | `Documented` | baseline §3 last paragraph, §4, §5; specification required scenario 1; `specs/iam/SPEC-DIVE-IAM-001.md` `DIVE-IAM-REQ-006` | Spike Draft; not promoted |
-| `MT-REQ-003` | `Documented` | baseline §4, §7; specification required scenario 2; adoption profile “tenant-aware relationships” | Spike Draft; not promoted |
-| `MT-REQ-004` | `Documented` | baseline §7, §14 (migrations that do not weaken controls); specification required scenario 3 | Spike Draft; not promoted |
-| `MT-REQ-005` | `Documented` | baseline §4, §8; specification required scenario 4; adoption profile “pool reuse” | Spike Draft; not promoted |
-| `MT-REQ-006` | `Documented` | baseline §8, §14 (missing context, spoofed tenant key); specification required scenario 5 | Spike Draft; not promoted |
-| `MT-REQ-007` | `Documented` | baseline §4, §9, §14 (atomic business+audit+outbox, jobs/events); specification required scenario 6 | Spike Draft; not promoted |
-| `MT-REQ-008` | `Documented` | baseline §9, §14 (retries and idempotency); specification required scenario 6 | Spike Draft; not promoted |
-| `MT-REQ-009` | `Documented` | baseline §4, §11, §14 (non-leaking errors); specification required scenario 2 | Spike Draft; not promoted |
-| `MT-REQ-010` | `Documented` | adoption profile validation scope; specification required scenario 7; baseline §14 | Spike Draft; not promoted |
+| `MT-REQ-001` | `Documented` | `specs/foundation/multitenancy-architecture.md` §4, §7; `specs/multitenancy/MT-SPIKE-001-specification.md` required scenario 1 | Accepted with conditions; criteria unchanged |
+| `MT-REQ-002` | `Documented` | baseline §3 last paragraph, §4, §5; specification required scenario 1; `specs/iam/SPEC-DIVE-IAM-001.md` `DIVE-IAM-REQ-006` | Accepted with conditions; criteria unchanged |
+| `MT-REQ-003` | `Documented` | baseline §4, §7; specification required scenario 2; adoption profile “tenant-aware relationships” | Accepted with conditions; criteria unchanged |
+| `MT-REQ-004` | `Documented` | baseline §7, §14 (migrations that do not weaken controls); specification required scenario 3 | Accepted with conditions; criteria unchanged |
+| `MT-REQ-005` | `Documented` | baseline §4, §8; specification required scenario 4; adoption profile “pool reuse” | Accepted with conditions; criteria unchanged |
+| `MT-REQ-006` | `Documented` | baseline §8, §14 (missing context, spoofed tenant key); specification required scenario 5 | Accepted with conditions; criteria unchanged |
+| `MT-REQ-007` | `Documented` | baseline §4, §9, §14 (atomic business+audit+outbox, jobs/events); specification required scenario 6 | Accepted with conditions; criteria unchanged |
+| `MT-REQ-008` | `Documented` | baseline §9, §14 (retries and idempotency); specification required scenario 6 | Accepted with conditions; criteria unchanged |
+| `MT-REQ-009` | `Documented` | baseline §4, §11, §14 (non-leaking errors); specification required scenario 2 | Accepted with conditions; criteria unchanged |
+| `MT-REQ-010` | `Documented` | adoption profile validation scope; specification required scenario 7; baseline §14 | Accepted with conditions; criteria unchanged |
 
-Verifiable criteria below are `Derived` unpackings of those sources. Scenario IDs in `MT-SPIKE-001-traceability.md` are a `Proposed` index for the matrix. Option B is a `Proposed` scope decision recorded in this Draft spike; it is not a status promotion.
+Verifiable criteria below are `Derived` unpackings of those sources. Scenario IDs in `MT-SPIKE-001-traceability.md` are the approved traceability index. Option B and the activation conditions were approved by Borja on 2026-09-26 for this closure.
 
 Drizzle schema-alignment and escaped-handle tests are `Derived` from `ADR-DIVE-002` and the SPIKE-001 `tenant-schema` / application UoW tests. Prototype memberships are `Proposed` tables. Permission strings `center.read` and `booking.create` are `Documented` names from `SPEC-DIVE-IAM-001`, reused here as typical membership payload until product IAM is implemented.
 
@@ -80,15 +80,22 @@ Drizzle schema-alignment and escaped-handle tests are `Derived` from `ADR-DIVE-0
   - Fixtures include at least two tenants and two centers (including two centers of the same tenant).
   - Repeatable negative tests use both tenants and more than one center; a single happy-path insert is not sufficient evidence.
 
-## Completion rule
+## Completion and activation rule
 
-Every verifiable criterion must map to a row in `MT-SPIKE-001-traceability.md` with scenario, test, assertion, and evidence. Mapping a requirement ID to a file is not completion. A row may be `Deferred` only if it appears in Option B below. A row may be `Excluded` only if it is a product concern assigned to `SPIKE-DIVE-001`, `SPIKE-DIVE-003`, or `SPEC-DIVE-OPS-001`.
+Every verifiable criterion maps to a row in `MT-SPIKE-001-traceability.md` with scenario, test or activation gate, assertion, and evidence. Mapping a requirement ID to a file is not completion.
 
-Evidence lives in `MT-SPIKE-001-results.md` or `evidence/multitenancy/MT-SPIKE-001/`. This spike remains Draft until tests and evidence cover every non-deferred criterion.
+- `Covered`: executable in this harness and supported by recorded evidence.
+- `Conditional`: normative and required, but not executable until its named IAM/API or worker component exists; the row must name an owner and a pre-production activation gate.
+- `Deferred`: only the approved Option B channels below.
+- `Excluded`: only product concerns assigned to `SPIKE-DIVE-001`, `SPIKE-DIVE-003`, or `SPEC-DIVE-OPS-001`.
+
+A condition does not waive or relocate its parent `MT-REQ-*`. It transfers evidence ownership to the first artifact that introduces the necessary component. Failure to satisfy an activated condition blocks that artifact and full baseline adoption; it does not invalidate the already demonstrated PostgreSQL/Drizzle result.
+
+Evidence lives in `MT-SPIKE-001-results.md` and `evidence/multitenancy/MT-SPIKE-001/`. Closure conditions are `MT-COND-IAM-001` (`MT-SC-027`, `MT-SC-041`, HTTP) and `MT-COND-WORKER-001` (`MT-SC-031`, `MT-SC-036`).
 
 ## Option B — deferred baseline channels
 
-**Provenance:** `Proposed` (product owner instruction to apply Option B on 2026-09-26). **Status:** Draft. Does not promote this spike, the adoption profile, or the baseline.
+**Provenance:** approved product-owner scope decision (2026-09-26). **Status:** active for this Accepted-with-conditions closure. Does not promote the adoption profile or declare the baseline adopted.
 
 These baseline §10–§13 / §14 categories are **not** in `MT-SPIKE-001` because the channels do not exist in this harness. They are not waived. The reusable baseline is **not** fully adopted until each has isolation evidence in its owning artifact.
 
@@ -113,13 +120,13 @@ Not this spike:
 - Widget / public HTTP channel behavior → `SPIKE-DIVE-003` and `SPEC-DIVE-BOOKING-001`
 - Trip operations → `SPEC-DIVE-OPS-001` / `SPIKE-DIVE-002`
 
-## Open questions
+## Resolved scope decision
 
-- The spike **question** names HTTP; the **method** is a representative PostgreSQL slice and this harness has no HTTP server. Whether an HTTP fixture is required before closing `MT-SPIKE-001`, or only with the first API implementation plus `DIVE-IAM-REQ-006`, is unresolved. Do not treat persistence tests as HTTP isolation evidence.
+The spike question names HTTP, but this representative PostgreSQL harness has no HTTP server. HTTP isolation is therefore owned by `MT-COND-IAM-001`: the first IAM/API vertical must test it together with `DIVE-IAM-REQ-006` before accepting production traffic. Do not treat persistence tests as HTTP isolation evidence.
 
 ## Classification reminder
 
 - `Documented`: the ten `MT-REQ-*` statements and the cited baseline/specification/adoption/IAM text.
 - `Derived`: the verifiable bullets (test implications of those statements).
-- `Proposed`: Option B assignment table and scenario IDs.
-- `Open question`: HTTP fixture obligation.
+- `Proposed` then approved on 2026-09-26: Option B assignment, scenario index, and activation-condition ownership.
+- `Resolved`: HTTP evidence belongs to `MT-COND-IAM-001`.
