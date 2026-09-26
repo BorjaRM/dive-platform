@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import fs from "node:fs";
-import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const args = process.argv.slice(2);
 const root = process.cwd();
@@ -15,16 +15,16 @@ function walk(dir) {
 }
 
 function allSpecs() {
-  return walk(path.join(root, "specs"))
+  return walk(path.join(root, 'specs'))
     .filter((file) => /SPEC-[^/]+\.md$/.test(file))
     .map((file) => path.relative(root, file));
 }
 
 function changedSpecs(base, head) {
   const output = execFileSync(
-    "git",
-    ["diff", "--name-only", base, head, "--", "specs"],
-    { encoding: "utf8" },
+    'git',
+    ['diff', '--name-only', base, head, '--', 'specs'],
+    { encoding: 'utf8' },
   );
   return output
     .split(/\r?\n/)
@@ -34,34 +34,35 @@ function changedSpecs(base, head) {
 function splitRow(line) {
   return line
     .trim()
-    .replace(/^\||\|$/g, "")
-    .split("|")
+    .replace(/^\||\|$/g, '')
+    .split('|')
     .map((cell) => cell.trim());
 }
 
 function expandIds(expression) {
-  const clean = expression.replace(/`/g, "").trim();
-  if (!clean.includes("..")) return [clean];
-  const [first, last] = clean.split("..");
+  const clean = expression.replace(/`/g, '').trim();
+  if (!clean.includes('..')) return [clean];
+  const [first, last] = clean.split('..');
   const a = first.match(/^(.*-REQ-)(\d{3})$/);
   const b = last.match(/^(.*-REQ-)(\d{3})$/);
   if (!a || !b || a[1] !== b[1]) return [];
   const ids = [];
   for (let n = Number(a[2]); n <= Number(b[2]); n += 1) {
-    ids.push(`${a[1]}${String(n).padStart(3, "0")}`);
+    ids.push(`${a[1]}${String(n).padStart(3, '0')}`);
   }
   return ids;
 }
 
 function validateSpec(file) {
-  const text = fs.readFileSync(file, "utf8");
+  const text = fs.readFileSync(file, 'utf8');
   const status = text.match(/^- \*\*Status:\*\*\s*(.+)$/m)?.[1]?.trim();
   if (!status) errors.push(`${file}: missing Status`);
 
   const requirements = [
     ...text.matchAll(/^- \*\*([A-Z0-9-]+-REQ-\d{3}):\*\*/gm),
   ].map((match) => match[1]);
-  if (!requirements.length) errors.push(`${file}: no numbered requirements found`);
+  if (!requirements.length)
+    errors.push(`${file}: no numbered requirements found`);
 
   const section = text.match(
     /## Requirement provenance\s*\n([\s\S]*?)(?=\n## |$)/,
@@ -82,19 +83,19 @@ function validateSpec(file) {
 
   for (const row of rows) {
     const [idsCell, provenanceCell, source, decision] = splitRow(row);
-    const provenance = provenanceCell?.replace(/`/g, "");
+    const provenance = provenanceCell?.replace(/`/g, '');
     if (
-      !["Documented", "Derived", "Proposed", "Open question"].includes(
+      !['Documented', 'Derived', 'Proposed', 'Open question'].includes(
         provenance,
       )
     ) {
-      errors.push(`${file}: invalid provenance '${provenance ?? ""}'`);
+      errors.push(`${file}: invalid provenance '${provenance ?? ''}'`);
       continue;
     }
 
-    const ids = expandIds(idsCell ?? "");
+    const ids = expandIds(idsCell ?? '');
     if (!ids.length) {
-      errors.push(`${file}: invalid requirement range '${idsCell ?? ""}'`);
+      errors.push(`${file}: invalid requirement range '${idsCell ?? ''}'`);
     }
     if (!source || /^(?:-|TBD|Pending|<)/i.test(source)) {
       errors.push(`${file}: ${idsCell} has no exact source`);
@@ -102,15 +103,15 @@ function validateSpec(file) {
     if (!decision || /^(?:-|TBD|<)/i.test(decision)) {
       errors.push(`${file}: ${idsCell} has no decision status`);
     }
-    if (provenance === "Open question") {
+    if (provenance === 'Open question') {
       errors.push(
         `${file}: ${idsCell} cannot be both a requirement and an open question`,
       );
     }
     if (
-      ["Ready to start", "Review", "Accepted"].includes(status) &&
-      ["Derived", "Proposed"].includes(provenance) &&
-      !/Approved/i.test(decision ?? "")
+      ['Ready to start', 'Review', 'Accepted'].includes(status) &&
+      ['Derived', 'Proposed'].includes(provenance) &&
+      !/Approved/i.test(decision ?? '')
     ) {
       errors.push(
         `${file}: ${idsCell} is ${provenance} but is not approved while status is ${status}`,
@@ -144,15 +145,15 @@ function validatePullRequestBody(specFiles) {
     return;
   }
   const event = JSON.parse(
-    fs.readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"),
+    fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'),
   );
-  const body = event.pull_request?.body ?? "";
+  const body = event.pull_request?.body ?? '';
   for (const heading of [
-    "## Normative changes and provenance",
-    "## AI involvement",
-    "## Traceability",
-    "## Validation",
-    "### Known gaps",
+    '## Normative changes and provenance',
+    '## AI involvement',
+    '## Traceability',
+    '## Validation',
+    '### Known gaps',
   ]) {
     if (!body.includes(heading)) {
       errors.push(`PR body: missing '${heading}'`);
@@ -161,13 +162,13 @@ function validatePullRequestBody(specFiles) {
 }
 
 let files;
-if (args.includes("--all")) {
+if (args.includes('--all')) {
   files = allSpecs();
 } else {
-  const changedAt = args.indexOf("--changed");
+  const changedAt = args.indexOf('--changed');
   if (changedAt < 0 || !args[changedAt + 1] || !args[changedAt + 2]) {
     console.error(
-      "Usage: validate-spec-governance.mjs --all | --changed <base> <head>",
+      'Usage: validate-spec-governance.mjs --all | --changed <base> <head>',
     );
     process.exit(2);
   }
