@@ -12,6 +12,10 @@ export function appDatabaseUrl(): string {
   return requiredEnv('APP_DATABASE_URL');
 }
 
+export function migrationDatabaseUrl(): string {
+  return requiredEnv('MIGRATION_DATABASE_URL');
+}
+
 export function spikeAdminDatabaseUrl(): string {
   return requiredEnv('SPIKE_ADMIN_DATABASE_URL');
 }

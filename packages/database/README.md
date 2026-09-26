@@ -1,21 +1,40 @@
 # @dive-center/database
 
-Walking-skeleton persistence for **MT-SPIKE-001**.
+Persistence for the walking skeleton.
+
+## Product vs harness
+
+| Path | Role |
+|---|---|
+| `src/iam-schema.ts` + `drizzle/` | Product schema. Generated with Drizzle Kit, reviewed SQL, applied by `dive_migration`. |
+| `sql/0001_mt_spike_harness.sql` | MT-SPIKE-001 **test** infrastructure only. Not a product migration. |
+| Runtime `APP_DATABASE_URL` | `dive_app`: DML only, no DDL, no `BYPASSRLS`. |
+
+## Commands
+
+```bash
+pnpm db:bootstrap   # admin: create dive_migration / dive_app
+pnpm db:migrate     # dive_migration: apply drizzle/
+pnpm db:generate    # Drizzle Kit schema diff → new SQL under drizzle/
+```
+
+Do not run `db:generate` to rewrite applied migrations. Append a new file instead.
+
+The API must not apply migrations or bootstrap roles at startup.
 
 ## Provenance
 
 - **Documented:** PostgreSQL 18.x, shared schema, `tenant_id`, center as operational scope, forced RLS, app role without `BYPASSRLS`/DDL, transaction-local tenant context, outbox + audit in the same unit of work (`ADR-DIVE-002`, adoption profile, `MT-REQ-001`–`010`).
-- **Proposed:** schema `mt_spike` and table names. This is not the product booking catalog.
+- **Approved:** Drizzle Kit as the migration generator (Borja, 2026-09-26).
+- **Proposed:** schema names `iam_app` / `mt_spike` and table names. `mt_spike` is not the product booking catalog.
 - **Proposed:** `set_config('app.tenant_id', …, true)` as the transaction-local mechanism.
-
-Do not treat this package as the accepted product schema.
 
 ## Authorization boundary
 
 - `identities` is global, as required by `DIVE-IAM-REQ-001`; `dive_app` has no direct table access.
 - Every tenant-owned table, including `memberships`, has enabled and forced RLS.
-- Membership lookup is limited to `membership_permissions`, which establishes transaction-local tenant context before its query. The application role cannot query `memberships` directly.
-- `withTenant` is an internal persistence primitive. Interactive callers use `withAuthorizedTenant`, which revalidates identity–tenant membership before opening the unit of work.
+- Membership lookup is limited to `resolve_access` / `membership_permissions`, which establish transaction-local tenant context before querying. The application role cannot query identity tables directly.
+- `withTenant` is an internal persistence primitive. Interactive callers use `withAuthorizedTenant` or `withIamAuthorizedTenant`.
 
 ## Outbox boundary
 

@@ -1,5 +1,6 @@
 import {
-  applyIamApiVertical,
+  bootstrapRoles,
+  migrateProduct,
   spikeAdminDatabaseUrl,
   spikeAppDatabaseUrl,
 } from '@dive-center/database';
@@ -47,7 +48,8 @@ describe('IAM/API vertical (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    await applyIamApiVertical(admin);
+    await bootstrapRoles(admin);
+    await migrateProduct();
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(IDENTITY_PROVIDER)
       .useValue(new DeterministicIdentityProvider(principals))

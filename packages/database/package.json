@@ -15,7 +15,10 @@
     "build": "tsc --project tsconfig.json",
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "clean": "rm -rf dist coverage",
-    "test:integration": "node --env-file=../../.env.example ./node_modules/vitest/vitest.mjs run --config vitest.config.ts"
+    "test:integration": "node --env-file=../../.env.example ./node_modules/vitest/vitest.mjs run --config vitest.config.ts",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "node --env-file=../../.env.example --import tsx scripts/migrate.ts",
+    "db:bootstrap": "node --env-file=../../.env.example --import tsx scripts/bootstrap.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
@@ -26,6 +29,8 @@
     "@types/node": "^24.0.0",
     "@types/pg": "^8.15.5",
     "typescript": "catalog:",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.2",
+    "drizzle-kit": "^0.31.8",
+    "tsx": "^4.23.15"
   }
 }

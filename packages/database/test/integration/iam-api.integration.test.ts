@@ -1,7 +1,8 @@
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { applyIamApiVertical } from '../../src/apply-iam-api.js';
+import { bootstrapRoles } from '../../src/bootstrap-roles.js';
 import { resolveIamAccess } from '../../src/iam-authorize.js';
+import { migrateProduct } from '../../src/migrate.js';
 import { createAdminPool, createAppPool } from './harness.js';
 
 const tenantA = '11111111-1111-1111-1111-111111111111';
@@ -15,7 +16,8 @@ describe('IAM/API persistence controls', () => {
   beforeAll(async () => {
     adminPool = createAdminPool();
     appPool = createAppPool();
-    await applyIamApiVertical(adminPool);
+    await bootstrapRoles(adminPool);
+    await migrateProduct();
   });
 
   beforeEach(async () => {
