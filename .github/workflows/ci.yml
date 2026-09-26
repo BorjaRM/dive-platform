@@ -104,6 +104,9 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Build database test dependencies
+        run: pnpm --filter @dive-center/database... build
+
       - name: Bootstrap database roles
         run: pnpm db:bootstrap
 
