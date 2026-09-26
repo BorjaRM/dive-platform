@@ -1,6 +1,7 @@
 # MT-SPIKE-001 — Cross-cutting multi-tenant isolation validation
 
 - **Status:** Draft
+- **Version:** 0.2
 - **Hypothesis:** A non-null tenant key, tenant-aware constraints, forced RLS, explicit transaction-local context, and tenant-aware async processing can prevent cross-tenant access without dedicated databases.
 
 ## Question
@@ -11,9 +12,13 @@ Can the shared PostgreSQL architecture preserve tenant isolation across HTTP, tr
 
 Cross-cutting isolation only. Product booking capacity and widget behavior are excluded. Sharing fixtures with SPIKE-DIVE-001 does not merge results.
 
+Also out of this spike (**Option B**, `Proposed`, Draft): cache, files, search, export, deletion, restore, support access, and noisy-neighbor, because those channels do not exist here. They remain baseline obligations assigned in `MT-SPIKE-001-requirements.md`. Passing this spike does not mean the baseline is fully adopted.
+
 ## Method
 
 Implement the smallest representative slice, execute deterministic positive and negative scenarios against real PostgreSQL, record commands and environment, and store reproducible evidence without real personal data.
+
+A requirement is covered only when every verifiable criterion in `MT-SPIKE-001-requirements.md` has a matrix row in `MT-SPIKE-001-traceability.md` with test, assertion, and evidence. Mapping an ID to a file is not coverage.
 
 ## Required scenarios
 
@@ -34,4 +39,8 @@ Implement the smallest representative slice, execute deterministic positive and 
 
 ## Closure outcomes
 
-`Accepted`, `Accepted with conditions`, `Requires modification`, or `Rejected`. A conclusion requires committed tests and reproducible evidence.
+`Accepted`, `Accepted with conditions`, `Requires modification`, or `Rejected`. A conclusion requires committed tests and reproducible evidence. `Gap` rows in the traceability matrix block closure. `Deferred` Option B rows do not.
+
+## Open questions
+
+- Whether the HTTP part of the spike question must be exercised in this harness before closure. Persistence tests are not HTTP isolation evidence.
