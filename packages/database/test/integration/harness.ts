@@ -12,8 +12,8 @@ export function createAdminPool(): Pool {
   return new Pool({ connectionString: spikeAdminDatabaseUrl(), max: 4 });
 }
 
-export function createAppPool(): Pool {
-  return new Pool({ connectionString: spikeAppDatabaseUrl(), max: 4 });
+export function createAppPool(max = 4): Pool {
+  return new Pool({ connectionString: spikeAppDatabaseUrl(), max });
 }
 
 export async function setupHarness(adminPool: Pool): Promise<void> {

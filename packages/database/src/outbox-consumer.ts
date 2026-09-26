@@ -8,6 +8,10 @@ export async function processOutboxOnce(
   tenantId: string,
   eventId: string,
   consumer: string,
+  onProcess?: (context: {
+    correlationId: string;
+    tenantId: string;
+  }) => Promise<void>,
 ): Promise<'processed' | 'duplicate'> {
   return withTenant(pool, tenantId, async ({ db }) => {
     const event = await db
@@ -39,6 +43,13 @@ export async function processOutboxOnce(
         eventId: consumerReceipts.eventId,
       });
 
-    return inserted.length === 0 ? 'duplicate' : 'processed';
+    if (inserted.length === 0) {
+      return 'duplicate';
+    }
+    await onProcess?.({
+      correlationId: event.correlationId,
+      tenantId: event.tenantId,
+    });
+    return 'processed';
   });
 }

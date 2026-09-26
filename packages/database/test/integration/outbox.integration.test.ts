@@ -2,9 +2,15 @@ import { eq } from 'drizzle-orm';
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { processOutboxOnce } from '../../src/outbox-consumer.js';
-import { auditRecords, outboxEvents } from '../../src/schema.js';
+import {
+  auditRecords,
+  consumerReceipts,
+  notes,
+  outboxEvents,
+} from '../../src/schema.js';
 import { withTenant } from '../../src/unit-of-work.js';
 import {
+  centerA1,
   createAdminPool,
   createAppPool,
   setupHarness,
@@ -35,8 +41,18 @@ describe('MT-SPIKE-001 outbox', () => {
   it('writes domain audit and outbox atomically and keeps tenant on consume (MT-REQ-007, MT-REQ-008)', async () => {
     const eventId = '77777777-7777-7777-7777-777777777777';
     const correlationId = 'corr-outbox-1';
+    const deliveredContexts: Array<{
+      correlationId: string;
+      tenantId: string;
+    }> = [];
 
     await withTenant(appPool, tenantA, async ({ db, client }) => {
+      await db.insert(notes).values({
+        id: '76767676-7676-7676-7676-767676767676',
+        tenantId: tenantA,
+        centerId: centerA1,
+        body: 'atomic-domain-change',
+      });
       await db.insert(outboxEvents).values({
         id: eventId,
         tenantId: tenantA,
@@ -64,33 +80,70 @@ describe('MT-SPIKE-001 outbox', () => {
       tenantA,
       eventId,
       'worker-a',
+      async (context) => {
+        deliveredContexts.push(context);
+      },
     );
     const second = await processOutboxOnce(
       appPool,
       tenantA,
       eventId,
       'worker-a',
+      async (context) => {
+        deliveredContexts.push(context);
+      },
     );
     expect(first).toBe('processed');
     expect(second).toBe('duplicate');
+    expect(deliveredContexts).toEqual([{ correlationId, tenantId: tenantA }]);
 
-    await expect(
-      processOutboxOnce(appPool, tenantB, eventId, 'worker-a'),
-    ).rejects.toThrow(/not visible/);
+    const crossTenantError = await processOutboxOnce(
+      appPool,
+      tenantB,
+      eventId,
+      'worker-a',
+    ).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(crossTenantError).toBeInstanceOf(Error);
+    expect((crossTenantError as Error).message).toBe(
+      'Outbox event not visible in tenant context',
+    );
+    expect((crossTenantError as Error).message).not.toContain(eventId);
+    expect((crossTenantError as Error).message).not.toContain(correlationId);
 
-    const audit = await withTenant(appPool, tenantA, async ({ db }) => {
-      return db
-        .select()
-        .from(auditRecords)
-        .where(eq(auditRecords.correlationId, correlationId));
+    const committed = await withTenant(appPool, tenantA, async ({ db }) => {
+      return {
+        audit: await db
+          .select()
+          .from(auditRecords)
+          .where(eq(auditRecords.correlationId, correlationId)),
+        domain: await db
+          .select()
+          .from(notes)
+          .where(eq(notes.id, '76767676-7676-7676-7676-767676767676')),
+        outbox: await db
+          .select()
+          .from(outboxEvents)
+          .where(eq(outboxEvents.id, eventId)),
+      };
     });
-    expect(audit).toHaveLength(1);
-    expect(audit[0]?.tenantId).toBe(tenantA);
+    expect(committed.audit).toHaveLength(1);
+    expect(committed.audit[0]?.tenantId).toBe(tenantA);
+    expect(committed.domain).toHaveLength(1);
+    expect(committed.outbox).toHaveLength(1);
   });
 
   it('rolls back outbox together with the domain write (MT-REQ-007)', async () => {
     await expect(
       withTenant(appPool, tenantA, async ({ db }) => {
+        await db.insert(notes).values({
+          id: '98989898-9898-9898-9898-989898989898',
+          tenantId: tenantA,
+          centerId: centerA1,
+          body: 'must-roll-back',
+        });
         await db.insert(outboxEvents).values({
           id: '99999999-9999-9999-9999-999999999999',
           tenantId: tenantA,
@@ -100,13 +153,104 @@ describe('MT-SPIKE-001 outbox', () => {
           idempotencyKey: 'idem-rollback',
           createdAt: new Date(),
         });
+        await db.insert(auditRecords).values({
+          id: '97979797-9797-9797-9797-979797979797',
+          tenantId: tenantA,
+          actor: 'spike',
+          action: 'note.created',
+          resource: '98989898-9898-9898-9898-989898989898',
+          result: 'ok',
+          correlationId: 'corr-rollback',
+          createdAt: new Date(),
+        });
         throw new Error('forced-failure');
       }),
     ).rejects.toThrow('forced-failure');
 
     const leftover = await withTenant(appPool, tenantA, async ({ db }) => {
-      return db.select().from(outboxEvents);
+      return {
+        audit: await db.select().from(auditRecords),
+        domain: await db.select().from(notes),
+        outbox: await db.select().from(outboxEvents),
+      };
     });
-    expect(leftover).toEqual([]);
+    expect(leftover).toEqual({ audit: [], domain: [], outbox: [] });
+  });
+
+  it('does not double-apply concurrent deliveries (MT-REQ-008)', async () => {
+    const eventId = '96969696-9696-9696-9696-969696969696';
+    await withTenant(appPool, tenantA, async ({ db }) => {
+      await db.insert(outboxEvents).values({
+        id: eventId,
+        tenantId: tenantA,
+        eventType: 'note.created',
+        payload: { ok: true },
+        correlationId: 'corr-concurrent',
+        idempotencyKey: 'idem-concurrent',
+        createdAt: new Date(),
+      });
+    });
+
+    const applied: string[] = [];
+    const results = await Promise.all([
+      processOutboxOnce(appPool, tenantA, eventId, 'worker-a', async () => {
+        applied.push('worker-a');
+      }),
+      processOutboxOnce(appPool, tenantA, eventId, 'worker-a', async () => {
+        applied.push('worker-a');
+      }),
+    ]);
+
+    expect(results.sort()).toEqual(['duplicate', 'processed']);
+    expect(applied).toEqual(['worker-a']);
+    const receipts = await withTenant(appPool, tenantA, async ({ db }) => {
+      return db.select().from(consumerReceipts);
+    });
+    expect(receipts).toHaveLength(1);
+  });
+
+  it('retries with the same tenant and correlation after handler rollback (MT-REQ-007, MT-REQ-008)', async () => {
+    const eventId = '95959595-9595-9595-9595-959595959595';
+    const correlationId = 'corr-retry';
+    await withTenant(appPool, tenantA, async ({ db }) => {
+      await db.insert(outboxEvents).values({
+        id: eventId,
+        tenantId: tenantA,
+        eventType: 'note.created',
+        payload: { private: 'must-not-leak' },
+        correlationId,
+        idempotencyKey: 'idem-retry',
+        createdAt: new Date(),
+      });
+    });
+
+    const attempts: Array<{ correlationId: string; tenantId: string }> = [];
+    await expect(
+      processOutboxOnce(
+        appPool,
+        tenantA,
+        eventId,
+        'worker-a',
+        async (context) => {
+          attempts.push(context);
+          throw new Error('generic-worker-failure');
+        },
+      ),
+    ).rejects.toThrow('generic-worker-failure');
+
+    const retried = await processOutboxOnce(
+      appPool,
+      tenantA,
+      eventId,
+      'worker-a',
+      async (context) => {
+        attempts.push(context);
+      },
+    );
+    expect(retried).toBe('processed');
+    expect(attempts).toEqual([
+      { correlationId, tenantId: tenantA },
+      { correlationId, tenantId: tenantA },
+    ]);
   });
 });
