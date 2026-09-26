@@ -1,7 +1,10 @@
 # SPEC-DIVE-OPS-001 — Trip, participation, and manifest
 
 - **Status:** Deferred
-- **Version:** 0.2-draft
+- **Version:** 0.3-draft
+- **Last reviewed:** 2026-09-26
+- **Approved by:** Borja (Product owner)
+- **Approval reference:** PR #1 and this provenance migration PR
 - **Owner:** Product / Operations
 
 ## Normative authority
@@ -9,6 +12,14 @@
 This SPEC will be the normative source for advanced trip operations when the capability is activated. It does not modify the booking MVP governed by `specs/booking/SPEC-DIVE-BOOKING-001.md`.
 
 A booking may produce zero, one, or many participations. The conversion contract is **not accepted** and must be defined before activation.
+
+## Requirement provenance
+
+This Deferred SPEC existed before the provenance migration. The immutable pre-migration commit and PR #1 are retained as its documentary source; activation still requires the gates below.
+
+| Requirement IDs | Provenance | Exact source | Decision status |
+|---|---|---|---|
+| `DIVE-OPS-REQ-001..DIVE-OPS-REQ-009` | `Documented` | `specs/domain/SPEC-DIVE-OPS-001.md` at commit `341a2de0acad4c1677bde9e848eaa84f5cf063b9`; PR #1 | Approved as Deferred design; not approved for implementation |
 
 ## Goal
 

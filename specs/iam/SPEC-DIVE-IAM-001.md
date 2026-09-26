@@ -1,7 +1,10 @@
 # SPEC-DIVE-IAM-001 — Roles, permissions, and scopes
 
 - **Status:** Ready to start
-- **Version:** 0.3
+- **Version:** 0.4
+- **Last reviewed:** 2026-09-26
+- **Approved by:** Borja (Product owner)
+- **Approval reference:** PR #1 and this provenance migration PR
 - **Owner:** Product / Security
 - **IDs:** `DIVE-IAM-REQ-001` … `DIVE-IAM-REQ-028`
 
@@ -10,6 +13,18 @@
 This SPEC is the single normative source for MVP identity, membership, roles, permissions, scopes, public capabilities, revocation, and privileged support access.
 
 It adopts `specs/foundation/iam-baseline.md`. Dive-specific roles and public-channel capabilities are defined here. Clerk is an adapter, not the authorization source of truth.
+
+## Requirement provenance
+
+The ranges below cover every requirement in this SPEC. Decisions originating in the PR #1 consolidation remain visibly classified as `Proposed` even after owner approval.
+
+| Requirement IDs | Provenance | Exact source | Decision status |
+|---|---|---|---|
+| `DIVE-IAM-REQ-001..DIVE-IAM-REQ-009` | `Derived` | `specs/foundation/iam-baseline.md`; `specs/architecture/adrs/ADR-DIVE-001.md`; PR #1 | Approved by product owner |
+| `DIVE-IAM-REQ-010..DIVE-IAM-REQ-015` | `Derived` | `specs/foundation/iam-baseline.md`; `specs/product/dive-mvp-profile.md`; PR #1 | Approved by product owner |
+| `DIVE-IAM-REQ-016` | `Proposed` | PR #1 revocation-window decision | Approved by product owner for MVP validation |
+| `DIVE-IAM-REQ-017..DIVE-IAM-REQ-020` | `Proposed` | PR #1 invitation, owner-lockout, MFA-readiness, and support-access decisions | Approved by product owner for MVP validation |
+| `DIVE-IAM-REQ-021..DIVE-IAM-REQ-028` | `Derived` | `specs/foundation/iam-baseline.md`; `specs/foundation/security-privacy-baseline.md`; PR #1 | Approved by product owner |
 
 ## Goal
 
