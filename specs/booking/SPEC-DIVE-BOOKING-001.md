@@ -1,7 +1,10 @@
 # SPEC-DIVE-BOOKING-001 — Bookings, widget, and calendar
 
 - **Status:** Ready to start
-- **Version:** 0.4
+- **Version:** 0.5
+- **Last reviewed:** 2026-09-26
+- **Approved by:** Borja (Product owner)
+- **Approval reference:** PR #1 and this provenance migration PR
 - **Owner:** Product / Booking
 - **IDs:** `DIVE-BOOK-REQ-001` … `DIVE-BOOK-REQ-048`
 
@@ -12,6 +15,32 @@ This SPEC is the single normative source for booking services (activities), sche
 Other documents (product profile, spikes, traceability, deliverables, Notion pages) must link here. They must not redefine these rules.
 
 Historical Notion draft IDs `REQ-003` and `REQ-029` map to `DIVE-BOOK-REQ-003` and `DIVE-BOOK-REQ-029`.
+
+## Requirement provenance
+
+The ranges below cover every requirement in this SPEC. `Derived` consolidates the linked sources; `Proposed` identifies decisions introduced during PR #1 and explicitly accepted by the product owner before this migration.
+
+| Requirement IDs | Provenance | Exact source | Decision status |
+|---|---|---|---|
+| `DIVE-BOOK-REQ-001..DIVE-BOOK-REQ-008` | `Derived` | `specs/foundation/multitenancy-architecture.md`; `specs/architecture/adrs/ADR-DIVE-001.md`; PR #1 | Approved by product owner |
+| `DIVE-BOOK-REQ-009..DIVE-BOOK-REQ-016` | `Derived` | `specs/product/dive-mvp-profile.md`; PR #1 | Approved by product owner |
+| `DIVE-BOOK-REQ-017..DIVE-BOOK-REQ-024` | `Proposed` | PR #1 booking lifecycle consolidation | Approved by product owner for MVP validation |
+| `DIVE-BOOK-REQ-025..DIVE-BOOK-REQ-032` | `Derived` | `specs/spikes/SPIKE-DIVE-001/specification.md`; `specs/spikes/SPIKE-DIVE-001/requirements.md`; PR #1 | Approved by product owner |
+| `DIVE-BOOK-REQ-033..DIVE-BOOK-REQ-036` | `Proposed` | PR #1 mutation and cancellation consolidation | Approved by product owner for MVP validation |
+| `DIVE-BOOK-REQ-037..DIVE-BOOK-REQ-042` | `Derived` | `specs/architecture/adrs/ADR-DIVE-002.md`; `specs/spikes/SPIKE-DIVE-003/specification.md`; PR #1 | Approved by product owner |
+| `DIVE-BOOK-REQ-043..DIVE-BOOK-REQ-048` | `Derived` | `specs/foundation/security-privacy-baseline.md`; `specs/foundation/operations-quality-recovery.md`; `specs/product/dive-mvp-profile.md`; PR #1 | Approved by product owner |
+
+### Normative defaults provenance
+
+| Decision | Provenance | Exact source | Decision status |
+|---|---|---|---|
+| Public create-booking requires an idempotency key | `Derived` | `DIVE-BOOK-REQ-028`; PR #1 | Approved by product owner |
+| Pending hold TTL is 15 minutes | `Proposed` | PR #1 | Approved by product owner for MVP validation |
+| Public cancellation token TTL is 72 hours | `Proposed` | PR #1 | Approved by product owner for MVP validation |
+| Widget starts at 720 px, 100% width, one column | `Derived` | `specs/spikes/SPIKE-DIVE-003/specification.md`; PR #1 | Approved by product owner |
+| Allowed `postMessage` types | `Proposed` | PR #1 | Approved by product owner for MVP validation |
+| `postMessage` excludes secrets and full personal data | `Derived` | `specs/foundation/security-privacy-baseline.md`; PR #1 | Approved by product owner |
+| Widget customization allow-list | `Proposed` | PR #1 | Approved by product owner for MVP validation |
 
 ## Goal
 
