@@ -58,6 +58,11 @@ describe('MT-SPIKE-001 runtime role', () => {
       },
       {
         relforcerowsecurity: true,
+        relname: 'memberships',
+        relrowsecurity: true,
+      },
+      {
+        relforcerowsecurity: true,
         relname: 'notes',
         relrowsecurity: true,
       },
@@ -86,7 +91,15 @@ describe('MT-SPIKE-001 runtime role', () => {
        WHERE schemaname = 'mt_spike'
        ORDER BY tablename, policyname`,
     );
-    expect(policies.rows.length).toBeGreaterThanOrEqual(6);
+    expect(policies.rows.map((policy) => policy.tablename)).toEqual([
+      'audit_records',
+      'centers',
+      'consumer_receipts',
+      'memberships',
+      'notes',
+      'outbox_events',
+      'tenants',
+    ]);
     for (const policy of policies.rows) {
       expect(policy.cmd).toBe('ALL');
       expect(policy.qual).toContain("current_setting('app.tenant_id'::text)");
@@ -126,19 +139,38 @@ describe('MT-SPIKE-001 runtime role', () => {
       relrowsecurity: false,
     });
 
-    const membership = await adminPool.query<{
-      relforcerowsecurity: boolean;
-      relrowsecurity: boolean;
+    const bootstrapFunction = await adminPool.query<{
+      app_can_execute: boolean;
+      definition: string;
+      owner: string;
+      proconfig: string[] | null;
+      prosecdef: boolean;
+      public_can_execute: boolean;
     }>(
-      `SELECT c.relrowsecurity, c.relforcerowsecurity
-       FROM pg_class c
-       JOIN pg_namespace n ON n.oid = c.relnamespace
-       WHERE n.nspname = 'mt_spike' AND c.relname = 'memberships'`,
+      `SELECT
+         owner.rolname AS owner,
+         routine.prosecdef,
+         routine.proconfig,
+         pg_get_functiondef(routine.oid) AS definition,
+         has_function_privilege('dive_app', routine.oid, 'EXECUTE') AS app_can_execute,
+         has_function_privilege('public', routine.oid, 'EXECUTE') AS public_can_execute
+       FROM pg_proc routine
+       JOIN pg_namespace namespace ON namespace.oid = routine.pronamespace
+       JOIN pg_roles owner ON owner.oid = routine.proowner
+       WHERE namespace.nspname = 'mt_spike'
+         AND routine.proname = 'membership_permissions'`,
     );
-    expect(membership.rows[0]).toEqual({
-      relforcerowsecurity: false,
-      relrowsecurity: true,
+    expect(bootstrapFunction.rows).toHaveLength(1);
+    expect(bootstrapFunction.rows[0]).toMatchObject({
+      app_can_execute: true,
+      owner: 'dive_migration',
+      proconfig: ['search_path=mt_spike, pg_temp'],
+      prosecdef: true,
+      public_can_execute: false,
     });
+    expect(bootstrapFunction.rows[0]?.definition).toContain(
+      "set_config('app.tenant_id', p_tenant::text, true)",
+    );
 
     const client = await appPool.connect();
     try {

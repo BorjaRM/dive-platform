@@ -30,16 +30,16 @@ Evidence for every executable row remains `Pending CI` until `results.md` record
 | MT-REQ-002 | MT-SC-005 Context only after identity–tenant validation | `authorization.integration.test.ts` — “creates tenant context only after…” | `authorize(identityA, tenantA)` returns tenant, identity, typical permissions | Pending CI | Covered |
 | MT-REQ-002 | MT-SC-006 Membership required | `authorization.integration.test.ts` — “rejects identities without membership…” | unaffiliated identity and A-in-B throw `Access denied` | Pending CI | Covered |
 | MT-REQ-002 | MT-SC-007 Client tenant id is not authorization | `authorization.integration.test.ts` — “does not treat a client-supplied tenant id…” | `authorize(identityA, tenantB)` throws `Access denied` | Pending CI | Covered |
-| MT-REQ-002 | MT-SC-008 UoW does not treat arbitrary UUID as authorized context | `authorization.integration.test.ts` — forged context object | `withAuthorizedTenant` re-checks membership and denies A on tenant B | Pending CI | Covered |
+| MT-REQ-002 | MT-SC-008 UoW does not treat arbitrary UUID as authorized context | `authorization.integration.test.ts` — forged context object and package export check | `withAuthorizedTenant` re-checks membership and denies A on tenant B; package root does not export `withTenant` | Pending CI | Covered |
 | MT-REQ-003 | MT-SC-009 Insert note A → center B rejected | `isolation.integration.test.ts` — “rejects cross-tenant center relationships” | insert throws | Pending CI | Covered |
 | MT-REQ-003 | MT-SC-010 Update existing note to other-tenant center rejected | same test | `UPDATE notes.center_id` to `centerB1` throws | Pending CI | Covered |
 | MT-REQ-003 | MT-SC-011 Cross-tenant receipt/outbox relation rejected | same test | tenant B receipt cannot reference tenant A event | Pending CI | Covered |
 | MT-REQ-004 | MT-SC-012 No `BYPASSRLS`, not superuser | `roles.integration.test.ts` — “has forced RLS, no BYPASSRLS, and no DDL” | `rolbypassrls === false`, `rolsuper === false` | Pending CI | Covered |
 | MT-REQ-004 | MT-SC-013 No DDL | same test | `CREATE TABLE` rejected | Pending CI | Covered |
-| MT-REQ-004 | MT-SC-014 Forced RLS on every tenant-owned table | same test | `relrowsecurity` and `relforcerowsecurity` true for all six tables | Pending CI | Covered |
-| MT-REQ-004 | MT-SC-015 Policies `USING` + `WITH CHECK` | same test | six `ALL` policies constrain both expressions with transaction tenant context | Pending CI | Covered |
+| MT-REQ-004 | MT-SC-014 Forced RLS on every tenant-owned table | same test | `relrowsecurity` and `relforcerowsecurity` true for all seven tenant-owned tables | Pending CI | Covered |
+| MT-REQ-004 | MT-SC-015 Policies `USING` + `WITH CHECK` | same test | exactly one `ALL` policy per tenant-owned table constrains both expressions with transaction tenant context | Pending CI | Covered |
 | MT-REQ-004 | MT-SC-016 App role cannot weaken controls | same test | disable RLS, drop policy, and grant `BYPASSRLS` all fail | Pending CI | Covered |
-| MT-REQ-004 | MT-SC-017 App role is not owner / not migrator | same test | all six tables owned by `dive_migration`, never `dive_app` | Pending CI | Covered |
+| MT-REQ-004 | MT-SC-017 App role is not owner / not migrator | same test | all eight prototype tables are owned by `dive_migration`, never `dive_app` | Pending CI | Covered |
 | MT-REQ-005 | MT-SC-018 Context empty after commit on a later checkout | `pooling.integration.test.ts` — “clears transaction-local tenant context…” | same PID has empty context; tenant B sees no A rows | Pending CI | Covered |
 | MT-REQ-005 | MT-SC-019 Same physical connection alternates A/B | `pooling.integration.test.ts` — “alternates tenants repeatedly…” | pool `max: 1`; same PID observes A, B, A | Pending CI | Covered |
 | MT-REQ-005 | MT-SC-020 Rollback leaves no residual context | `pooling.integration.test.ts` — “clears tenant context and writes after rollback…” | same PID has empty context and no rolled-back row | Pending CI | Covered |
@@ -53,7 +53,7 @@ Evidence for every executable row remains `Pending CI` until `results.md` record
 | MT-REQ-007 | MT-SC-028 Consumer rebuilds tenant UoW | same test (`processOutboxOnce` → `withTenant`) | tenant B consume of A’s event returns generic not-visible failure | Pending CI | Covered |
 | MT-REQ-007 | MT-SC-029 Domain + audit + outbox commit together | same test | note, audit, and outbox are all visible after commit | Pending CI | Covered |
 | MT-REQ-007 | MT-SC-030 Domain + audit + outbox roll back together | `outbox.integration.test.ts` — “rolls back outbox together with the domain write” | note, audit, and outbox are all absent after forced failure | Pending CI | Covered |
-| MT-REQ-007 | MT-SC-031 Worker retries preserve tenant and correlation | `outbox.integration.test.ts` — “retries with the same tenant…” | failed handler rolls receipt back; retry receives identical tenant/correlation | Pending CI | Partial (no dead-letter path or worker logger exists) |
+| MT-REQ-007 | MT-SC-031 Worker retries preserve tenant and correlation | `outbox.integration.test.ts` — “rolls back the database effect with its receipt…” | failed database effect and receipt roll back together; retry commits one effect and one receipt in the same tenant | Pending CI | Partial (no external delivery, dead-letter path, or worker logger exists) |
 | MT-REQ-008 | MT-SC-032 Sequential duplicate is idempotent | `outbox.integration.test.ts` — first test | second delivery returns `duplicate`; handler invoked once | Pending CI | Covered |
 | MT-REQ-008 | MT-SC-033 Other tenant cannot consume | same test | tenant B receives a generic not-visible error without event/correlation identifiers | Pending CI | Covered |
 | MT-REQ-008 | MT-SC-034 Concurrent workers do not double-apply | `outbox.integration.test.ts` — “does not double-apply concurrent deliveries” | concurrent workers return one `processed`, one `duplicate`, and one receipt | Pending CI | Covered |
@@ -71,6 +71,7 @@ Evidence for every executable row remains `Pending CI` until `results.md` record
 | MT-REQ-006 | MT-SC-057 Drizzle outside UoW fails closed | `drizzle.integration.test.ts` — “fails closed for Drizzle queries outside…” | `drizzle(pool)` select/insert on `notes` throws | Pending CI | Covered |
 | MT-REQ-006 | MT-SC-058 SQL through Drizzle stays tenant-scoped | `drizzle.integration.test.ts` — “keeps parameterized SQL through Drizzle…” | tenant A `db.execute` sees A; tenant B sees none | Pending CI | Covered |
 | MT-REQ-006 | MT-SC-059 Escaped Drizzle handle cannot be reused | `drizzle.integration.test.ts` — “rejects a Drizzle handle escaped…” | `db` captured after `withTenant` throws on select | Pending CI | Covered |
+| MT-REQ-002, MT-REQ-004, MT-REQ-005 | MT-SC-060 Membership bootstrap remains under RLS | `authorization.integration.test.ts` — membership lookup and pool-reuse tests; `roles.integration.test.ts` | `memberships` has forced RLS; direct app query fails; restricted `SECURITY DEFINER` function sets transaction-local tenant context that is absent on the next checkout | Pending CI | Covered |
 | — | MT-SC-044 Cache isolation | — | n/a until cache exists | — | Deferred |
 | — | MT-SC-045 File isolation | — | n/a until files exist | — | Deferred |
 | — | MT-SC-046 Search isolation | — | n/a until search exists | — | Deferred |
@@ -88,7 +89,7 @@ Evidence for every executable row remains `Pending CI` until `results.md` record
 | Scenarios | Why they cannot be proved now | Must be tested when |
 |---|---|---|
 | MT-SC-027 producer half | There is no authorized application command that derives tenant/correlation from immutable request context; the harness inserts those fields directly. `withAuthorizedTenant` covers membership, not outbox producers. | The first IAM/API vertical introduces the producer command and before it emits production outbox events. |
-| MT-SC-031 dead-letter/log half; MT-SC-036 | `apps/worker` is a starter. No approved retry limit, backoff, exhaustion state, dead-letter transport, or worker logging/redaction contract exists. Choosing values here would invent normative behavior. | The first real outbox worker change, after retry/dead-letter/observability policy is approved; before the worker handles production events. |
+| MT-SC-031 external-delivery/dead-letter/log half; MT-SC-036 | The prototype limits its callback to a transaction-bound Drizzle handle so database effect and receipt are atomic. `apps/worker` is a starter; no approved destination-idempotency contract, retry limit, backoff, exhaustion state, dead-letter transport, or worker logging/redaction contract exists. | The first real outbox worker change, after at-least-once delivery, destination idempotency, retry/dead-letter, and observability policy are approved; before the worker performs external effects. |
 | MT-SC-041 application-log half | No tenant-aware API error mapper or structured worker logger exists, and fixtures contain no tokens/emails. PostgreSQL and the prototype consumer can only prove generic non-disclosing failures. | The first IAM/API error boundary and worker logger implementation; before handling real identity or personal data. |
 
 The HTTP part of the spike question remains the open question recorded in the requirements and specification. Persistence coverage must not be presented as HTTP evidence.
@@ -97,7 +98,7 @@ The HTTP part of the spike question remains the open question recorded in the re
 
 | Coverage | Rows |
 |---|---|
-| Covered | 44 |
+| Covered | 45 |
 | Partial | 3 |
 | Gap | 1 |
 | Deferred (Option B) | 8 |

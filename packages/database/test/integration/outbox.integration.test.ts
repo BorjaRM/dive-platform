@@ -80,8 +80,11 @@ describe('MT-SPIKE-001 outbox', () => {
       tenantA,
       eventId,
       'worker-a',
-      async (context) => {
-        deliveredContexts.push(context);
+      async ({ correlationId: deliveredCorrelationId, tenantId }) => {
+        deliveredContexts.push({
+          correlationId: deliveredCorrelationId,
+          tenantId,
+        });
       },
     );
     const second = await processOutboxOnce(
@@ -89,8 +92,11 @@ describe('MT-SPIKE-001 outbox', () => {
       tenantA,
       eventId,
       'worker-a',
-      async (context) => {
-        deliveredContexts.push(context);
+      async ({ correlationId: deliveredCorrelationId, tenantId }) => {
+        deliveredContexts.push({
+          correlationId: deliveredCorrelationId,
+          tenantId,
+        });
       },
     );
     expect(first).toBe('processed');
@@ -209,7 +215,7 @@ describe('MT-SPIKE-001 outbox', () => {
     expect(receipts).toHaveLength(1);
   });
 
-  it('retries with the same tenant and correlation after handler rollback (MT-REQ-007, MT-REQ-008)', async () => {
+  it('rolls back the database effect with its receipt before retry (MT-REQ-007, MT-REQ-008)', async () => {
     const eventId = '95959595-9595-9595-9595-959595959595';
     const correlationId = 'corr-retry';
     await withTenant(appPool, tenantA, async ({ db }) => {
@@ -224,33 +230,63 @@ describe('MT-SPIKE-001 outbox', () => {
       });
     });
 
-    const attempts: Array<{ correlationId: string; tenantId: string }> = [];
     await expect(
       processOutboxOnce(
         appPool,
         tenantA,
         eventId,
         'worker-a',
-        async (context) => {
-          attempts.push(context);
+        async ({ correlationId: deliveredCorrelationId, db, tenantId }) => {
+          await db.insert(auditRecords).values({
+            id: '94949494-9494-9494-9494-949494949494',
+            tenantId,
+            actor: 'worker-a',
+            action: 'note.created',
+            resource: eventId,
+            result: 'failed',
+            correlationId: deliveredCorrelationId,
+            createdAt: new Date(),
+          });
           throw new Error('generic-worker-failure');
         },
       ),
     ).rejects.toThrow('generic-worker-failure');
+
+    const rolledBack = await withTenant(appPool, tenantA, async ({ db }) => ({
+      audit: await db.select().from(auditRecords),
+      receipts: await db.select().from(consumerReceipts),
+    }));
+    expect(rolledBack).toEqual({ audit: [], receipts: [] });
 
     const retried = await processOutboxOnce(
       appPool,
       tenantA,
       eventId,
       'worker-a',
-      async (context) => {
-        attempts.push(context);
+      async ({ correlationId: deliveredCorrelationId, db, tenantId }) => {
+        await db.insert(auditRecords).values({
+          id: '94949494-9494-9494-9494-949494949494',
+          tenantId,
+          actor: 'worker-a',
+          action: 'note.created',
+          resource: eventId,
+          result: 'processed',
+          correlationId: deliveredCorrelationId,
+          createdAt: new Date(),
+        });
       },
     );
     expect(retried).toBe('processed');
-    expect(attempts).toEqual([
-      { correlationId, tenantId: tenantA },
-      { correlationId, tenantId: tenantA },
-    ]);
+    const committed = await withTenant(appPool, tenantA, async ({ db }) => ({
+      audit: await db.select().from(auditRecords),
+      receipts: await db.select().from(consumerReceipts),
+    }));
+    expect(committed.audit).toHaveLength(1);
+    expect(committed.audit[0]).toMatchObject({
+      correlationId,
+      result: 'processed',
+      tenantId: tenantA,
+    });
+    expect(committed.receipts).toHaveLength(1);
   });
 });

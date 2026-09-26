@@ -1,17 +1,21 @@
 import { and, eq } from 'drizzle-orm';
 import type { Pool } from 'pg';
 import { consumerReceipts, outboxEvents } from './schema.js';
-import { withTenant } from './unit-of-work.js';
+import { type TenantUnitOfWork, withTenant } from './unit-of-work.js';
 
+type OutboxDatabaseEffect = (context: {
+  correlationId: string;
+  db: TenantUnitOfWork['db'];
+  tenantId: string;
+}) => Promise<void>;
+
+/** Applies only PostgreSQL work through `db`; external delivery is intentionally outside this prototype. */
 export async function processOutboxOnce(
   pool: Pool,
   tenantId: string,
   eventId: string,
   consumer: string,
-  onProcess?: (context: {
-    correlationId: string;
-    tenantId: string;
-  }) => Promise<void>,
+  applyDatabaseEffect?: OutboxDatabaseEffect,
 ): Promise<'processed' | 'duplicate'> {
   return withTenant(pool, tenantId, async ({ db }) => {
     const event = await db
@@ -46,8 +50,9 @@ export async function processOutboxOnce(
     if (inserted.length === 0) {
       return 'duplicate';
     }
-    await onProcess?.({
+    await applyDatabaseEffect?.({
       correlationId: event.correlationId,
+      db,
       tenantId: event.tenantId,
     });
     return 'processed';

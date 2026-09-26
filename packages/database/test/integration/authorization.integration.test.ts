@@ -1,6 +1,7 @@
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { authorize, withAuthorizedTenant } from '../../src/authorize.js';
+import * as databasePackage from '../../src/index.js';
 import { notes } from '../../src/schema.js';
 import {
   centerA1,
@@ -85,5 +86,49 @@ describe('MT-SPIKE-001 authorization', () => {
     await expect(authorize(appPool, identityA, tenantB)).rejects.toThrow(
       'Access denied',
     );
+    expect(databasePackage).not.toHaveProperty('withTenant');
+  });
+
+  it('allows membership lookup only through the RLS bootstrap function (MT-REQ-002, MT-REQ-004)', async () => {
+    await expect(
+      appPool.query('SELECT * FROM mt_spike.identities'),
+    ).rejects.toThrow();
+
+    const client = await appPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT set_config('app.tenant_id', $1, true)", [
+        tenantA,
+      ]);
+      await expect(
+        client.query('SELECT * FROM mt_spike.memberships'),
+      ).rejects.toThrow();
+      await client.query('ROLLBACK');
+    } finally {
+      client.release();
+    }
+
+    await expect(authorize(appPool, identityA, tenantA)).resolves.toMatchObject(
+      {
+        identityId: identityA,
+        tenantId: tenantA,
+      },
+    );
+  });
+
+  it('clears bootstrap tenant context before pooled connection reuse (MT-REQ-005)', async () => {
+    const singleConnectionPool = createAppPool(1);
+    try {
+      await expect(
+        authorize(singleConnectionPool, identityA, tenantA),
+      ).resolves.toMatchObject({ tenantId: tenantA });
+
+      const checkout = await singleConnectionPool.query<{ tenant_id: string }>(
+        "SELECT current_setting('app.tenant_id', true) AS tenant_id",
+      );
+      expect(checkout.rows[0]?.tenant_id).toBe('');
+    } finally {
+      await singleConnectionPool.end();
+    }
   });
 });

@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS mt_spike.consumer_receipts (
 
 
 ALTER TABLE mt_spike.memberships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mt_spike.memberships FORCE ROW LEVEL SECURITY;
 
 ALTER TABLE mt_spike.tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mt_spike.tenants FORCE ROW LEVEL SECURITY;
@@ -128,15 +129,24 @@ CREATE OR REPLACE FUNCTION mt_spike.membership_permissions(
   p_tenant uuid
 )
 RETURNS text[]
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = mt_spike, pg_temp
 AS $$
+DECLARE
+  resolved_permissions text[];
+BEGIN
+  PERFORM set_config('app.tenant_id', p_tenant::text, true);
+
   SELECT m.permissions
+  INTO resolved_permissions
   FROM mt_spike.memberships AS m
   WHERE m.identity_id = p_identity
-    AND m.tenant_id = p_tenant
+    AND m.tenant_id = p_tenant;
+
+  RETURN resolved_permissions;
+END
 $$;
 
 REVOKE ALL ON FUNCTION mt_spike.membership_permissions(uuid, uuid) FROM PUBLIC;
