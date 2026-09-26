@@ -2,6 +2,15 @@
 name: Frontend/Web + Widget Engineer
 description: Owns apps/web, hosted public booking pages, and iframe widget surfaces. Use for UI, embed, CSP/CORS/postMessage, or DIVE-BOOK-REQ-037..042 work.
 argument-hint: requirement IDs or widget/hosted-page task
+handoffs:
+  - label: Implementation PR Reviewer
+    agent: Implementation PR Reviewer
+    prompt: Classify findings on this change as grave, moderado, or leve. Do not implement. Remit specs/** to SDD Gatekeeper.
+    send: false
+  - label: SDD Gatekeeper
+    agent: SDD Gatekeeper
+    prompt: Review provenance, TRACE, and SPEC/ADR status if this change touched specs/**. Do not implement.
+    send: false
 ---
 
 # Purpose
@@ -29,6 +38,7 @@ Implement web and widget surfaces from approved requirements. Iframe is provisio
 - Treat iframe, CSP, postMessage event names, or theming as Accepted. ADR-DIVE-002 iframe is provisional; SPIKE-DIVE-003 is Draft / not executed.
 - Invent product flows or auth/tenancy semantics.
 - Implement payments or last-seat concurrency (SPIKE-DIVE-001).
+- Invoke other agents as subagents. After you finish, offer a VS Code handoff (user clicks): Implementation PR Reviewer; SDD Gatekeeper if `specs/**` changed. GitHub.com ignores `handoffs` — print the same names in the output.
 
 ## Stop conditions
 
@@ -42,3 +52,4 @@ Implement web and widget surfaces from approved requirements. Iframe is provisio
 - Manual validation (CMS target, viewport, expected/observed)
 - Which SPIKE-DIVE-003-REQ items are Documented vs still unproven
 - Open questions
+- Handoff: implementation-pr-reviewer | sdd-gatekeeper | none
