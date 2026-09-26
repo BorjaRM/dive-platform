@@ -24,10 +24,10 @@ The repository is a TypeScript monorepo skeleton:
 - `packages/typescript-config` — shared TypeScript presets
 - `specs/` — normative SDD artifacts
 - Tooling: pnpm, Turborepo, Biome, Node `22.22.3`, TypeScript `7.0.2`
+- CI: `.github/workflows/ci.yml` (`pnpm check`, `pnpm test`) and `.github/workflows/spec-governance.yml`
 
 Not in the repository yet (planned, do not assume they exist):
 
-- CI workflows
 - Docker Compose / local PostgreSQL recipes
 - `.env.example`, migrations, seeds
 - `pnpm db:*`, `pnpm test:integration`, `pnpm specs:validate`
@@ -83,8 +83,12 @@ pnpm check
 
 Workspace packages are scoped as `@dive-center/*`. TypeScript options live in `packages/typescript-config` (ADR-DIVE-003). `pnpm check-types` remains an alias of `pnpm typecheck`.
 
+GitHub Actions:
 
-Database, integration, e2e, and CI commands will be documented when those tools land.
+- `.github/workflows/ci.yml` — `pnpm install --frozen-lockfile`, `pnpm check`, `pnpm test` on pull requests and pushes to `main`
+- `.github/workflows/spec-governance.yml` — SPEC validator on `specs/**` paths
+
+Database, integration, and e2e commands will be documented when those tools land.
 
 ## Scope
 

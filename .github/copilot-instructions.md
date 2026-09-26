@@ -31,10 +31,11 @@ Inspect the repository before claiming CI, Docker, e2e, or integration infrastru
 Verify before use (do not treat this list as frozen):
 
 - Spec CI: `.github/workflows/spec-governance.yml` and `scripts/validate-spec-governance.mjs`
+- App CI: `.github/workflows/ci.yml` (`pnpm check`, `pnpm test`)
 - Root scripts in `package.json`: `pnpm check`, `pnpm test`, `pnpm typecheck`
 - Apps: `apps/web`, `apps/api`, `apps/worker` (starters; topology is not fully provisioned)
 
-Do not claim Docker, e2e, a general check/test workflow, or other tooling unless the files exist.
+Do not claim Docker, e2e, integration PostgreSQL, or other tooling unless the files exist.
 
 ## Cross-cutting constraints
 

@@ -11,11 +11,11 @@ Use `.github/pull_request_template.md`.
 
 1. Inspect what can actually run: `package.json` scripts and `.github/workflows/`.
 2. Run the relevant commands. Typical existing root scripts: `pnpm check`, `pnpm test`, `pnpm typecheck`. Spec changes also need `node scripts/validate-spec-governance.mjs`.
-3. Write **Automated checks** with command + observed result. Do not claim GitHub Actions passed unless they did.
+3. Write **Automated checks** with command + observed result. Do not claim GitHub Actions passed unless they did. After merge, PRs should get `.github/workflows/ci.yml` (`check`/`test`) and spec PRs also `spec-governance.yml`.
 4. Write **Focused tests** with the file or command that exercises the change.
 5. Write **Manual validation** only for uncovered paths (setup, steps, expected, observed).
 6. Link **Evidence** for spikes, isolation, performance, or security. If the spike is not executed, say so.
-7. List **Known gaps** (no e2e, no Docker, skipped checks).
+7. List **Known gaps** (no e2e, no Docker, no integration DB, skipped checks).
 
 ## Exit criteria
 
