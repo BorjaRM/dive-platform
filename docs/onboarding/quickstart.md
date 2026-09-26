@@ -4,8 +4,7 @@
 
 - Node.js `22.22.3` (see `.nvmrc`)
 - pnpm `12.6.0` (see root `package.json`)
-
-Docker Compose and `.env.example` are **not** in the repository yet. Do not copy commands that assume them.
+- Docker with Compose support when running the local PostgreSQL integration harness
 
 ## Current local setup
 
@@ -20,8 +19,18 @@ pnpm check
 
 `pnpm check` runs Biome at the repo root and then Turbo `typecheck`. Biome is not a per-package Turbo task.
 
+## PostgreSQL 18 integration harness
 
-When PostgreSQL, migrations, and Compose are added, this page must be updated in the same PR that adds them.
+The repository includes a local Docker Compose recipe at `infra/docker/postgres/docker-compose.yml` and synthetic connection settings in `.env.example`.
+
+```bash
+docker compose -f infra/docker/postgres/docker-compose.yml up -d --wait
+pnpm test:integration
+```
+
+The harness uses synthetic data only. It is development and test infrastructure, not hosting or production automation.
+
+CI runs the same integration scope with a PostgreSQL 18 service: it bootstraps database roles, applies product migrations, and executes database integration plus API e2e tests. See `.github/workflows/ci.yml`.
 
 ## Key folders
 
