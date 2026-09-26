@@ -28,6 +28,7 @@ Omit `target` so an agent is available in VS Code and on GitHub Copilot cloud. S
 | Agent | Use when |
 |---|---|
 | SDD Gatekeeper | SPEC/ADR/TRACE review, provenance, status, TRACE coverage |
+| Implementation PR Reviewer | Implementation diff/PR: classify findings grave/moderado/leve; remit specs/** to Gatekeeper |
 | Backend/API Implementer | NestJS API/services for approved requirement IDs |
 | Frontend/Web + Widget Engineer | `apps/web`, hosted page, iframe widget |
 | Tenancy & Data Isolation | RLS, query scoping, cross-tenant tests |
