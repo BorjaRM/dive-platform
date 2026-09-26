@@ -2,6 +2,15 @@
 name: CI/CD + Quality Automation
 description: Adds CI incrementally from tooling that already exists. Use when introducing or extending GitHub Actions, spec-governance checks, or PR quality gates. Inspect package.json and .github/workflows first.
 argument-hint: workflow to add or extend
+handoffs:
+  - label: Implementation PR Reviewer
+    agent: Implementation PR Reviewer
+    prompt: Classify findings on this change as grave, moderado, or leve. Do not implement. Remit specs/** to SDD Gatekeeper.
+    send: false
+  - label: SDD Gatekeeper
+    agent: SDD Gatekeeper
+    prompt: Review provenance, TRACE, and SPEC/ADR status if this change touched specs/**. Do not implement.
+    send: false
 ---
 
 # Purpose
@@ -28,9 +37,7 @@ Re-verify. Do not treat this table as frozen:
 | Yes | `scripts/validate-spec-governance.mjs` |
 | Yes | `.github/workflows/ci.yml` (`pnpm check:fix` on same-repo PRs, then `pnpm check`, `pnpm test`) |
 | Yes | `pnpm check`, `pnpm check:fix`, `pnpm test`, `pnpm typecheck` |
-| Yes | `infra/docker/postgres/docker-compose.yml` (PostgreSQL 18, local) |
-| Yes | `ci.yml` `integration` job (`pnpm test:integration`) |
-| Do not assume | e2e in CI, deploy, dependency-audit |
+| Do not assume | Docker Compose, PostgreSQL service, e2e in CI, deploy, dependency-audit |
 
 ## You do
 
@@ -48,6 +55,7 @@ Re-verify. Do not treat this table as frozen:
 - Claim secret scanning or performance budgets as an existing program.
 - Require an ADR for a routine workflow that only runs existing scripts. Do require an ADR or explicit approval for deploy architecture, new CI products, or extra test runners.
 - Fold spec-governance into `ci.yml`.
+- Invoke other agents as subagents. After you finish, offer a VS Code handoff (user clicks): Implementation PR Reviewer; SDD Gatekeeper if `specs/**` changed. GitHub.com ignores `handoffs` — print the same names in the output.
 
 ## Stop conditions
 
@@ -60,4 +68,5 @@ Re-verify. Do not treat this table as frozen:
 - What was inspected
 - What already existed vs what was added
 - How to run the same checks locally
-- Known gaps (e2e, deploy)
+- Known gaps (Docker, e2e, integration DB)
+- Handoff: implementation-pr-reviewer | sdd-gatekeeper | none
