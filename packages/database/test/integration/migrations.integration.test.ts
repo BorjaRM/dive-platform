@@ -28,6 +28,13 @@ function urlForDatabase(sourceUrl: string, databaseName: string): string {
   return url.toString();
 }
 
+function requireEmptyAdminPool(pool: Pool | undefined): Pool {
+  if (!pool) {
+    throw new Error('Empty migration database was not initialized');
+  }
+  return pool;
+}
+
 describe('product migrations', () => {
   let adminPool: Pool;
   let appPool: Pool;
@@ -82,7 +89,9 @@ describe('product migrations', () => {
   });
 
   it('creates iam_app from an empty database without the spike harness', async () => {
-    const schemas = await emptyAdminPool.query<{ nspname: string }>(
+    const schemas = await requireEmptyAdminPool(emptyAdminPool).query<{
+      nspname: string;
+    }>(
       `SELECT nspname FROM pg_namespace WHERE nspname IN ('iam_app', 'mt_spike') ORDER BY nspname`,
     );
     expect(schemas.rows.map((row) => row.nspname)).toEqual(['iam_app']);
@@ -90,13 +99,13 @@ describe('product migrations', () => {
 
   it('is a no-op on a second run', async () => {
     const emptyUrl = urlForDatabase(migrationDatabaseUrl(), emptyDatabaseName);
-    const before = await emptyAdminPool.query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM drizzle.__drizzle_migrations`,
-    );
+    const before = await requireEmptyAdminPool(emptyAdminPool).query<{
+      count: string;
+    }>(`SELECT count(*)::text AS count FROM drizzle.__drizzle_migrations`);
     await migrateProduct(productMigrationsFolder, emptyUrl);
-    const after = await emptyAdminPool.query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM drizzle.__drizzle_migrations`,
-    );
+    const after = await requireEmptyAdminPool(emptyAdminPool).query<{
+      count: string;
+    }>(`SELECT count(*)::text AS count FROM drizzle.__drizzle_migrations`);
     expect(after.rows[0]?.count).toBe(before.rows[0]?.count);
     expect(Number(after.rows[0]?.count)).toBeGreaterThan(0);
   });
@@ -187,19 +196,19 @@ DO $$ BEGIN RAISE EXCEPTION 'intentional migration failure'; END $$;
     );
 
     const emptyUrl = urlForDatabase(migrationDatabaseUrl(), emptyDatabaseName);
-    const before = await emptyAdminPool.query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM drizzle.__drizzle_migrations`,
-    );
+    const before = await requireEmptyAdminPool(emptyAdminPool).query<{
+      count: string;
+    }>(`SELECT count(*)::text AS count FROM drizzle.__drizzle_migrations`);
     await expect(migrateProduct(tempFolder, emptyUrl)).rejects.toThrow();
 
-    const leftover = await emptyAdminPool.query<{ to_regclass: string | null }>(
-      `SELECT to_regclass('iam_app.should_not_exist')`,
-    );
+    const leftover = await requireEmptyAdminPool(emptyAdminPool).query<{
+      to_regclass: string | null;
+    }>(`SELECT to_regclass('iam_app.should_not_exist')`);
     expect(leftover.rows[0]?.to_regclass).toBeNull();
 
-    const after = await emptyAdminPool.query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM drizzle.__drizzle_migrations`,
-    );
+    const after = await requireEmptyAdminPool(emptyAdminPool).query<{
+      count: string;
+    }>(`SELECT count(*)::text AS count FROM drizzle.__drizzle_migrations`);
     expect(after.rows[0]?.count).toBe(before.rows[0]?.count);
   });
 });

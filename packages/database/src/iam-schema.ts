@@ -98,7 +98,9 @@ export const iamAuditRecords = iamApp.table(
     result: text('result').notNull(),
     reason: text('reason'),
     correlationId: uuid('correlation_id').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.tenantId, table.id] })],
 );
@@ -114,7 +116,9 @@ export const iamOutboxEvents = iamApp.table(
     payload: jsonb('payload').notNull(),
     correlationId: uuid('correlation_id').notNull(),
     idempotencyKey: text('idempotency_key').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     primaryKey({ columns: [table.tenantId, table.id] }),

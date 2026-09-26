@@ -8,6 +8,20 @@
       "when": 1790446091460,
       "tag": "0000_bright_wasp",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790446795166,
+      "tag": "0001_protect_last_tenant_owner",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790446871697,
+      "tag": "0002_add_iam_timestamp_defaults",
+      "breakpoints": true
     }
   ]
 }

@@ -229,4 +229,51 @@ describe('IAM/API persistence controls', () => {
       await singleConnectionPool.end();
     }
   });
+
+  it('enforces the last-owner invariant for direct app-role updates (DIVE-IAM-REQ-018)', async () => {
+    await adminPool.query(
+      `INSERT INTO iam_app.tenants(id,name) VALUES ($1,'A')`,
+      [tenantA],
+    );
+    await adminPool.query('INSERT INTO iam_app.identities(id) VALUES ($1)', [
+      identity,
+    ]);
+    await adminPool.query(
+      `INSERT INTO iam_app.external_identities(identity_id,issuer,subject)
+       VALUES ($1,'test','owner')`,
+      [identity],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.memberships(id,tenant_id,identity_id,status,roles)
+       VALUES ('aaaaaaaa-1111-1111-1111-111111111111',$1,$2,'active',ARRAY['tenant_owner'])`,
+      [tenantA, identity],
+    );
+
+    const client = await appPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT set_config($1, $2, true)', [
+        'app.tenant_id',
+        tenantA,
+      ]);
+      await expect(
+        client.query(
+          `UPDATE iam_app.memberships
+           SET status='disabled'
+           WHERE tenant_id=$1 AND id='aaaaaaaa-1111-1111-1111-111111111111'`,
+          [tenantA],
+        ),
+      ).rejects.toThrow('Cannot remove last tenant owner');
+      await client.query('ROLLBACK');
+    } finally {
+      client.release();
+    }
+
+    const result = await adminPool.query(
+      `SELECT status FROM iam_app.memberships
+       WHERE tenant_id=$1 AND id='aaaaaaaa-1111-1111-1111-111111111111'`,
+      [tenantA],
+    );
+    expect(result.rows[0]?.status).toBe('active');
+  });
 });

@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.6
+- **Version:** 0.7
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -19,15 +19,15 @@
 | ADR-DIVE-002 | `specs/architecture/adrs/ADR-DIVE-002.md` | Ready to start | 0.2 |
 | ADR-DIVE-003 | `specs/architecture/adrs/ADR-DIVE-003.md` | Ready to start | 0.1 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 0.4 |
-| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.3 |
+| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.4 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.2-draft |
 | MT-SPIKE-001 | `specs/multitenancy/` | Accepted with conditions | 0.3 |
 | SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.5 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.7 |
 
-Notion indexes must show this map’s version. They must not invent a second sequence (the previous Notion “mapa documental 0.7” is retired).
+Notion indexes must show this map’s version. They must not invent an independent version sequence.
 
 Notion pages are indexes only. They are not coverage evidence.
 
@@ -49,7 +49,7 @@ Notion pages are indexes only. They are not coverage evidence.
 
 ### IAM — `DIVE-IAM-REQ-001` … `028`
 
-Covered by IAM unit/integration tests, public-token tests, and support-access tests. Cross-tenant cases also map to MT-REQ-*. Support-access expiry (`DIVE-IAM-REQ-020`, `DIVE-IAM-REQ-028`) is **not** an `MT-SPIKE-001` result (Option B).
+Coverage is recorded in the current-coverage table below. Cross-tenant cases also map to `MT-REQ-*` and remain separate from `DIVE-*` results. Public-token and support-access evidence is not yet available in this vertical.
 
 ### Multi-tenant — `MT-REQ-001` … `010`
 
@@ -106,4 +106,18 @@ Traceability: TRACE-DIVE-MVP-001
 
 ## Current coverage
 
-All MVP booking and product IAM requirements are **specified, not implemented**. MT-SPIKE-001 is Accepted with conditions for its PostgreSQL/Drizzle persistence slice, evidenced by the green CI run at `2f55ad85`. `MT-COND-IAM-001` and `MT-COND-WORKER-001` remain activation gates; Option B channels remain deferred. Do not treat this map as additional verification.
+The first IAM/API vertical is partially implemented in `apps/api`, `packages/identity`, and `packages/database`. It is not full conformance with `SPEC-DIVE-IAM-001`.
+
+### Demonstrated coverage
+
+| Slice | IDs | Proof |
+|---|---|---|
+| Identity resolution, independent memberships, issuer + subject, and requested-tenant enforcement | `DIVE-IAM-REQ-001`, `002`, `005`, `006` | `packages/database/test/integration/iam-api.integration.test.ts`, `apps/api/test/iam.e2e-spec.ts` |
+| Exposed permission mapping, assigned-center scope, default deny, and non-disclosure for center reads (partial role-matrix coverage) | `DIVE-IAM-REQ-003`, `010..014`, `023`, `024` | `apps/api/src/iam.roles.spec.ts`, `apps/api/test/iam.e2e-spec.ts` |
+| Last-owner protection at the service and database boundaries | `DIVE-IAM-REQ-018` | `apps/api/test/iam.e2e-spec.ts`, `packages/database/test/integration/iam-api.integration.test.ts` |
+
+### Partial or not yet demonstrated
+
+The role/permission/scope matrix, including the complete behavior for `DIVE-IAM-REQ-010..014` and stable permission coverage for `DIVE-IAM-REQ-023`, is not complete. Membership-operation non-disclosure and complete sensitive-operation audit coverage (`DIVE-IAM-REQ-024`, `DIVE-IAM-REQ-025`) are also pending beyond the exposed center-read and membership-disable paths.
+
+Public capabilities and token limits (`DIVE-IAM-REQ-007..009`, `DIVE-IAM-REQ-026`), Clerk integration and session lifecycle (`DIVE-IAM-REQ-004`, `DIVE-IAM-REQ-016`, `DIVE-IAM-REQ-021..022`), invitations and step-up readiness (`DIVE-IAM-REQ-017`, `DIVE-IAM-REQ-019`), and support access plus expiry evidence (`DIVE-IAM-REQ-020`, `DIVE-IAM-REQ-028`) remain follow-ups. See `docs/architecture/iam-vertical-follow-ups.md`. `DIVE-IAM-REQ-027` remains governed by deferred `SPEC-DIVE-OPS-001` scope. `MT-COND-IAM-001` and `MT-COND-WORKER-001` remain activation gates; Option B channels remain deferred. Do not treat this map as additional verification.

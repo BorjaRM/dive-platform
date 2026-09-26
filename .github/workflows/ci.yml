@@ -110,5 +110,5 @@ jobs:
       - name: Apply product migrations
         run: pnpm db:migrate
 
-      - name: Integration tests
+      - name: Database integration and API e2e tests
         run: pnpm test:integration
