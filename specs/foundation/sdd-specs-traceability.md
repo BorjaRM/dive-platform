@@ -1,7 +1,7 @@
 # SDD, specifications, and traceability (baseline)
 
 - **Status:** Ready to start
-- **Version:** 0.2
+- **Version:** 0.3
 
 ## Source of truth
 
@@ -46,6 +46,18 @@ Every pull request description includes a `Validation` section with:
 5. Known gaps, skipped checks, and follow-up work.
 
 Reviewers validate the change using this record and confirm that the evidence supports the affected requirements before approving the pull request.
+
+
+## Artifact versions
+
+Provenance: `Proposed` until this change is approved and merged. Source: product decision to unify documentary versions without extracting the baseline to another repository.
+
+Rules:
+
+1. Version numbers are per artifact, not global.
+2. The documentation-map version is `TRACE-DIVE-MVP-001`. Notion must not keep a parallel map version.
+3. Foundation baselines remain in `specs/foundation/` of this product repository until a later ADR extracts them.
+4. Templates must include a `Version` field for SPECs and ADRs.
 
 ## Spec lifecycle
 

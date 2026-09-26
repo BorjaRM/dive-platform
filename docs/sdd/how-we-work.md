@@ -41,6 +41,16 @@ See `specs/foundation/sdd-specs-traceability.md`.
 
 Ready to start allows reversible implementation with synthetic data. Accepted is required before a real-data pilot unless an explicit exception is recorded.
 
+
+## Versions
+
+Each normative artifact in `specs/` has its own `Version` header. Do not force every SPEC, ADR, and baseline onto the same number.
+
+- Bump an artifact version only when that file’s meaning changes.
+- `TRACE-DIVE-MVP-001` is the documentation map. Notion indexes must display that TRACE version (or “see TRACE”), never an independent Notion number.
+- Notion pages may mirror the linked GitHub header. They must not invent a second version sequence.
+- The reusable baseline currently lives in this repository at `specs/foundation/`. It is not extracted to a separate repo. The Spanish Notion Base remains a generic template; GitHub `specs/foundation/` is the executable copy for this product.
+
 ## States
 
 ```text

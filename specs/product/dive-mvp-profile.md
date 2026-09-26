@@ -1,7 +1,7 @@
 # Product profile — Dive centers (MVP)
 
 - **Status:** Ready to start
-- **Version:** 0.4
+- **Version:** 0.5
 - **Reference market:** Spain
 - **Repository:** `BorjaRM/dive-platform`
 - **Package name:** `dive-center-platform`
@@ -16,6 +16,15 @@ Notion holds context, navigation, and visible status. It must not keep a second 
 If Notion and GitHub disagree, GitHub wins and the Notion page is stale until corrected.
 
 Automation, if added, is GitHub → Notion metadata only.
+
+
+## 1.1) Versions
+
+Each `specs/` artifact has its own version. The Notion product index must show the version of `TRACE-DIVE-MVP-001`, not a Notion-only map version.
+
+## 1.2) Baseline location
+
+The reusable baseline stays in `specs/foundation/` of this repository. It is not extracted to a separate repo for now. Divergence from those files still requires an ADR.
 
 ## 2) Adoption rule
 
@@ -32,6 +41,7 @@ Dive-specific configuration lives in:
 - `specs/multitenancy/adoption-profile.md`
 - `specs/architecture/adrs/ADR-DIVE-001.md`
 - `specs/architecture/adrs/ADR-DIVE-002.md`
+- `specs/architecture/adrs/ADR-DIVE-003.md`
 - `specs/booking/SPEC-DIVE-BOOKING-001.md`
 - `specs/iam/SPEC-DIVE-IAM-001.md`
 
