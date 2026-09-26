@@ -20,9 +20,10 @@ The repository is a TypeScript monorepo skeleton:
 - `apps/web` — Next.js starter
 - `apps/api` — NestJS starter (Vitest)
 - `apps/worker` — package stub
-- `packages/*` — workspace packages; domain and database are empty shells
+- `packages/*` — `@dive-center/*` workspace packages; most are empty shells
+- `packages/typescript-config` — shared TypeScript presets
 - `specs/` — normative SDD artifacts
-- Tooling: pnpm, Turborepo, Biome, Node `22.22.3`
+- Tooling: pnpm, Turborepo, Biome, Node `22.22.3`, TypeScript `7.0.2`
 
 Not in the repository yet (planned, do not assume they exist):
 
@@ -74,10 +75,14 @@ pnpm install
 pnpm dev
 pnpm build
 pnpm lint
-pnpm check-types
+pnpm typecheck
+pnpm test
 pnpm format
 pnpm check
 ```
+
+Workspace packages are scoped as `@dive-center/*`. TypeScript options live in `packages/typescript-config` (ADR-DIVE-003). `pnpm check-types` remains an alias of `pnpm typecheck`.
+
 
 Database, integration, e2e, and CI commands will be documented when those tools land.
 

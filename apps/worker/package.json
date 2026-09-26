@@ -7,11 +7,12 @@
     "dev": "tsx watch src/main.ts",
     "build": "tsc --project tsconfig.json",
     "start": "node dist/main.js",
-    "lint": "biome check src",
-    "typecheck": "tsc --noEmit",
-    "test": "jest"
+    "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "devDependencies": {
-    "@types/node": "^26.6.2"
+    "@dive-center/typescript-config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "catalog:"
   }
 }

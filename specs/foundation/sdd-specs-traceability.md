@@ -22,6 +22,31 @@ requirement → spec → ADR/contract/migration → code → test → pull reque
 5. Merge and implement.
 6. Verify conformance and update Notion status only.
 
+## Pull request criteria
+
+A non-draft pull request is ready for review when:
+
+- The scope and motivation are clear, with links to the applicable SPEC, ADR, contract, or issue.
+- The affected requirements, TRACE entries, contracts, migrations, and evidence are identified.
+- The implementation and all applicable unit, integration, contract, isolation, and operational tests are included.
+- Applicable checks pass, or the pull request explicitly records the failing check and its reason.
+- Security, privacy, data, operations, rollback, and compatibility impact are addressed when applicable.
+- The pull request description records how to validate the change, including commands, manual steps, expected results, and known limitations.
+
+Draft pull requests may be opened earlier for collaboration, but they must state what is incomplete and must not be treated as approval to merge.
+
+## Pull request validation record
+
+Every pull request description includes a `Validation` section with:
+
+1. Automated commands run and their results, for example `pnpm check` and `pnpm test`.
+2. Focused test commands or fixtures needed to exercise the changed behavior.
+3. Manual or acceptance steps, including setup, input, expected result, and observed result when automation does not cover the path.
+4. Evidence links for spikes, isolation, performance, security, or other required proof.
+5. Known gaps, skipped checks, and follow-up work.
+
+Reviewers validate the change using this record and confirm that the evidence supports the affected requirements before approving the pull request.
+
 ## Spec lifecycle
 
 `Draft → Ready to start → Review → Accepted` with `Deferred` as an alternative.

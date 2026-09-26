@@ -13,8 +13,13 @@ Docker Compose and `.env.example` are **not** in the repository yet. Do not copy
 pnpm install
 pnpm dev
 pnpm build
+pnpm lint
+pnpm typecheck
 pnpm check
 ```
+
+`pnpm check` runs Biome at the repo root and then Turbo `typecheck`. Biome is not a per-package Turbo task.
+
 
 When PostgreSQL, migrations, and Compose are added, this page must be updated in the same PR that adds them.
 
