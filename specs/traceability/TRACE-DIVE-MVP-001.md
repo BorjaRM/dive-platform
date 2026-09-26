@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.3
+- **Version:** 0.4
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -21,7 +21,7 @@
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 0.4 |
 | SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.3 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.2-draft |
-| MT-SPIKE-001 | `specs/multitenancy/` | Draft / not executed | see spike files |
+| MT-SPIKE-001 | `specs/multitenancy/` | Draft / harness in PR, not closed | see spike files |
 | SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
@@ -37,7 +37,7 @@ Notion pages are indexes only. They are not coverage evidence.
 
 | Group | IDs | Tests (expected) | Evidence |
 |---|---|---|---|
-| Isolation and identity | 001–008 | `tests/integration/multitenancy`, `tests/security` | MT-SPIKE-001 |
+| Isolation and identity | 001–008 | `packages/database/test/integration/*.integration.test.ts` | MT-SPIKE-001 |
 | Catalog and model | 009–016 | domain unit tests | implementation PR |
 | Lifecycle | 017–024 | booking integration | implementation PR |
 | Capacity and concurrency | 025–032 | `tests/concurrency`, SPIKE-DIVE-001 | `evidence/spikes/SPIKE-DIVE-001/` |
@@ -83,4 +83,4 @@ Traceability: TRACE-DIVE-MVP-001
 
 ## Current coverage
 
-All MVP booking and IAM requirements are **specified, not implemented**. Spike results are `Not executed`. Do not treat this map as verification.
+All MVP booking and IAM requirements are **specified, not implemented**. MT-SPIKE-001 has a PostgreSQL harness and tests; results remain `Not executed` until CI evidence is recorded. Do not treat this map as verification.

@@ -1,1 +1,9 @@
-export {};
+export { applyMtSpikeHarness } from './apply-harness.js';
+export {
+  spikeAdminDatabaseUrl,
+  spikeAppDatabaseUrl,
+} from './env.js';
+export { processOutboxOnce } from './outbox-consumer.js';
+export * from './schema.js';
+export type { TenantUnitOfWork } from './unit-of-work.js';
+export { withTenant } from './unit-of-work.js';

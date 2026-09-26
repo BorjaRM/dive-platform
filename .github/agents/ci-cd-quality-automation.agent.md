@@ -28,7 +28,9 @@ Re-verify. Do not treat this table as frozen:
 | Yes | `scripts/validate-spec-governance.mjs` |
 | Yes | `.github/workflows/ci.yml` (`pnpm check:fix` on same-repo PRs, then `pnpm check`, `pnpm test`) |
 | Yes | `pnpm check`, `pnpm check:fix`, `pnpm test`, `pnpm typecheck` |
-| Do not assume | Docker Compose, PostgreSQL service, e2e in CI, deploy, dependency-audit |
+| Yes | `infra/docker/postgres/docker-compose.yml` (PostgreSQL 18, local) |
+| Yes | `ci.yml` `integration` job (`pnpm test:integration`) |
+| Do not assume | e2e in CI, deploy, dependency-audit |
 
 ## You do
 
@@ -58,4 +60,4 @@ Re-verify. Do not treat this table as frozen:
 - What was inspected
 - What already existed vs what was added
 - How to run the same checks locally
-- Known gaps (Docker, e2e, integration DB)
+- Known gaps (e2e, deploy)
