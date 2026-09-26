@@ -57,7 +57,8 @@ describe('MT-SPIKE-001 drizzle', () => {
   it('keeps Drizzle columns and foreign keys aligned with PostgreSQL (MT-REQ-001, MT-REQ-003)', async () => {
     for (const table of tables) {
       const definition = getTableConfig(table);
-      const qualifiedName = `${definition.schema}.${definition.name}`;
+      const schemaName = definition.schema ?? 'mt_spike';
+      const qualifiedName = `${schemaName}.${definition.name}`;
 
       const actual = await adminPool.query<{ name: string; not_null: boolean }>(
         `SELECT attname AS name, attnotnull AS not_null
@@ -72,7 +73,7 @@ describe('MT-SPIKE-001 drizzle', () => {
         definition.columns
           .map((column) => ({
             name: column.name,
-            not_null: column.notNull,
+            not_null: Boolean(column.notNull),
           }))
           .sort((left, right) => left.name.localeCompare(right.name)),
       );
@@ -122,14 +123,20 @@ describe('MT-SPIKE-001 drizzle', () => {
             (column) => column.name,
           ),
           on_delete: onDeleteCodes[foreignKey.onDelete ?? 'no action'] ?? 'a',
-          target_schema: target.schema,
+          target_schema: target.schema ?? 'mt_spike',
           target_table: target.name,
         };
         expect(
           constraints.rows.some(
-            (row) => JSON.stringify(row) === JSON.stringify(expected),
+            (row) =>
+              row.target_schema === expected.target_schema &&
+              row.target_table === expected.target_table &&
+              row.on_delete === expected.on_delete &&
+              row.columns.join(',') === expected.columns.join(',') &&
+              row.foreign_columns.join(',') ===
+                expected.foreign_columns.join(','),
           ),
-          `${qualifiedName} missing ${JSON.stringify(expected)}`,
+          `${qualifiedName} missing ${JSON.stringify(expected)} in ${JSON.stringify(constraints.rows)}`,
         ).toBe(true);
       }
     }
@@ -156,14 +163,18 @@ describe('MT-SPIKE-001 drizzle', () => {
         centerId: centerA1,
         body: 'via-sql',
       });
-      const rows = await db.execute(sql`select tenant_id from mt_spike.notes`);
-      expect(rows.rows).toEqual([{ tenant_id: tenantA }]);
+      const result = await db.execute(
+        sql`select tenant_id from mt_spike.notes`,
+      );
+      const rows = 'rows' in result ? result.rows : result;
+      expect(rows).toEqual([{ tenant_id: tenantA }]);
     });
 
     const visibleToB = await withTenant(appPool, tenantB, async ({ db }) => {
       return db.execute(sql`select tenant_id from mt_spike.notes`);
     });
-    expect(visibleToB.rows).toEqual([]);
+    const visibleRows = 'rows' in visibleToB ? visibleToB.rows : visibleToB;
+    expect(visibleRows).toEqual([]);
   });
 
   it('rejects a Drizzle handle escaped after the unit of work (MT-REQ-005, MT-REQ-006)', async () => {
