@@ -17,6 +17,7 @@
 | Adoption profile | `specs/multitenancy/adoption-profile.md` | Draft |
 | ADR-DIVE-001 | `specs/architecture/adrs/ADR-DIVE-001.md` | Ready to start |
 | ADR-DIVE-002 | `specs/architecture/adrs/ADR-DIVE-002.md` | Ready to start |
+| ADR-DIVE-003 | `specs/architecture/adrs/ADR-DIVE-003.md` | Ready to start |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start |
 | SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred |

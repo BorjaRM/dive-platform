@@ -9,17 +9,25 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "check-types": "turbo run check-types",
+    "lint": "biome check .",
+    "typecheck": "turbo run typecheck",
+    "check-types": "turbo run typecheck",
+    "test": "turbo run test",
     "format": "biome format --write .",
-    "check": "turbo check",
-    "check:fix": "turbo check:fix"
+    "check": "biome check . && turbo run typecheck",
+    "check:fix": "biome check --write ."
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
+    "@dive-center/typescript-config": "workspace:*",
     "tsx": "^4.23.15",
     "turbo": "^2.11.3",
-    "typescript": "7.0.2"
+    "typescript": "catalog:"
   },
-  "packageManager": "pnpm@12.6.0"
+  "packageManager": "pnpm@12.6.0",
+  "pnpm": {
+    "overrides": {
+      "typescript": "7.0.2"
+    }
+  }
 }

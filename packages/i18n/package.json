@@ -1,5 +1,4 @@
 {
-  "name": "@dive-center/i18n",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,9 +12,12 @@
   },
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "typecheck": "tsc --noEmit",
-    "lint": "biome check src",
-    "test": "jest",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
     "clean": "rm -rf dist coverage"
-  }
+  },
+  "devDependencies": {
+    "@dive-center/typescript-config": "workspace:*",
+    "typescript": "catalog:"
+  },
+  "name": "@dive-center/i18n"
 }
