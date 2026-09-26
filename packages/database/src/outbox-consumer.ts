@@ -26,26 +26,19 @@ export async function processOutboxOnce(
       throw new Error('Outbox event not visible in tenant context');
     }
 
-    try {
-      await db.insert(consumerReceipts).values({
+    const inserted = await db
+      .insert(consumerReceipts)
+      .values({
         tenantId: event.tenantId,
         eventId: event.id,
         consumer,
         processedAt: new Date(),
+      })
+      .onConflictDoNothing()
+      .returning({
+        eventId: consumerReceipts.eventId,
       });
-      return 'processed';
-    } catch (error) {
-      const code =
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        typeof error.code === 'string'
-          ? error.code
-          : undefined;
-      if (code === '23505') {
-        return 'duplicate';
-      }
-      throw error;
-    }
+
+    return inserted.length === 0 ? 'duplicate' : 'processed';
   });
 }
