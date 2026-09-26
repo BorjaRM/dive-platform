@@ -1,14 +1,12 @@
 # SPIKE-DIVE-002 — Execution checkpoints
 
-- **Status:** Not started
+- **Status:** Deferred / not executed
 
-- [ ] Confirm normative dependencies and record their commit SHA.
-- [ ] Prepare isolated synthetic fixtures and environment.
-- [ ] Implement the minimum model or prototype needed by the scenarios.
-- [ ] Add deterministic positive tests.
-- [ ] Add negative, concurrency, abuse, or failure tests as applicable.
-- [ ] Run the documented commands from a clean environment.
-- [ ] Capture measurements, logs, traces, and limitations without PII or secrets.
-- [ ] Map every requirement to tests and evidence in `traceability.md`.
-- [ ] Complete `results.md` with commit, environment, observations, and conclusion.
-- [ ] Update `specs/traceability/TRACE-DIVE-MVP-001.md` if coverage or decisions change.
+1. Processing inventory.
+2. Legal vs contract vs practice distinction.
+3. Allowed / forbidden / deferred catalog.
+4. Role × data × purpose matrix.
+5. Retention and rights flows.
+6. Dated local legal review before real operations data.
+
+Do not use this checklist as the booking-MVP privacy gate.

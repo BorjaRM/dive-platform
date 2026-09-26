@@ -1,22 +1,35 @@
 # Spec-Driven Development (How we work)
 
-This is the working agreement for implementing features.
-
 ## Source of truth
 
-- Requirements and contracts: `specs/`
-- Implementation: code
-- Proof: tests + reproducible evidence (`evidence/`)
+| Kind | Lives in |
+|---|---|
+| Requirements, ADRs, spikes, TRACE | `specs/` |
+| Implementation | code |
+| Proof | tests + `evidence/` |
+| Context, navigation, status | Notion index pages |
 
-## Change flow (PR-based)
+Notion must not keep an editable copy of a SPEC. If Notion and GitHub disagree, GitHub wins.
 
-1. Update the relevant SPEC/ADR in `specs/`
-2. Update traceability (`specs/traceability/...`)
+## Change flow
+
+1. Update the SPEC/ADR in `specs/`
+2. Update TRACE
 3. Add or update executable tests
-4. Implement the minimum change to satisfy the spec
-5. Produce reproducible evidence when applicable (spikes, performance, isolation)
+4. Implement the minimum change
+5. Produce evidence for spikes, isolation, or performance
 6. Review and merge
+7. Update Notion status and links only
 
 ## Definition of Ready / Done
 
-Use the baseline in `specs/foundation/sdd-specs-traceability.md`.
+See `specs/foundation/sdd-specs-traceability.md`.
+
+Ready to start allows reversible implementation with synthetic data. Accepted is required before a real-data pilot unless an explicit exception is recorded.
+
+## States
+
+```text
+Draft → Ready to start → Review → Accepted
+                         ↘ Deferred
+```

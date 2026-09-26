@@ -2,15 +2,12 @@
 
 - **Status:** Deferred
 
-- **SPIKE-DIVE-002-REQ-001:** No real customer data is used during discovery.
-- **SPIKE-DIVE-002-REQ-002:** The design does not store diagnoses, medical answers, or document images.
-- **SPIKE-DIVE-002-REQ-003:** Every proposed field has a purpose, legal basis, access policy, and retention rule.
-- **SPIKE-DIVE-002-REQ-004:** Emergency contact necessity and access are explicitly justified.
-- **SPIKE-DIVE-002-REQ-005:** Certification or experience facts are separated from document custody.
-- **SPIKE-DIVE-002-REQ-006:** High-risk or uncertain fields default to forbidden or deferred.
-- **SPIKE-DIVE-002-REQ-007:** Legal and insurer assumptions are dated and attributable.
-- **SPIKE-DIVE-002-REQ-008:** The result proposes updates to OPS and IAM without expanding the booking MVP.
+- **SPIKE-DIVE-002-REQ-001:** Produce a processing inventory and data-category catalog for the operations evolution.
+- **SPIKE-DIVE-002-REQ-002:** Separate legal, contractual, certifier, insurer, and practice rules.
+- **SPIKE-DIVE-002-REQ-003:** Define allowed, forbidden, and deferred fields.
+- **SPIKE-DIVE-002-REQ-004:** Define role × data × purpose access and masking.
+- **SPIKE-DIVE-002-REQ-005:** Define retention, correction, export, restriction, deletion, audit, and backup handling.
+- **SPIKE-DIVE-002-REQ-006:** Obtain dated local legal/privacy validation before real operations data is used.
+- **SPIKE-DIVE-002-REQ-007:** Propose SPEC-DIVE-OPS-001 and SPEC-DIVE-IAM-001 updates; SPEC-DIVE-BOOKING-001 remains a negative boundary.
 
-## Completion rule
-
-Every requirement must map to at least one executable test or an explicitly reviewed non-executable validation, plus evidence in `results.md` or the referenced evidence directory.
+This spike is not evidence for the booking-MVP privacy gate.

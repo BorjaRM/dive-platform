@@ -1,60 +1,127 @@
 # Product profile — Dive centers (MVP)
 
-- **Status:** Ready to start  
-- **Version:** 0.3  
-- **Reference market:** Spain  
-- **Goal:** validate an end-to-end operable booking system (including minimal support capabilities) without implementing the advanced “trip operations” scope.
+- **Status:** Ready to start
+- **Version:** 0.4
+- **Reference market:** Spain
+- **Repository:** `BorjaRM/dive-platform`
+- **Package name:** `dive-center-platform`
+- **Solution slug:** `dive-platform`
 
-## 1) Adoption rule and normative sources
+## 1) Source of truth
 
-This product profile **adopts by reference** the cross-cutting multi-tenant baseline (architecture, IAM, security/privacy, operations, SDD method).
+GitHub `specs/` is the only normative source for behavior, architecture, security, data, tests, and delivery contracts.
 
-It does not duplicate those controls. It defines **dive-specific configuration**, domain extensions, and divergences.
+Notion holds context, navigation, and visible status. It must not keep a second editable copy of a SPEC, ADR, or requirement list.
 
-Normative references (by topic):
+If Notion and GitHub disagree, GitHub wins and the Notion page is stale until corrected.
 
-- Multitenancy architecture pattern: `specs/foundation/multitenancy-architecture.md`
-- IAM baseline: `specs/foundation/iam-baseline.md`
-- Security / privacy / multi-jurisdiction baseline: `specs/foundation/security-privacy-baseline.md`
-- Operations / quality / recovery baseline: `specs/foundation/operations-quality-recovery.md`
-- SDD + specs + traceability baseline: `specs/foundation/sdd-specs-traceability.md`
+Automation, if added, is GitHub → Notion metadata only.
 
-**Divergence rule:** any future divergence from the baseline must be recorded as an ADR, including justification, risk, owner, and review date.  
-If a contradiction is unresolved, the baseline prevails and product decisions are blocked until clarified.
+## 2) Adoption rule
 
-## 2) Product hypotheses
+This product adopts by reference:
 
-- Initial problem: centers handle availability and bookings manually across phone/email/forms/messaging.
-- Value proposition: publish availability, accept online bookings, keep a single calendar including manual bookings.
-- **Tenant/provider:** the dive operator (company) owning activities, availability, bookings, and data.
-- **Operational scope:** center/base within a tenant.
-- Channels: embedded widget, hosted public booking page, internal dashboard.
-- Customer identity: no account required in MVP; public flow + limited secure links.
-- Data region: EU, unless explicitly approved via ADR + jurisdiction profile.
+- `specs/foundation/multitenancy-architecture.md`
+- `specs/foundation/iam-baseline.md`
+- `specs/foundation/security-privacy-baseline.md`
+- `specs/foundation/operations-quality-recovery.md`
+- `specs/foundation/sdd-specs-traceability.md`
 
-## 3) MVP decision
+Dive-specific configuration lives in:
 
-Core MVP capabilities:
+- `specs/multitenancy/adoption-profile.md`
+- `specs/architecture/adrs/ADR-DIVE-001.md`
+- `specs/architecture/adrs/ADR-DIVE-002.md`
+- `specs/booking/SPEC-DIVE-BOOKING-001.md`
+- `specs/iam/SPEC-DIVE-IAM-001.md`
 
-- Configure booking services (“activities”) and scheduled occurrences (“slots”)
-- Online booking from widget/hosted page
-- Simple internal calendar + manual bookings from dashboard
+Any future divergence from the baseline requires an ADR with justification, risk, owner, and review date. Unresolved contradiction blocks implementation.
+
+## 3) Product hypotheses
+
+- Problem: centers handle availability and bookings across phone, email, forms, and messaging.
+- Value: publish availability, accept online bookings, keep one calendar including manual bookings.
+- Tenant: dive operator (company) owning activities, availability, bookings, and data.
+- Operational scope: center/base.
+- Channels: embedded widget, hosted public page, internal dashboard.
+- Customer identity: no account in MVP; public flow + limited secure links.
+- Data region: EU unless an ADR plus jurisdiction profile says otherwise.
+
+## 4) MVP decision
+
+- Configure activities and slots
+- Online booking from widget or hosted page
+- Simple internal calendar and manual bookings
 - Secure cancellation
-- Idempotent confirmations (outbox-based) without overselling
+- Idempotent confirmations via outbox without overselling
+- Spanish and English
 
-## 4) Explicitly out of scope (MVP)
+## 5) Explicitly out of scope
 
-- Trip operations: check-in, manifest, departure/return, incidents, closing
-- Certifications/eligibility/emergency contacts/medical data
+- Trip operations: check-in, manifest, departure/return, incidents
+- Certifications, eligibility, emergency contacts, medical data
 - Payments, deposits, invoicing, refunds
-- Multi-provider marketplace / OTA distribution (future phase)
+- Multi-provider marketplace / OTA
 - Offline mode / sync
+- Equipment, boats, and combined-resource capacity
 
-## 5) Walking skeleton gate (to start staging)
+Those topics remain in Deferred artifacts (`SPEC-DIVE-OPS-001`, `SPIKE-DIVE-002`) and must not enter booking implementation.
 
-Before using real personal data or piloting, we must have evidence for:
+## 6) Walking skeleton
 
-- cross-cutting multi-tenant validation (RLS, pooling, context propagation)
-- last-seat concurrency spike
-- widget integration/security spike
-- booking + IAM specs as normative contracts
+Minimum technical increment:
+
+```text
+Create tenant and center
+  → create an activity and schedule it
+  → query public availability
+  → book
+  → see the booking in the authorized dashboard
+  → emit confirmation in the outbox
+```
+
+Target product skeleton before pilot:
+
+```text
+Sign in
+  → configure center and activity
+  → publish a slot
+  → book from hosted page or widget
+  → confirmation
+  → calendar
+  → manual booking
+  → cancellation
+  → audit + outbox
+```
+
+## 7) Gates
+
+### Ready to start implementation (synthetic data)
+
+- This profile, ADR-DIVE-001, ADR-DIVE-002, SPEC-DIVE-BOOKING-001, and SPEC-DIVE-IAM-001 are Ready to start
+- Numbered requirements exist in GitHub
+- Notion pages are indexes, not second contracts
+
+### Before staging with synthetic data is “done”
+
+- Repository installs with documented commands
+- PostgreSQL 18 migrations from zero
+- MT-SPIKE-001 evidence
+- SPIKE-DIVE-001 evidence
+
+### Before real personal data or pilot
+
+- SPIKE-DIVE-003 evidence
+- Privacy review for contact, communications, consent, retention, and rights
+- SPEC and ADR applicable artifacts Accepted or an explicit exception
+- No production copy in non-prod
+
+CI, Docker Compose, and hosting automation are **not** gates of this documentation increment. They will be added later and must not be documented as if they already existed.
+
+## 8) Privacy boundary for the booking MVP
+
+Allowed: booker name, email, optional phone, optional participant name/email, booking operational data, audit metadata.
+
+Forbidden until a later decision: medical answers, diagnoses, document images, emergency contacts as a product feature, certification evidence.
+
+A dated local legal/privacy review is required before using real personal data. `SPIKE-DIVE-002` does not satisfy that gate; it belongs to the deferred operations evolution.

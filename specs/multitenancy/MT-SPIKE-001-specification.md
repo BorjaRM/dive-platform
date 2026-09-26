@@ -9,11 +9,11 @@ Can the shared PostgreSQL architecture preserve tenant isolation across HTTP, tr
 
 ## Scope
 
-Cross-cutting isolation only. Product booking capacity and widget behavior are excluded.
+Cross-cutting isolation only. Product booking capacity and widget behavior are excluded. Sharing fixtures with SPIKE-DIVE-001 does not merge results.
 
 ## Method
 
-Implement the smallest representative slice, execute deterministic positive and negative scenarios against real infrastructure where applicable, record commands and environment, and store reproducible evidence without real personal data.
+Implement the smallest representative slice, execute deterministic positive and negative scenarios against real PostgreSQL, record commands and environment, and store reproducible evidence without real personal data.
 
 ## Required scenarios
 
@@ -27,11 +27,11 @@ Implement the smallest representative slice, execute deterministic positive and 
 
 ## Dependencies
 
-- specs/foundation/multitenancy-architecture.md
-- specs/multitenancy/adoption-profile.md
-- specs/architecture/adrs/ADR-DIVE-001.md
-- specs/architecture/adrs/ADR-DIVE-002.md
+- `specs/foundation/multitenancy-architecture.md`
+- `specs/multitenancy/adoption-profile.md`
+- `specs/architecture/adrs/ADR-DIVE-001.md`
+- `specs/architecture/adrs/ADR-DIVE-002.md`
 
 ## Closure outcomes
 
-`Accepted`, `Accepted with conditions`, `Requires modification`, or `Rejected`. A conclusion requires committed tests and reproducible evidence; this document alone is not evidence.
+`Accepted`, `Accepted with conditions`, `Requires modification`, or `Rejected`. A conclusion requires committed tests and reproducible evidence.
