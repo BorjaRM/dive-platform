@@ -4,7 +4,7 @@
 
 Requirements, ADRs, spikes, and TRACE live in `specs/`. Implementation lives in code. Proof lives in tests and `evidence/`. Notion is navigation and status only.
 
-Do not restate requirement text. Reference exact files and IDs (`DIVE-*`, `MT-REQ-*`, `SPIKE-DIVE-*-REQ-*`). If GitHub and Notion disagree, GitHub wins.
+Do not restate requirement text. Reference exact files and IDs (`DIVE-*`, `MT-REQ-*`, `MT-SPIKE-001`, `SPIKE-DIVE-001`, `SPIKE-DIVE-*-REQ-*`). Never write `SPIKE-001` in this repo; that ID is another product. If GitHub and Notion disagree, GitHub wins.
 
 Required reading before product or architecture work:
 
@@ -31,11 +31,11 @@ Inspect the repository before claiming CI, Docker, e2e, or integration infrastru
 Verify before use (do not treat this list as frozen):
 
 - Spec CI: `.github/workflows/spec-governance.yml` and `scripts/validate-spec-governance.mjs`
-- App CI: `.github/workflows/ci.yml` (same-repo PRs apply `pnpm check:fix`, then `pnpm check` and `pnpm test`)
+- App CI: `.github/workflows/ci.yml` (same-repo PRs apply `pnpm check:fix`, then `pnpm check` and `pnpm test`; separate `integration` job with PostgreSQL 18)
 - Root scripts in `package.json`: `pnpm check`, `pnpm check:fix`, `pnpm test`, `pnpm typecheck`
 - Apps: `apps/web`, `apps/api`, `apps/worker` (starters; topology is not fully provisioned)
 
-Do not claim Docker, e2e, integration PostgreSQL, or other tooling unless the files exist.
+Docker Compose + integration PostgreSQL exist for MT-SPIKE-001 (`infra/docker/postgres`, `pnpm test:integration`). Do not claim e2e or product migrations unless those files exist.
 
 ## Cross-cutting constraints
 

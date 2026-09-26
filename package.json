@@ -1,7 +1,7 @@
 {
   "name": "dive-center-platform",
   "private": true,
-  "description": "Plataforma SaaS multi-tenant para reservas y gestión operativa de centros de buceo.",
+  "description": "Plataforma SaaS multi-tenant para reservas y gesti\u00f3n operativa de centros de buceo.",
   "license": "UNLICENSED",
   "engines": {
     "node": ">=22.22.3"
@@ -15,7 +15,8 @@
     "test": "turbo run test",
     "format": "biome format --write .",
     "check": "biome check . && turbo run typecheck",
-    "check:fix": "biome check --write ."
+    "check:fix": "biome check --write .",
+    "test:integration": "pnpm --filter @dive-center/database test:integration"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",

@@ -12,6 +12,7 @@ GitHub `specs/` is the source of truth. Notion is navigation and status only.
 - **Activity:** catalog offering, e.g. “Discover Scuba Dive”
 - **Slot / scheduled activity:** concrete occurrence with its own capacity and state (`Slot` in code)
 - **Session:** authentication lifecycle only
+- **Spike IDs:** always `MT-SPIKE-001` (isolation) and `SPIKE-DIVE-001` (last seat). There is no `SPIKE-001` in this repository.
 
 ## What exists today
 
@@ -26,12 +27,18 @@ The repository is a TypeScript monorepo skeleton:
 - Tooling: pnpm, Turborepo, Biome, Node `22.22.3`, TypeScript `7.0.2`
 - CI: `.github/workflows/ci.yml` (`pnpm check:fix` on same-repo PRs, then `pnpm check`, `pnpm test`) and `.github/workflows/spec-governance.yml`
 
+Present for MT-SPIKE-001 (synthetic data only):
+
+- `infra/docker/postgres` — PostgreSQL 18 Compose recipe
+- `.env.example` — `SPIKE_*` URLs
+- `pnpm test:integration` — isolation/outbox tests against real PostgreSQL
+- `@dive-center/database` — Drizzle schema + unit of work for the spike prototype (`mt_spike`)
+
 Not in the repository yet (planned, do not assume they exist):
 
-- Docker Compose / local PostgreSQL recipes
-- `.env.example`, migrations, seeds
-- `pnpm db:*`, `pnpm test:integration`, `pnpm specs:validate`
-- Clerk, Drizzle schema, outbox worker implementation
+- Product booking schema, seeds, `pnpm db:*`
+- `pnpm specs:validate` as a root alias (spec CI uses `scripts/validate-spec-governance.mjs`)
+- Clerk, production outbox worker, e2e
 
 ## First product slice
 
@@ -88,7 +95,12 @@ GitHub Actions:
 - `.github/workflows/ci.yml` — on same-repo PRs, `pnpm check:fix` (commit if needed), then `pnpm check` and `pnpm test`; on `main`, `pnpm check` and `pnpm test`
 - `.github/workflows/spec-governance.yml` — SPEC validator on `specs/**` paths
 
-Database, integration, and e2e commands will be documented when those tools land.
+```bash
+docker compose -f infra/docker/postgres/docker-compose.yml up -d --wait
+pnpm test:integration
+```
+
+E2E commands will be documented when those tools land.
 
 ## Scope
 

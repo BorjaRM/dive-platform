@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: dive-platform-postgres
+    ports:
+      - "55432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dive_spike
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dive_spike && psql -U postgres -d dive_spike -c 'SELECT 1' >/dev/null"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+volumes:
+  postgres_data:
+    name: dive-platform-postgres-data

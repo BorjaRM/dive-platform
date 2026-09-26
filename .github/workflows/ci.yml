@@ -63,3 +63,44 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: dive_spike
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dive_spike"
+          --health-interval 3s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      SPIKE_ADMIN_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/dive_spike
+      SPIKE_APP_DATABASE_URL: postgres://dive_app:dive_app@127.0.0.1:5432/dive_spike
+      SPIKE_APP_PASSWORD: dive_app
+      SPIKE_MIGRATION_PASSWORD: dive_migration
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Integration tests
+        run: pnpm test:integration
