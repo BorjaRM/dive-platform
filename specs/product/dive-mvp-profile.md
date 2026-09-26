@@ -1,7 +1,7 @@
 # Product profile — Dive centers (MVP)
 
 - **Status:** Ready to start
-- **Version:** 0.5
+- **Version:** 0.6
 - **Reference market:** Spain
 - **Repository:** `BorjaRM/dive-platform`
 - **Package name:** `dive-center-platform`
@@ -126,7 +126,9 @@ Sign in
 - SPEC and ADR applicable artifacts Accepted or an explicit exception
 - No production copy in non-prod
 
-CI, Docker Compose, and hosting automation are **not** gates of this documentation increment. They will be added later and must not be documented as if they already existed.
+CI and Docker Compose now exist as development and test infrastructure. They remain outside the gates of this documentation increment. Hosting and production deployment automation do not exist yet and must not be documented as existing.
+
+Provenance: `Documented` — current implementation in `.github/workflows/ci.yml`, `infra/docker/postgres/docker-compose.yml`, `.env.example`, and the root `package.json`; gate meaning unchanged from version 0.5.
 
 ## 8) Privacy boundary for the booking MVP
 
