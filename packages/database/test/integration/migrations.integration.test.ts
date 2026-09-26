@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getTableConfig } from 'drizzle-orm/pg-core';
-import type { Pool } from 'pg';
+import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { bootstrapRoles } from '../../src/bootstrap-roles.js';
 import { migrationDatabaseUrl, spikeAdminDatabaseUrl } from '../../src/env.js';
@@ -31,7 +31,7 @@ function urlForDatabase(sourceUrl: string, databaseName: string): string {
 describe('product migrations', () => {
   let adminPool: Pool;
   let appPool: Pool;
-  let emptyAdminPool: Pool;
+  let emptyAdminPool: Pool | undefined;
 
   beforeAll(async () => {
     adminPool = createAdminPool();
@@ -67,7 +67,7 @@ describe('product migrations', () => {
   });
 
   afterAll(async () => {
-    await emptyAdminPool.end();
+    await emptyAdminPool?.end();
     await appPool.end();
     await adminPool.end();
     const maintenance = new Pool({
