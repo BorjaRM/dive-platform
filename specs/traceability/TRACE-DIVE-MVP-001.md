@@ -1,31 +1,33 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.2
+- **Version:** 0.3
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
 
-| Artifact | Path | Status |
-|---|---|---|
-| Product profile | `specs/product/dive-mvp-profile.md` | Ready to start |
-| Foundation — multitenancy | `specs/foundation/multitenancy-architecture.md` | Ready to start |
-| Foundation — IAM | `specs/foundation/iam-baseline.md` | Ready to start |
-| Foundation — security/privacy | `specs/foundation/security-privacy-baseline.md` | Ready to start |
-| Foundation — operations | `specs/foundation/operations-quality-recovery.md` | Ready to start |
-| Foundation — SDD | `specs/foundation/sdd-specs-traceability.md` | Ready to start |
-| Adoption profile | `specs/multitenancy/adoption-profile.md` | Draft |
-| ADR-DIVE-001 | `specs/architecture/adrs/ADR-DIVE-001.md` | Ready to start |
-| ADR-DIVE-002 | `specs/architecture/adrs/ADR-DIVE-002.md` | Ready to start |
-| ADR-DIVE-003 | `specs/architecture/adrs/ADR-DIVE-003.md` | Ready to start |
-| SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start |
-| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start |
-| SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred |
-| MT-SPIKE-001 | `specs/multitenancy/` | Draft / not executed |
-| SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed |
-| SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred |
-| SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start |
+| Artifact | Path | Status | Version |
+|---|---|---|---|
+| Product profile | `specs/product/dive-mvp-profile.md` | Ready to start | 0.5 |
+| Foundation — multitenancy | `specs/foundation/multitenancy-architecture.md` | Ready to start | 0.2 |
+| Foundation — IAM | `specs/foundation/iam-baseline.md` | Ready to start | 0.2 |
+| Foundation — security/privacy | `specs/foundation/security-privacy-baseline.md` | Ready to start | 0.2 |
+| Foundation — operations | `specs/foundation/operations-quality-recovery.md` | Ready to start | 0.2 |
+| Foundation — SDD | `specs/foundation/sdd-specs-traceability.md` | Ready to start | 0.3 |
+| Adoption profile | `specs/multitenancy/adoption-profile.md` | Draft | 0.2 |
+| ADR-DIVE-001 | `specs/architecture/adrs/ADR-DIVE-001.md` | Ready to start | 0.2 |
+| ADR-DIVE-002 | `specs/architecture/adrs/ADR-DIVE-002.md` | Ready to start | 0.2 |
+| ADR-DIVE-003 | `specs/architecture/adrs/ADR-DIVE-003.md` | Ready to start | 0.1 |
+| SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 0.4 |
+| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.3 |
+| SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.2-draft |
+| MT-SPIKE-001 | `specs/multitenancy/` | Draft / not executed | see spike files |
+| SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
+| SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
+| SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.3 |
+
+Notion indexes must show this map’s version. They must not invent a second sequence (the previous Notion “mapa documental 0.7” is retired).
 
 Notion pages are indexes only. They are not coverage evidence.
 
