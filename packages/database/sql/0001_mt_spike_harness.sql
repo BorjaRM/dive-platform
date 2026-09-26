@@ -1,4 +1,5 @@
--- MT-SPIKE-001 prototype schema. Proposed table names; not the product booking schema.
+-- MT-SPIKE-001 test infrastructure only. Not a product migration.
+-- Prototype schema. Proposed table names; not the product booking schema.
 -- Documented: tenant_id, center as operational scope, forced RLS, app role without BYPASSRLS/DDL.
 
 CREATE SCHEMA IF NOT EXISTS mt_spike;

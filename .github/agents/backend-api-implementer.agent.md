@@ -33,6 +33,14 @@ Smallest backend change that satisfies listed requirement IDs. Do not invent pro
 - Keep tenant context server-authorized; never trust client-supplied tenant/center/activity as authorization.
 - Treat outbox/worker side effects as part of the use case when the SPEC/ADR requires reliable delivery (ADR-DIVE-002).
 
+## Implementation design
+
+- Keep NestJS controllers and adapters thin: translate transport concerns and delegate business behavior to application/domain code.
+- Keep domain code independent of NestJS, persistence, and vendor SDKs; place integrations behind ports only when there is a real consumer.
+- Make transaction, idempotency, and outbox boundaries explicit at the use-case level. Do not hide them in generic helpers.
+- Reuse established modules and injection tokens. Add repositories, factories, or strategies only for a demonstrated boundary or variation.
+- Test use-case behavior through public entry points, including failure and authorization paths; avoid assertions on private method calls.
+
 ## You do not
 
 - Implement `SPEC-DIVE-OPS-001` (Deferred).

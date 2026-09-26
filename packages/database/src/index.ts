@@ -1,13 +1,26 @@
-export { applyMtSpikeHarness } from './apply-harness.js';
-export type { AuthorizedTenantContext } from './authorize.js';
+export { bootstrapRoles } from './bootstrap-roles.js';
 export {
-  authorize,
-  withAuthorizedTenant,
-} from './authorize.js';
-export {
-  spikeAdminDatabaseUrl,
-  spikeAppDatabaseUrl,
+  appDatabaseUrl,
+  migrationDatabaseUrl,
 } from './env.js';
-export { processOutboxOnce } from './outbox-consumer.js';
-export * from './schema.js';
+export type { IamAccessContext } from './iam-authorize.js';
+export {
+  IamAccessDeniedError,
+  resolveIamAccess,
+  withIamAuthorizedTenant,
+} from './iam-authorize.js';
+export type { IdentityWebhookCommandResult } from './iam-identity-webhooks.js';
+export { applyIdentityWebhook } from './iam-identity-webhooks.js';
+export type {
+  InvitationCommandResult,
+  MembershipCommandResult,
+} from './iam-membership-commands.js';
+export {
+  disableIamMembership,
+  issueIamInvitation,
+  respondToIamInvitation,
+  revokeIamInvitation,
+} from './iam-membership-commands.js';
+export { migrateProduct } from './migrate.js';
+export * from './product-schema.js';
 export type { TenantUnitOfWork } from './unit-of-work.js';

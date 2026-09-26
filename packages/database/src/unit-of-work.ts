@@ -1,6 +1,6 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Pool, PoolClient } from 'pg';
-import * as schema from './schema.js';
+import * as schema from './product-schema.js';
 
 export type TenantUnitOfWork = {
   client: PoolClient;

@@ -1,11 +1,14 @@
 import { and, eq } from 'drizzle-orm';
 import type { Pool } from 'pg';
-import { consumerReceipts, outboxEvents } from './schema.js';
-import { type TenantUnitOfWork, withTenant } from './unit-of-work.js';
+import { consumerReceipts, outboxEvents } from './harness-schema.js';
+import {
+  type HarnessTenantUnitOfWork,
+  withTenant,
+} from './harness-unit-of-work.js';
 
 type OutboxDatabaseEffect = (context: {
   correlationId: string;
-  db: TenantUnitOfWork['db'];
+  db: HarnessTenantUnitOfWork['db'];
   tenantId: string;
 }) => Promise<void>;
 

@@ -2,10 +2,18 @@ function requiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
     throw new Error(
-      `Missing ${name}. Start infra/docker/postgres and export SPIKE_* URLs from .env.example.`,
+      `Missing ${name}. Configure the database URLs documented in .env.example.`,
     );
   }
   return value;
+}
+
+export function appDatabaseUrl(): string {
+  return requiredEnv('APP_DATABASE_URL');
+}
+
+export function migrationDatabaseUrl(): string {
+  return requiredEnv('MIGRATION_DATABASE_URL');
 }
 
 export function spikeAdminDatabaseUrl(): string {

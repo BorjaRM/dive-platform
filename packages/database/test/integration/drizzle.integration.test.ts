@@ -3,9 +3,12 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import * as schema from '../../src/schema.js';
-import { notes } from '../../src/schema.js';
-import { type TenantUnitOfWork, withTenant } from '../../src/unit-of-work.js';
+import * as schema from '../../src/harness-schema.js';
+import { notes } from '../../src/harness-schema.js';
+import {
+  type HarnessTenantUnitOfWork,
+  withTenant,
+} from '../../src/harness-unit-of-work.js';
 import {
   centerA1,
   createAdminPool,
@@ -178,7 +181,7 @@ describe('MT-SPIKE-001 drizzle', () => {
   });
 
   it('rejects a Drizzle handle escaped after the unit of work (MT-REQ-005, MT-REQ-006)', async () => {
-    let escaped: TenantUnitOfWork['db'] | undefined;
+    let escaped: HarnessTenantUnitOfWork['db'] | undefined;
     await withTenant(appPool, tenantA, async ({ db }) => {
       escaped = db;
     });

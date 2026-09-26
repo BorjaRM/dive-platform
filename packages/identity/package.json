@@ -13,11 +13,18 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "typecheck": "tsc --noEmit --project tsconfig.json",
+    "test": "vitest run src",
     "clean": "rm -rf dist coverage"
   },
   "devDependencies": {
     "@dive-center/typescript-config": "workspace:*",
-    "typescript": "catalog:"
+    "@types/node": "^24.13.6",
+    "typescript": "catalog:",
+    "vitest": "^4.1.11"
+  },
+  "dependencies": {
+    "@clerk/backend": "3.20.1",
+    "@dive-center/contracts": "workspace:*"
   },
   "name": "@dive-center/identity"
 }

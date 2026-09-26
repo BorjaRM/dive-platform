@@ -1,0 +1,81 @@
+import type { IamDenialReason } from '@dive-center/contracts';
+import type { Pool, PoolClient } from 'pg';
+import { type TenantUnitOfWork, withTenant } from './unit-of-work.js';
+
+export class IamAccessDeniedError extends Error {
+  constructor(readonly reason: IamDenialReason) {
+    super('Access denied');
+    this.name = 'IamAccessDeniedError';
+  }
+}
+
+export type IamAccessContext = Readonly<{
+  issuer: string;
+  subject: string;
+  identityId: string;
+  membershipId: string;
+  tenantId: string;
+  roles: readonly string[];
+  centerIds: readonly string[] | null;
+}>;
+
+type ResolvedAccess = {
+  identityId: string;
+  membershipId: string;
+  tenantId: string;
+  roles: string[];
+  centerIds: string[] | null;
+};
+
+export async function resolveIamAccess(
+  connection: Pick<Pool | PoolClient, 'query'>,
+  principal: Readonly<{ issuer: string; subject: string }>,
+  requestedTenantId: string,
+): Promise<IamAccessContext> {
+  if (!principal.issuer || !principal.subject || !requestedTenantId) {
+    throw new IamAccessDeniedError('membership_missing_or_inactive');
+  }
+  const result = await connection.query<{ access: ResolvedAccess | null }>(
+    'SELECT iam_app.resolve_access($1, $2, $3::uuid) AS access',
+    [principal.issuer, principal.subject, requestedTenantId],
+  );
+  const access = result.rows[0]?.access;
+  if (!access) {
+    throw new IamAccessDeniedError('membership_missing_or_inactive');
+  }
+  return Object.freeze({
+    ...access,
+    issuer: principal.issuer,
+    subject: principal.subject,
+    roles: Object.freeze([...access.roles]),
+    centerIds: access.centerIds ? Object.freeze([...access.centerIds]) : null,
+  });
+}
+
+export async function withIamAuthorizedTenant<T>(
+  pool: Pool,
+  context: IamAccessContext,
+  fn: (uow: TenantUnitOfWork, current: IamAccessContext) => Promise<T>,
+  options: Readonly<{ lockTenant?: boolean }> = {},
+): Promise<T> {
+  return withTenant(pool, context.tenantId, async (uow) => {
+    if (options.lockTenant) {
+      await uow.client.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+        [context.tenantId],
+      );
+    }
+    const current = await resolveIamAccess(
+      uow.client,
+      context,
+      context.tenantId,
+    );
+    if (
+      current.identityId !== context.identityId ||
+      current.membershipId !== context.membershipId
+    ) {
+      throw new IamAccessDeniedError('membership_missing_or_inactive');
+    }
+    return fn(uow, current);
+  });
+}

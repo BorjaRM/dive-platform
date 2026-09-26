@@ -1,0 +1,421 @@
+{
+  "id": "d592f619-841b-4b6b-b3d1-76343f444dd4",
+  "prevId": "efc979f3-eb17-41f8-95e6-3ef6a04aa836",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "iam_app.audit_records": {
+      "name": "audit_records",
+      "schema": "iam_app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_identity_id": {
+          "name": "actor_identity_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resource_type": {
+          "name": "resource_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resource_id": {
+          "name": "resource_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "result": {
+          "name": "result",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "correlation_id": {
+          "name": "correlation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "audit_records_tenant_id_tenants_id_fk": {
+          "name": "audit_records_tenant_id_tenants_id_fk",
+          "tableFrom": "audit_records",
+          "columnsFrom": ["tenant_id"],
+          "tableTo": "tenants",
+          "schemaTo": "iam_app",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "audit_records_tenant_id_id_pk": {
+          "name": "audit_records_tenant_id_id_pk",
+          "columns": ["tenant_id", "id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "iam_app.centers": {
+      "name": "centers",
+      "schema": "iam_app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "centers_tenant_id_tenants_id_fk": {
+          "name": "centers_tenant_id_tenants_id_fk",
+          "tableFrom": "centers",
+          "columnsFrom": ["tenant_id"],
+          "tableTo": "tenants",
+          "schemaTo": "iam_app",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "centers_tenant_id_id_pk": {
+          "name": "centers_tenant_id_id_pk",
+          "columns": ["tenant_id", "id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "iam_app.external_identities": {
+      "name": "external_identities",
+      "schema": "iam_app",
+      "columns": {
+        "identity_id": {
+          "name": "identity_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "issuer": {
+          "name": "issuer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject": {
+          "name": "subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "external_identities_identity_id_identities_id_fk": {
+          "name": "external_identities_identity_id_identities_id_fk",
+          "tableFrom": "external_identities",
+          "columnsFrom": ["identity_id"],
+          "tableTo": "identities",
+          "schemaTo": "iam_app",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "external_identities_issuer_subject_pk": {
+          "name": "external_identities_issuer_subject_pk",
+          "columns": ["issuer", "subject"]
+        }
+      },
+      "uniqueConstraints": {
+        "external_identities_identity_id_issuer_unique": {
+          "name": "external_identities_identity_id_issuer_unique",
+          "columns": ["identity_id", "issuer"],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "iam_app.identities": {
+      "name": "identities",
+      "schema": "iam_app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "iam_app.memberships": {
+      "name": "memberships",
+      "schema": "iam_app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "identity_id": {
+          "name": "identity_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "roles": {
+          "name": "roles",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "center_ids": {
+          "name": "center_ids",
+          "type": "uuid[]",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "memberships_tenant_id_tenants_id_fk": {
+          "name": "memberships_tenant_id_tenants_id_fk",
+          "tableFrom": "memberships",
+          "columnsFrom": ["tenant_id"],
+          "tableTo": "tenants",
+          "schemaTo": "iam_app",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "memberships_identity_id_identities_id_fk": {
+          "name": "memberships_identity_id_identities_id_fk",
+          "tableFrom": "memberships",
+          "columnsFrom": ["identity_id"],
+          "tableTo": "identities",
+          "schemaTo": "iam_app",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "memberships_tenant_id_id_pk": {
+          "name": "memberships_tenant_id_id_pk",
+          "columns": ["tenant_id", "id"]
+        }
+      },
+      "uniqueConstraints": {
+        "memberships_tenant_id_identity_id_unique": {
+          "name": "memberships_tenant_id_identity_id_unique",
+          "columns": ["tenant_id", "identity_id"],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "memberships_status_known": {
+          "name": "memberships_status_known",
+          "value": "status IN ('pending', 'active', 'disabled')"
+        },
+        "memberships_roles_known": {
+          "name": "memberships_roles_known",
+          "value": "cardinality(roles) > 0 AND roles <@ ARRAY[\n        'tenant_owner',\n        'tenant_admin',\n        'operations_lead',\n        'auditor_compliance',\n        'center_manager',\n        'reception_booking_manager',\n        'external_collaborator'\n      ]::text[]"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "iam_app.outbox_events": {
+      "name": "outbox_events",
+      "schema": "iam_app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "correlation_id": {
+          "name": "correlation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "outbox_events_tenant_id_tenants_id_fk": {
+          "name": "outbox_events_tenant_id_tenants_id_fk",
+          "tableFrom": "outbox_events",
+          "columnsFrom": ["tenant_id"],
+          "tableTo": "tenants",
+          "schemaTo": "iam_app",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "outbox_events_tenant_id_id_pk": {
+          "name": "outbox_events_tenant_id_id_pk",
+          "columns": ["tenant_id", "id"]
+        }
+      },
+      "uniqueConstraints": {
+        "outbox_events_tenant_id_idempotency_key_unique": {
+          "name": "outbox_events_tenant_id_idempotency_key_unique",
+          "columns": ["tenant_id", "idempotency_key"],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "iam_app.tenants": {
+      "name": "tenants",
+      "schema": "iam_app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "iam_app": "iam_app"
+  },
+  "views": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

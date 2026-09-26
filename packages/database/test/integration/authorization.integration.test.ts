@@ -1,8 +1,8 @@
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { authorize, withAuthorizedTenant } from '../../src/authorize.js';
+import { notes } from '../../src/harness-schema.js';
 import * as databasePackage from '../../src/index.js';
-import { notes } from '../../src/schema.js';
 import {
   centerA1,
   createAdminPool,

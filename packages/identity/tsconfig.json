@@ -1,6 +1,8 @@
 {
   "extends": "@dive-center/typescript-config/node-library.json",
   "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
     "outDir": "dist",
     "rootDir": "src"
   },

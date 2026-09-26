@@ -32,7 +32,7 @@ Present for MT-SPIKE-001 (synthetic data only):
 - `infra/docker/postgres` — PostgreSQL 18 Compose recipe
 - `.env.example` — `SPIKE_*` URLs
 - `pnpm test:integration` — isolation/outbox tests against real PostgreSQL
-- `@dive-center/database` — Drizzle schema + unit of work for the spike prototype (`mt_spike`)
+- `@dive-center/database` — product migrations (`iam_app`, Drizzle Kit) and the MT-SPIKE-001 test harness (`mt_spike`)
 
 Not in the repository yet (planned, do not assume they exist):
 

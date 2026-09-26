@@ -1,5 +1,8 @@
 import type { Pool } from 'pg';
-import { type TenantUnitOfWork, withTenant } from './unit-of-work.js';
+import {
+  type HarnessTenantUnitOfWork,
+  withTenant,
+} from './harness-unit-of-work.js';
 
 export type AuthorizedTenantContext = {
   identityId: string;
@@ -35,7 +38,7 @@ export async function authorize(
 export async function withAuthorizedTenant<T>(
   pool: Pool,
   context: AuthorizedTenantContext,
-  fn: (uow: TenantUnitOfWork) => Promise<T>,
+  fn: (uow: HarnessTenantUnitOfWork) => Promise<T>,
 ): Promise<T> {
   if (!context?.identityId || !context.tenantId) {
     throw new Error('Access denied');
