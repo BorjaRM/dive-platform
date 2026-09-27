@@ -8,7 +8,7 @@
 - **Owner:** Product / Security
 - **IDs:** `DIVE-IAM-REQ-001` … `DIVE-IAM-REQ-031`
 
-`DIVE-IAM-REQ-029` … `031` are `Proposed` and non-normative until `ADR-DIVE-008` is approved and merged. They are not Ready to start for implementation.
+`DIVE-IAM-REQ-029` … `031` are `Proposed`. They do not authorize implementation until `ADR-DIVE-008` is approved and merged.
 
 ## Normative authority
 
@@ -27,7 +27,7 @@ The ranges below cover every requirement in this SPEC. Decisions originating in 
 | `DIVE-IAM-REQ-016` | `Proposed` | PR #1 revocation-window decision | Approved by product owner for MVP validation |
 | `DIVE-IAM-REQ-017..DIVE-IAM-REQ-020` | `Proposed` | PR #1 invitation, owner-lockout, MFA-readiness, and support-access decisions | Approved by product owner for MVP validation |
 | `DIVE-IAM-REQ-021..DIVE-IAM-REQ-028` | `Derived` | `specs/foundation/iam-baseline.md`; `specs/foundation/security-privacy-baseline.md`; PR #1 | Approved by product owner |
-| `DIVE-IAM-REQ-029..DIVE-IAM-REQ-031` | `Proposed` | Draft `ADR-DIVE-008`; product confirmation 2026-09-27 to apply the recommended dashboard context contract | Non-normative until `ADR-DIVE-008` is approved and merged |
+| `DIVE-IAM-REQ-029..DIVE-IAM-REQ-031` | `Proposed` | Draft `ADR-DIVE-008`; product confirmation 2026-09-27 to apply the recommended dashboard context contract | Approved by product owner as Proposed in Draft ADR-DIVE-008; implementation not authorized until that ADR is merged |
 
 ## Goal
 
@@ -66,7 +66,7 @@ allow = identity is authenticated
 
 Default deny. Client-supplied roles, permissions, or tenant IDs are never authoritative.
 
-Proposed dashboard specialization (`DIVE-IAM-REQ-029..031`, non-normative until `ADR-DIVE-008` is approved): authorized tenant context is resolved from an internal tenant-scoped handle after Clerk authentication. It is not taken from `/tenants/:tenantId`, query, or body.
+Proposed dashboard specialization (`DIVE-IAM-REQ-029..031`; implementation not authorized until `ADR-DIVE-008` is merged): authorized tenant context is resolved from an internal tenant-scoped handle after Clerk authentication. It is not taken from `/tenants/:tenantId`, query, or body.
 
 ## Roles (MVP)
 
@@ -144,7 +144,7 @@ Write variants of `audit.*` and `support.tenant.write` are out of MVP.
 
 ## Proposed dashboard API (`ADR-DIVE-008`)
 
-Non-normative until `ADR-DIVE-008` is approved. Runtime routes today still use `/v1/tenants/:tenantId/...`.
+Implementation not authorized until `ADR-DIVE-008` is merged. Runtime routes today still use `/v1/tenants/:tenantId/...`.
 
 ```text
 GET    /v1/me/operators
@@ -190,7 +190,7 @@ Protected product requests send `Authorization: Bearer <clerk-session-token>` an
 - Public channel and token negative tests
 - Revocation timing test or documented measurement
 - Support access expiry test
-- After `ADR-DIVE-008` approval: dashboard routes without `/tenants/:tenantId`; old tenant-path shapes rejected; handle/session/identity mismatch; automatic and explicit operator selection; non-disclosing invalid `operatorRef`
+- After `ADR-DIVE-008` merge: dashboard routes without `/tenants/:tenantId`; old tenant-path shapes rejected; handle/session/identity mismatch; automatic and explicit operator selection; non-disclosing invalid `operatorRef`
 
 ## Open questions
 
