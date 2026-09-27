@@ -170,13 +170,17 @@ function fixtureIds(): SandboxFixture {
   });
 }
 
+function dashboardCenterPath(fixture: SandboxFixture): string {
+  return `/v1/tenants/${fixture.tenantId}/centers/${fixture.centerId}`;
+}
+
 async function centerRequest(
   app: INestApplication,
   fixture: SandboxFixture,
   token: string,
 ): Promise<number> {
   const response = await request(app.getHttpServer())
-    .get(`/v1/tenants/${fixture.tenantId}/centers/${fixture.centerId}`)
+    .get(dashboardCenterPath(fixture))
     .set('authorization', `Bearer ${token}`);
   return response.status;
 }
