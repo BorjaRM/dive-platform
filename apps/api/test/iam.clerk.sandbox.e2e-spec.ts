@@ -14,6 +14,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { clerkIdentityConfigFromEnvironment } from '../src/clerk.config.js';
 import { createClerkBrowserSession } from './clerk.browser-session.js';
+import { legacyDashboardCenterPath } from './legacy-dashboard-routes.js';
 
 const REVOCATION_REQUIREMENT_MS = 5 * 60 * 1_000;
 const REAL_RUN_FLAG = 'DIVE_REAL_CLERK_E2E';
@@ -142,7 +143,7 @@ function loadSandboxConfig(): SandboxConfig {
       'SPIKE_ADMIN_DATABASE_URL',
       'postgres',
     ),
-    appDatabaseUrl: sandboxDatabaseUrl('APP_DATABASE_URL', 'dive_app'),
+    appDatabaseUrl: sandboxDatabaseUrl('SPIKE_APP_DATABASE_URL', 'dive_app'),
     userId: requiredEnvironment('DIVE_CLERK_SANDBOX_USER_ID'),
     userPassword: requiredEnvironment('DIVE_CLERK_SANDBOX_USER_PASSWORD'),
     controlUserId: requiredEnvironment('DIVE_CLERK_SANDBOX_CONTROL_USER_ID'),
@@ -176,7 +177,7 @@ async function centerRequest(
   token: string,
 ): Promise<number> {
   const response = await request(app.getHttpServer())
-    .get(`/v1/tenants/${fixture.tenantId}/centers/${fixture.centerId}`)
+    .get(legacyDashboardCenterPath(fixture.tenantId, fixture.centerId))
     .set('authorization', `Bearer ${token}`);
   return response.status;
 }
@@ -368,6 +369,7 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
 
   beforeAll(async () => {
     config = loadSandboxConfig();
+    process.env.APP_DATABASE_URL = config.appDatabaseUrl;
     browser = await chromium.launch();
     admin = new Pool({ connectionString: config.adminDatabaseUrl });
     await bootstrapRoles(admin);
@@ -434,6 +436,7 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
       );
     }
     await app?.close();
+    await moduleFixture?.close();
     await browser?.close();
     await admin?.end();
   });

@@ -1,4 +1,4 @@
-import type { Browser } from 'playwright';
+import type { Browser, Locator, Page } from 'playwright';
 
 type ClerkBrowserSessionOptions = Readonly<{
   browser: Browser;
@@ -28,10 +28,16 @@ function signInUrl(accountPortalUrl: string): string {
   return `${accountPortalUrl}/sign-in?redirect_url=${encodeURIComponent(`${accountPortalUrl}/default-redirect`)}`;
 }
 
-async function submit(page: import('playwright').Page): Promise<void> {
+async function submit(
+  page: Page,
+  field: Locator,
+  buttonName: 'Continue' | 'Sign in',
+): Promise<void> {
   await page
-    .getByRole('button', { name: /^(Continue|Sign in)$/ })
-    .last()
+    .locator('form')
+    .filter({ has: field })
+    .getByRole('button', { name: buttonName })
+    .first()
     .click();
 }
 
@@ -53,12 +59,12 @@ export async function createClerkBrowserSession(
       .first();
     await identifier.waitFor({ state: 'visible' });
     await identifier.fill(options.email);
-    await submit(page);
+    await submit(page, identifier, 'Continue');
 
     const password = page.locator('input[name="password"]').first();
     await password.waitFor({ state: 'visible' });
     await password.fill(options.password);
-    await submit(page);
+    await submit(page, password, 'Sign in');
 
     await page.waitForFunction(
       () => {

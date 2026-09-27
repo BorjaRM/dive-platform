@@ -46,7 +46,7 @@ function activeSession(overrides: Record<string, unknown> = {}) {
     id: 'sess_123',
     userId: 'user_123',
     status: 'active',
-    expireAt: Date.now() + 60_000,
+    expireAt: new Date(Date.now() + 60_000).toISOString(),
     ...overrides,
   };
 }
@@ -178,6 +178,16 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
     ).resolves.toMatchObject({ verifiedAddresses: [] });
   });
 
+  it('accepts numeric Clerk session expiry timestamps expressed in seconds', async () => {
+    clerk.getSession.mockResolvedValue(
+      activeSession({ expireAt: Math.floor(Date.now() / 1_000) + 60 }),
+    );
+
+    await expect(
+      createAdapter().authenticate('session-token'),
+    ).resolves.toMatchObject({ subject: 'user_123' });
+  });
+
   it('maps second-factor verification into provider-neutral assurance', async () => {
     clerk.verifyToken.mockResolvedValue({
       iss: config.issuer,
@@ -258,7 +268,7 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
       'expired provider session',
       () =>
         clerk.getSession.mockResolvedValue(
-          activeSession({ expireAt: Date.now() - 1 }),
+          activeSession({ expireAt: new Date(Date.now() - 1).toISOString() }),
         ),
     ],
     [

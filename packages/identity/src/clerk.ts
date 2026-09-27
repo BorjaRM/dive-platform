@@ -93,6 +93,19 @@ function record(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function sessionExpiresAtMs(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value >= 1_000_000_000_000) return value;
+    if (value >= 1_000_000_000 && value < 10_000_000_000) {
+      return value * 1_000;
+    }
+    return null;
+  }
+  if (typeof value !== 'string') return null;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
 function defaultDependencies(
   secretKey: string,
 ): ClerkIdentityAdapterDependencies {
@@ -205,13 +218,13 @@ export class ClerkIdentityAdapter
       ]);
       const sessionRecord = record(session);
       const userRecord = record(user);
+      const expiresAtMs = sessionExpiresAtMs(sessionRecord.expireAt);
       if (
         sessionRecord.id !== claims.sid ||
         sessionRecord.userId !== claims.sub ||
         sessionRecord.status !== 'active' ||
-        typeof sessionRecord.expireAt !== 'number' ||
-        !Number.isFinite(sessionRecord.expireAt) ||
-        sessionRecord.expireAt <= Date.now() ||
+        expiresAtMs === null ||
+        expiresAtMs <= Date.now() ||
         userRecord.id !== claims.sub ||
         typeof userRecord.banned !== 'boolean' ||
         typeof userRecord.locked !== 'boolean' ||

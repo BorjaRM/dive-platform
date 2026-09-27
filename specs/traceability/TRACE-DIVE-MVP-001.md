@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.15
+- **Version:** 0.18
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -22,14 +22,15 @@
 | ADR-DIVE-005 | `specs/architecture/adrs/ADR-DIVE-005.md` | Ready to start | 0.1 |
 | ADR-DIVE-006 | `specs/architecture/adrs/ADR-DIVE-006.md` | Ready to start | 0.1 |
 | ADR-DIVE-007 | `specs/architecture/adrs/ADR-DIVE-007.md` | Ready to start | 0.2 |
+| ADR-DIVE-008 | `specs/architecture/adrs/ADR-DIVE-008.md` | Ready to start | 0.3 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 0.5 |
-| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.4 |
+| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.6 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.2-draft |
 | MT-SPIKE-001 | `specs/multitenancy/` | Accepted with conditions | 0.3 |
 | SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.15 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.18 |
 
 Notion indexes must show this map’s version. They must not invent an independent version sequence.
 
@@ -51,9 +52,11 @@ Notion pages are indexes only. They are not coverage evidence.
 
 `DIVE-BOOK-REQ-003` is the capacity invariant. `DIVE-BOOK-REQ-029` states that capacity lives on the slot.
 
-### IAM — `DIVE-IAM-REQ-001` … `028`
+### IAM — `DIVE-IAM-REQ-001` … `031`
 
 Coverage is recorded in the current-coverage table below. Cross-tenant cases also map to `MT-REQ-*` and remain separate from `DIVE-*` results. Public-token and support-access evidence is not yet available in this vertical.
+
+Dashboard tenant-context requirements `DIVE-IAM-REQ-029..031` are Ready to start with `ADR-DIVE-008` v0.3. They have no implementation coverage yet.
 
 ### Multi-tenant — `MT-REQ-001` … `010`
 
@@ -68,7 +71,7 @@ Deferred. Not required to start the booking MVP.
 Not copied as requirement text. Owners:
 
 | Channel | Owner |
-|---|---|
+|---|---|---|
 | Cache, files, search | SPEC/spike that introduces the channel (ID not invented) |
 | Export, deletion | Future rights/privacy SPEC; until opened, security/privacy baseline + product-profile privacy gate |
 | Restore | Future recovery SPEC; until opened, operations-quality-recovery baseline |
@@ -130,6 +133,6 @@ Clerk authentication and session revocation (`DIVE-IAM-REQ-004`, `DIVE-IAM-REQ-0
 
 Non-disclosure and complete sensitive-operation audit coverage (`DIVE-IAM-REQ-024`, `DIVE-IAM-REQ-025`) remain partial beyond the exposed center-read, membership-disable, and invitation persistence paths. Purpose-limited customer-contact access and booking-operation audit belong to later approved slices and are not demonstrated here.
 
-Public capabilities and token limits (`DIVE-IAM-REQ-007..009`, `DIVE-IAM-REQ-026`) and support access plus expiry evidence (`DIVE-IAM-REQ-020`, `DIVE-IAM-REQ-028`) remain follow-ups. Provider-neutral assurance is demonstrated for current dashboard authentication, while the exact Clerk step-up contract remains open for Phase 4. See `docs/architecture/iam-vertical-follow-ups.md`. `DIVE-IAM-REQ-027` remains governed by deferred `SPEC-DIVE-OPS-001` scope. `MT-COND-IAM-001` and `MT-COND-WORKER-001` remain activation gates; Option B channels remain deferred. Do not treat this map as additional verification.
+Public capabilities and token limits (`DIVE-IAM-REQ-007..009`, `DIVE-IAM-REQ-026`) and support access plus expiry evidence (`DIVE-IAM-REQ-020`, `DIVE-IAM-REQ-028`) remain follow-ups. Provider-neutral assurance is demonstrated for current dashboard authentication, while the exact Clerk step-up contract remains open for Phase 4. See `docs/architecture/iam-vertical-follow-ups.md`. `DIVE-IAM-REQ-027` remains governed by deferred `SPEC-DIVE-OPS-001` scope. `DIVE-IAM-REQ-029..031` are Ready to start with no coverage. `MT-COND-IAM-001` and `MT-COND-WORKER-001` remain activation gates; Option B channels remain deferred. Do not treat this map as additional verification.
 
-Approved Phase 0 decision relationships are recorded in `ADR-DIVE-004` through `ADR-DIVE-007`. Approval authorizes implementation but is not implementation evidence.
+Approved Phase 0 decision relationships are recorded in `ADR-DIVE-004` through `ADR-DIVE-008`. Approval authorizes implementation but is not implementation evidence.
