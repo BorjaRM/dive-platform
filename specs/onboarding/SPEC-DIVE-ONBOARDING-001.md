@@ -4,7 +4,7 @@
 - **Version:** 0.1
 - **Last reviewed:** 2026-09-27
 - **Approved by:** Borja (product owner) for Draft review
-- **Approval reference:** Product-owner confirmations on 2026-09-27; this Draft PR is the review record
+- **Approval reference:** PR #32 product-owner decision record: https://github.com/BorjaRM/dive-platform/pull/32#issuecomment-5855884646
 - **Owner:** Product / Security / Frontend Architecture
 - **IDs:** `DIVE-ONB-REQ-001` … `DIVE-ONB-REQ-036`
 
@@ -20,16 +20,23 @@ The decisions below were explicitly confirmed by the product owner, but this art
 
 | Requirement IDs | Provenance | Exact source | Decision status |
 |---|---|---|---|
-| `DIVE-ONB-REQ-001..DIVE-ONB-REQ-004` | `Derived` | `specs/product/dive-mvp-profile.md` §6; `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-001..006`; product-owner confirmation 2026-09-27 | Approved by product owner for Draft review; pending merge |
-| `DIVE-ONB-REQ-005..DIVE-ONB-REQ-019` | `Proposed` | Product-owner confirmations 2026-09-27; `ADR-DIVE-013` Draft | Approved by product owner for Draft review; pending merge |
-| `DIVE-ONB-REQ-020..DIVE-ONB-REQ-026` | `Proposed` | Product-owner confirmations 2026-09-27; `ADR-DIVE-013` Draft § Fields and presentation | Approved by product owner for Draft review; pending merge |
-| `DIVE-ONB-REQ-027..DIVE-ONB-REQ-035` | `Proposed` | Product-owner confirmations 2026-09-27; `ADR-DIVE-013` Draft § Guided experience | Approved by product owner for Draft review; pending merge |
-| `DIVE-ONB-REQ-036` | `Proposed` | Product-owner confirmation of the twelve-block acceptance matrix on 2026-09-27 | Approved by product owner for Draft review; pending merge |
+| `DIVE-ONB-REQ-001` | `Proposed` | PR #32 product-owner decision record: https://github.com/BorjaRM/dive-platform/pull/32#issuecomment-5855884646 | Approved by product owner for Draft review; pending merge |
+| `DIVE-ONB-REQ-002` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-001..006`; PR #32 product-owner decision record | Approved by product owner for Draft review; pending merge |
+| `DIVE-ONB-REQ-003` | `Proposed` | PR #32 product-owner decision record: https://github.com/BorjaRM/dive-platform/pull/32#issuecomment-5855884646 | Approved by product owner for Draft review; pending merge |
+| `DIVE-ONB-REQ-004` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-002..006`; `ADR-DIVE-008` § Authorization path | Approved by product owner for Draft review; pending merge |
+| `DIVE-ONB-REQ-005..DIVE-ONB-REQ-019` | `Proposed` | PR #32 product-owner decision record: https://github.com/BorjaRM/dive-platform/pull/32#issuecomment-5855884646; `ADR-DIVE-013` Draft | Approved by product owner for Draft review; pending merge |
+| `DIVE-ONB-REQ-020` | `Proposed` | PR #32 product-owner decision record: https://github.com/BorjaRM/dive-platform/pull/32#issuecomment-5855884646 | Approved by product owner for Draft review; pending merge |
+| `DIVE-ONB-REQ-021` | `Proposed` | PR #32 SDD Gatekeeper remediation: NFC normalization + Unicode code-point counting | Proposed closure; pending product-owner confirmation |
+| `DIVE-ONB-REQ-022..DIVE-ONB-REQ-028` | `Proposed` | PR #32 product-owner decision record: https://github.com/BorjaRM/dive-platform/pull/32#issuecomment-5855884646; `ADR-DIVE-013` Draft | Approved by product owner for Draft review; pending merge |
+| `DIVE-ONB-REQ-029..DIVE-ONB-REQ-030` | `Proposed` | PR #32 SDD Gatekeeper remediation: stable storage key + version metadata | Proposed closure; pending product-owner confirmation |
+| `DIVE-ONB-REQ-031..DIVE-ONB-REQ-035` | `Proposed` | PR #32 product-owner decision record: https://github.com/BorjaRM/dive-platform/pull/32#issuecomment-5855884646; `ADR-DIVE-013` Draft | Approved by product owner for Draft review; pending merge |
+| `DIVE-ONB-REQ-036` | `Derived` | `specs/foundation/sdd-specs-traceability.md` § Spec lifecycle / Definition of Ready / Definition of Done; PR #32 acceptance-matrix confirmation | Approved acceptance matrix; lifecycle corrected by existing SDD process |
 
 ### Derivations
 
-- **DIVE-ONB-REQ-001:** the MVP walking skeleton starts with creating a tenant and center, but the current profile does not define a public onboarding contract; a separate controlled flow is therefore required before the product skeleton can start.
-- **DIVE-ONB-REQ-002..004:** Clerk authenticates while PostgreSQL owns memberships and authorization; roles in one tenant cannot authorize creation in another tenant, and client-supplied tenant identifiers cannot become authority.
+- **DIVE-ONB-REQ-002:** Clerk authenticates while PostgreSQL owns memberships and authorization; bootstrap cannot move tenant authority into Clerk.
+- **DIVE-ONB-REQ-004:** existing multi-tenant authorization rules prohibit browser-provided tenant, center, role, or permission values from becoming authority.
+- **DIVE-ONB-REQ-036:** Ready to start requires verifiable scenarios and closed critical decisions; executed implementation evidence is required for Review/Accepted and the applicable pilot gates, not before Ready to start.
 
 ## Goal
 
@@ -87,7 +94,7 @@ Let an explicitly authorized identity or internal platform operator create one o
 - **DIVE-ONB-REQ-018:** The bootstrap invitation MUST be the idempotency key: retrying the same normalized payload MUST return the same result, while a different payload for the consumed invitation MUST fail as a conflict.
 - **DIVE-ONB-REQ-019:** Concurrent redemption attempts MUST use a database uniqueness constraint and transactional serialization so that they cannot create duplicate tenants, centers, memberships, audits, or outbox records.
 - **DIVE-ONB-REQ-020:** The initial form MUST require an operator display name and a first-center display name.
-- **DIVE-ONB-REQ-021:** Operator and center display names MUST accept Unicode, trim outer whitespace, contain at least one character, allow at most 120 Unicode characters, and MUST NOT be globally unique or act as authorization identifiers.
+- **DIVE-ONB-REQ-021:** Operator and center display names MUST normalize to Unicode NFC, trim outer whitespace, contain at least one Unicode code point, allow at most 120 Unicode code points, and MUST NOT be globally unique or act as authorization identifiers.
 - **DIVE-ONB-REQ-022:** The first center's IANA time zone MUST be required; the browser MAY suggest it, but the user MUST confirm it before submission.
 - **DIVE-ONB-REQ-023:** The interface language MUST support `es` and `en`, MAY be suggested from browser or profile, MUST remain editable, and MUST be stored as an identity/user preference rather than tenant or center authority.
 - **DIVE-ONB-REQ-024:** The form MUST require an explicit self-Owner or assisted-provisioning choice.
@@ -95,14 +102,14 @@ Let an explicitly authorized identity or internal platform operator create one o
 - **DIVE-ONB-REQ-026:** The bootstrap form MUST NOT collect billing, plan, payment, tax, fiscal-address, public-contact, custom-domain, or additional-center data.
 - **DIVE-ONB-REQ-027:** The functional bootstrap flow MUST work without Driver.js; guidance MUST remain optional, dismissible, manually restartable, and unable to complete or authorize a domain operation.
 - **DIVE-ONB-REQ-028:** Driver.js MUST be isolated behind an internal guidance-renderer interface; product flows, forms, navigation decisions, server mutations, progress authority, and completion rules MUST NOT import or depend on Driver.js APIs.
-- **DIVE-ONB-REQ-029:** Initial guidance state MAY use `localStorage` only for versioned, identity-scoped `dismissed` or `completed` preferences; it MUST NOT store tokens, tenant context, authorization state, form contents, or functional progress.
-- **DIVE-ONB-REQ-030:** Dismissing or completing a guide MUST suppress automatic replay on that browser; a new guide version MUST NOT replay automatically; `Help → Repeat guide` MUST allow manual replay.
+- **DIVE-ONB-REQ-029:** Initial guidance state MAY use `localStorage` only under a stable identity-and-guide-scoped key whose value contains a storage `schemaVersion`, `status` (`dismissed` or `completed`), and `lastSeenGuideVersion`; it MUST NOT store tokens, tenant context, authorization state, form contents, or functional progress.
+- **DIVE-ONB-REQ-030:** Dismissing or completing a guide MUST suppress automatic replay on that browser regardless of `lastSeenGuideVersion`; a new guide version MUST update metadata only when the user manually replays it and MUST NOT create a new auto-show key; `Help → Repeat guide` MUST allow manual replay.
 - **DIVE-ONB-REQ-031:** Guide copy MUST ship in versioned `es` / `en` catalogs behind an internal content interface so that a future CMS can replace the source without changing product flows or renderer contracts.
 - **DIVE-ONB-REQ-032:** The MVP MUST expose a typed analytics port for `started`, `dismissed`, `completed`, and `restarted`; its initial implementation MUST be no-op and MUST NOT send data to an external provider.
 - **DIVE-ONB-REQ-033:** The guided experience MUST satisfy WCAG 2.2 AA before pilot, including keyboard access, focus placement and restoration, Escape behavior, assistive-technology semantics, contrast, reduced motion, mobile layouts, and non-blocking behavior when a target is absent.
 - **DIVE-ONB-REQ-034:** Provisioning and visual guidance MUST have independent rollout controls so either capability can be disabled without disabling the other or existing dashboard access.
 - **DIVE-ONB-REQ-035:** US-19 MUST end at the new tenant dashboard with the first center selected; activity creation belongs to a subsequent flow and MUST NOT be added to this story.
-- **DIVE-ONB-REQ-036:** Automated and manual evidence MUST cover all acceptance scenarios listed below before this SPEC can move beyond Draft.
+- **DIVE-ONB-REQ-036:** Ready-to-start review MUST confirm that all acceptance scenarios below are unambiguous and testable; executed automated/manual evidence MUST cover every applicable scenario before Review, Accepted, or pilot gates claim conformance.
 
 ## States and invariants
 
@@ -118,6 +125,7 @@ self milestone:     invitation valid → operational
 Invariants:
 
 - One bootstrap invitation produces at most one tenant result.
+- Name validation normalizes to NFC and counts Unicode code points identically in client and server.
 - A provisioned assisted tenant without an active Owner is not operational.
 - Platform staff performing assisted provisioning do not become tenant members.
 - Guide state never substitutes domain state.
@@ -159,7 +167,7 @@ Minimum persisted concepts:
 - normalized request fingerprint and resulting tenant/center/membership references for idempotent replay;
 - existing tenant, center, membership/invitation, audit, and outbox data.
 
-Minimum outbox intents are tenant provisioned / Owner invitation delivery and tenant operational after Owner acceptance, but exact event names and payload schemas remain implementation-contract work. The raw invitation secret, Clerk token, and tenant-context handle MUST NOT enter event payloads.
+Mandatory semantic outbox intents are: bootstrap provisioned for both paths; Owner-invitation delivery requested for assisted provisioning; and bootstrap operational after Owner acceptance. These semantic intents are normative, while exact event names, versions, and payload schemas remain implementation-contract work. The raw invitation secret, Clerk token, and tenant-context handle MUST NOT enter event payloads.
 
 ## Security, privacy, isolation, and operations
 
@@ -199,7 +207,7 @@ No latency, bundle, or throughput budget is introduced. Implementation evidence 
 
 ## Open questions
 
-No product question remains open within this Draft's reviewed scope. Implementation-specific HTTP paths, physical names, and event schemas require a later contract/implementation PR and MUST NOT change this behavior silently.
+Product decisions confirmed in the PR decision record are closed. The NFC/code-point validation closure and stable-key localStorage closure remain Proposed pending product-owner confirmation. Implementation-specific HTTP paths, physical names, and event schemas require a later contract/implementation PR and MUST NOT change this behavior silently.
 
 ## Traceability
 

@@ -13,8 +13,8 @@
 | Clerk authenticates; PostgreSQL owns memberships and authorization | `Documented` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-001..006`; `ADR-DIVE-008` § Responsibility split | Existing normative constraint |
 | Tenant creation and first-center creation are the first walking-skeleton increment | `Documented` | `specs/product/dive-mvp-profile.md` §6 | Existing product direction; no onboarding contract existed |
 | Reliable side effects use the transactional outbox | `Documented` | `ADR-DIVE-002` § Decision | Existing normative constraint |
-| Controlled invitation, self/assisted commands, transaction boundary, Owner operability, idempotency, fields, limits, rollout, and acceptance matrix | `Proposed` | Product-owner confirmations 2026-09-27; `SPEC-DIVE-ONBOARDING-001` Draft | Approved by product owner for Draft review; pending merge |
-| Driver.js behind a replaceable renderer, local visual state, versioned content port, and no-op analytics port | `Proposed` | Product-owner confirmations 2026-09-27; `SPEC-DIVE-ONBOARDING-001` Draft | Approved by product owner for Draft review; pending merge |
+| Controlled invitation, self/assisted commands, transaction boundary, Owner operability, idempotency, fields, limits, rollout, and acceptance matrix | `Proposed` | PR #32 product-owner decision record: https://github.com/BorjaRM/dive-platform/pull/32#issuecomment-5855884646; `SPEC-DIVE-ONBOARDING-001` Draft | Approved by product owner for Draft review; pending merge |
+| Driver.js behind a replaceable renderer, local visual state, versioned content port, and no-op analytics port | `Proposed` | PR #32 product-owner decision record: https://github.com/BorjaRM/dive-platform/pull/32#issuecomment-5855884646; `SPEC-DIVE-ONBOARDING-001` Draft | Approved by product owner for Draft review; pending merge |
 
 ## Context
 
@@ -69,15 +69,15 @@ The functional onboarding path works with a no-op renderer. Driver.js is loaded 
 
 ### Browser state
 
-Use versioned, identity-scoped `localStorage` only for `dismissed` / `completed` visual preferences. It may replay on another device. Do not store functional progress, authorization, invitation secrets, Clerk tokens, form contents, or `X-Tenant-Context`.
+Use a stable identity-and-guide-scoped `localStorage` key whose value contains `schemaVersion`, `status`, and `lastSeenGuideVersion` only for `dismissed` / `completed` visual preferences. It may replay on another device. Do not store functional progress, authorization, invitation secrets, Clerk tokens, form contents, or `X-Tenant-Context`.
 
-A guide does not auto-replay after dismissal/completion or merely because content version changes. Manual replay is available through `Help → Repeat guide`.
+A guide does not auto-replay after dismissal/completion or merely because content version changes; a content version updates `lastSeenGuideVersion` only after manual replay and never changes the stable key. Manual replay is available through `Help → Repeat guide`.
 
 ### Fields and presentation
 
 The bootstrap collects only operator name, first-center name, confirmed IANA time zone, editable `es` / `en` user preference, self/assisted mode, and the assisted Owner email when applicable.
 
-Names are trimmed Unicode strings of 1–120 characters, are not globally unique, and are never authorization identifiers. Billing, fiscal, payment, public-contact, custom-domain, and additional-center data remain outside this flow.
+Names are normalized to Unicode NFC, trimmed, measured as 1–120 Unicode code points identically in client and server, are not globally unique, and are never authorization identifiers. Billing, fiscal, payment, public-contact, custom-domain, and additional-center data remain outside this flow.
 
 Guide content ships in versioned repository catalogs behind `GuideContentSource`. Copy ownership is shared; disagreement is resolved in review because no single copy owner was selected. A future CMS replaces the source adapter, not the flow or renderer contract.
 
@@ -141,7 +141,7 @@ This Draft PR changes documentation only. It provides no implementation, migrati
 
 ## Open questions
 
-No product decision remains open within this ADR's reviewed scope. HTTP route names, physical database names, and exact event schemas belong to the later contract/implementation PR and may not change these decisions silently.
+The product-owner decision record closes the reviewed product choices. NFC/code-point counting and the stable-key localStorage representation are remediation proposals pending product-owner confirmation. HTTP route names, physical database names, and exact event schemas belong to the later contract/implementation PR and may not change these decisions silently.
 
 ## Implementation authority
 
