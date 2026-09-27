@@ -30,7 +30,7 @@ The MVP decision is intentionally narrower than an assisted-provisioning model: 
 - No public operator signup is introduced.
 - Platform staff with a dedicated pre-tenant capability may issue, reissue, and revoke one-use bootstrap invitations.
 - Platform staff do not create the tenant or center, designate an Owner, confirm customer data, or receive a tenant membership through this flow.
-- Redemption is authenticated by Clerk, initially matched through the invited verified email, and then bound by `issuer + subject`.
+- A redemption is authenticated by Clerk, initially matched through the invited verified email, and then bound by `issuer + subject`.
 - Existing memberships and tenant roles neither grant nor deny this pre-tenant capability.
 
 ### Self-bootstrap use case
@@ -63,34 +63,38 @@ GuideContentSource
 GuideAnalytics
 ```
 
-Only the Driver.js adapter imports Driver.js. Guides reference stable application anchors and semantic domain outcomes; they do not own routes, forms, server mutations, authorization, or completion. The functional onboarding path works with a no-op renderer. Driver.js is loaded only when guidance is enabled.
+Only the Driver.js adapter imports Driver.js. Guides reference stable application anchors and semantic domain outcomes; they do not own routes, forms, server mutations, authorization, or completion rules.
 
-### Browser state
+The functional onboarding path works with a no-op renderer. Driver.js is loaded only when guidance is enabled.
 
 A proposed closure uses a stable identity-and-guide-scoped `localStorage` key whose value contains `schemaVersion`, `status`, and `lastSeenGuideVersion` only for `dismissed` / `completed` visual preferences. It never stores functional progress, authorization, invitation secrets, Clerk tokens, form contents, or `X-Tenant-Context`.
 
-A guide does not auto-replay after dismissal/completion or merely because content changes. Manual replay is available through `Help → Repeat guide`. The exact storage representation remains Proposed pending product-owner confirmation.
+A guide does not auto-replay after dismissal/completion or merely because content changes. Manual replay is available through `Help → Repeat guide`.
 
 ### Fields and presentation
 
 The bootstrap collects only operator display name, first-center display name, confirmed IANA time zone, and editable `es` / `en` user preference. It does not ask for an assisted mode or a second Owner email.
 
-A proposed validation closure normalizes names to Unicode NFC, trims them, and measures 1–120 Unicode code points identically in client and server. Names are not globally unique and never authorize access. Billing, fiscal, payment, public-contact, custom-domain, and additional-center data remain outside this flow.
+Names are normalized to Unicode NFC, trimmed, and measured 1–120 Unicode code points identically in client and server. Names are not globally unique and never authorize access. Billing, fiscal, payment, public-contact, custom-domain, and additional-center data remain outside this flow.
 
-Guide content ships in versioned repository catalogs behind `GuideContentSource`. `GuideAnalytics` exposes typed `started`, `dismissed`, `completed`, and `restarted` signals; its MVP implementation is no-op and sends no external analytics.
+Guide content ships in versioned repository catalogs behind `GuideContentSource`. A future CMS can replace the source without changing product flows or renderer contracts.
+
+`GuideAnalytics` exposes typed `started`, `dismissed`, `completed`, and `restarted` signals. Its MVP implementation is no-op and sends no external analytics.
 
 ### Accessibility and rollout
 
-The complete guided experience targets WCAG 2.2 AA before pilot and never blocks the underlying form when a target is absent. Provisioning and visual guidance use independent rollout controls. Provisioning is limited to explicitly invited identities; platform staff are limited to invitation management.
+The complete guided experience targets WCAG 2.2 AA before pilot and never blocks the underlying form when a target is absent.
+
+Provisioning and visual guidance use independent rollout controls. Provisioning is limited to explicitly invited identities; platform staff are limited to invitation management.
 
 ## Consequences
 
 ### Positive
 
-- Product behavior remains independent of Driver.js.
-- The same functional form works guided or unguided.
-- Pre-tenant invitation authority does not leak into tenant roles or read-only support.
-- Atomic persistence and outbox prevent orphaned tenants and pre-commit effects.
+- Product behavior remains independent of Driver.js and can adopt another renderer later.
+- The same functional forms work guided or unguided.
+- Pre-tenant authority does not leak into tenant roles or read-only support.
+- Atomic persistence and outbox prevent orphaned tenants and pre-commit emails.
 - The customer Owner confirms the data and becomes active in the same bootstrap transaction.
 
 ### Costs and risks
@@ -103,21 +107,17 @@ The complete guided experience targets WCAG 2.2 AA before pilot and never blocks
 
 ## Alternatives considered
 
-### Assisted provisioning by platform staff
-
-Deferred outside US-19. It introduces write-capable platform authority, confused-deputy and escalation risks, Owner-designation errors, tenant-orphan recovery, and stronger step-up/audit requirements. Reconsideration requires a separate story and normative approval.
-
 ### Driver.js imported directly by forms
 
-Rejected. It couples domain flow and presentation and lets UI callbacks drift toward completion authority.
+Rejected. It couples domain flow and presentation, making later replacement expensive and allowing UI callbacks to become completion authority.
 
 ### Duplicate guided wizard
 
-Rejected. It would duplicate validation, mutations, and navigation.
+Rejected. It would create a second implementation of validation, mutations, and navigation that can diverge from the normal flow.
 
 ### Server-persisted guide preferences
 
-Deferred. Local non-authoritative state is sufficient for the MVP proposal.
+Deferred. `localStorage` is sufficient for non-authoritative MVP visual state; cross-device consistency is not required.
 
 ### Clerk Organization
 
@@ -125,7 +125,7 @@ Not selected. PostgreSQL remains authoritative for tenant membership and authori
 
 ### Public signup
 
-Rejected. Bootstrap requires a platform-issued invitation.
+Rejected for this scope. Bootstrap requires a platform-issued invitation.
 
 ## Acceptance criteria / evidence
 

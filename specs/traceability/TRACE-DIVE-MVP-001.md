@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.28
+- **Version:** 0.33
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -20,24 +20,25 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` are Ready to start
 | ADR-DIVE-002 | `specs/architecture/adrs/ADR-DIVE-002.md` | Ready to start | 0.2 |
 | ADR-DIVE-003 | `specs/architecture/adrs/ADR-DIVE-003.md` | Ready to start | 0.1 |
 | ADR-DIVE-004 | `specs/architecture/adrs/ADR-DIVE-004.md` | Ready to start | 0.3 |
-| ADR-DIVE-005 | `specs/architecture/adrs/ADR-DIVE-005.md` | Ready to start | 0.1 |
+| ADR-DIVE-005 | `specs/architecture/adrs/ADR-DIVE-005.md` | Ready to start | 0.3 |
 | ADR-DIVE-006 | `specs/architecture/adrs/ADR-DIVE-006.md` | Ready to start | 0.1 |
 | ADR-DIVE-007 | `specs/architecture/adrs/ADR-DIVE-007.md` | Ready to start | 0.2 |
 | ADR-DIVE-008 | `specs/architecture/adrs/ADR-DIVE-008.md` | Ready to start | 0.10 |
 | ADR-DIVE-009 | `specs/architecture/adrs/ADR-DIVE-009.md` | Ready to start | 0.2 |
 | ADR-DIVE-010 | `specs/architecture/adrs/ADR-DIVE-010.md` | Ready to start | 0.3 |
-| ADR-DIVE-011 | `specs/architecture/adrs/ADR-DIVE-011.md` | Draft | 0.2 |
+| ADR-DIVE-011 | `specs/architecture/adrs/ADR-DIVE-011.md` | Draft | 0.3 |
 | ADR-DIVE-012 | `specs/architecture/adrs/ADR-DIVE-012.md` | Draft | 0.1 |
 | ADR-DIVE-013 | `specs/architecture/adrs/ADR-DIVE-013.md` | Draft | 0.2 |
-| SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 0.8 |
-| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.12 |
+| ADR-DIVE-014 | `specs/architecture/adrs/ADR-DIVE-014.md` | Draft | 0.3 |
+| SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 1.3 |
+| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.13 |
 | SPEC-DIVE-ONBOARDING-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md` | Draft | 0.2 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.2-draft |
 | MT-SPIKE-001 | `specs/multitenancy/` | Accepted with conditions | 0.3 |
 | SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.28 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.33 |
 
 Notion indexes must show this map’s version. They must not invent an independent version sequence.
 
@@ -45,7 +46,7 @@ Notion pages are indexes only. They are not coverage evidence.
 
 ## Requirement groups
 
-### Booking — `DIVE-BOOK-REQ-001` … `067`
+### Booking — `DIVE-BOOK-REQ-001` … `072`
 
 | Group | IDs | Tests (expected) | Evidence |
 |---|---|---|---|
@@ -57,6 +58,9 @@ Notion pages are indexes only. They are not coverage evidence.
 | Channels and widget | 037–042 | SPIKE-DIVE-003, e2e | `evidence/spikes/SPIKE-DIVE-003/` |
 | Delivery and privacy | 043–048 | outbox, i18n, privacy review | `evidence/` + dated review |
 | Catalog HTTP and center-scoped dashboard catalog | 049–057 | catalog API tests in the implementation PR | implementation PR |
+| Catalog page pagination, response DTO, and physical persistence naming | 049–057; ADR-DIVE-014 Draft | catalog contract and migration tests in the implementation PR | implementation PR |
+| Public booking lifecycle and rejection | 068–069 | booking integration and rejection contract tests | implementation PR |
+| Public booking capabilities | 070–072 | public capability contract tests | implementation PR |
 | Public availability query and presentation closures | ADR-DIVE-011 Draft; no new SPEC IDs yet | none until ADR approved | none |
 | Public create-booking | 058–067 | public-create API, idempotency, origin, channel-policy, token, and contention tests in implementation PR | implementation PR |
 
@@ -67,7 +71,7 @@ Notion pages are indexes only. They are not coverage evidence.
 
 Coverage is recorded in the current-coverage table below. Cross-tenant cases also map to `MT-REQ-*` and remain separate from `DIVE-*` results. Public-token and support-access evidence is not yet available in this vertical.
 
-Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` remain Ready to start. `ADR-DIVE-008` v0.10 closes reserved keys, generated exact CORS, authentication host, environment namespace, and the MVP ban on center-entry without `Origin`. Catalog cursor encoding, extra catalog DTO fields, and physical activity/slot names remain pending decision in `SPEC-DIVE-BOOKING-001`. Implementation coverage for `DIVE-IAM-REQ-032` is not yet recorded.
+Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` remain Ready to start. `ADR-DIVE-008` v0.10 closes reserved keys, generated exact CORS, authentication host, environment namespace, and the MVP ban on center-entry without `Origin`. `SPEC-DIVE-BOOKING-001` v1.3 closes US-08 activity/slot page pagination, minimal DTOs, and physical activity/slot naming; ADR-DIVE-014 remains the Draft decision record. Implementation coverage for `DIVE-IAM-REQ-032` is not yet recorded.
 
 ### Onboarding — `DIVE-ONB-REQ-001` … `036`
 
@@ -75,11 +79,11 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` remain Ready to st
 |---|---|---|---|
 | Controlled bootstrap and authority | 001–009 | domain/API authorization, invitation, expiry, rate-limit, and non-disclosure tests | implementation PR |
 | Invited self bootstrap | 010–019 | no-assisted-path, transaction, rollback, outbox, Owner activation, idempotency, and concurrency tests | implementation PR |
-| Fields and completion boundary | 020–026, 035 | validation, time-zone, locale, self-Owner-only, center-entry, and dashboard-landing tests | implementation PR |
+| Fields and completion boundary | 020–026, 035 | validation, time-zone, locale, Owner-mode, and dashboard-landing tests | implementation PR |
 | Replaceable guidance | 027–034 | component, Playwright, storage, i18n, analytics-port, rollout, and accessibility checks | implementation PR plus manual WCAG evidence |
 | Acceptance matrix | 036 | evidence mapped to every applicable row above | implementation PR |
 
-`SPEC-DIVE-ONBOARDING-001` and `ADR-DIVE-013` remain Draft. US-19 is limited to invited self bootstrap; assisted provisioning is outside the story. The open `centerKey`/host-entry decision still blocks Ready to start. `SPEC-DIVE-IAM-001` v0.12 only clarifies the authority boundary; this TRACE relationship is not implementation coverage or approval to start.
+`SPEC-DIVE-ONBOARDING-001` and `ADR-DIVE-013` remain Draft. US-19 is limited to invited self bootstrap; assisted provisioning is outside the story. The open `centerKey`/host-entry decision still blocks Ready to start. `SPEC-DIVE-IAM-001` v0.13 only clarifies the authority boundary; this TRACE relationship is not implementation coverage or approval to start.
 
 ### Multi-tenant — `MT-REQ-001` … `010`
 
@@ -150,6 +154,7 @@ The first IAM/API vertical is partially implemented in `apps/api`, `packages/ide
 | Provider-neutral assurance and ordinary authentication without a verified address | `DIVE-IAM-REQ-005`, `019` | `packages/identity/src/clerk.spec.ts`, `apps/api/src/iam.identity.spec.ts`, `apps/api/test/iam.e2e-spec.ts` |
 | Official raw-body webhook verification plus database tenant resolution, idempotency, no grants, no authorization mutation, audit, and safe outbox signals | `DIVE-IAM-REQ-021` | `packages/identity/src/clerk-webhook.spec.ts`, `packages/database/test/integration/iam-identity-webhooks.integration.test.ts` |
 | Dashboard tenant-context contract and frontend consumer boundary | `DIVE-IAM-REQ-029..031` | `ADR-DIVE-008` tenant-context contract; `ADR-DIVE-009` frontend state boundary; server authorization proof: `apps/api/test/iam.e2e-spec.ts`, `packages/database/test/integration/iam-api.integration.test.ts`, `packages/database/test/integration/migrations.integration.test.ts`; web consumer proof: `apps/web/src/features/dashboard/tenant-context.test.ts`, `apps/web/src/features/dashboard/dashboard-tenant-context.test.tsx` |
+| Center-scoped catalog lifecycle, pagination, time filters, and DTO/error contract | `DIVE-BOOK-REQ-049..057` | `apps/api/test/iam.e2e-spec.ts`, `apps/api/src/catalog.time.spec.ts`, `packages/database/test/integration/migrations.integration.test.ts` |
 
 ### Partial or not yet demonstrated
 

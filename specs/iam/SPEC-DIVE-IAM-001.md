@@ -1,10 +1,10 @@
 # SPEC-DIVE-IAM-001 — Roles, permissions, and scopes
 
 - **Status:** Ready to start
-- **Version:** 0.12
+- **Version:** 0.13
 - **Last reviewed:** 2026-09-27
 - **Approved by:** Borja (Product owner)
-- **Approval reference:** PR #1, provenance migration PR, PR #13 (`ADR-DIVE-008` Ready to start), product confirmation 2026-09-27 for `ADR-DIVE-008` v0.7 implementation closures, product confirmation 2026-09-27 for center-application bootstrap (`ADR-DIVE-008` v0.9), and product confirmation 2026-09-27 for reserved keys, generated CORS, authentication host, environment namespace, and no-`Origin` bootstrap (`ADR-DIVE-008` v0.10); PR #36 Draft self-bootstrap authority-boundary clarification
+- **Approval reference:** PR #1, provenance migration PR, PR #13 (`ADR-DIVE-008` Ready to start), product confirmation 2026-09-27 for `ADR-DIVE-008` v0.7 implementation closures, product confirmation 2026-09-27 for center-application bootstrap (`ADR-DIVE-008` v0.9), product confirmation 2026-09-27 for reserved keys, generated CORS, authentication host, environment namespace, and no-`Origin` bootstrap (`ADR-DIVE-008` v0.10), PR #32 Draft authority-boundary clarification, Product, Security, and Architecture approval on 2026-09-27 for the `booking.reject` permission, and PR #36 Draft self-bootstrap authority-boundary clarification
 - **Owner:** Product / Security
 - **IDs:** `DIVE-IAM-REQ-001` … `DIVE-IAM-REQ-032`
 
@@ -29,6 +29,12 @@ The ranges below cover every requirement in this SPEC. Decisions originating in 
 | `DIVE-IAM-REQ-021..DIVE-IAM-REQ-028` | `Derived` | `specs/foundation/iam-baseline.md`; `specs/foundation/security-privacy-baseline.md`; PR #1 | Approved by product owner |
 | `DIVE-IAM-REQ-029..DIVE-IAM-REQ-031` | `Proposed` | `ADR-DIVE-008`; product confirmation 2026-09-27 | Approved by product owner 2026-09-27 for MVP validation; Ready to start |
 | `DIVE-IAM-REQ-032` | `Proposed` | `ADR-DIVE-008` v0.9; product confirmation 2026-09-27 | Approved by product owner 2026-09-27 for MVP validation; Ready to start |
+
+### Permission provenance
+
+| Permission | Provenance | Exact source | Decision status |
+|---|---|---|---|
+| `booking.reject` | `Proposed` | Product, Security, and Architecture approval on 2026-09-27; `DIVE-BOOK-REQ-068..069` | Approved; Ready to start |
 
 ## Goal
 
@@ -100,6 +106,7 @@ Stable capability names:
 - `booking_service.create` `booking_service.read` `booking_service.update` `booking_service.publish`
 - `availability.read` `availability.manage`
 - `booking.create` `booking.read` `booking.update` `booking.confirm` `booking.cancel`
+- `booking.reject`
 - `calendar.read`
 - `customer_contact.read` (purpose-limited)
 - `audit.read` `audit.export`
@@ -168,7 +175,7 @@ Protected product requests send `Authorization: Bearer <clerk-session-token>` an
 | `booking_service.*` | Y | Y | Y | read | assigned | read | no |
 | `availability.manage` | Y | Y | Y | no | assigned | assigned | no |
 | `booking.create` | Y | Y | Y | no | assigned | assigned | channel only |
-| `booking.confirm/cancel` | Y | Y | Y | no | assigned | assigned | token cancel only |
+| `booking.confirm/cancel/reject` | Y | Y | Y | no | assigned | assigned | token cancel only |
 | `calendar.read` | Y | Y | Y | Y | assigned | assigned | no |
 | `customer_contact.read` | Y | Y | Y | Y | assigned | assigned | no |
 | `audit.read` | Y | Y | Y | Y | assigned limited | no | no |

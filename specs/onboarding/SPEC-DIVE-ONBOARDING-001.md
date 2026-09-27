@@ -20,11 +20,15 @@ The product owner narrowed US-19 to self bootstrap only. Assisted provisioning b
 
 | Requirement IDs | Provenance | Exact source | Decision status |
 |---|---|---|---|
-| `DIVE-ONB-REQ-001`, `003`, `005..020`, `022..028`, `031..035` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for Draft review; pending merge |
+| `DIVE-ONB-REQ-001` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for Draft review; pending merge |
+| `DIVE-ONB-REQ-003` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for Draft review; pending merge |
+| `DIVE-ONB-REQ-005..DIVE-ONB-REQ-020` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for Draft review; pending merge |
+| `DIVE-ONB-REQ-022..DIVE-ONB-REQ-028` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for Draft review; pending merge |
+| `DIVE-ONB-REQ-031..DIVE-ONB-REQ-035` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for Draft review; pending merge |
 | `DIVE-ONB-REQ-002` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-001..006`; PR #36 product-owner revision record | Approved for Draft review; pending merge |
 | `DIVE-ONB-REQ-004` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-002..006`; `ADR-DIVE-008` § Authorization path | Approved for Draft review; pending merge |
 | `DIVE-ONB-REQ-021` | `Proposed` | PR #32 SDD Gatekeeper remediation: NFC normalization + Unicode code-point counting | Proposed closure; pending product-owner confirmation |
-| `DIVE-ONB-REQ-029..030` | `Proposed` | PR #32 SDD Gatekeeper remediation: stable storage key + version metadata | Proposed closure; pending product-owner confirmation |
+| `DIVE-ONB-REQ-029..DIVE-ONB-REQ-030` | `Proposed` | PR #32 SDD Gatekeeper remediation: stable storage key + version metadata | Proposed closure; pending product-owner confirmation |
 | `DIVE-ONB-REQ-036` | `Derived` | `specs/foundation/sdd-specs-traceability.md` § Spec lifecycle / Definition of Ready / Definition of Done | Lifecycle rule documented; scenario completeness pending review |
 
 ### Derivations
@@ -193,7 +197,7 @@ No latency, bundle, or throughput budget is introduced. Implementation evidence 
 
 ## Tests and expected evidence
 
-- Domain/API tests for invitation authority, verified-email binding, atomicity, rollback, idempotency, concurrency, non-disclosure, rate limit, and cross-tenant isolation.
+- Domain/API tests for invitation authority, verified-email binding, atomicity, rollback, outbox, Owner activation, idempotency, concurrency, non-disclosure, rate limit, and cross-tenant isolation.
 - Negative tests proving there is no assisted-provisioning path and invitation managers receive no tenant membership.
 - Component tests for renderer/content/analytics ports, guide state, target absence, and accessibility behavior.
 - Minimal Playwright coverage for invited-Owner self bootstrap, first-center entry, guide dismissal/replay, and Driver.js-disabled completion.
