@@ -27,6 +27,13 @@ Duplicate, ignored, unresolved, and applied verified events return `200 {"receiv
 
 The local verifier contract test executes the real Clerk SDK against an RS256 fixture signed with a generated local key and the documented `jwtKey` option. Session and user Backend API fetches remain mocked; no Clerk sandbox or production validation is claimed.
 
+## OpenAPI
+
+`main.ts` builds an OpenAPI document via `@nestjs/swagger` on every boot. With the app running locally:
+
+- Swagger UI: `http://localhost:3000/docs`
+- Raw OpenAPI JSON: `http://localhost:3000/docs-json`
+
 ## Local commands
 
 ```bash
