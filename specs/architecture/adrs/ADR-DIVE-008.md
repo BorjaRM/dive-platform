@@ -1,7 +1,7 @@
 # ADR-DIVE-008 — Internal tenant-scoped dashboard context
 
 - **Status:** Ready to start
-- **Version:** 0.9
+- **Version:** 0.10
 - **Date:** 2026-09-27
 - **Decision date:** 2026-09-27
 - **Deciders:** Product / Security / Architecture
@@ -36,6 +36,11 @@ The path and credential decisions were introduced as `Proposed` on 2026-09-27. P
 | Unauthenticated center-application visitors are sent to login with the center URL preserved; authenticated identities without access see a generic unavailable-center page and receive a non-disclosing API denial | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | Custom center domains, white-label brand ownership, branded login, and cross-domain session continuity stay out of this increment; authentication, branding, center resolution, and authorization stay decoupled | `Proposed` | Product owner accepted platform subdomains as the MVP center-entry form on 2026-09-27 | Approved by product owner 2026-09-27; custom domains remain future scope |
 | Separate the database login used by provider webhooks from the shared application login | `Proposed` | Security hardening discussion with Borja on 2026-09-27 | Future consideration; not approved and not part of the current runtime contract |
+| MVP reserved `centerKey` set is `www`, `app`, `api`, `admin`, `mail`, `staging`, `preview`, `static`, `assets`; additional labels require a later approved change | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| `DASHBOARD_CORS_ORIGINS` is an exact-origin allowlist generated from issued `centerKey` hosts plus the environment authentication-host origin; wildcard CORS remains forbidden | `Proposed` | Product confirmation by Borja on 2026-09-27; constrained by existing exact-origin CORS | Approved by product owner 2026-09-27; Ready to start |
+| Clerk authentication uses one authentication host per environment; after login the user returns to the center-application subdomain. Center subdomains are not registered as N Clerk applications | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| The same `centerKey` is reused across environments; each environment has its own `<domain>` and therefore a distinct host namespace | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| `POST /v1/me/center-entry-contexts` requires a browser `Origin` in the MVP. Clients without `Origin` are not authorized to call it | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 
 ## Context
 
@@ -211,7 +216,34 @@ Disadvantages and costs:
 
 Custom center domains are not part of this MVP decision. A later ADR may add verified host aliases that resolve to the same center; it must not weaken authentication, center-scope validation, or non-disclosure.
 
-A reserved-word list for `centerKey` is required before issuing public platform subdomains. The exact reserved set is an open question and must not be invented here.
+The approved reserved `centerKey` set is:
+
+```text
+www, app, api, admin, mail, staging, preview, static, assets
+```
+
+A reserved label MUST NOT be issued as a center subdomain. Adding or removing a reserved label requires a later approved change; implementation must not enlarge the set silently.
+
+#### CORS population
+
+`DASHBOARD_CORS_ORIGINS` remains an exact-origin allowlist with no wildcard origins and no cookie credentials. For the center application it is generated from:
+
+- `https://<centerKey>.app.<domain>` for each issued, non-reserved `centerKey` in that environment;
+- the configured authentication-host origin for that environment.
+
+Wildcard DNS/TLS for `*.app.<domain>` does not authorize wildcard CORS. Manual one-off origin editing is not the source of truth for issued center hosts.
+
+#### Authentication host
+
+Each environment has one authentication host, distinct from center-application subdomains. Unauthenticated visitors of `https://<centerKey>.app.<domain>` are sent to that host and, after a successful Clerk session, return to the same center URL. The authentication-host FQDN is environment configuration and is not invented here. Center subdomains are not each registered as a separate Clerk application.
+
+#### Environment namespace
+
+The same `centerKey` may be reused in production, staging, and preview. Each environment has its own `<domain>`, so hosts do not collide across environments. Production, staging, and preview do not share a host namespace.
+
+#### Clients without `Origin`
+
+`POST /v1/me/center-entry-contexts` is a browser bootstrap. A missing, empty, or non-center `Origin` fails without disclosure and issues no handle. curl, native apps, and server-to-server callers are not authorized to use this endpoint in the MVP. Tests may send a synthetic `Origin` header; that is evidence, not a product client. Scripts that need a tenant handle continue to use `POST /v1/me/tenant-contexts` where that contract applies.
 
 ### Operator selection
 
@@ -369,6 +401,9 @@ Implementation must demonstrate:
 - fabricated, unrelated, inactive, and cross-identity selections issue no context;
 - `POST /v1/me/center-entry-contexts` issues a handle without `operatorRef` when `Origin` yields a trusted `centerKey`, body `centerRef` equals that key, and the identity has current access to that center;
 - missing, unknown, mismatched, or unauthorized `Origin`/`centerRef` is non-disclosing and issues no handle;
+- a caller without `Origin` cannot use `POST /v1/me/center-entry-contexts`;
+- reserved `centerKey` values are rejected as center subdomains;
+- CORS allowlist entries for issued center hosts are exact origins, not wildcards;
 - a missing or mismatched body `centerRef`, or any extra center selector in query/path, is rejected and issues no handle;
 - a context for tenant A cannot read or mutate tenant B;
 - a center outside the current membership scope is denied;
@@ -384,16 +419,15 @@ Tests must link the relevant `DIVE-IAM-REQ-*` and existing `MT-SC-*` rows withou
 
 ## Remaining open questions
 
-These questions do not reopen the approved platform-subdomain decision or the equality `centerRef === centerKey`:
+These questions do not reopen the approved reserved-key, CORS-generation, authentication-host, environment-namespace, or no-`Origin` decisions:
 
-1. Exact reserved `centerKey` set and the administrative process for allocating or retiring platform subdomain labels.
-2. How `DASHBOARD_CORS_ORIGINS` is populated for many center subdomains while remaining an exact-origin allowlist. Wildcard DNS/TLS for `*.app.<domain>` does not authorize wildcard CORS.
-3. How Clerk allowed origins and redirect URLs include center-application subdomains without silently broadening the identity adapter contract.
-4. Per-environment values of `<domain>` and whether preview/staging share the production `centerKey` namespace.
-5. Whether forgotten active handles need an approved maximum-age or idle TTL, and whether continuity of existing tabs or availability for new tabs has priority at the 20-handle cap.
-6. The operational cleanup contract: scheduler ownership, cadence, database credential, batching, retry, alerting, and deletion metrics for revoked handles older than 30 days.
-7. Future custom-domain verification, DNS/TLS provisioning, host administration, and mapping to the canonical `centerKey`. Out of this increment: custom domains, `BrandConfiguration`, branded login, and cross-domain session continuity.
-8. Whether a non-browser client without `Origin` may call `POST /v1/me/center-entry-contexts`. Not authorized until decided.
+1. Whether forgotten active handles need an approved maximum-age or idle TTL, and whether continuity of existing tabs or availability for new tabs has priority at the 20-handle cap.
+2. The operational cleanup contract: scheduler ownership, cadence, database credential, batching, retry, alerting, and deletion metrics for revoked handles older than 30 days.
+3. Future custom-domain verification, DNS/TLS provisioning, host administration, and mapping to the canonical `centerKey`. Out of this increment: custom domains, `BrandConfiguration`, branded login, and cross-domain session continuity.
+4. Exact authentication-host FQDN and exact `<domain>` values per environment. Configuration only; the pattern is approved.
+5. Administrative process for allocating or retiring a non-reserved `centerKey` after the reserved set above.
+
+Catalog list cursor encoding, extra catalog response DTO fields, and physical activity/slot table names are pending decision in `SPEC-DIVE-BOOKING-001`. They are not authorized by this ADR.
 
 ## Alternatives considered
 
@@ -431,4 +465,4 @@ Not selected. It implies one active tenant per browser profile, couples dashboar
 
 ## Implementation authority
 
-Ready to start authorizes reversible implementation with synthetic data for `DIVE-IAM-REQ-029..032`. Do not invent values for the remaining open questions. Runtime routes change only in the implementation PR, with the tests listed above.
+Ready to start authorizes reversible implementation with synthetic data for `DIVE-IAM-REQ-029..032`. Do not invent values for the remaining open questions, including catalog cursor encoding, extra catalog DTO fields, and physical activity/slot names owned by `SPEC-DIVE-BOOKING-001`. Runtime routes change only in the implementation PR, with the tests listed above.
