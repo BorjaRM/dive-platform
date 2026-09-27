@@ -24,6 +24,7 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..031` are Ready to start
 | ADR-DIVE-006 | `specs/architecture/adrs/ADR-DIVE-006.md` | Ready to start | 0.1 |
 | ADR-DIVE-007 | `specs/architecture/adrs/ADR-DIVE-007.md` | Ready to start | 0.2 |
 | ADR-DIVE-008 | `specs/architecture/adrs/ADR-DIVE-008.md` | Ready to start | 0.7 |
+| ADR-DIVE-009 | `specs/architecture/adrs/ADR-DIVE-009.md` | Draft | 0.1 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 0.5 |
 | SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.8 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.2-draft |
@@ -31,7 +32,7 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..031` are Ready to start
 | SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.20 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.21 |
 
 Notion indexes must show this map’s version. They must not invent an independent version sequence.
 
