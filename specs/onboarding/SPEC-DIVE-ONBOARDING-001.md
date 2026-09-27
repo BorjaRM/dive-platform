@@ -26,9 +26,9 @@ The decisions below were explicitly confirmed by the product owner, but this art
 | `DIVE-ONB-REQ-004` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-002..006`; `ADR-DIVE-008` § Authorization path | Approved by product owner for Draft review; pending merge |
 | `DIVE-ONB-REQ-005..DIVE-ONB-REQ-019` | `Proposed` | PR #32 product-owner decision record: https://github.com/BorjaRM/dive-platform/pull/32#issuecomment-5855884646; `ADR-DIVE-013` Draft | Approved by product owner for Draft review; pending merge |
 | `DIVE-ONB-REQ-020` | `Proposed` | PR #32 product-owner decision record: https://github.com/BorjaRM/dive-platform/pull/32#issuecomment-5855884646 | Approved by product owner for Draft review; pending merge |
-| `DIVE-ONB-REQ-021` | `Proposed` | PR #32 SDD Gatekeeper remediation: NFC normalization + Unicode code-point counting | Proposed closure; pending product-owner confirmation |
+| `DIVE-ONB-REQ-021` | `Proposed` | PR #33 product-owner remediation confirmation: https://github.com/BorjaRM/dive-platform/pull/33#issuecomment-5856138525 | Approved by product owner for Draft review; pending merge |
 | `DIVE-ONB-REQ-022..DIVE-ONB-REQ-028` | `Proposed` | PR #32 product-owner decision record: https://github.com/BorjaRM/dive-platform/pull/32#issuecomment-5855884646; `ADR-DIVE-013` Draft | Approved by product owner for Draft review; pending merge |
-| `DIVE-ONB-REQ-029..DIVE-ONB-REQ-030` | `Proposed` | PR #32 SDD Gatekeeper remediation: stable storage key + version metadata | Proposed closure; pending product-owner confirmation |
+| `DIVE-ONB-REQ-029..DIVE-ONB-REQ-030` | `Proposed` | PR #33 product-owner remediation confirmation: https://github.com/BorjaRM/dive-platform/pull/33#issuecomment-5856138525 | Approved by product owner for Draft review; pending merge |
 | `DIVE-ONB-REQ-031..DIVE-ONB-REQ-035` | `Proposed` | PR #32 product-owner decision record: https://github.com/BorjaRM/dive-platform/pull/32#issuecomment-5855884646; `ADR-DIVE-013` Draft | Approved by product owner for Draft review; pending merge |
 | `DIVE-ONB-REQ-036` | `Derived` | `specs/foundation/sdd-specs-traceability.md` § Spec lifecycle / Definition of Ready / Definition of Done; PR #32 acceptance-matrix confirmation | Approved acceptance matrix; lifecycle corrected by existing SDD process |
 
@@ -207,7 +207,7 @@ No latency, bundle, or throughput budget is introduced. Implementation evidence 
 
 ## Open questions
 
-Product decisions confirmed in the PR decision record are closed. The NFC/code-point validation closure and stable-key localStorage closure remain Proposed pending product-owner confirmation. Implementation-specific HTTP paths, physical names, and event schemas require a later contract/implementation PR and MUST NOT change this behavior silently.
+No product decision remains open within this Draft's reviewed scope. Implementation-specific HTTP paths, physical names, and event schemas require a later contract/implementation PR and MUST NOT change this behavior silently.
 
 ## Traceability
 
