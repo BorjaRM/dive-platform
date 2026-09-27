@@ -57,6 +57,19 @@ describe('IAM identity assertion boundary (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005)',
     expect(() => assertAuthenticatedPrincipal(principal)).not.toThrow();
   });
 
+  it('normalizes provider failures to an unauthenticated result', async () => {
+    await expect(
+      authenticateIdentity(
+        {
+          authenticate: async () => {
+            throw new Error('provider unavailable');
+          },
+        },
+        'provider-session',
+      ),
+    ).rejects.toThrow('Unauthenticated');
+  });
+
   it.each([
     {
       issuer: '',
@@ -81,6 +94,11 @@ describe('IAM identity assertion boundary (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005)',
       subject: 'subject',
       verifiedAddresses: 'not-an-array',
       assurance: { level: 'single_factor' as const, verifiedAt: null },
+    },
+    {
+      issuer: 'issuer',
+      subject: 'subject',
+      verifiedAddresses: [],
     },
   ])('rejects malformed provider output %#', async (principal) => {
     await expect(
