@@ -258,6 +258,14 @@ inválidos cubren las tres reglas mediante el test Node nativo del validador.
 3. Separar vistas de estado y selector en componentes de presentación sin acceso a red o storage.
 4. Mantener los tests actuales como caracterización; después repartirlos entre transiciones del controlador y renderizado.
 
+**Decisión posterior — Proposed.** ARCH-01 no se va a realizar como una
+refactorización de `DashboardTenantContext`: el componente es temporal y será
+sustituido. Extraer ahora sus responsabilidades crearía arquitectura
+transitoria y duplicaría el trabajo de migración. Esta decisión difiere la
+corrección, no declara resuelto el riesgo; el diseño y el momento del
+reemplazo quedan abiertos. La decisión está registrada en
+[evidence/architecture/ARCH-01.md](../../evidence/architecture/ARCH-01.md).
+
 ### DOC-01 — Versión de TypeScript divergente
 
 **Evidencia.** ADR-DIVE-003 fija TypeScript 7.0.2: [ADR-DIVE-003.md](../../specs/architecture/adrs/ADR-DIVE-003.md#L20-L35). El catálogo efectivo fija 6.0.3: [pnpm-workspace.yaml](../../pnpm-workspace.yaml#L1-L7).
