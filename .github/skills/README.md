@@ -20,6 +20,7 @@ Skills auto-load from `description`; `/skill-name` also works. That does not add
 | `cross-cutting-performance-checklist` | Touching DB, API, worker/outbox, or web/widget |
 | `vercel-react-best-practices` | Writing, reviewing, or refactoring React/Next.js code in `apps/web` |
 | `vercel-composition-patterns` | Designing or refactoring reusable React component APIs in `apps/web` |
+| `web-design-guidelines` | Reviewing UI, accessibility, design, or UX in `apps/web` |
 
 ## Third-party skills
 
