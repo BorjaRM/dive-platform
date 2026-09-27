@@ -1,4 +1,4 @@
-export function dashboardCenterPath(
+export function legacyDashboardCenterPath(
   tenantId: string,
   centerId: string,
 ): string {

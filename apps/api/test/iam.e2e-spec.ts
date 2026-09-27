@@ -13,7 +13,7 @@ import { Pool } from 'pg';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { DATABASE_POOL, SECURITY_LOGGER } from '../src/iam.tokens.js';
-import { dashboardCenterPath } from './dashboard-routes.js';
+import { legacyDashboardCenterPath } from './legacy-dashboard-routes.js';
 
 function testDatabaseUrl(
   name: 'SPIKE_ADMIN_DATABASE_URL' | 'SPIKE_APP_DATABASE_URL',
@@ -240,18 +240,18 @@ describe('IAM/API vertical (e2e)', () => {
 
   it('reads an authorized center and enforces assigned center scope', async () => {
     await request(app.getHttpServer())
-      .get(dashboardCenterPath(tenantA, centerA1))
+      .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer manager-a-token')
       .expect(200)
       .expect({ id: centerA1, name: 'A1' });
 
     await request(app.getHttpServer())
-      .get(dashboardCenterPath(tenantA, centerA1))
+      .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer owner-a-no-email-token')
       .expect(200)
       .expect({ id: centerA1, name: 'A1' });
     await request(app.getHttpServer())
-      .get(dashboardCenterPath(tenantA, centerA2))
+      .get(legacyDashboardCenterPath(tenantA, centerA2))
       .set('authorization', 'Bearer manager-a-token')
       .expect(403)
       .expect({
@@ -263,17 +263,17 @@ describe('IAM/API vertical (e2e)', () => {
 
   it('denies missing identity, foreign tenant, and foreign center without disclosure', async () => {
     await request(app.getHttpServer())
-      .get(dashboardCenterPath(tenantA, centerA1))
+      .get(legacyDashboardCenterPath(tenantA, centerA1))
       .expect(401);
     const foreign = await request(app.getHttpServer())
-      .get(dashboardCenterPath(tenantB, centerB1))
+      .get(legacyDashboardCenterPath(tenantB, centerB1))
       .set('authorization', 'Bearer owner-a-token')
       .expect(403);
     expect(JSON.stringify(foreign.body)).not.toContain(centerB1);
     expect(JSON.stringify(logs)).not.toContain(centerB1);
     expect(JSON.stringify(logs)).not.toContain('owner-a-token');
     await request(app.getHttpServer())
-      .get(dashboardCenterPath(tenantA, centerA1))
+      .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer sensitive@example.test')
       .expect(401);
     expect(JSON.stringify(logs)).not.toContain('sensitive@example.test');
@@ -298,7 +298,7 @@ describe('IAM/API vertical (e2e)', () => {
 
   it('ignores client-supplied authorization claims', async () => {
     await request(app.getHttpServer())
-      .get(dashboardCenterPath(tenantA, centerA2))
+      .get(legacyDashboardCenterPath(tenantA, centerA2))
       .set('authorization', 'Bearer manager-a-token')
       .set('x-tenant-id', tenantB)
       .set('x-permissions', 'membership.disable')
@@ -307,22 +307,22 @@ describe('IAM/API vertical (e2e)', () => {
 
   it('requires issuer plus subject and an active membership', async () => {
     await request(app.getHttpServer())
-      .get(dashboardCenterPath(tenantA, centerA1))
+      .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer wrong-issuer-token')
       .expect(403);
     await request(app.getHttpServer())
-      .get(dashboardCenterPath(tenantA, centerA1))
+      .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer pending-a-token')
       .expect(403);
     await request(app.getHttpServer())
-      .get(dashboardCenterPath(tenantA, centerA1))
+      .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer malformed-principal-token')
       .expect(401);
   });
 
   it('applies role revocation on the next request', async () => {
     await request(app.getHttpServer())
-      .get(dashboardCenterPath(tenantA, centerA1))
+      .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer manager-a-token')
       .expect(200);
     await admin.query(
@@ -342,7 +342,7 @@ describe('IAM/API vertical (e2e)', () => {
     }
     const committedAt = performance.now();
     await request(app.getHttpServer())
-      .get(dashboardCenterPath(tenantA, centerA1))
+      .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer manager-a-token')
       .expect(403);
     const elapsedMilliseconds = performance.now() - committedAt;
@@ -398,7 +398,7 @@ describe('IAM/API vertical (e2e)', () => {
     );
     const committedAt = performance.now();
     await request(app.getHttpServer())
-      .get(dashboardCenterPath(tenantA, centerA1))
+      .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer manager-a-token')
       .expect(403);
     const elapsedMilliseconds = performance.now() - committedAt;
@@ -412,14 +412,14 @@ describe('IAM/API vertical (e2e)', () => {
 
   it('revalidates the provider session and denies termination on the next request', async () => {
     await request(app.getHttpServer())
-      .get(dashboardCenterPath(tenantA, centerA1))
+      .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer manager-a-token')
       .expect(200);
 
     terminatedTokens.add('manager-a-token');
     const terminatedAt = performance.now();
     await request(app.getHttpServer())
-      .get(dashboardCenterPath(tenantA, centerA1))
+      .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer manager-a-token')
       .expect(401);
     const elapsedMilliseconds = performance.now() - terminatedAt;
