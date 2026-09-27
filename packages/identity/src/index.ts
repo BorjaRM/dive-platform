@@ -67,49 +67,68 @@ export async function authenticateIdentity(
   provider: IdentityProviderPort,
   bearerToken: string,
 ): Promise<AuthenticatedPrincipal> {
-  const candidate = await provider.authenticate(bearerToken);
-  const issuer = candidate.issuer.trim();
-  const subject = candidate.subject.trim();
-  if (
-    !Array.isArray(candidate.verifiedAddresses) ||
-    candidate.verifiedAddresses.some((address) => typeof address !== 'string')
-  ) {
+  try {
+    const candidate = await provider.authenticate(bearerToken);
+    if (typeof candidate !== 'object' || candidate === null) {
+      throw new Error('Unauthenticated');
+    }
+    const candidateRecord = candidate as Record<string, unknown>;
+    const assurance = candidateRecord.assurance;
+    if (typeof assurance !== 'object' || assurance === null) {
+      throw new Error('Unauthenticated');
+    }
+    const assuranceRecord = assurance as Record<string, unknown>;
+    const issuer = candidateRecord.issuer;
+    const subject = candidateRecord.subject;
+    const verifiedAddressesValue = candidateRecord.verifiedAddresses;
+    const level = assuranceRecord.level;
+    const verifiedAt = assuranceRecord.verifiedAt;
+    if (
+      typeof issuer !== 'string' ||
+      typeof subject !== 'string' ||
+      !Array.isArray(verifiedAddressesValue) ||
+      verifiedAddressesValue.some((address) => typeof address !== 'string') ||
+      !['single_factor', 'multi_factor'].includes(level as string) ||
+      (verifiedAt !== null && typeof verifiedAt !== 'string')
+    ) {
+      throw new Error('Unauthenticated');
+    }
+    const normalizedIssuer = issuer.trim();
+    const normalizedSubject = subject.trim();
+    const verifiedAddresses = verifiedAddressesValue.map((address) =>
+      address.trim(),
+    );
+    const assuranceVerifiedAt =
+      verifiedAt === null ? null : new Date(verifiedAt);
+    if (
+      !normalizedIssuer ||
+      !normalizedSubject ||
+      verifiedAddresses.some((address) => !address) ||
+      (assuranceVerifiedAt !== null &&
+        Number.isNaN(assuranceVerifiedAt.getTime())) ||
+      (level === 'multi_factor' && assuranceVerifiedAt === null)
+    ) {
+      throw new Error('Unauthenticated');
+    }
+    const principal = Object.freeze({
+      issuer: normalizedIssuer,
+      subject: normalizedSubject,
+      verifiedAddresses: Object.freeze(verifiedAddresses),
+      assurance: Object.freeze({
+        level,
+        verifiedAt: assuranceVerifiedAt?.toISOString() ?? null,
+      }),
+    }) as AuthenticatedPrincipal;
+    authenticatedPrincipals.add(principal);
+    return principal;
+  } catch {
     throw new Error('Unauthenticated');
   }
-  const verifiedAddresses = candidate.verifiedAddresses.map((address) =>
-    address.trim(),
-  );
-  const assuranceVerifiedAt =
-    candidate.assurance.verifiedAt === null
-      ? null
-      : new Date(candidate.assurance.verifiedAt);
-  if (
-    !issuer ||
-    !subject ||
-    verifiedAddresses.some((address) => !address) ||
-    !['single_factor', 'multi_factor'].includes(candidate.assurance.level) ||
-    (assuranceVerifiedAt !== null &&
-      Number.isNaN(assuranceVerifiedAt.getTime())) ||
-    (candidate.assurance.level === 'multi_factor' &&
-      assuranceVerifiedAt === null)
-  ) {
-    throw new Error('Unauthenticated');
-  }
-  const principal = Object.freeze({
-    issuer,
-    subject,
-    verifiedAddresses: Object.freeze(verifiedAddresses),
-    assurance: Object.freeze({
-      level: candidate.assurance.level,
-      verifiedAt: assuranceVerifiedAt?.toISOString() ?? null,
-    }),
-  }) as AuthenticatedPrincipal;
-  authenticatedPrincipals.add(principal);
-  return principal;
 }
 
 export type {
   ClerkIdentityAdapterConfig,
+  ClerkIdentityAdapterDependencies,
   IdentityWebhookEvent,
   IdentityWebhookVerifierPort,
 } from './clerk.js';

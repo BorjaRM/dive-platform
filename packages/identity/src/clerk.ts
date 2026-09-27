@@ -1,5 +1,8 @@
-import { createClerkClient, verifyToken } from '@clerk/backend';
-import { verifyWebhook } from '@clerk/backend/webhooks';
+import {
+  verifyToken as clerkVerifyToken,
+  createClerkClient,
+} from '@clerk/backend';
+import { verifyWebhook as clerkVerifyWebhook } from '@clerk/backend/webhooks';
 import type {
   IdentityAssurance,
   IdentityProviderPort,
@@ -11,6 +14,22 @@ export type ClerkIdentityAdapterConfig = Readonly<{
   webhookSigningSecret: string;
   issuer: string;
   authorizedParties: readonly string[];
+}>;
+
+export type ClerkIdentityAdapterDependencies = Readonly<{
+  verifyToken: (
+    bearerToken: string,
+    options: Readonly<{
+      authorizedParties: readonly string[];
+      secretKey: string;
+    }>,
+  ) => Promise<unknown>;
+  getSession: (sessionId: string) => Promise<unknown>;
+  getUser: (userId: string) => Promise<unknown>;
+  verifyWebhook: (
+    request: Request,
+    options: Readonly<{ signingSecret: string }>,
+  ) => Promise<unknown>;
 }>;
 
 export type IdentityWebhookEvent = Readonly<{
@@ -35,15 +54,19 @@ function required(value: string, name: string): string {
 }
 
 function assuranceFromClaims(claims: {
-  iat?: number;
-  fva?: readonly [number, number];
+  iat?: unknown;
+  fva?: unknown;
 }): IdentityAssurance {
-  const issuedAt = claims.iat ?? Number.NaN;
+  const issuedAt = typeof claims.iat === 'number' ? claims.iat : Number.NaN;
   const factorAges = claims.fva;
-  if (!factorAges) {
+  if (factorAges === undefined) {
     return Object.freeze({ level: 'single_factor', verifiedAt: null });
   }
   if (
+    !Array.isArray(factorAges) ||
+    factorAges.length !== 2 ||
+    typeof factorAges[0] !== 'number' ||
+    typeof factorAges[1] !== 'number' ||
     !Number.isFinite(issuedAt) ||
     !Number.isFinite(factorAges[0]) ||
     !Number.isFinite(factorAges[1]) ||
@@ -61,6 +84,30 @@ function assuranceFromClaims(claims: {
       (issuedAt - assuranceAgeMinutes * 60) * 1_000,
     ).toISOString(),
   });
+}
+
+function record(value: unknown): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null) {
+    throw new Error('Unauthenticated');
+  }
+  return value as Record<string, unknown>;
+}
+
+function defaultDependencies(
+  secretKey: string,
+): ClerkIdentityAdapterDependencies {
+  const client = createClerkClient({ secretKey });
+  return {
+    verifyToken: (bearerToken, options) =>
+      clerkVerifyToken(bearerToken, {
+        authorizedParties: [...options.authorizedParties],
+        secretKey: options.secretKey,
+      }),
+    getSession: (sessionId) => client.sessions.getSession(sessionId),
+    getUser: (userId) => client.users.getUser(userId),
+    verifyWebhook: (request, options) =>
+      clerkVerifyWebhook(request, { signingSecret: options.signingSecret }),
+  };
 }
 
 function eventSubject(
@@ -108,9 +155,12 @@ export class ClerkIdentityAdapter
   implements IdentityProviderPort, IdentityWebhookVerifierPort
 {
   private readonly config: ClerkIdentityAdapterConfig;
-  private readonly client: ReturnType<typeof createClerkClient>;
+  private readonly dependencies: ClerkIdentityAdapterDependencies;
 
-  constructor(config: ClerkIdentityAdapterConfig) {
+  constructor(
+    config: ClerkIdentityAdapterConfig,
+    dependencies?: ClerkIdentityAdapterDependencies,
+  ) {
     const authorizedParties = config.authorizedParties
       .map((party) => party.trim())
       .filter(Boolean);
@@ -126,47 +176,80 @@ export class ClerkIdentityAdapter
       issuer: required(config.issuer, 'CLERK_ISSUER'),
       authorizedParties: Object.freeze(authorizedParties),
     });
-    this.client = createClerkClient({ secretKey: this.config.secretKey });
+    this.dependencies =
+      dependencies ?? defaultDependencies(this.config.secretKey);
   }
 
   async authenticate(bearerToken: string): Promise<IdentityProviderPrincipal> {
     try {
-      const claims = await verifyToken(bearerToken, {
-        authorizedParties: [...this.config.authorizedParties],
-        secretKey: this.config.secretKey,
-      });
+      const claims = record(
+        await this.dependencies.verifyToken(bearerToken, {
+          authorizedParties: this.config.authorizedParties,
+          secretKey: this.config.secretKey,
+        }),
+      );
       if (
         'aud' in claims ||
         claims.iss !== this.config.issuer ||
         typeof claims.sub !== 'string' ||
-        typeof claims.sid !== 'string'
+        typeof claims.sid !== 'string' ||
+        typeof claims.azp !== 'string' ||
+        !this.config.authorizedParties.includes(claims.azp)
       ) {
         throw new Error('Unauthenticated');
       }
 
       const [session, user] = await Promise.all([
-        this.client.sessions.getSession(claims.sid),
-        this.client.users.getUser(claims.sub),
+        this.dependencies.getSession(claims.sid),
+        this.dependencies.getUser(claims.sub),
       ]);
+      const sessionRecord = record(session);
+      const userRecord = record(user);
       if (
-        session.id !== claims.sid ||
-        session.userId !== claims.sub ||
-        session.status !== 'active' ||
-        session.expireAt <= Date.now() ||
-        user.id !== claims.sub ||
-        user.banned ||
-        user.locked
+        sessionRecord.id !== claims.sid ||
+        sessionRecord.userId !== claims.sub ||
+        sessionRecord.status !== 'active' ||
+        typeof sessionRecord.expireAt !== 'number' ||
+        !Number.isFinite(sessionRecord.expireAt) ||
+        sessionRecord.expireAt <= Date.now() ||
+        userRecord.id !== claims.sub ||
+        typeof userRecord.banned !== 'boolean' ||
+        typeof userRecord.locked !== 'boolean' ||
+        userRecord.banned ||
+        userRecord.locked ||
+        !Array.isArray(userRecord.emailAddresses)
       ) {
         throw new Error('Unauthenticated');
       }
+
+      const verifiedAddresses = userRecord.emailAddresses.map((entry) => {
+        const emailAddress = record(entry);
+        if (typeof emailAddress.emailAddress !== 'string') {
+          throw new Error('Unauthenticated');
+        }
+        const verification = emailAddress.verification;
+        if (
+          verification !== undefined &&
+          verification !== null &&
+          (typeof verification !== 'object' ||
+            typeof (verification as Record<string, unknown>).status !==
+              'string')
+        ) {
+          throw new Error('Unauthenticated');
+        }
+        return verification &&
+          (verification as Record<string, unknown>).status === 'verified'
+          ? emailAddress.emailAddress
+          : null;
+      });
 
       return Object.freeze({
         issuer: claims.iss,
         subject: claims.sub,
         verifiedAddresses: Object.freeze(
-          user.emailAddresses
-            .filter(({ verification }) => verification?.status === 'verified')
-            .map(({ emailAddress }) => emailAddress),
+          verifiedAddresses.filter(
+            (address): address is string => address !== null,
+          ),
         ),
         assurance: assuranceFromClaims(claims),
       });
@@ -182,22 +265,27 @@ export class ClerkIdentityAdapter
     >,
   ): Promise<IdentityWebhookEvent> {
     const headers = requestHeaders(headerValues);
-    const event = await verifyWebhook(
-      new Request('https://identity-webhook.invalid', {
-        method: 'POST',
-        headers,
-        body: Uint8Array.from(rawBody),
-      }),
-      { signingSecret: this.config.webhookSigningSecret },
+    const event = record(
+      await this.dependencies.verifyWebhook(
+        new Request('https://identity-webhook.invalid', {
+          method: 'POST',
+          headers,
+          body: Uint8Array.from(rawBody),
+        }),
+        { signingSecret: this.config.webhookSigningSecret },
+      ),
     );
+    const type = event.type;
+    const data = record(event.data);
     const providerEventId = headers.get('svix-id')?.trim();
-    if (!providerEventId) throw new Error('Invalid webhook');
-    const data = event.data as unknown as Record<string, unknown>;
+    if (typeof type !== 'string' || !providerEventId) {
+      throw new Error('Invalid webhook');
+    }
     return Object.freeze({
       providerEventId,
       issuer: this.config.issuer,
-      type: event.type,
-      subject: eventSubject(event.type, data),
+      type,
+      subject: eventSubject(type, data),
       occurredAt: eventOccurredAt(data),
     });
   }

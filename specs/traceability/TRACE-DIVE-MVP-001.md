@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.14
+- **Version:** 0.15
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -29,7 +29,7 @@
 | SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.14 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.15 |
 
 Notion indexes must show this map’s version. They must not invent an independent version sequence.
 
@@ -126,7 +126,7 @@ The first IAM/API vertical is partially implemented in `apps/api`, `packages/ide
 
 ### Partial or not yet demonstrated
 
-Clerk authentication and session revocation (`DIVE-IAM-REQ-004`, `016`, `022`) remain Partial. `packages/identity/src/clerk-token-verifier.spec.ts` executes the real Clerk SDK against a locally signed standard session-token fixture and checks `azp`; Backend API session/user fetches and provider session termination use mocked or deterministic seams, so no Clerk sandbox or production integration is demonstrated. See `evidence/releases/iam-phase-2-revocation.md`.
+Clerk authentication and session revocation (`DIVE-IAM-REQ-004`, `DIVE-IAM-REQ-016`, `DIVE-IAM-REQ-022`) remain Partial. `packages/identity/src/clerk-token-verifier.spec.ts` executes the real Clerk SDK against a locally signed standard session-token fixture and checks `azp`; Backend API session/user fetches and provider session termination use injectable deterministic seams, so no Clerk sandbox or production integration is demonstrated. See `evidence/releases/iam-phase-2-revocation.md`.
 
 Non-disclosure and complete sensitive-operation audit coverage (`DIVE-IAM-REQ-024`, `DIVE-IAM-REQ-025`) remain partial beyond the exposed center-read, membership-disable, and invitation persistence paths. Purpose-limited customer-contact access and booking-operation audit belong to later approved slices and are not demonstrated here.
 
