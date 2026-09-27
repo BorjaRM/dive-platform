@@ -49,7 +49,7 @@ Apply every matching row. Same output format. Do not spawn another agent.
 | Paths (re-check on disk) | Also read / invoke | Look for |
 |---|---|---|
 | `apps/api/**`, `packages/db/**`, `packages/shared/**` | SPECs/ADRs for claimed IDs; performance skill if DB/API/worker/outbox | Server-side tenant context; no client-supplied tenant/center/activity as authorization; outbox/idempotency when ADR-DIVE-002 applies; tests mapped to IDs |
-| `apps/web/**` | `DIVE-BOOK-REQ-037`..`042` in `specs/booking/SPEC-DIVE-BOOKING-001.md`; `specs/spikes/SPIKE-DIVE-003/specification.md` and `requirements.md` (Draft / not executed) | Channel/tenant/center/activity resolved server-side; iframe/CSP/`postMessage`/theming are not Accepted; ADR-DIVE-002 iframe is provisional |
+| `apps/web/**` | `DIVE-BOOK-REQ-037`..`042` in `specs/booking/SPEC-DIVE-BOOKING-001.md`; `specs/spikes/SPIKE-DIVE-003/specification.md` and `requirements.md` (Draft / not executed); `vercel-react-best-practices`; `vercel-composition-patterns` for reusable component APIs | Channel/tenant/center/activity resolved server-side; iframe/CSP/`postMessage`/theming are not Accepted; ADR-DIVE-002 iframe is provisional; external guidance remains advisory and cannot create requirements |
 | RLS, `tenant_id`, isolation tests | Stop conditions in this file. Do **not** invoke Tenancy and Data Isolation Engineer | Cross-tenant leak or `BYPASSRLS` → **grave** and escalate |
 | `specs/**` | Out of scope here | Remit SDD Gatekeeper. If the change set is **only** specs/TRACE/docs, stop |
 | `tests/**`, PR Validation | `fill-pr-validation`, `traceability-first-implementation` | Claimed commands vs actually run; empty Validation on a non-draft implementation PR is at least **moderado** |
@@ -116,7 +116,7 @@ If a finding does not fit a level, record an open question — do not invent a f
 
 ## Skills
 
-Invoke (do not copy bodies): `fill-pr-validation`, `traceability-first-implementation`, `cross-cutting-performance-checklist` when in scope.
+Invoke (do not copy bodies): `fill-pr-validation`, `traceability-first-implementation`, `cross-cutting-performance-checklist` when in scope, `vercel-react-best-practices` for `apps/web/**`, and `vercel-composition-patterns` when reusable React component APIs are introduced or refactored.
 
 Do not load `sdd-normative-change-hygiene` here. Remit that work to SDD Gatekeeper.
 

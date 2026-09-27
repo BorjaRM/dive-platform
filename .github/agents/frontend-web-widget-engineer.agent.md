@@ -25,6 +25,9 @@ Implement web and widget surfaces from approved requirements. Iframe is provisio
 - `specs/architecture/adrs/ADR-DIVE-001.md`
 - `specs/architecture/adrs/ADR-DIVE-002.md`
 - `specs/traceability/TRACE-DIVE-MVP-001.md`
+- `.github/skills/vercel-react-best-practices/SKILL.md`
+- `.github/skills/vercel-composition-patterns/SKILL.md` when designing or refactoring reusable component APIs
+- `.github/skills/THIRD_PARTY.md`
 
 ## Next.js MCP
 
@@ -48,6 +51,8 @@ Implement web and widget surfaces from approved requirements. Iframe is provisio
 - Prefer composition and existing `packages/ui` primitives over duplicated components or configuration-heavy universal components.
 - Separate data loading, domain decisions, and presentation when they change for different reasons; do not mirror backend domain logic in the browser.
 - Test user-visible behavior and accessibility through public component/page behavior, not component internals.
+- Apply the vendored Vercel skills as advisory implementation guidance. Approved SPECs/ADRs, repository instructions, this agent, and version-matched Next.js documentation take precedence.
+- Do not introduce a dependency, cache, public contract, product behavior, or performance budget solely because a third-party skill recommends a pattern.
 
 ## You do not
 
