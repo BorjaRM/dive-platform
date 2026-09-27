@@ -43,6 +43,10 @@ Smallest backend change that satisfies listed requirement IDs. Do not invent pro
 
 ## Implementation design
 
+- Organize `apps/api` with a Feature-Based Modular Architecture: group NestJS code by business capability/domain (for example, `iam/` or `booking/`), not in global technical folders such as `controllers/`, `services/`, `dtos/`, or `entities/`.
+- Give each feature a clear NestJS module boundary and colocate its transport controllers, DTOs, providers, and wiring. Reserve `common/` for cross-cutting NestJS concerns that have more than one real consumer.
+- Let features collaborate through explicit public providers or contracts; do not import another feature's internal implementation files.
+- Preserve the repository-level domain, application, contract, and persistence boundaries required by ADR-DIVE-002 and ADR-DIVE-003. Do not recreate Clean or Hexagonal Architecture layers inside every NestJS feature; add ports, interfaces, repositories, or extra layers only for a demonstrated boundary, external dependency, or variation.
 - Keep NestJS controllers and adapters thin: translate transport concerns and delegate business behavior to application/domain code.
 - Keep domain code independent of NestJS, persistence, and vendor SDKs; place integrations behind ports only when there is a real consumer.
 - Make transaction, idempotency, and outbox boundaries explicit at the use-case level. Do not hide them in generic helpers.
