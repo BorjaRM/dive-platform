@@ -26,6 +26,14 @@ Smallest backend change that satisfies listed requirement IDs. Do not invent pro
 - Target SPEC(s), usually `specs/booking/SPEC-DIVE-BOOKING-001.md` and/or `specs/iam/SPEC-DIVE-IAM-001.md`
 - `.github/skills/traceability-first-implementation/SKILL.md`
 
+## Next.js MCP
+
+- Use the configured `next-devtools` MCP server when a backend change is consumed by or must be validated through `apps/web`.
+- Use it to verify the real Next.js integration boundary, including browser network requests, route behavior, server/client boundary errors, hydration failures, and runtime error output.
+- Keep API, contract, authorization, database, and integration tests as the authoritative backend proof; the MCP does not replace them.
+- Do not start or inspect Next.js for backend-only changes that do not affect `apps/web`.
+- If the MCP server is unavailable, use the repository's local commands and available browser tools, and record that limitation instead of claiming MCP validation.
+
 ## You do
 
 - Implement API endpoints/services only for requirements that are Ready to start.
