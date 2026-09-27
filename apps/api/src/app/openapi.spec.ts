@@ -5,8 +5,10 @@ import {
 import { Global, Module } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
+import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { DATABASE_POOL } from '../common/database/database.tokens.js';
+import { configureOpenApi } from '../common/security/http-hardening.js';
 import { SECURITY_LOGGER } from '../common/security/security.tokens.js';
 import { TenantContextCrypto } from '../common/tenant-context/tenant-context.crypto.js';
 import { TENANT_CONTEXT_CRYPTO } from '../common/tenant-context/tenant-context.tokens.js';
@@ -66,5 +68,45 @@ describe('OpenAPI document generation', () => {
     ).toBeUndefined();
     expect(document.paths['/v1/webhooks/clerk']?.post).toBeDefined();
     expect(document.components?.securitySchemes?.bearer).toBeDefined();
+  });
+
+  it('serves Swagger only when explicitly enabled', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [OpenApiSharedTestModule, IamModule],
+    }).compile();
+
+    const app = moduleRef.createNestApplication();
+    expect(
+      configureOpenApi(app, {
+        NODE_ENV: 'test',
+        API_SWAGGER_ENABLED: 'true',
+      }),
+    ).toBe(true);
+    await app.init();
+
+    try {
+      const response = await request(app.getHttpServer()).get('/docs-json');
+      expect(response.status).toBe(200);
+      expect(response.body.info.title).toBe('Dive Platform API');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('does not register Swagger by default', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [OpenApiSharedTestModule, IamModule],
+    }).compile();
+
+    const app = moduleRef.createNestApplication();
+    expect(configureOpenApi(app, { NODE_ENV: 'test' })).toBe(false);
+    await app.init();
+
+    try {
+      const response = await request(app.getHttpServer()).get('/docs-json');
+      expect(response.status).toBe(404);
+    } finally {
+      await app.close();
+    }
   });
 });

@@ -357,3 +357,14 @@ El workflow de CI declara `contents: read` tanto a nivel global como por job,
 no ejecuta autofix, commit ni push, y la guía del agente de CI ya no ordena
 publicar cambios desde una validación. La evidencia ejecutable está en
 [evidence/operations/SEC-01.md](../../evidence/operations/SEC-01.md).
+
+## Corrección aplicada: SEC-02
+
+El bootstrap del API aplica `helmet`, mantiene CORS con orígenes exactos y
+solo registra Swagger cuando `API_SWAGGER_ENABLED` lo habilita explícitamente;
+producción rechaza esa activación. Staging, preview y producción fallan si no
+reciben `API_RATE_LIMIT_WINDOW_MS` y `API_RATE_LIMIT_MAX`, y el límite IP
+configurado se prueba con una respuesta 429. La evidencia está en
+[evidence/operations/SEC-02.md](../../evidence/operations/SEC-02.md). La
+limitación por identidad y tenant permanece como decisión normativa abierta:
+no se usa un header controlado por el cliente como clave de autorización.
