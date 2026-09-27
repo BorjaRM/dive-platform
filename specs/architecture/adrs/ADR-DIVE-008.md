@@ -1,12 +1,15 @@
 # ADR-DIVE-008 — Internal tenant-scoped dashboard context
 
-- **Status:** Draft
-- **Version:** 0.2
+- **Status:** Ready to start
+- **Version:** 0.3
 - **Date:** 2026-09-27
+- **Decision date:** 2026-09-27
 - **Deciders:** Product / Security / Architecture
-- **Affected IDs:** `DIVE-IAM-REQ-001..006`, `016`, `022`, `024`, `028`; `MT-REQ-002`, `006`, `009`
+- **Affected IDs:** `DIVE-IAM-REQ-001..006`, `016`, `022`, `024`, `028..031`; `MT-REQ-002`, `006`, `009`
 
 ## Provenance
+
+The path and credential decisions were introduced as `Proposed` on 2026-09-27. Product owner (Borja) explicitly promoted this ADR to Ready to start on 2026-09-27. It is now implementation authority for dashboard tenant context. Remaining open questions stay outside the approved decision and must not be filled with silent defaults.
 
 | Decision | Provenance | Exact source | Status |
 |---|---|---|---|
@@ -15,13 +18,11 @@
 | Revocation must prevent further authorized calls and ordinary revocation takes effect within five minutes | `Documented` | `DIVE-IAM-REQ-016`, `DIVE-IAM-REQ-022` | Existing normative constraint |
 | Do not cache application authorization decisions in the MVP; re-resolve membership, roles, and scopes per authorized use case; validate the provider session on every dashboard request | `Documented` | ADR-DIVE-007 revocation and session boundary | Existing normative constraint |
 | Client-supplied tenant IDs are never authoritative | `Documented` | `DIVE-IAM-REQ-006` | Existing normative constraint |
-| Replace tenant identifiers in dashboard API paths with an internal tenant-scoped context credential | `Proposed` | Product direction requested by Borja on 2026-09-27; constrained by `DIVE-IAM-REQ-006` | Recorded in this Draft; pending merge |
-| Dashboard product and context endpoints MUST NOT include `/tenants/:tenantId` in their paths | `Proposed` | Same product direction; closes the path-contract question | Recorded in this Draft; pending merge |
-| Automatically select the tenant when exactly one active membership is available | `Proposed` | Product discussion on 2026-09-27 | Recorded in this Draft; pending merge |
-| Keep roles, permissions, and center scopes out of the context credential and resolve current authorization from PostgreSQL | `Derived` | `DIVE-IAM-REQ-003`, `004`, `016`, `022`; multitenancy baseline §5; ADR-DIVE-007 | Recorded in this Draft; pending merge |
-| Opaque server-stored handle, `X-Tenant-Context` header, Clerk-session lifetime, multiple simultaneous contexts, atomic route replacement, and the `/v1/me/*` context API below | `Proposed` | Product confirmation by Borja on 2026-09-27 to apply the recommended closures | Recorded in this Draft; pending merge |
-
-This ADR remains Draft. Proposed and Derived decisions are non-normative until approved and merged. It does not promote or rewrite `SPEC-DIVE-IAM-001`.
+| Replace tenant identifiers in dashboard API paths with an internal tenant-scoped context credential | `Proposed` | Product direction requested by Borja on 2026-09-27; constrained by `DIVE-IAM-REQ-006` | Approved by product owner 2026-09-27; Ready to start |
+| Dashboard product and context endpoints MUST NOT include `/tenants/:tenantId` in their paths | `Proposed` | Same product direction; closes the path-contract question | Approved by product owner 2026-09-27; Ready to start |
+| Automatically select the tenant when exactly one active membership is available | `Proposed` | Product discussion on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| Keep roles, permissions, and center scopes out of the context credential and resolve current authorization from PostgreSQL | `Derived` | `DIVE-IAM-REQ-003`, `004`, `016`, `022`; multitenancy baseline §5; ADR-DIVE-007 | Approved by product owner 2026-09-27; Ready to start |
+| Opaque server-stored handle, `X-Tenant-Context` header, Clerk-session lifetime, multiple simultaneous contexts, atomic route replacement, and the `/v1/me/*` context API below | `Proposed` | Product confirmation by Borja on 2026-09-27 to apply the recommended closures | Approved by product owner 2026-09-27; Ready to start |
 
 ## Context
 
@@ -31,7 +32,7 @@ The product direction is to remove tenant identifiers from dashboard API paths w
 
 This decision applies to authenticated dashboard traffic. It does not change public widget, hosted-page, or booking-specific capability authorization defined by ADR-DIVE-005 and `SPEC-DIVE-BOOKING-001`.
 
-## Proposed decision
+## Decision
 
 ### Responsibility split
 
@@ -98,7 +99,7 @@ Conceptual stored fields (physical schema remains an implementation detail):
 - There is no sliding renewal. A revoked, unknown, or session-mismatched handle requires a new `POST /v1/me/tenant-contexts`.
 - Selecting another operator issues another handle. It does not rewrite the previous handle unless the client revokes it.
 - Membership disable, role/scope change, and authorization decisions are read from PostgreSQL on the request, as required by ADR-DIVE-007. Disable takes effect on the next request even if the handle row still exists.
-- Clerk logout, session expiry, or adapter failure to confirm an active session deny the request. Existing adapter session checks remain the authorization gate; a later webhook that also revokes handle rows is defense in depth and is not required by this Draft.
+- Clerk logout, session expiry, or adapter failure to confirm an active session deny the request. Existing adapter session checks remain the authorization gate; a later webhook that also revokes handle rows is defense in depth and is not required by this ADR.
 - Explicit `DELETE /v1/me/tenant-contexts` revokes the presented handle.
 - Cleanup of revoked or session-orphan rows is operational and must not invent a retention period here.
 - Logs, traces, and audit must not record the raw handle, `Authorization` value, or `X-Tenant-Context` value. A safe internal tenant id may appear in audit after trusted resolution.
@@ -144,7 +145,7 @@ Authorization: Bearer <clerk-session-token>
 X-Tenant-Context: ctx_…
 ```
 
-Exact JSON field names may be adjusted in `SPEC-DIVE-IAM-001` when this ADR is approved; the path rule and header-based context must not.
+Exact JSON field names may be chosen in the implementation PR if they preserve this contract. The path rule and header-based context must not change.
 
 ### Simultaneous contexts
 
@@ -183,7 +184,7 @@ Public channels do not use this dashboard credential:
 
 The current API already resolves membership and authorization context for each exposed dashboard request. Keeping request-time validation therefore preserves the current security path rather than adding a new authorization round trip to those operations.
 
-The proposed operator-list and context-issuance calls add work when a dashboard context is established or changed, not for widget traffic. Before changing request-time validation, implementation evidence must measure the actual query path, indexes, API latency, and connection-pool impact. No numeric latency budget or cache TTL is introduced here.
+The operator-list and context-issuance calls add work when a dashboard context is established or changed, not for widget traffic. Before changing request-time validation, implementation evidence must measure the actual query path, indexes, API latency, and connection-pool impact. No numeric latency budget or cache TTL is introduced here.
 
 ## Security analysis
 
@@ -217,7 +218,7 @@ None of these residual items is accepted as a reason to put `tenantId` back in t
 
 Replace the current tenant-path dashboard routes atomically in the implementation PR. Temporary dual contracts are not selected: the walking-skeleton web app is not a production dashboard client.
 
-Until that implementation PR, existing `/v1/tenants/:tenantId/...` routes remain the runtime contract. This Draft does not change runtime behavior.
+Until that implementation PR, existing `/v1/tenants/:tenantId/...` routes remain the runtime contract. This documentation change does not itself change runtime behavior.
 
 If a real external client appears before cut-over, reopen compatibility rather than silently keeping both path styles.
 
@@ -245,20 +246,20 @@ Tests must link the relevant `DIVE-IAM-REQ-*` and existing `MT-SC-*` rows withou
 
 ## Remaining open questions
 
-These do not reopen the closed path or credential-shape proposals:
+These do not reopen the closed path or credential-shape decision:
 
 1. Browser persistence of the handle (in-memory, `sessionStorage`, or another client store).
 2. Issuance rate limit or cap on live handles per identity/session.
 3. Whether verified `session.revoked` webhooks should also mark handle rows revoked, in addition to request-time Clerk session checks.
 4. Physical persistence schema, hash algorithm, and cleanup job.
 5. Dashboard API CORS origin allowlist.
-6. Final JSON field names in `SPEC-DIVE-IAM-001` after this ADR is approved.
+6. Exact JSON field names in the implementation PR, provided they preserve this contract.
 
 ## Alternatives considered
 
 ### Active Clerk Organization
 
-Not selected for this proposal. It would duplicate or synchronize organization membership with the PostgreSQL membership and invitation model and increase dependence on the identity provider. Clerk remains the identity adapter.
+Not selected. It would duplicate or synchronize organization membership with the PostgreSQL membership and invitation model and increase dependence on the identity provider. Clerk remains the identity adapter.
 
 ### Tenant identifier in every dashboard route
 
@@ -276,8 +277,6 @@ Not selected. Immediate logout/disable already requires server-side session and 
 
 Not selected. It implies one active tenant per browser profile, couples dashboard APIs to cookie CSRF defenses, and is a poorer fit for non-browser clients.
 
-## Approval gate
+## Implementation authority
 
-This Draft records the proposed contract, including the prohibition on `/tenants/:tenantId` in dashboard paths. It does not change runtime routes.
-
-Before implementation, Product / Security / Architecture must approve this ADR. After approval, update `SPEC-DIVE-IAM-001`, TRACE relationships, tests, and then replace the public dashboard API contract. Do not implement the new routes from this Draft alone.
+Ready to start authorizes reversible implementation with synthetic data for `DIVE-IAM-REQ-029..031`. Do not invent values for the remaining open questions. Runtime routes change only in the implementation PR, with the tests listed above.

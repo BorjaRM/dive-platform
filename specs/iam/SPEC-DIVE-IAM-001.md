@@ -1,20 +1,20 @@
 # SPEC-DIVE-IAM-001 — Roles, permissions, and scopes
 
 - **Status:** Ready to start
-- **Version:** 0.5
+- **Version:** 0.6
 - **Last reviewed:** 2026-09-27
 - **Approved by:** Borja (Product owner)
-- **Approval reference:** PR #1 and this provenance migration PR
+- **Approval reference:** PR #1, provenance migration PR, and PR #13 (`ADR-DIVE-008` Ready to start)
 - **Owner:** Product / Security
 - **IDs:** `DIVE-IAM-REQ-001` … `DIVE-IAM-REQ-031`
-
-`DIVE-IAM-REQ-029` … `031` are `Proposed`. They do not authorize implementation until `ADR-DIVE-008` is approved and merged.
 
 ## Normative authority
 
 This SPEC is the single normative source for MVP identity, membership, roles, permissions, scopes, public capabilities, revocation, and privileged support access.
 
 It adopts `specs/foundation/iam-baseline.md`. Dive-specific roles and public-channel capabilities are defined here. Clerk is an adapter, not the authorization source of truth.
+
+Dashboard tenant-context HTTP contract is owned with `ADR-DIVE-008`.
 
 ## Requirement provenance
 
@@ -27,7 +27,7 @@ The ranges below cover every requirement in this SPEC. Decisions originating in 
 | `DIVE-IAM-REQ-016` | `Proposed` | PR #1 revocation-window decision | Approved by product owner for MVP validation |
 | `DIVE-IAM-REQ-017..DIVE-IAM-REQ-020` | `Proposed` | PR #1 invitation, owner-lockout, MFA-readiness, and support-access decisions | Approved by product owner for MVP validation |
 | `DIVE-IAM-REQ-021..DIVE-IAM-REQ-028` | `Derived` | `specs/foundation/iam-baseline.md`; `specs/foundation/security-privacy-baseline.md`; PR #1 | Approved by product owner |
-| `DIVE-IAM-REQ-029..DIVE-IAM-REQ-031` | `Proposed` | Draft `ADR-DIVE-008`; product confirmation 2026-09-27 to apply the recommended dashboard context contract | Approved by product owner as Proposed in Draft ADR-DIVE-008; implementation not authorized until that ADR is merged |
+| `DIVE-IAM-REQ-029..DIVE-IAM-REQ-031` | `Proposed` | `ADR-DIVE-008`; product confirmation 2026-09-27 | Approved by product owner 2026-09-27 for MVP validation; Ready to start |
 
 ## Goal
 
@@ -43,7 +43,7 @@ In scope:
 - Public booking capabilities without internal roles
 - Invitation, disable, and revocation for MVP dashboard users
 - Read-only platform support path
-- Proposed dashboard tenant-context credential and path contract (`DIVE-IAM-REQ-029..031`)
+- Dashboard tenant-context credential and path contract (`DIVE-IAM-REQ-029..031`)
 
 Out of scope:
 
@@ -66,7 +66,7 @@ allow = identity is authenticated
 
 Default deny. Client-supplied roles, permissions, or tenant IDs are never authoritative.
 
-Proposed dashboard specialization (`DIVE-IAM-REQ-029..031`; implementation not authorized until `ADR-DIVE-008` is merged): authorized tenant context is resolved from an internal tenant-scoped handle after Clerk authentication. It is not taken from `/tenants/:tenantId`, query, or body.
+For dashboard HTTP after the implementation cut-over, authorized tenant context is resolved from an internal tenant-scoped handle after Clerk authentication. It is not taken from `/tenants/:tenantId`, query, or body.
 
 ## Roles (MVP)
 
@@ -142,9 +142,9 @@ Write variants of `audit.*` and `support.tenant.write` are out of MVP.
 - **DIVE-IAM-REQ-030:** After Clerk authentication, dashboard tenant context is an opaque server-stored handle presented in `X-Tenant-Context`, bound to the authenticated identity and Clerk `sid`. The handle selects a tenant and is not sufficient authorization. Roles, permissions, center scopes, and membership state are read from PostgreSQL on the request.
 - **DIVE-IAM-REQ-031:** The server lists only the identity’s active operator memberships as opaque `operatorRef` values. Zero active memberships issue no handle. Exactly one active membership may be selected automatically. Several require an explicit `operatorRef` from that list. Invalid, inactive, unrelated, or cross-identity selections fail without disclosure. Several handles may exist for one Clerk session. The handle is tenant-scoped, not center-scoped.
 
-## Proposed dashboard API (`ADR-DIVE-008`)
+## Dashboard API (`ADR-DIVE-008`)
 
-Implementation not authorized until `ADR-DIVE-008` is merged. Runtime routes today still use `/v1/tenants/:tenantId/...`.
+Ready to start. Runtime routes today still use `/v1/tenants/:tenantId/...` until the implementation PR.
 
 ```text
 GET    /v1/me/operators
@@ -177,8 +177,7 @@ Protected product requests send `Authorization: Bearer <clerk-session-token>` an
 
 ## Dependencies
 
-- ADR-DIVE-001, ADR-DIVE-002, ADR-DIVE-007
-- Draft ADR-DIVE-008 for `DIVE-IAM-REQ-029..031`
+- ADR-DIVE-001, ADR-DIVE-002, ADR-DIVE-007, ADR-DIVE-008
 - `specs/foundation/iam-baseline.md`
 - `specs/booking/SPEC-DIVE-BOOKING-001.md` for public capabilities
 - `specs/multitenancy/adoption-profile.md`
@@ -190,15 +189,15 @@ Protected product requests send `Authorization: Bearer <clerk-session-token>` an
 - Public channel and token negative tests
 - Revocation timing test or documented measurement
 - Support access expiry test
-- After `ADR-DIVE-008` merge: dashboard routes without `/tenants/:tenantId`; old tenant-path shapes rejected; handle/session/identity mismatch; automatic and explicit operator selection; non-disclosing invalid `operatorRef`
+- Dashboard routes without `/tenants/:tenantId`; old tenant-path shapes rejected; handle/session/identity mismatch; automatic and explicit operator selection; non-disclosing invalid `operatorRef`
 
 ## Open questions
 
-Owned by Draft `ADR-DIVE-008` and not closed here:
+Owned by `ADR-DIVE-008` and not closed here:
 
 - Browser persistence of the handle
 - Issuance rate limit or cap on live handles
 - Optional `session.revoked` handle-row revocation beyond request-time Clerk checks
 - Physical persistence schema and cleanup job
 - Dashboard API CORS origin allowlist
-- Final JSON field names at implementation time
+- Exact JSON field names in the implementation PR, provided they preserve this contract
