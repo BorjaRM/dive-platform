@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.27
+- **Version:** 0.30
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -20,22 +20,22 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` are Ready to start
 | ADR-DIVE-002 | `specs/architecture/adrs/ADR-DIVE-002.md` | Ready to start | 0.2 |
 | ADR-DIVE-003 | `specs/architecture/adrs/ADR-DIVE-003.md` | Ready to start | 0.1 |
 | ADR-DIVE-004 | `specs/architecture/adrs/ADR-DIVE-004.md` | Ready to start | 0.3 |
-| ADR-DIVE-005 | `specs/architecture/adrs/ADR-DIVE-005.md` | Ready to start | 0.1 |
+| ADR-DIVE-005 | `specs/architecture/adrs/ADR-DIVE-005.md` | Ready to start | 0.3 |
 | ADR-DIVE-006 | `specs/architecture/adrs/ADR-DIVE-006.md` | Ready to start | 0.1 |
 | ADR-DIVE-007 | `specs/architecture/adrs/ADR-DIVE-007.md` | Ready to start | 0.2 |
 | ADR-DIVE-008 | `specs/architecture/adrs/ADR-DIVE-008.md` | Ready to start | 0.10 |
 | ADR-DIVE-009 | `specs/architecture/adrs/ADR-DIVE-009.md` | Ready to start | 0.2 |
 | ADR-DIVE-010 | `specs/architecture/adrs/ADR-DIVE-010.md` | Ready to start | 0.3 |
-| ADR-DIVE-011 | `specs/architecture/adrs/ADR-DIVE-011.md` | Draft | 0.2 |
+| ADR-DIVE-011 | `specs/architecture/adrs/ADR-DIVE-011.md` | Draft | 0.3 |
 | ADR-DIVE-012 | `specs/architecture/adrs/ADR-DIVE-012.md` | Draft | 0.1 |
-| SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 0.8 |
-| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.11 |
+| SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 1.1 |
+| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.13 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.2-draft |
 | MT-SPIKE-001 | `specs/multitenancy/` | Accepted with conditions | 0.3 |
 | SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.26 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.28 |
 
 Notion indexes must show this map’s version. They must not invent an independent version sequence.
 
@@ -43,7 +43,7 @@ Notion pages are indexes only. They are not coverage evidence.
 
 ## Requirement groups
 
-### Booking — `DIVE-BOOK-REQ-001` … `067`
+### Booking — `DIVE-BOOK-REQ-001` … `072`
 
 | Group | IDs | Tests (expected) | Evidence |
 |---|---|---|---|
@@ -55,6 +55,8 @@ Notion pages are indexes only. They are not coverage evidence.
 | Channels and widget | 037–042 | SPIKE-DIVE-003, e2e | `evidence/spikes/SPIKE-DIVE-003/` |
 | Delivery and privacy | 043–048 | outbox, i18n, privacy review | `evidence/` + dated review |
 | Catalog HTTP and center-scoped dashboard catalog | 049–057 | catalog API tests in the implementation PR | implementation PR |
+| Public booking lifecycle and rejection | 068–069 | booking integration and rejection contract tests | implementation PR |
+| Public booking capabilities | 070–072 | public capability contract tests | implementation PR |
 | Public availability query and presentation closures | ADR-DIVE-011 Draft; no new SPEC IDs yet | none until ADR approved | none |
 | Public create-booking | 058–067 | public-create API, idempotency, origin, channel-policy, token, and contention tests in implementation PR | implementation PR |
 
