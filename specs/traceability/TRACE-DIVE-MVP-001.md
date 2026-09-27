@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.15
+- **Version:** 0.16
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -22,7 +22,7 @@
 | ADR-DIVE-005 | `specs/architecture/adrs/ADR-DIVE-005.md` | Ready to start | 0.1 |
 | ADR-DIVE-006 | `specs/architecture/adrs/ADR-DIVE-006.md` | Ready to start | 0.1 |
 | ADR-DIVE-007 | `specs/architecture/adrs/ADR-DIVE-007.md` | Ready to start | 0.2 |
-| ADR-DIVE-008 | `specs/architecture/adrs/ADR-DIVE-008.md` | Draft | 0.1 |
+| ADR-DIVE-008 | `specs/architecture/adrs/ADR-DIVE-008.md` | Draft | 0.2 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 0.5 |
 | SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.4 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.2-draft |
@@ -30,7 +30,7 @@
 | SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.15 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.16 |
 
 Notion indexes must show this map’s version. They must not invent an independent version sequence.
 
@@ -56,7 +56,7 @@ Notion pages are indexes only. They are not coverage evidence.
 
 Coverage is recorded in the current-coverage table below. Cross-tenant cases also map to `MT-REQ-*` and remain separate from `DIVE-*` results. Public-token and support-access evidence is not yet available in this vertical.
 
-Proposed dashboard tenant-context design is tracked by Draft `ADR-DIVE-008`; it does not change requirement status or claim implementation coverage.
+Proposed dashboard tenant-context design is tracked by Draft `ADR-DIVE-008` v0.2. It records the proposed no-`/tenants/:tenantId` path contract and opaque `X-Tenant-Context` handle. It does not change requirement status or claim implementation coverage.
 
 ### Multi-tenant — `MT-REQ-001` … `010`
 
@@ -71,7 +71,7 @@ Deferred. Not required to start the booking MVP.
 Not copied as requirement text. Owners:
 
 | Channel | Owner |
-|---|---|
+|---|---|---|
 | Cache, files, search | SPEC/spike that introduces the channel (ID not invented) |
 | Export, deletion | Future rights/privacy SPEC; until opened, security/privacy baseline + product-profile privacy gate |
 | Restore | Future recovery SPEC; until opened, operations-quality-recovery baseline |
