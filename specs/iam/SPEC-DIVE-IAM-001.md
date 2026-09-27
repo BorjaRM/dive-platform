@@ -1,7 +1,7 @@
 # SPEC-DIVE-IAM-001 — Roles, permissions, and scopes
 
 - **Status:** Ready to start
-- **Version:** 0.13
+- **Version:** 0.14
 - **Last reviewed:** 2026-09-27
 - **Approved by:** Borja (Product owner)
 - **Approval reference:** PR #1, provenance migration PR, PR #13 (`ADR-DIVE-008` Ready to start), product confirmation 2026-09-27 for `ADR-DIVE-008` v0.7 implementation closures, product confirmation 2026-09-27 for center-application bootstrap (`ADR-DIVE-008` v0.9), product confirmation 2026-09-27 for reserved keys, generated CORS, authentication host, environment namespace, and no-`Origin` bootstrap (`ADR-DIVE-008` v0.10), PR #32 Draft authority-boundary clarification, Product, Security, and Architecture approval on 2026-09-27 for the `booking.reject` permission, and PR #36 Draft self-bootstrap authority-boundary clarification
@@ -217,5 +217,15 @@ Follow-up decisions remain explicit and are not authorized here:
 - future custom-domain verification, DNS/TLS provisioning, host administration, and alias mapping;
 - active-handle TTL policy and cleanup execution;
 - `BrandConfiguration`, branded login, and cross-domain session continuity.
+
+### Invitation service boundary follow-up
+
+**Proposed — Draft; follow-up only, not an approved requirement:** The current application service boundary accepts `tenantId` directly for invitation issue, response, and revocation. The database commands perform server-side checks, and no invitation HTTP route is currently exposed. Before invitation HTTP routes are added, the boundary decision remains open:
+
+- `issueInvitation` and `revokeInvitation` should derive tenant access from the authorized tenant-context handle or `IamAccessContext`, rather than accepting a raw tenant identifier from a controller or request.
+- `respondToInvitation` needs a separate credential-bound tenant-resolution design because an invitee may not have an active tenant membership.
+- The implementation must add cross-tenant, spoofed-tenant, missing-context, and credential-boundary tests before this slice is considered covered.
+
+Source context: `DIVE-IAM-REQ-006`, `DIVE-IAM-REQ-017`, `DIVE-IAM-REQ-024`, `DIVE-IAM-REQ-025`, `DIVE-IAM-REQ-028`, `DIVE-IAM-REQ-030`; `apps/api/src/iam/invitations/invitations.service.ts`; `packages/database/src/iam-membership-commands.ts`.
 
 Catalog cursor encoding, extra catalog response DTO fields, and physical activity/slot names remain pending decision in `SPEC-DIVE-BOOKING-001`.

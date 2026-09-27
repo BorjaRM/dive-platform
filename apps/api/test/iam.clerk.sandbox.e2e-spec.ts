@@ -11,8 +11,8 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { Pool } from 'pg';
 import { type Browser, chromium } from 'playwright';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
-import { clerkIdentityConfigFromEnvironment } from '../src/clerk.config.js';
+import { AppModule } from '../src/app/app.module.js';
+import { clerkIdentityConfigFromEnvironment } from '../src/common/auth/clerk.config.js';
 import { createClerkBrowserSession } from './clerk.browser-session.js';
 import { legacyDashboardCenterPath } from './legacy-dashboard-routes.js';
 

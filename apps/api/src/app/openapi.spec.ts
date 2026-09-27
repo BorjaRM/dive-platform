@@ -2,34 +2,42 @@ import {
   IDENTITY_PROVIDER,
   IDENTITY_WEBHOOK_VERIFIER,
 } from '@dive-center/identity';
+import { Global, Module } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
 import { describe, expect, it, vi } from 'vitest';
-import { IamController } from './iam.controller.js';
-import { IamService } from './iam.service.js';
-import {
-  DATABASE_POOL,
-  SECURITY_LOGGER,
-  TENANT_CONTEXT_CRYPTO,
-} from './iam.tokens.js';
-import { IdentityWebhookController } from './identity-webhook.controller.js';
-import { TenantContextCrypto } from './tenant-context.crypto.js';
+import { DATABASE_POOL } from '../common/database/database.tokens.js';
+import { SECURITY_LOGGER } from '../common/security/security.tokens.js';
+import { TenantContextCrypto } from '../common/tenant-context/tenant-context.crypto.js';
+import { TENANT_CONTEXT_CRYPTO } from '../common/tenant-context/tenant-context.tokens.js';
+import { IamModule } from '../iam/iam.module.js';
+
+@Global()
+@Module({
+  providers: [
+    { provide: DATABASE_POOL, useValue: {} },
+    { provide: IDENTITY_PROVIDER, useValue: { authenticate: vi.fn() } },
+    { provide: IDENTITY_WEBHOOK_VERIFIER, useValue: { verify: vi.fn() } },
+    { provide: SECURITY_LOGGER, useValue: { warn: vi.fn() } },
+    {
+      provide: TENANT_CONTEXT_CRYPTO,
+      useValue: new TenantContextCrypto('t'.repeat(32)),
+    },
+  ],
+  exports: [
+    DATABASE_POOL,
+    IDENTITY_PROVIDER,
+    IDENTITY_WEBHOOK_VERIFIER,
+    SECURITY_LOGGER,
+    TENANT_CONTEXT_CRYPTO,
+  ],
+})
+class OpenApiSharedTestModule {}
 
 describe('OpenAPI document generation', () => {
   it('includes the IAM and webhook routes with a bearer security scheme', async () => {
     const moduleRef = await Test.createTestingModule({
-      controllers: [IamController, IdentityWebhookController],
-      providers: [
-        { provide: IDENTITY_PROVIDER, useValue: { authenticate: vi.fn() } },
-        { provide: IDENTITY_WEBHOOK_VERIFIER, useValue: { verify: vi.fn() } },
-        { provide: SECURITY_LOGGER, useValue: { warn: vi.fn() } },
-        { provide: IamService, useValue: {} },
-        { provide: DATABASE_POOL, useValue: {} },
-        {
-          provide: TENANT_CONTEXT_CRYPTO,
-          useValue: new TenantContextCrypto('t'.repeat(32)),
-        },
-      ],
+      imports: [OpenApiSharedTestModule, IamModule],
     }).compile();
 
     const app = moduleRef.createNestApplication();

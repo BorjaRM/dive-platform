@@ -17,9 +17,9 @@ vi.mock('@dive-center/database', async (importOriginal) => {
   };
 });
 
-import { CatalogService } from './catalog.service.js';
+import { CatalogAccessService } from './catalog-access.service.js';
 
-describe('CatalogService', () => {
+describe('CatalogAccessService', () => {
   const principal = {
     issuer: 'test',
     subject: 'owner-a',
@@ -28,7 +28,7 @@ describe('CatalogService', () => {
   const contextCrypto = {
     handleHash: vi.fn().mockReturnValue('handle-hash'),
     sessionIdHash: vi.fn().mockReturnValue('session-hash'),
-  } as unknown as ConstructorParameters<typeof CatalogService>[1];
+  } as unknown as ConstructorParameters<typeof CatalogAccessService>[1];
 
   beforeEach(() => {
     vi.resetAllMocks();
@@ -40,7 +40,7 @@ describe('CatalogService', () => {
   it('preserves operational IAM errors instead of returning unauthenticated', async () => {
     const operationalError = new Error('database unavailable');
     databaseMocks.resolveIamAccess.mockRejectedValue(operationalError);
-    const service = new CatalogService({} as Pool, contextCrypto);
+    const service = new CatalogAccessService({} as Pool, contextCrypto);
 
     const resolveContext = (
       service as unknown as {
@@ -60,7 +60,7 @@ describe('CatalogService', () => {
     databaseMocks.resolveIamAccess.mockRejectedValue(
       new IamAccessDeniedError('membership_missing_or_inactive'),
     );
-    const service = new CatalogService({} as Pool, contextCrypto);
+    const service = new CatalogAccessService({} as Pool, contextCrypto);
 
     const resolveContext = (
       service as unknown as {

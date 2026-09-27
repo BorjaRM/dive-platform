@@ -11,8 +11,9 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Pool } from 'pg';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
-import { DATABASE_POOL, SECURITY_LOGGER } from '../src/iam.tokens.js';
+import { AppModule } from '../src/app/app.module.js';
+import { DATABASE_POOL } from '../src/common/database/database.tokens.js';
+import { SECURITY_LOGGER } from '../src/common/security/security.tokens.js';
 import { legacyDashboardCenterPath } from './legacy-dashboard-routes.js';
 
 function testDatabaseUrl(
@@ -1440,7 +1441,6 @@ describe('IAM/API vertical (e2e)', () => {
 
   afterAll(async () => {
     if (app) await app.close();
-    await appPool.end();
     await admin.end();
   });
 });

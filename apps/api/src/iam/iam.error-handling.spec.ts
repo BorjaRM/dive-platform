@@ -3,10 +3,14 @@ import {
   type IdentityProviderPort,
 } from '@dive-center/identity';
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { describe, expect, it, vi } from 'vitest';
+import { AuthAction, ClerkAuthGuard } from '../common/auth/auth.guard.js';
+import { TenantContextCrypto } from '../common/tenant-context/tenant-context.crypto.js';
+import { CentersService } from './centers/centers.service.js';
 import { IamController } from './iam.controller.js';
-import { IamService } from './iam.service.js';
-import { TenantContextCrypto } from './tenant-context.crypto.js';
+import { MembershipsService } from './memberships/memberships.service.js';
+import { TenantContextService } from './tenant-context/tenant-context.service.js';
 
 const principalProvider: IdentityProviderPort = {
   authenticate: async () => ({
@@ -27,7 +31,12 @@ describe('IAM error handling', () => {
       query: vi.fn().mockResolvedValue({ rows: [{ access: null }] }),
     };
     const logger = { warn: vi.fn() };
-    const service = new IamService(pool as never, logger, contextCrypto);
+    const tenantContexts = new TenantContextService(
+      pool as never,
+      logger,
+      contextCrypto,
+    );
+    const service = new CentersService(pool as never, logger, tenantContexts);
 
     await expect(
       service.readCenter(
@@ -57,7 +66,12 @@ describe('IAM error handling', () => {
       query: vi.fn().mockRejectedValue(dependencyFailure),
     };
     const logger = { warn: vi.fn() };
-    const service = new IamService(pool as never, logger, contextCrypto);
+    const tenantContexts = new TenantContextService(
+      pool as never,
+      logger,
+      contextCrypto,
+    );
+    const service = new CentersService(pool as never, logger, tenantContexts);
 
     await expect(
       service.readCenter(
@@ -75,10 +89,15 @@ describe('IAM error handling', () => {
     const pool = {
       query: vi.fn().mockRejectedValue(dependencyFailure),
     };
-    const service = new IamService(
+    const tenantContexts = new TenantContextService(
       pool as never,
       { warn: vi.fn() },
       contextCrypto,
+    );
+    const service = new MembershipsService(
+      pool as never,
+      { warn: vi.fn() },
+      tenantContexts,
     );
 
     await expect(
@@ -96,26 +115,22 @@ describe('IAM error handling', () => {
     const iam = {
       readCenter: vi.fn().mockRejectedValue(dependencyFailure),
     };
-    const controller = new IamController(
-      principalProvider,
-      { warn: vi.fn() },
-      iam as never,
-    );
+    const controller = new IamController({ warn: vi.fn() }, iam as never);
 
     await expect(
       controller.readCenter(
-        'Bearer token',
+        await principal(),
         'ctx_test',
         'aaaaaaaa-0001-0001-0001-000000000001',
       ),
     ).rejects.toBe(dependencyFailure);
     await expect(
-      new IamController(principalProvider, { warn: vi.fn() }, {
+      new IamController({ warn: vi.fn() }, {
         readCenter: vi
           .fn()
           .mockRejectedValue(new ForbiddenException('Access denied')),
       } as never).readCenter(
-        'Bearer token',
+        await principal(),
         'ctx_test',
         'aaaaaaaa-0001-0001-0001-000000000001',
       ),
@@ -123,36 +138,63 @@ describe('IAM error handling', () => {
   });
 
   it('keeps missing credentials as 401', async () => {
-    const controller = new IamController(principalProvider, { warn: vi.fn() }, {
-      readCenter: vi.fn(),
-    } as never);
+    const guard = new ClerkAuthGuard(
+      principalProvider,
+      { warn: vi.fn() },
+      new Reflector(),
+    );
 
     await expect(
-      controller.readCenter(
-        undefined,
-        'ctx_test',
-        'aaaaaaaa-0001-0001-0001-000000000001',
-      ),
+      guard.canActivate(httpContext(undefined)),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('normalizes provider failures to 401 at the controller boundary', async () => {
-    const controller = new IamController(
+    const guard = new ClerkAuthGuard(
       {
         authenticate: async () => {
           throw new Error('provider unavailable');
         },
       },
       { warn: vi.fn() },
-      { readCenter: vi.fn() } as never,
+      new Reflector(),
     );
 
     await expect(
-      controller.readCenter(
-        '******',
-        '11111111-1111-1111-1111-111111111111',
-        'aaaaaaaa-0001-0001-0001-000000000001',
-      ),
+      guard.canActivate(httpContext('Bearer ******')),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
+
+  it('logs the IAM action when bearer authentication fails', async () => {
+    const handler = () => undefined;
+    AuthAction('center.read')(handler);
+    const logger = { warn: vi.fn() };
+    const guard = new ClerkAuthGuard(
+      principalProvider,
+      logger,
+      new Reflector(),
+    );
+
+    await expect(
+      guard.canActivate(httpContext(undefined, handler)),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'center.read',
+        reason: 'authentication_missing_or_invalid',
+      }),
+    );
+  });
 });
+
+function httpContext(
+  authorization: string | undefined,
+  handler?: () => unknown,
+) {
+  return {
+    getHandler: () => handler ?? httpContext,
+    switchToHttp: () => ({
+      getRequest: () => ({ headers: { authorization } }),
+    }),
+  } as never;
+}

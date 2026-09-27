@@ -81,6 +81,45 @@ export class SlotListDto {
   hasNext: boolean;
 }
 
+export class CatalogActivityInputDto {
+  @ApiPropertyOptional({ type: LocalizedTextDto })
+  name?: Record<string, string>;
+
+  @ApiPropertyOptional({ type: LocalizedTextDto })
+  description?: Record<string, string>;
+
+  @ApiPropertyOptional()
+  defaultCapacity?: number;
+}
+
+export class CatalogSlotInputDto {
+  @ApiProperty({ description: 'RFC3339 instant' })
+  startsAt?: string;
+
+  @ApiProperty()
+  durationMinutes?: number;
+
+  @ApiProperty()
+  capacity?: number;
+}
+
+export class CatalogListQueryDto {
+  @ApiPropertyOptional({ type: Number })
+  page?: number;
+
+  @ApiPropertyOptional({ type: Number })
+  pageSize?: number;
+
+  @ApiPropertyOptional()
+  status?: string;
+
+  @ApiPropertyOptional()
+  from?: string;
+
+  @ApiPropertyOptional()
+  to?: string;
+}
+
 export type CatalogActivityInput = Readonly<{
   name?: unknown;
   description?: unknown;
