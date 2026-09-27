@@ -33,6 +33,7 @@ function jsonResponse(value: unknown, status = 200) {
 function renderDashboard(
   session: SessionTokenSource,
   storage = createTenantContextStorage(memoryStorage()),
+  requestTimeoutMillis?: number,
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -41,6 +42,7 @@ function renderDashboard(
     <QueryClientProvider client={queryClient}>
       <DashboardTenantContext
         apiBaseUrl="https://api.example.test"
+        requestTimeoutMillis={requestTimeoutMillis}
         session={session}
         storage={storage}
       />
@@ -123,6 +125,26 @@ describe('authenticated dashboard tenant-context flow', () => {
     expect(String(centersCall?.[0])).not.toContain('ctx_alpha');
 
     fetchMock.mockRestore();
+  });
+
+  it('does not leave the initial session probe pending past its deadline', async () => {
+    const session: SessionTokenSource = {
+      configured: true,
+      getToken: (signal) =>
+        new Promise((_resolve, reject) => {
+          signal?.addEventListener(
+            'abort',
+            () => reject(new Error('aborted')),
+            { once: true },
+          );
+        }),
+    };
+
+    renderDashboard(session, undefined, 10);
+
+    expect(
+      await screen.findByText('Sign-in is managed by the host application'),
+    ).toBeInTheDocument();
   });
 
   it('revokes the active context before switching and removes the previous cache (DIVE-IAM-REQ-022, ADR-DIVE-009)', async () => {

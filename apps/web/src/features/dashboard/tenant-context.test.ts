@@ -96,4 +96,31 @@ describe('dashboard tenant-context boundary', () => {
 
     fetchMock.mockRestore();
   });
+
+  it('aborts and classifies a request that exceeds its configured deadline', async () => {
+    let aborted = false;
+    const api = createDashboardApi({
+      baseUrl: 'https://api.example.test',
+      requestTimeoutMillis: 10,
+      session: {
+        getToken: (signal) =>
+          new Promise((_resolve, reject) => {
+            signal?.addEventListener(
+              'abort',
+              () => {
+                aborted = true;
+                reject(new Error('aborted'));
+              },
+              { once: true },
+            );
+          }),
+      },
+    });
+
+    await expect(api.listOperators()).rejects.toMatchObject({
+      kind: 'unavailable',
+      status: 0,
+    });
+    expect(aborted).toBe(true);
+  });
 });

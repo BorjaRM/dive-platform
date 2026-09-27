@@ -152,16 +152,17 @@ El resumen y la tabla de prioridad describen el estado observado al inicio de la
 
 ### REL-02 — Dependencias remotas sin deadline y errores operativos ocultos
 
-**Evidencia.** La autenticación espera verificación de token, sesión y usuario sin deadline: [clerk.ts](../../packages/identity/src/clerk.ts#L111-L123) y [clerk.ts](../../packages/identity/src/clerk.ts#L215-L243). Después convierte cualquier error en `Unauthenticated`: [clerk.ts](../../packages/identity/src/clerk.ts#L281-L290). El guard transforma todo en 401: [auth.guard.ts](../../apps/api/src/common/auth/auth.guard.ts#L43-L56). El cliente web usa `fetch` sin `AbortSignal`: [tenant-context.ts](../../apps/web/src/features/dashboard/tenant-context.ts#L68-L99).
+**Evidencia.** La autenticación esperaba verificación de token, sesión y usuario sin deadline: [clerk.ts](../../packages/identity/src/clerk.ts) y el guard transformaba todo en 401: [auth.guard.ts](../../apps/api/src/common/auth/auth.guard.ts). El cliente web usaba `fetch` sin `AbortSignal`: [tenant-context.ts](../../apps/web/src/features/dashboard/tenant-context.ts).
 
 **Impacto.** Una caída de Clerk o una red que no responde puede colgar requests, saturar recursos y presentarse al usuario y a observabilidad como credenciales inválidas.
 
+**Corrección aplicada.** `ClerkIdentityAdapter` exige `CLERK_REQUEST_TIMEOUT_MS`, entrega una señal abortable a las dependencias y clasifica credenciales inválidas separadas de indisponibilidad del proveedor. El guard conserva 401 para credenciales inválidas y devuelve 503 genérico para indisponibilidad, registrando un evento operativo sin ampliar `IamDenialReason`. El cliente dashboard exige `NEXT_PUBLIC_DASHBOARD_REQUEST_TIMEOUT_MS` en la página, propaga señales de TanStack Query y aborta requests que exceden el deadline. Las pruebas focalizadas cubren promesas que no resuelven, propagación de señal, clasificación operativa y ausencia de detalles sensibles.
+
 **Procedimiento recomendado.**
 
-1. Aprobar deadlines y semántica de degradación para proveedor de identidad y API web.
-2. Añadir cancelación/timeout en adaptadores; mantener fail-closed.
-3. Distinguir internamente `invalid_credentials` de `identity_provider_unavailable`; devolver una respuesta operativa no divulgativa para el segundo caso.
-4. Probar promesas que nunca resuelven, timeout, cancelación y fallo transitorio, sin registrar tokens.
+1. **Proposed:** aprobar por entorno los valores de `CLERK_REQUEST_TIMEOUT_MS` y `NEXT_PUBLIC_DASHBOARD_REQUEST_TIMEOUT_MS`, y confirmar la semántica 401/503.
+2. **Documented residual:** el SDK Clerk 3.20.1 no expone `AbortSignal` ni transporte `fetch` inyectable para `verifyToken`, `getSession` y `getUser`; el deadline limita la espera de nuestro puerto, pero la cancelación del request HTTP subyacente queda abierta hasta sustituir o ampliar ese transporte.
+3. Mantener fail-closed y no registrar tokens ni detalles del proveedor.
 
 ### PERF-01 — Índices y paginación no alineados con todas las consultas
 

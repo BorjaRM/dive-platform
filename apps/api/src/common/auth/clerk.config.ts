@@ -12,6 +12,14 @@ function required(environment: Environment, name: string): string {
   return value;
 }
 
+function positiveInteger(environment: Environment, name: string): number {
+  const value = Number(required(environment, name));
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`Invalid ${name}`);
+  }
+  return value;
+}
+
 function secret(
   environment: Environment,
   name: string,
@@ -118,6 +126,10 @@ export function clerkIdentityConfigFromEnvironment(
     authorizedParties: parseAuthorizedParties(
       required(environment, 'CLERK_AUTHORIZED_PARTIES'),
       runtimeEnvironment,
+    ),
+    requestTimeoutMillis: positiveInteger(
+      environment,
+      'CLERK_REQUEST_TIMEOUT_MS',
     ),
   });
 }

@@ -8,12 +8,17 @@ import type {
   IdentityProviderPort,
   IdentityProviderPrincipal,
 } from './index.js';
+import {
+  IdentityProviderUnavailableError,
+  InvalidIdentityCredentialsError,
+} from './index.js';
 
 export type ClerkIdentityAdapterConfig = Readonly<{
   secretKey: string;
   webhookSigningSecret: string;
   issuer: string;
   authorizedParties: readonly string[];
+  requestTimeoutMillis: number;
 }>;
 
 export type ClerkIdentityAdapterDependencies = Readonly<{
@@ -23,9 +28,10 @@ export type ClerkIdentityAdapterDependencies = Readonly<{
       authorizedParties: readonly string[];
       secretKey: string;
     }>,
+    signal?: AbortSignal,
   ) => Promise<unknown>;
-  getSession: (sessionId: string) => Promise<unknown>;
-  getUser: (userId: string) => Promise<unknown>;
+  getSession: (sessionId: string, signal?: AbortSignal) => Promise<unknown>;
+  getUser: (userId: string, signal?: AbortSignal) => Promise<unknown>;
   verifyWebhook: (
     request: Request,
     options: Readonly<{ signingSecret: string }>,
@@ -54,6 +60,48 @@ function required(value: string, name: string): string {
   return normalized;
 }
 
+function positiveInteger(value: number, name: string): number {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`Invalid ${name}`);
+  }
+  return value;
+}
+
+async function withDeadline<T>(
+  timeoutMillis: number,
+  operation: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      controller.abort();
+      reject(new IdentityProviderUnavailableError());
+    }, timeoutMillis);
+  });
+  try {
+    return await Promise.race([operation(controller.signal), deadline]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
+
+function providerFailure(error: unknown): Error {
+  if (
+    error instanceof InvalidIdentityCredentialsError ||
+    error instanceof IdentityProviderUnavailableError
+  ) {
+    return error;
+  }
+  const status =
+    typeof error === 'object' && error !== null && 'status' in error
+      ? (error as { status?: unknown }).status
+      : undefined;
+  return status === 400 || status === 401 || status === 403 || status === 404
+    ? new InvalidIdentityCredentialsError()
+    : new IdentityProviderUnavailableError();
+}
+
 function assuranceFromClaims(claims: {
   iat?: unknown;
   fva?: unknown;
@@ -73,7 +121,7 @@ function assuranceFromClaims(claims: {
     !Number.isFinite(factorAges[1]) ||
     factorAges[0] < 0
   ) {
-    throw new Error('Unauthenticated');
+    throw new InvalidIdentityCredentialsError();
   }
   const secondFactorVerified = factorAges[1] >= 0;
   const assuranceAgeMinutes = secondFactorVerified
@@ -89,7 +137,7 @@ function assuranceFromClaims(claims: {
 
 function record(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null) {
-    throw new Error('Unauthenticated');
+    throw new InvalidIdentityCredentialsError();
   }
   return value as Record<string, unknown>;
 }
@@ -207,88 +255,110 @@ export class ClerkIdentityAdapter
       ),
       issuer: required(config.issuer, 'CLERK_ISSUER'),
       authorizedParties: Object.freeze(authorizedParties),
+      requestTimeoutMillis: positiveInteger(
+        config.requestTimeoutMillis,
+        'CLERK_REQUEST_TIMEOUT_MS',
+      ),
     });
     this.dependencies =
       dependencies ?? defaultDependencies(this.config.secretKey);
   }
 
   async authenticate(bearerToken: string): Promise<IdentityProviderPrincipal> {
+    let claims: Record<string, unknown>;
     try {
-      const claims = record(
-        await this.dependencies.verifyToken(bearerToken, {
-          authorizedParties: this.config.authorizedParties,
-          secretKey: this.config.secretKey,
-        }),
-      );
-      if (
-        'aud' in claims ||
-        claims.iss !== this.config.issuer ||
-        typeof claims.sub !== 'string' ||
-        typeof claims.sid !== 'string' ||
-        typeof claims.azp !== 'string' ||
-        !this.config.authorizedParties.includes(claims.azp)
-      ) {
-        throw new Error('Unauthenticated');
-      }
-
-      const [session, user] = await Promise.all([
-        this.dependencies.getSession(claims.sid),
-        this.dependencies.getUser(claims.sub),
-      ]);
-      const sessionRecord = record(session);
-      const userRecord = record(user);
-      const expiresAtMs = sessionExpiresAtMs(sessionRecord.expireAt);
-      if (
-        sessionRecord.id !== claims.sid ||
-        sessionRecord.userId !== claims.sub ||
-        sessionRecord.status !== 'active' ||
-        expiresAtMs === null ||
-        expiresAtMs <= Date.now() ||
-        userRecord.id !== claims.sub ||
-        typeof userRecord.banned !== 'boolean' ||
-        typeof userRecord.locked !== 'boolean' ||
-        userRecord.banned ||
-        userRecord.locked ||
-        !Array.isArray(userRecord.emailAddresses)
-      ) {
-        throw new Error('Unauthenticated');
-      }
-
-      const verifiedAddresses = userRecord.emailAddresses.map((entry) => {
-        const emailAddress = record(entry);
-        if (typeof emailAddress.emailAddress !== 'string') {
-          throw new Error('Unauthenticated');
-        }
-        const verification = emailAddress.verification;
-        if (
-          verification !== undefined &&
-          verification !== null &&
-          (typeof verification !== 'object' ||
-            typeof (verification as Record<string, unknown>).status !==
-              'string')
-        ) {
-          throw new Error('Unauthenticated');
-        }
-        return verification &&
-          (verification as Record<string, unknown>).status === 'verified'
-          ? emailAddress.emailAddress
-          : null;
-      });
-
-      return Object.freeze({
-        issuer: claims.iss,
-        subject: claims.sub,
-        sessionId: claims.sid,
-        verifiedAddresses: Object.freeze(
-          verifiedAddresses.filter(
-            (address): address is string => address !== null,
+      claims = record(
+        await withDeadline(this.config.requestTimeoutMillis, (signal) =>
+          this.dependencies.verifyToken(
+            bearerToken,
+            {
+              authorizedParties: this.config.authorizedParties,
+              secretKey: this.config.secretKey,
+            },
+            signal,
           ),
         ),
-        assurance: assuranceFromClaims(claims),
-      });
-    } catch {
-      throw new Error('Unauthenticated');
+      );
+    } catch (error) {
+      throw providerFailure(error);
     }
+
+    if (
+      'aud' in claims ||
+      claims.iss !== this.config.issuer ||
+      typeof claims.sub !== 'string' ||
+      typeof claims.sid !== 'string' ||
+      typeof claims.azp !== 'string' ||
+      !this.config.authorizedParties.includes(claims.azp)
+    ) {
+      throw new InvalidIdentityCredentialsError();
+    }
+
+    let session: unknown;
+    let user: unknown;
+    try {
+      [session, user] = await withDeadline(
+        this.config.requestTimeoutMillis,
+        (signal) =>
+          Promise.all([
+            this.dependencies.getSession(claims.sid as string, signal),
+            this.dependencies.getUser(claims.sub as string, signal),
+          ]),
+      );
+    } catch (error) {
+      throw providerFailure(error);
+    }
+
+    const sessionRecord = record(session);
+    const userRecord = record(user);
+    const expiresAtMs = sessionExpiresAtMs(sessionRecord.expireAt);
+    if (
+      sessionRecord.id !== claims.sid ||
+      sessionRecord.userId !== claims.sub ||
+      sessionRecord.status !== 'active' ||
+      expiresAtMs === null ||
+      expiresAtMs <= Date.now() ||
+      userRecord.id !== claims.sub ||
+      typeof userRecord.banned !== 'boolean' ||
+      typeof userRecord.locked !== 'boolean' ||
+      userRecord.banned ||
+      userRecord.locked ||
+      !Array.isArray(userRecord.emailAddresses)
+    ) {
+      throw new InvalidIdentityCredentialsError();
+    }
+
+    const verifiedAddresses = userRecord.emailAddresses.map((entry) => {
+      const emailAddress = record(entry);
+      if (typeof emailAddress.emailAddress !== 'string') {
+        throw new InvalidIdentityCredentialsError();
+      }
+      const verification = emailAddress.verification;
+      if (
+        verification !== undefined &&
+        verification !== null &&
+        (typeof verification !== 'object' ||
+          typeof (verification as Record<string, unknown>).status !== 'string')
+      ) {
+        throw new InvalidIdentityCredentialsError();
+      }
+      return verification &&
+        (verification as Record<string, unknown>).status === 'verified'
+        ? emailAddress.emailAddress
+        : null;
+    });
+
+    return Object.freeze({
+      issuer: claims.iss as string,
+      subject: claims.sub as string,
+      sessionId: claims.sid as string,
+      verifiedAddresses: Object.freeze(
+        verifiedAddresses.filter(
+          (address): address is string => address !== null,
+        ),
+      ),
+      assurance: assuranceFromClaims(claims),
+    });
   }
 
   async verify(

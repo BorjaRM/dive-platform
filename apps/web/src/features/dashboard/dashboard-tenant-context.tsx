@@ -19,6 +19,7 @@ const unavailableSession: SessionTokenSource = {
 
 type DashboardTenantContextProps = {
   apiBaseUrl?: string | undefined;
+  requestTimeoutMillis?: number | undefined;
   session?: SessionTokenSource | undefined;
   storage?: TenantContextStorage | undefined;
 };
@@ -35,6 +36,7 @@ type ActionNotice = 'revocation-failed' | 'logout-failed' | null;
 
 export function DashboardTenantContext({
   apiBaseUrl,
+  requestTimeoutMillis,
   session = unavailableSession,
   storage,
 }: DashboardTenantContextProps) {
@@ -44,6 +46,7 @@ export function DashboardTenantContext({
   const api = createDashboardApi({
     baseUrl: apiBaseUrl ?? '',
     session,
+    requestTimeoutMillis,
   });
   const [tenantContext, setTenantContext] = useState<string | null>(null);
   const [storageReady, setStorageReady] = useState(false);
@@ -112,21 +115,49 @@ export function DashboardTenantContext({
     }
 
     let active = true;
-    void session.getToken().then(
+    const probeController = new AbortController();
+    let probeTimeout: ReturnType<typeof setTimeout> | undefined;
+    const tokenCheck = session.getToken(probeController.signal);
+    const boundedTokenCheck =
+      requestTimeoutMillis === undefined
+        ? tokenCheck
+        : Promise.race([
+            tokenCheck,
+            new Promise<never>((_, reject) => {
+              probeTimeout = setTimeout(() => {
+                reject(new DashboardApiError(0, 'unavailable'));
+                probeController.abort();
+              }, requestTimeoutMillis);
+            }),
+          ]);
+    const settleProbe = () => {
+      if (probeTimeout !== undefined) clearTimeout(probeTimeout);
+    };
+    void boundedTokenCheck.then(
       (token) => {
+        settleProbe();
         if (active) {
           if (token) setSessionState('available');
           else setSessionState('expired');
         }
       },
-      () => {
+      (error) => {
+        settleProbe();
         if (active) setSessionState('expired');
+        if (
+          error instanceof DashboardApiError &&
+          error.kind === 'unavailable'
+        ) {
+          if (active) setSessionState('unavailable');
+        }
       },
     );
     return () => {
       active = false;
+      probeController.abort();
+      if (probeTimeout !== undefined) clearTimeout(probeTimeout);
     };
-  }, [apiBaseUrl, session, sessionCheck]);
+  }, [apiBaseUrl, requestTimeoutMillis, session, sessionCheck]);
 
   useEffect(() => {
     if (sessionRef.current === session) return;
@@ -142,7 +173,7 @@ export function DashboardTenantContext({
       ...DASHBOARD_QUERY_KEYS.operators,
       operatorSelectionVersion,
     ] as const,
-    queryFn: api.listOperators,
+    queryFn: ({ signal }) => api.listOperators(signal),
     enabled:
       storageReady && sessionState === 'available' && tenantContext === null,
     retry: false,
@@ -150,7 +181,7 @@ export function DashboardTenantContext({
 
   const centersQuery = useQuery({
     queryKey: DASHBOARD_QUERY_KEYS.centers,
-    queryFn: () => api.listCenters(tenantContext as string),
+    queryFn: ({ signal }) => api.listCenters(tenantContext as string, signal),
     enabled:
       storageReady && sessionState === 'available' && tenantContext !== null,
     retry: false,

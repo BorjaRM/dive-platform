@@ -1,9 +1,19 @@
 import {
   authenticateIdentity,
   type IdentityProviderPort,
+  IdentityProviderUnavailableError,
+  InvalidIdentityCredentialsError,
 } from '@dive-center/identity';
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { Test } from '@nestjs/testing';
+import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthAction, ClerkAuthGuard } from '../common/auth/auth.guard.js';
 import { TenantContextCrypto } from '../common/tenant-context/tenant-context.crypto.js';
@@ -24,6 +34,15 @@ const principalProvider: IdentityProviderPort = {
 
 const principal = () => authenticateIdentity(principalProvider, 'token');
 const contextCrypto = new TenantContextCrypto('t'.repeat(32));
+
+@Controller('test-auth-boundary')
+class AuthBoundaryController {
+  @Get()
+  @AuthAction('center.read')
+  read() {
+    return { ok: true };
+  }
+}
 
 describe('IAM error handling', () => {
   it('keeps authorization denials as non-disclosing 403 responses', async () => {
@@ -149,11 +168,11 @@ describe('IAM error handling', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
-  it('normalizes provider failures to 401 at the controller boundary', async () => {
+  it('maps provider outages to 503 at the controller boundary', async () => {
     const guard = new ClerkAuthGuard(
       {
         authenticate: async () => {
-          throw new Error('provider unavailable');
+          throw new IdentityProviderUnavailableError();
         },
       },
       { warn: vi.fn() },
@@ -162,7 +181,7 @@ describe('IAM error handling', () => {
 
     await expect(
       guard.canActivate(httpContext('Bearer ******')),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
   it('logs the IAM action when bearer authentication fails', async () => {
@@ -184,6 +203,63 @@ describe('IAM error handling', () => {
         reason: 'authentication_missing_or_invalid',
       }),
     );
+  });
+
+  it('keeps invalid credentials at 401 and provider outages at generic 503', async () => {
+    const cases = [
+      {
+        error: new InvalidIdentityCredentialsError(),
+        status: 401,
+        message: 'Unauthenticated',
+        errorLabel: 'Unauthorized',
+      },
+      {
+        error: new IdentityProviderUnavailableError(),
+        status: 503,
+        message: 'Authentication service unavailable',
+        errorLabel: 'Service Unavailable',
+      },
+    ];
+
+    for (const testCase of cases) {
+      const logger = { warn: vi.fn(), operational: vi.fn() };
+      const moduleRef = await Test.createTestingModule({
+        controllers: [AuthBoundaryController],
+      }).compile();
+      const app = moduleRef.createNestApplication();
+      app.useGlobalGuards(
+        new ClerkAuthGuard(
+          { authenticate: async () => Promise.reject(testCase.error) },
+          logger,
+          new Reflector(),
+        ),
+      );
+      await app.init();
+
+      const response = await request(app.getHttpServer())
+        .get('/test-auth-boundary')
+        .set('Authorization', 'Bearer session-secret');
+
+      try {
+        expect(response.status).toBe(testCase.status);
+        expect(response.body).toEqual({
+          statusCode: testCase.status,
+          message: testCase.message,
+          error: testCase.errorLabel,
+        });
+        expect(JSON.stringify(response.body)).not.toContain('session-secret');
+        expect(JSON.stringify(response.body)).not.toContain(
+          'Identity provider',
+        );
+        if (testCase.status === 503) {
+          expect(logger.operational).toHaveBeenCalledWith(
+            expect.objectContaining({ event: 'identity_provider_unavailable' }),
+          );
+        }
+      } finally {
+        await app.close();
+      }
+    }
   });
 });
 

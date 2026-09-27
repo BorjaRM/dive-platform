@@ -22,4 +22,5 @@ export interface SecurityLoggerPort {
       correlationId: string;
     }>,
   ): void;
+  operational?(entry: Readonly<{ event: string; correlationId: string }>): void;
 }

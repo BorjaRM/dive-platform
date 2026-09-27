@@ -8,6 +8,7 @@ const validEnvironment = {
   CLERK_ISSUER: 'https://clerk.example.test',
   CLERK_AUTHORIZED_PARTIES:
     'https://dashboard.example.test, https://admin.example.test',
+  CLERK_REQUEST_TIMEOUT_MS: '100',
 };
 
 describe('Clerk production configuration', () => {
@@ -30,6 +31,7 @@ describe('Clerk production configuration', () => {
     ['CLERK_WEBHOOK_SIGNING_SECRET', '   '],
     ['CLERK_ISSUER', ''],
     ['CLERK_AUTHORIZED_PARTIES', ''],
+    ['CLERK_REQUEST_TIMEOUT_MS', ''],
   ])('rejects missing %s', (name, value) => {
     expect(() =>
       clerkIdentityConfigFromEnvironment({

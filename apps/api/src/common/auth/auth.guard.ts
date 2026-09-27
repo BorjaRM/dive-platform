@@ -4,6 +4,7 @@ import {
   authenticateIdentity,
   IDENTITY_PROVIDER,
   type IdentityProviderPort,
+  IdentityProviderUnavailableError,
 } from '@dive-center/identity';
 import {
   type CanActivate,
@@ -11,6 +12,7 @@ import {
   type ExecutionContext,
   Inject,
   Injectable,
+  ServiceUnavailableException,
   SetMetadata,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -51,10 +53,23 @@ export class ClerkAuthGuard implements CanActivate {
     try {
       request.principal = await authenticateIdentity(this.identities, token);
       return true;
-    } catch {
+    } catch (error) {
+      if (error instanceof IdentityProviderUnavailableError) {
+        this.logAuthenticationOperationalFailure();
+        throw new ServiceUnavailableException(
+          'Authentication service unavailable',
+        );
+      }
       this.logAuthenticationFailure(context);
       throw new UnauthorizedException('Unauthenticated');
     }
+  }
+
+  private logAuthenticationOperationalFailure(): void {
+    this.logger.operational?.({
+      event: 'identity_provider_unavailable',
+      correlationId: randomUUID(),
+    });
   }
 
   private logAuthenticationFailure(context: ExecutionContext): void {

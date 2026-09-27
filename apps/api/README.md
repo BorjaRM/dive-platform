@@ -10,10 +10,11 @@ The approved topology is one API process for dashboard authentication and Clerk 
 - `CLERK_WEBHOOK_SIGNING_SECRET`: endpoint signing secret used by `verifyWebhook`. It must use Clerk's `whsec_` format.
 - `CLERK_ISSUER`: exact expected `iss` claim as a canonical HTTPS origin. Wildcards, credentials, paths, queries, and fragments are rejected.
 - `CLERK_AUTHORIZED_PARTIES`: comma-separated canonical origins or a JSON string array. Empty entries, wildcard entries, credentials, paths, queries, fragments, and trailing slashes are rejected.
+- `CLERK_REQUEST_TIMEOUT_MS`: positive environment-owned deadline for identity-provider operations. Production values require operational approval.
 
 `.env.example` contains synthetic placeholders only. Never commit real Clerk secrets.
 
-For every dashboard request, the adapter calls official `@clerk/backend@3.20.1` APIs `verifyToken`, `sessions.getSession`, and `users.getUser`. It accepts only the standard Clerk session-token profile: exact configured issuer, `sid` and `sub`, an `azp` accepted through the SDK's `authorizedParties`, no `aud` claim, and a provider-confirmed active, unexpired session and usable user. Tokens carrying `aud` are rejected whether the claim is a string or array. Any invalid token, ended/revoked/expired session, mismatch, or provider failure returns the same unauthenticated response.
+For every dashboard request, the adapter calls official `@clerk/backend@3.20.1` APIs `verifyToken`, `sessions.getSession`, and `users.getUser`. It accepts only the standard Clerk session-token profile: exact configured issuer, `sid` and `sub`, an `azp` accepted through the SDK's `authorizedParties`, no `aud` claim, and a provider-confirmed active, unexpired session and usable user. Tokens carrying `aud` are rejected whether the claim is a string or array. Invalid credentials remain a generic 401; provider timeout or other operational failure is a generic 503 and is logged separately without provider details. The adapter's dependency port receives an `AbortSignal`, but Clerk 3.20.1 does not expose signal or custom-fetch support for these APIs, so the caller-visible deadline does not claim cancellation of the SDK's underlying HTTP attempt.
 
 Ordinary dashboard authentication binds by `issuer + subject` and may return no provider-verified email addresses. Invitation acceptance is stricter: it requires at least one provider-verified address and an exact match to the invitation target.
 

@@ -197,6 +197,7 @@ describe('IAM/API vertical (e2e)', () => {
           webhookSigningSecret,
           issuer: clerkIssuer,
           authorizedParties: ['https://dashboard.example.test'],
+          requestTimeoutMillis: 100,
         }),
       )
       .overrideProvider(DATABASE_POOL)
