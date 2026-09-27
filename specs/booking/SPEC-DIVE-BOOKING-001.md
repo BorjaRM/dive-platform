@@ -1,10 +1,10 @@
 # SPEC-DIVE-BOOKING-001 — Bookings, widget, and calendar
 
 - **Status:** Ready to start
-- **Version:** 1.1
+- **Version:** 1.2
 - **Last reviewed:** 2026-09-27
 - **Approved by:** Borja (Product owner)
-- **Approval reference:** PR #1, provenance migration PR, product confirmations 2026-09-27 for catalog HTTP, slot time representation, public visibility of full slots, ADR-DIVE-010 public create closures, and explicit approval by Product, Security, and Architecture on 2026-09-27 of the point 1 rejection contract and public capability contract
+- **Approval reference:** PR #1, provenance migration PR, product confirmations 2026-09-27 for catalog HTTP, slot time representation, public visibility of full slots, ADR-DIVE-010 public create closures, and explicit approval by Product, Security, and Architecture on 2026-09-27 of the point 1 rejection contract and public capability contract; PR #35 product-owner confirmation on 2026-09-27 for simplified activity and slot listing, catalog DTOs, and persistence naming
 - **Owner:** Product / Booking
 - **IDs:** `DIVE-BOOK-REQ-001` … `DIVE-BOOK-REQ-072`
 
@@ -29,7 +29,7 @@ The ranges below cover every requirement in this SPEC. `Derived` consolidates th
 | `DIVE-BOOK-REQ-033..DIVE-BOOK-REQ-036` | `Proposed` | PR #1 mutation and cancellation consolidation | Approved by product owner for MVP validation |
 | `DIVE-BOOK-REQ-037..DIVE-BOOK-REQ-042` | `Derived` | `specs/architecture/adrs/ADR-DIVE-002.md`; `specs/spikes/SPIKE-DIVE-003/specification.md`; PR #1; product confirmation by Borja on 2026-09-27 for public visibility of full slots | Approved by product owner, including `Available` + `Full` visibility on 2026-09-27 |
 | `DIVE-BOOK-REQ-043..DIVE-BOOK-REQ-048` | `Derived` | `specs/foundation/security-privacy-baseline.md`; `specs/foundation/operations-quality-recovery.md`; `specs/product/dive-mvp-profile.md`; PR #1 | Approved by product owner |
-| `DIVE-BOOK-REQ-049..DIVE-BOOK-REQ-057` | `Proposed` | Product confirmation by Borja on 2026-09-27 for US-08 catalog HTTP, center-scoped operations, slot time representation, and listing defaults | Approved by product owner 2026-09-27 for MVP validation |
+| `DIVE-BOOK-REQ-049..DIVE-BOOK-REQ-057` | `Proposed` | Product confirmation by Borja on 2026-09-27 for US-08 catalog HTTP, center-scoped operations, slot time representation, listing defaults, and PR #35 simplification of activity/slot listing | Approved by product owner 2026-09-27 for MVP validation |
 | `DIVE-BOOK-REQ-058..DIVE-BOOK-REQ-067` | `Proposed` | ADR-DIVE-010 v0.3; explicit acceptance by Borja on 2026-09-27 of public create, channel policy, retry, surface, origin, and OTA-boundary closures | Approved by product owner 2026-09-27; Ready to start |
 | `DIVE-BOOK-REQ-068..DIVE-BOOK-REQ-069` | `Proposed` | Product, Security, and Architecture approval on 2026-09-27 of the rejected-booking state and internal rejection contract | Approved; Ready to start |
 | `DIVE-BOOK-REQ-070..DIVE-BOOK-REQ-072` | `Proposed` | Product, Security, and Architecture approval on 2026-09-27 of the public capability recommendations; ADR-DIVE-005 v0.3 | Approved; Ready to start |
@@ -46,7 +46,7 @@ The ranges below cover every requirement in this SPEC. `Derived` consolidates th
 | `postMessage` excludes secrets and full personal data | `Derived` | `specs/foundation/security-privacy-baseline.md`; PR #1 | Approved by product owner |
 | Widget customization allow-list | `Proposed` | PR #1 | Approved by product owner for MVP validation |
 | Slot persists `starts_at` timestamptz and `duration_minutes`; end is derived | `Proposed` | Product confirmation by Borja on 2026-09-27; specializes `DIVE-BOOK-REQ-010` | Approved by product owner 2026-09-27 for MVP validation |
-| Catalog list page size maximum is 50 | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved by product owner 2026-09-27 for MVP validation |
+| Slot list result maximum is 50 for a required date range; activities are not paginated | `Proposed` | Product confirmation by Borja in PR #35 on 2026-09-27 | Approved by product owner 2026-09-27 for MVP validation |
 | Public channel `confirmation_mode` defaults to `immediate` | `Proposed` | ADR-DIVE-010 v0.3; explicit product-owner acceptance 2026-09-27 | Approved; Ready to start |
 | Public create first success is `201`, same-request replay is `200`, and key reuse with a different request is `409 idempotency_conflict` | `Proposed` | ADR-DIVE-010 v0.3; explicit product-owner acceptance 2026-09-27 | Approved; Ready to start |
 
@@ -202,7 +202,7 @@ PATCH  /v1/centers/:centerId/slots/:slotId/cancel
 - **DIVE-BOOK-REQ-054:** Repeating `publish`, `disable`, `close`, or `cancel` when the resource is already in the resulting state is idempotent success (`204`). An incompatible transition returns `409`.
 - **DIVE-BOOK-REQ-055:** A slot may transition `Closed → Cancelled`.
 - **DIVE-BOOK-REQ-056:** Catalog HTTP uses `application/problem+json`. Create returns `201`. Successful commands return `204`. Malformed JSON returns `400`. Missing session or tenant context returns `401`. A permission failure inside the current authorized center returns `403`. A missing resource or a resource outside the current center/tenant returns `404` with the same observable result. Semantic field errors return `422`.
-- **DIVE-BOOK-REQ-057:** Catalog lists never accept multiple centers. Pagination is cursor-based with a maximum page size of 50. Activities are ordered by `created_at DESC`, then `id`, and may be filtered by `status`. Slots are ordered by `starts_at ASC`, then `id`, and may be filtered by date range and `status`.
+- **DIVE-BOOK-REQ-057:** Catalog lists never accept multiple centers. The activity list returns all activities of the authorized center without pagination, ordered by `created_at DESC`, then `id DESC`, and may be filtered by `status`. The slot list requires a date range, is ordered by `starts_at ASC`, then `id ASC`, may be filtered by `status`, and returns at most 50 matching slots. If the requested range matches more than 50 slots, the server returns the existing `422 validation_error` and the client must request a narrower range. The walking skeleton has no catalog cursor; introducing cursor pagination requires a separately approved contract change.
 
 ### Public create-booking
 
@@ -274,7 +274,7 @@ These defaults are normative until a later SPEC/ADR changes them:
 - `postMessage` never transports secrets or full personal data
 - Allowed widget customization: logo, validated colors, catalog font, localized copy, predefined corner radius. No center-supplied HTML, CSS, or JavaScript
 - Slot time fields: persist `starts_at` as timestamptz and `duration_minutes`; derive end; do not persist remaining seats
-- Catalog list maximum page size: 50
+- Activity lists are unpaginated; slot lists require a date range and return at most 50 results; ranges exceeding that result limit return `422 validation_error`
 - Public channel confirmation mode: `immediate` when omitted
 - Public create first success: `201`; same-request replay: `200`; different-request key reuse: `409 idempotency_conflict`
 - Public capability cancellation requires an `Idempotency-Key`; a same-key retry returns the persisted result without repeating side effects
@@ -335,8 +335,6 @@ No real personal data in development, preview, or staging for this increment.
 
 ## Open questions
 
-These items are pending product decision. Implementation MUST NOT invent a value, encoding, extra field, or physical name to close them.
+No US-08 catalog-contract decision remains open for the walking skeleton. PR #35 records the product-owner confirmation for list behavior, response DTOs, and physical persistence naming.
 
-1. **Pending decision — catalog cursor.** Cursor encoding, integrity protection, and continuation-token format for catalog lists (`DIVE-BOOK-REQ-057`).
-2. **Pending decision — catalog response DTO.** Additional response fields beyond the approved request keys and the identifiers required to call subsequent endpoints.
-3. **Pending decision — physical names.** Table, column, and index names for activities and slots.
+Cursor pagination is deferred rather than specified. If demonstrated volume later requires it, a separately approved contract change must define its scope and validation semantics before implementation.

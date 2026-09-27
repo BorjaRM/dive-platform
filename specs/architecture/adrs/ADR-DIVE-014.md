@@ -1,7 +1,7 @@
-# ADR-DIVE-014 — Center catalog cursor, response DTO, and persistence naming
+# ADR-DIVE-014 — Center catalog lists, response DTO, and persistence naming
 
 - **Status:** Draft
-- **Version:** 0.1
+- **Version:** 0.2
 - **Date:** 2026-09-27
 - **Deciders:** Product / Architecture / Data / Security
 - **Affected IDs:** `DIVE-BOOK-REQ-001..006`, `009..011`, `017..020`, `029`, `049..057`; `DIVE-IAM-REQ-024`; ADR-DIVE-001; ADR-DIVE-008
@@ -11,54 +11,52 @@
 | Decision | Provenance | Exact source | Approval / status |
 |---|---|---|---|
 | Dashboard catalog is scoped to one authorized center; path identifiers are selectors, never authorization | `Documented` | `SPEC-DIVE-BOOKING-001` `DIVE-BOOK-REQ-001..006`, `050`; ADR-DIVE-008 | Existing normative constraint |
-| Activity and slot request fields, lifecycle, HTTP status/error contract, stable ordering, filters, cursor pagination, and maximum page size 50 | `Documented` | `SPEC-DIVE-BOOKING-001` `DIVE-BOOK-REQ-009..011`, `017..020`, `029`, `049..057` | Existing normative constraint |
-| Versioned authenticated cursor with no TTL, bound to endpoint and normalized filters | `Proposed` | US-08 closure requested by Borja on 2026-09-27; closes `SPEC-DIVE-BOOKING-001` Open question 1 | Draft; pending explicit approval |
-| Minimal activity/slot representations and page envelope | `Proposed` | US-08 closure requested by Borja on 2026-09-27; closes `SPEC-DIVE-BOOKING-001` Open question 2 | Draft; pending explicit approval |
-| `booking_app.activities` / `booking_app.slots`, physical columns, constraints, and catalog indexes | `Proposed` | Existing `iam_app` PostgreSQL/Drizzle conventions plus US-08 closure requested by Borja on 2026-09-27; closes `SPEC-DIVE-BOOKING-001` Open question 3 | Draft; pending explicit approval |
+| Activity and slot request fields, lifecycle, HTTP status/error contract, filters, and stable ordering | `Documented` | `SPEC-DIVE-BOOKING-001` `DIVE-BOOK-REQ-009..011`, `017..020`, `029`, `049..057` | Existing normative constraint |
+| Activities are unpaginated; slots require a date range and return at most 50 results; cursor pagination is deferred | `Proposed` | Product-owner confirmation by Borja for PR #35 on 2026-09-27 | Approved for incorporation into `SPEC-DIVE-BOOKING-001` v1.2; ADR remains Draft |
+| Minimal activity/slot representations | `Proposed` | Product-owner confirmation by Borja for PR #35 on 2026-09-27 | Approved for incorporation into the booking contract; ADR remains Draft |
+| `booking_app.activities` / `booking_app.slots`, physical columns, constraints, and catalog indexes | `Proposed` | Existing `iam_app` PostgreSQL/Drizzle conventions; product-owner confirmation by Borja for PR #35 on 2026-09-27 | Approved for incorporation into the booking contract; ADR remains Draft |
 
 ## Context
 
-`SPEC-DIVE-BOOKING-001` authorizes the US-08 center-scoped catalog behavior but deliberately leaves three implementation-contract decisions open: cursor encoding and integrity, response DTO fields, and physical activity/slot names. Implementing those decisions without an approved artifact would create silent defaults.
+US-08 needs a small center catalog. A typical center is expected to manage approximately 15–20 activities, so cursor infrastructure for the activity list would add signing, rotation, validation, and client state without a demonstrated volume need. Slots can grow over time, but the center dashboard queries them for a bounded working period.
 
-This ADR proposes the minimum closure needed for the first reversible catalog vertical. It does not change catalog lifecycle, permissions, routes, status codes, capacity semantics, public availability, booking creation, or onboarding.
+This ADR closes the walking-skeleton contract with the simplest bounded behavior. It does not change catalog lifecycle, permissions, routes, capacity semantics, public availability, booking creation, or onboarding.
 
-## Proposed decision
+## Decision
 
-### Cursor contract
+### Activity list
 
-Catalog lists use forward-only keyset cursors.
+`GET /v1/centers/:centerId/activities` returns all activities of the authorized center without pagination. It may be filtered by `status` and is ordered by `created_at DESC`, then `id DESC`.
 
-The wire value is an opaque two-part base64url value:
-
-```text
-base64url(canonical-json-payload).base64url(hmac-sha256(payload))
-```
-
-The payload contains only:
-
-- `v`: cursor schema version, initially `1`;
-- `resource`: `activities` or `slots`;
-- `position`: the last emitted stable ordering tuple;
-- `filters`: a digest of the normalized filters that produced the page.
-
-Activity position is `createdAt` plus `id`, both descending. Slot position is `startsAt` plus `id`, both ascending. The server signs and verifies the payload with an application secret; the cursor is authenticated, not encrypted, and therefore contains no tenant identifier, personal data, authorization claim, or secret.
-
-A cursor is valid only for the same endpoint resource, authorized center, activity scope when applicable, and normalized filters. Authorization and center scope are re-evaluated on every request and never come from the cursor. A malformed, tampered, unsupported-version, or mismatched cursor returns the existing `422` semantic validation response without revealing another scope.
-
-Catalog cursors have no time-based expiry. Key rotation may invalidate outstanding cursors; clients restart from the first page. This cursor is a continuation position, not a snapshot guarantee: concurrent inserts or state changes may alter later pages, while the stable keyset order prevents offset drift.
-
-### Response DTO
-
-List responses use:
+The response is:
 
 ```json
 {
-  "items": [],
-  "nextCursor": null
+  "items": []
 }
 ```
 
-`nextCursor` is a string only when another page exists; otherwise it is `null`. Create responses return the same single-resource representation used inside `items`.
+No `cursor`, `nextCursor`, `limit`, tenant selector, or multi-center selector is accepted or returned.
+
+### Slot list
+
+`GET /v1/centers/:centerId/activities/:activityId/slots` requires a date range. It may also be filtered by `status`, is ordered by `starts_at ASC`, then `id ASC`, and returns at most 50 matching slots.
+
+The response is:
+
+```json
+{
+  "items": []
+}
+```
+
+If the requested range matches more than 50 slots, the server returns the existing `422 validation_error`; the client narrows the range. The response is never silently truncated.
+
+There is no catalog cursor in the walking skeleton. A future cursor requires demonstrated need and a separately approved contract change. Tenant, center, activity, permissions, and filters are revalidated on every request regardless of future pagination choices.
+
+### Response DTO
+
+Create responses return the same single-resource representation used inside list `items`.
 
 Activity representation:
 
@@ -73,7 +71,7 @@ Activity representation:
 }
 ```
 
-`description` and `defaultCapacity` are omitted when unset. Draft activities may contain incomplete localized `name` / `description` objects as already allowed by `DIVE-BOOK-REQ-051` and `053`; this ADR adds no translation fallback.
+`description` and `defaultCapacity` are omitted when unset. Draft activities may contain incomplete localized `name` / `description` objects as allowed by `DIVE-BOOK-REQ-051` and `053`; no translation fallback is introduced.
 
 Slot representation:
 
@@ -89,7 +87,7 @@ Slot representation:
 }
 ```
 
-The DTO never returns `tenantId`, `centerId`, remaining seats, internal index values, or cursor payload fields. Remaining sellable seats stay derived and are not part of this catalog-management DTO.
+The DTO never returns `tenantId`, `centerId`, remaining seats, or persistence-only values. Remaining sellable seats stay derived and are not part of this catalog-management DTO.
 
 ### PostgreSQL names
 
@@ -118,7 +116,7 @@ Use PostgreSQL schema `booking_app`.
 - `capacity` integer;
 - `created_at` timestamptz.
 
-Both tables use a tenant-qualified primary key on `(tenant_id, id)`. Activities additionally expose a unique key on `(tenant_id, center_id, id)`. Slots reference activities through `(tenant_id, center_id, activity_id)` so a cross-tenant or cross-center relation is structurally impossible. Center relations use the existing tenant-qualified center key. Positive numeric constraints apply to non-null `default_capacity`, `duration_minutes`, and `capacity`; status checks admit only the states already defined by the booking SPEC.
+Both tables use a tenant-qualified primary key on `(tenant_id, id)`. Activities additionally expose a unique key on `(tenant_id, center_id, id)`. Slots reference activities through `(tenant_id, center_id, activity_id)` so a cross-tenant or cross-center relation is structurally impossible. Center relations use the existing tenant-qualified center key. Positive numeric constraints apply to non-null `default_capacity`, `duration_minutes`, and `capacity`; status checks admit only the states defined by the booking SPEC.
 
 Use these explicit index names and orders:
 
@@ -130,43 +128,49 @@ slots_activity_status_starts_id_idx
   (tenant_id, center_id, activity_id, status, starts_at ASC, id ASC)
 ```
 
-The implementation migration may add only the supporting indexes required by PostgreSQL for the named primary, unique, and foreign-key constraints. Additional query indexes require observed plans or a separately justified change; they are not silently added by this ADR.
+The migration may add only supporting indexes required by PostgreSQL for the named primary, unique, and foreign-key constraints. Additional query indexes require observed plans or a separately justified change.
 
-RLS and transaction context remain governed by the multitenancy baseline and ADR-DIVE-001. This ADR selects physical names but does not weaken application authorization, center scoping, or non-disclosure.
+RLS and transaction context remain governed by the multitenancy baseline and ADR-DIVE-001. Physical names do not weaken application authorization, center scoping, or non-disclosure.
 
 ## Consequences
 
 ### Positive
 
-- The first catalog implementation no longer needs to invent wire fields, cursor integrity, or persistence names.
-- Keyset pagination matches the approved stable order and avoids offset-based page drift.
+- The activity endpoint matches the expected catalog size without cursor infrastructure.
+- Slot queries are bounded by business input and an explicit result limit without silent truncation.
+- The first implementation does not need cursor signing, secret rotation, cursor versioning, or client continuation state.
 - Composite relations enforce tenant and center consistency below the application layer.
 - DTOs remain minimal and exclude authorization context and derived remaining capacity.
 
 ### Costs and risks
 
-- Cursor signing requires secret management and makes key rotation observable as cursor invalidation.
-- No cursor TTL means the server must retain support for a cursor version until it intentionally removes that version.
-- JSONB localization requires validation in the application and database checks chosen by the implementation.
+- A center with an unexpectedly large activity catalog receives the full activity collection.
+- A broad slot range may require one or more narrower requests.
+- Cursor pagination, if later needed, requires a new approved contract rather than an implementation-only change.
+- JSONB localization requires application validation and database checks selected by the implementation.
 - Status-leading indexes may not fit every future query distribution; observed plans may justify later indexes.
 
 ## Alternatives considered
 
-### Unsigned base64 JSON cursor
+### Signed keyset cursor for both lists
 
-Rejected because clients could tamper with continuation positions and filter binding. Even though the cursor does not authorize access, authentication gives stable validation semantics and avoids accepting fabricated state.
+Rejected for the walking skeleton. Expected activity volume does not justify signing, rotation, versioning, and client continuation complexity. The slot endpoint already has a natural date-range boundary.
+
+### Cursor only for slots
+
+Deferred. The required date range plus 50-result maximum is simpler for the first vertical. Reconsider only with demonstrated volume or usability evidence.
 
 ### Offset pagination
 
-Rejected because it does not match the approved cursor contract and drifts under concurrent catalog changes.
+Rejected. It adds pagination state without a current need and drifts under concurrent changes.
 
-### Cursor encryption
+### Silent truncation at 50 slots
 
-Not selected. The payload contains no secret, personal data, or authority. Integrity is required; confidentiality is not.
+Rejected because callers could mistake an incomplete range for the complete result.
 
 ### Separate localized-text rows
 
-Not selected for the first vertical. The approved languages are bounded to `es` and `en`; JSONB keeps the catalog slice reversible without introducing another relation. A later localization expansion requires a contract and migration decision.
+Not selected for the first vertical. The approved languages are bounded to `es` and `en`; JSONB keeps the catalog slice reversible without another relation.
 
 ### Global UUID foreign keys without tenant and center columns
 
@@ -174,11 +178,12 @@ Rejected because they would not make cross-tenant and cross-center relationships
 
 ## Validation and expected evidence
 
-This Draft ADR changes documentation only and provides no implementation evidence.
+This documentation PR provides no implementation evidence.
 
 An implementation PR must link `DIVE-BOOK-REQ-049..057` and include:
 
-- cursor round-trip, tamper, version, filter-binding, scope-revalidation, and key-rotation behavior tests;
+- activity-list contract tests proving no pagination and center/status scoping;
+- slot-list tests for required date range, stable ordering, status filter, 50-result boundary, and non-truncating `422` behavior;
 - activity and slot response contract tests, including omitted optional fields;
 - migration tests for keys, foreign keys, positive checks, status checks, and index names;
 - center-scope and cross-tenant negative tests;
@@ -189,11 +194,10 @@ An implementation PR must link `DIVE-BOOK-REQ-049..057` and include:
 
 ## Open questions
 
-1. Who owns the catalog cursor signing secret and its rotation runbook before production traffic?
-2. How long will a previous cursor version remain accepted after a later version ships?
+No US-08 catalog-contract decision remains open for the walking skeleton.
 
-Neither question blocks a synthetic-data Draft implementation. Both must be closed before a real-data pilot if cursor rotation is enabled.
+Cursor pagination is deferred. If demonstrated volume later requires it, its scope, cursor format, validation, and compatibility become a new proposed contract change.
 
 ## Implementation authority
 
-None while Draft. This ADR records `Proposed` decisions and does not authorize schema migrations, runtime routes, or changes to `SPEC-DIVE-BOOKING-001`. Explicit approval is required before promoting the ADR or incorporating these closures into the Ready-to-start SPEC.
+`SPEC-DIVE-BOOKING-001` v1.2 is the normative implementation authority after merge. This ADR remains Draft as a decision record and is not independently promoted by this PR.
