@@ -14,7 +14,7 @@
 | Tenant creation and first-center creation are the first walking-skeleton increment | `Documented` | `specs/product/dive-mvp-profile.md` §6 | Existing product direction; no onboarding contract existed |
 | Reliable side effects use the transactional outbox | `Documented` | `ADR-DIVE-002` § Decision | Existing normative constraint |
 | Controlled invitation, self/assisted commands, transaction boundary, Owner operability, idempotency, fields, limits, rollout, and acceptance matrix | `Proposed` | PR #32 product-owner decision record: https://github.com/BorjaRM/dive-platform/pull/32#issuecomment-5855884646; `SPEC-DIVE-ONBOARDING-001` Draft | Approved by product owner for Draft review; pending merge |
-| Driver.js behind a replaceable renderer, local visual state, versioned content port, and no-op analytics port | `Proposed` | PR #32 product-owner decision record: https://github.com/BorjaRM/dive-platform/pull/32#issuecomment-5855884646; `SPEC-DIVE-ONBOARDING-001` Draft | Approved by product owner for Draft review; pending merge |
+| Driver.js behind a replaceable renderer, stable local visual state, versioned content port, and no-op analytics port | `Proposed` | PR #32 product-owner decision record; PR #33 remediation confirmation: https://github.com/BorjaRM/dive-platform/pull/33#issuecomment-5856138525; `SPEC-DIVE-ONBOARDING-001` Draft | Approved by product owner for Draft review; pending merge |
 
 ## Context
 
@@ -141,7 +141,7 @@ This Draft PR changes documentation only. It provides no implementation, migrati
 
 ## Open questions
 
-The product-owner decision record closes the reviewed product choices. NFC/code-point counting and the stable-key localStorage representation are remediation proposals pending product-owner confirmation. HTTP route names, physical database names, and exact event schemas belong to the later contract/implementation PR and may not change these decisions silently.
+No product decision remains open within this ADR's reviewed scope. HTTP route names, physical database names, and exact event schemas belong to the later contract/implementation PR and may not change these decisions silently.
 
 ## Implementation authority
 
