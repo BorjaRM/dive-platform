@@ -24,7 +24,7 @@ The repository is a TypeScript monorepo skeleton:
 - `packages/*` — `@dive-center/*` workspace packages; most are empty shells
 - `packages/typescript-config` — shared TypeScript presets
 - `specs/` — normative SDD artifacts
-- Tooling: pnpm, Turborepo, Biome, Node `22.22.3`, TypeScript `7.0.2`
+- Tooling: pnpm, Turborepo, Biome, Node `22.22.3`, TypeScript `6.0.3`
 - CI: `.github/workflows/ci.yml` (`pnpm check:fix` on same-repo PRs, then `pnpm check`, `pnpm test`) and `.github/workflows/spec-governance.yml`
 
 Present for MT-SPIKE-001 (synthetic data only):

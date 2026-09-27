@@ -385,3 +385,11 @@ señal auxiliar y un SBOM CycloneDX como artefacto de los tags `v*`. Mantiene
 permisos de lectura para el repositorio y exige `GITLEAKS_LICENSE` fuera del
 código cuando el repositorio privado lo requiere. La evidencia está en
 [evidence/operations/SEC-03.md](../../evidence/operations/SEC-03.md).
+
+## Corrección aplicada: DOC-01
+
+ADR-DIVE-003 versión 0.2 y el README ahora documentan TypeScript `6.0.3`, que
+es la versión efectiva del catálogo pnpm, lockfile e instalación. También se
+eliminó la afirmación de un `pnpm.overrides` inexistente. No se cambiaron
+dependencias ni lockfile. La evidencia está en
+[evidence/architecture/DOC-01.md](../../evidence/architecture/DOC-01.md).
