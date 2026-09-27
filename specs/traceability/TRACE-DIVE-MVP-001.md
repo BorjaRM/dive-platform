@@ -126,7 +126,7 @@ The first IAM/API vertical is partially implemented in `apps/api`, `packages/ide
 
 ### Partial or not yet demonstrated
 
-Clerk authentication and session revocation (`DIVE-IAM-REQ-004`, `DIVE-IAM-REQ-016`, `DIVE-IAM-REQ-022`) remain Partial. `packages/identity/src/clerk-token-verifier.spec.ts` executes the real Clerk SDK against a locally signed standard session-token fixture and checks `azp`; Backend API session/user fetches and provider session termination use injectable deterministic seams, so no Clerk sandbox or production integration is demonstrated. See `evidence/releases/iam-phase-2-revocation.md`.
+Clerk authentication and session revocation (`DIVE-IAM-REQ-004`, `DIVE-IAM-REQ-016`, `DIVE-IAM-REQ-022`) remain Partial. `apps/api/test/iam.clerk.sandbox.e2e-spec.ts` records a dated Clerk Development run for browser authentication and provider session revocation; natural expiry, browser logout, Clerk-delivered webhooks, and production integration remain unproven. `packages/identity/src/clerk-token-verifier.spec.ts` and the deterministic seams cover the remaining contract cases. See `evidence/releases/iam-phase-2-revocation.md`.
 
 Non-disclosure and complete sensitive-operation audit coverage (`DIVE-IAM-REQ-024`, `DIVE-IAM-REQ-025`) remain partial beyond the exposed center-read, membership-disable, and invitation persistence paths. Purpose-limited customer-contact access and booking-operation audit belong to later approved slices and are not demonstrated here.
 

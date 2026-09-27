@@ -92,7 +92,8 @@ or new SLO.
 
 ## Explicit gaps
 
-This first sandbox step does not implement browser logout, natural session
+The current sandbox run demonstrates browser authentication and provider
+session revocation. It does not implement browser logout, natural session
 expiry, a webhook delivered by Clerk, or production traffic. `DIVE-IAM-REQ-021`
 remains covered only by the existing local signed-webhook tests until a separate
 delivery harness exists. Local JWT fixtures, HMAC webhook fixtures, mocks, and
