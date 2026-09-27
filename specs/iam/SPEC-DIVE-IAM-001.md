@@ -4,13 +4,13 @@
 - **Version:** 0.13
 - **Last reviewed:** 2026-09-27
 - **Approved by:** Borja (Product owner)
-- **Approval reference:** PR #1, provenance migration PR, PR #13 (`ADR-DIVE-008` Ready to start), product confirmation 2026-09-27 for `ADR-DIVE-008` v0.7 implementation closures, product confirmation 2026-09-27 for center-application bootstrap (`ADR-DIVE-008` v0.9), product confirmation 2026-09-27 for reserved keys, generated CORS, authentication host, environment namespace, and no-`Origin` bootstrap (`ADR-DIVE-008` v0.10), and Product, Security, and Architecture approval on 2026-09-27 for the `booking.reject` permission
+- **Approval reference:** PR #1, provenance migration PR, PR #13 (`ADR-DIVE-008` Ready to start), product confirmation 2026-09-27 for `ADR-DIVE-008` v0.7 implementation closures, product confirmation 2026-09-27 for center-application bootstrap (`ADR-DIVE-008` v0.9), product confirmation 2026-09-27 for reserved keys, generated CORS, authentication host, environment namespace, and no-`Origin` bootstrap (`ADR-DIVE-008` v0.10), PR #32 Draft authority-boundary clarification, and Product, Security, and Architecture approval on 2026-09-27 for the `booking.reject` permission
 - **Owner:** Product / Security
 - **IDs:** `DIVE-IAM-REQ-001` … `DIVE-IAM-REQ-032`
 
 ## Normative authority
 
-This SPEC is the single normative source for MVP identity, membership, roles, permissions, scopes, public capabilities, revocation, and privileged support access.
+This SPEC is the single normative source for MVP tenant/public identity, membership, roles, permissions, scopes, public capabilities, revocation, and privileged support access. `SPEC-DIVE-ONBOARDING-001` may own a pre-tenant bootstrap grant only while it remains explicitly separate from tenant roles, tenant permissions, and read-only platform support; it MUST reference this SPEC for identity binding, membership activation, invitation acceptance, and tenant-context authorization.
 
 It adopts `specs/foundation/iam-baseline.md`. Dive-specific roles and public-channel capabilities are defined here. Clerk is an adapter, not the authorization source of truth.
 
@@ -191,6 +191,7 @@ Protected product requests send `Authorization: Bearer <clerk-session-token>` an
 - `specs/foundation/iam-baseline.md`
 - `specs/booking/SPEC-DIVE-BOOKING-001.md` for public capabilities
 - `specs/multitenancy/adoption-profile.md`
+- `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md` (Draft pre-tenant bootstrap boundary only)
 
 ## Tests and expected evidence
 
