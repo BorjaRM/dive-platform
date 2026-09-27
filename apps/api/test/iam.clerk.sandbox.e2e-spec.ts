@@ -14,6 +14,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { clerkIdentityConfigFromEnvironment } from '../src/clerk.config.js';
 import { createClerkBrowserSession } from './clerk.browser-session.js';
+import { dashboardCenterPath } from './dashboard-routes.js';
 
 const REVOCATION_REQUIREMENT_MS = 5 * 60 * 1_000;
 const REAL_RUN_FLAG = 'DIVE_REAL_CLERK_E2E';
@@ -170,17 +171,13 @@ function fixtureIds(): SandboxFixture {
   });
 }
 
-function dashboardCenterPath(fixture: SandboxFixture): string {
-  return `/v1/tenants/${fixture.tenantId}/centers/${fixture.centerId}`;
-}
-
 async function centerRequest(
   app: INestApplication,
   fixture: SandboxFixture,
   token: string,
 ): Promise<number> {
   const response = await request(app.getHttpServer())
-    .get(dashboardCenterPath(fixture))
+    .get(dashboardCenterPath(fixture.tenantId, fixture.centerId))
     .set('authorization', `Bearer ${token}`);
   return response.status;
 }
