@@ -350,3 +350,10 @@ propaga mediante `AsyncLocalStorage` a los logs de seguridad, IAM, webhooks y
 mutaciones de catálogo que alimentan audit/outbox. Los UUID de recursos siguen
 siendo independientes. La evidencia ejecutable está en
 [evidence/operations/OBS-01.md](../../evidence/operations/OBS-01.md).
+
+## Corrección aplicada: SEC-01
+
+El workflow de CI declara `contents: read` tanto a nivel global como por job,
+no ejecuta autofix, commit ni push, y la guía del agente de CI ya no ordena
+publicar cambios desde una validación. La evidencia ejecutable está en
+[evidence/operations/SEC-01.md](../../evidence/operations/SEC-01.md).
