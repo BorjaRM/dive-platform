@@ -40,6 +40,7 @@ Context comes from **paths + SPECs + skills**, not from invoking Backend/Fronten
 - SPECs/ADRs named by the PR (do not guess IDs)
 - `.github/skills/fill-pr-validation/SKILL.md`
 - `.github/skills/traceability-first-implementation/SKILL.md`
+- `.github/skills/tenant-isolation-invariants/SKILL.md` when the diff touches SQL, `tenant_id`, RLS, repositories, tenant-owned tables, or tenant/center resolution
 - `.github/skills/cross-cutting-performance-checklist/SKILL.md` when the diff touches DB, API, worker/outbox, concurrency, or web/widget
 
 ## Context by path
@@ -48,9 +49,9 @@ Apply every matching row. Same output format. Do not spawn another agent.
 
 | Paths (re-check on disk) | Also read / invoke | Look for |
 |---|---|---|
-| `apps/api/**`, `packages/db/**`, `packages/shared/**` | SPECs/ADRs for claimed IDs; performance skill if DB/API/worker/outbox | Server-side tenant context; no client-supplied tenant/center/activity as authorization; outbox/idempotency when ADR-DIVE-002 applies; tests mapped to IDs |
-| `apps/web/**` | `DIVE-BOOK-REQ-037`..`042` in `specs/booking/SPEC-DIVE-BOOKING-001.md`; `specs/spikes/SPIKE-DIVE-003/specification.md` and `requirements.md` (Draft / not executed); `vercel-react-best-practices`; `vercel-composition-patterns` for reusable component APIs | Channel/tenant/center/activity resolved server-side; iframe/CSP/`postMessage`/theming are not Accepted; ADR-DIVE-002 iframe is provisional; external guidance remains advisory and cannot create requirements |
-| RLS, `tenant_id`, isolation tests | Stop conditions in this file. Do **not** invoke Tenancy and Data Isolation Engineer | Cross-tenant leak or `BYPASSRLS` → **grave** and escalate |
+| `apps/api/**`, `packages/db/**`, `packages/shared/**` | SPECs/ADRs for claimed IDs; `tenant-isolation-invariants`; performance skill if DB/API/worker/outbox | Server-side tenant context; `tenant_id` on tenant-owned data; RLS/constraints not query-filter-only; no client-supplied tenant/center/activity as authorization; outbox/idempotency when ADR-DIVE-002 applies; same-tenant / cross-tenant / missing-context / pool-reset tests; tests mapped to IDs |
+| `apps/web/**` | `DIVE-BOOK-REQ-037`..`042` in `specs/booking/SPEC-DIVE-BOOKING-001.md`; `specs/spikes/SPIKE-DIVE-003/specification.md` and `requirements.md` (Draft / not executed); `tenant-isolation-invariants`; `vercel-react-best-practices`; `vercel-composition-patterns` for reusable component APIs | Channel/tenant/center/activity resolved server-side; iframe/CSP/`postMessage`/theming are not Accepted; ADR-DIVE-002 iframe is provisional; external guidance remains advisory and cannot create requirements |
+| RLS, `tenant_id`, isolation tests | `tenant-isolation-invariants`. Stop conditions in this file. Do **not** invoke Tenancy and Data Isolation Engineer | Cross-tenant leak, missing `tenant_id`, query-filter-only access, or `BYPASSRLS` → **grave** and escalate |
 | `specs/**` | Out of scope here | Remit SDD Gatekeeper. If the change set is **only** specs/TRACE/docs, stop |
 | `tests/**`, PR Validation | `fill-pr-validation`, `traceability-first-implementation` | Claimed commands vs actually run; empty Validation on a non-draft implementation PR is at least **moderado** |
 | `.github/workflows/**`, `package.json` scripts | Inspect files; do not invent CI/e2e/Docker | Claimed workflow/script missing on disk |
@@ -95,7 +96,7 @@ GitHub.com ignores `handoffs`. Still print `Handoff:` in the output. VS Code sho
 
 | Label | Use when |
 |---|---|
-| **grave** | Plausible tenant leak; `BYPASSRLS` / RLS bypass; client-supplied tenant/center/activity as authorization; mixing `MT-REQ-*` with `DIVE-*`; organization as tenant or center as tenant; implementing Deferred OPS; asserting outbox/atomicity without evidence; silent new product behavior (default, TTL, state, permission, invariant); Validation claims checks that were not run |
+| **grave** | Plausible tenant leak; `BYPASSRLS` / RLS bypass; client-supplied tenant/center/activity as authorization; query/repository/table change without `tenant_id` or RLS; mixing `MT-REQ-*` with `DIVE-*`; organization as tenant or center as tenant; implementing Deferred OPS; asserting outbox/atomicity without evidence; silent new product behavior (default, TTL, state, permission, invariant); Validation claims checks that were not run |
 | **moderado** | Claimed Ready-to-start IDs not implemented or untested; missing isolation/concurrency test when those paths changed; Validation absent/incomplete on a non-draft implementation PR; ADR/SPEC incongruence that is not a leak; performance hot path with no note and no spike pointer |
 | **leve** | Local duplication, unclear naming, dead code, comments vs code, test names without IDs, nits that do not change behavior or isolation |
 
@@ -116,7 +117,7 @@ If a finding does not fit a level, record an open question — do not invent a f
 
 ## Skills
 
-Invoke (do not copy bodies): `fill-pr-validation`, `traceability-first-implementation`, `cross-cutting-performance-checklist` when in scope, `vercel-react-best-practices` for `apps/web/**`, and `vercel-composition-patterns` when reusable React component APIs are introduced or refactored.
+Invoke (do not copy bodies): `fill-pr-validation`, `traceability-first-implementation`, `tenant-isolation-invariants` when persistence/query/RLS/tenant resolution is in scope, `cross-cutting-performance-checklist` when in scope, `vercel-react-best-practices` for `apps/web/**`, and `vercel-composition-patterns` when reusable React component APIs are introduced or refactored.
 
 Do not load `sdd-normative-change-hygiene` here. Remit that work to SDD Gatekeeper.
 

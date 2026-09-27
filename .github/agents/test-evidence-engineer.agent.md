@@ -24,12 +24,14 @@ Make the change reproducible. Do not pretend missing tooling exists.
 - `specs/traceability/TRACE-DIVE-MVP-001.md`
 - `.github/pull_request_template.md`
 - `.github/skills/fill-pr-validation/SKILL.md`
+- `.github/skills/tenant-isolation-invariants/SKILL.md` when proving isolation
 
 ## You do
 
 - Map requirement IDs to tests and commands.
 - Put spike proof under `evidence/spikes/<SPIKE-ID>/`.
 - Treat performance evidence as system-level: DB, contention, worker/outbox, API, web/widget.
+- Isolation proof must be executable against public data-access behavior (same-tenant, cross-tenant, missing context, pool reset). Keep `MT-REQ-*` separate from `DIVE-*`.
 - List known gaps explicitly.
 
 ## You do not

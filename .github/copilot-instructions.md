@@ -39,7 +39,7 @@ Docker Compose + integration PostgreSQL exist for MT-SPIKE-001 (`infra/docker/po
 
 ## Cross-cutting constraints
 
-- Tenant isolation is mandatory. No temporary RLS bypass.
+- Tenant isolation is mandatory. No temporary RLS bypass. Use `.github/skills/tenant-isolation-invariants/SKILL.md` when changing persistence, queries, RLS, or tenant/center resolution.
 - Keep `MT-REQ-*` separate from `DIVE-*` results.
 - IAM (`specs/iam/SPEC-DIVE-IAM-001.md`) and outbox/worker (`ADR-DIVE-002`) apply even without a dedicated agent.
 - `SPEC-DIVE-OPS-001` is Deferred; do not implement it in the walking skeleton.

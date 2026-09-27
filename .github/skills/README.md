@@ -15,6 +15,7 @@ Skills auto-load from `description`; `/skill-name` also works. That does not add
 | Directory | Use when |
 |---|---|
 | `traceability-first-implementation` | Implementing requirement IDs |
+| `tenant-isolation-invariants` | Persistence, queries, RLS, `tenant_id`, or tenant/center resolution |
 | `sdd-normative-change-hygiene` | Changing SPEC/ADR/TRACE |
 | `fill-pr-validation` | Writing or reviewing the PR Validation section |
 | `cross-cutting-performance-checklist` | Touching DB, API, worker/outbox, or web/widget |
