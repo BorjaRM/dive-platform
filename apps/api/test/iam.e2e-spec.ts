@@ -158,7 +158,7 @@ describe('IAM/API vertical (e2e)', () => {
   });
   const logs: unknown[] = [];
   const contextHandles = new Map<string, string>();
-  let app: INestApplication;
+  let app!: INestApplication;
 
   async function contextFor(token: string): Promise<string> {
     const existing = contextHandles.get(token);
@@ -902,7 +902,7 @@ describe('IAM/API vertical (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) await app.close();
     await appPool.end();
     await admin.end();
   });

@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "dev": ". \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" && nvm use --silent && node --env-file=.env.example ./node_modules/turbo/bin/turbo run dev",
     "lint": "biome check .",
     "typecheck": "turbo run typecheck",
     "check-types": "turbo run typecheck",
@@ -28,10 +28,5 @@
     "turbo": "^2.11.3",
     "typescript": "catalog:"
   },
-  "packageManager": "pnpm@12.6.0",
-  "pnpm": {
-    "overrides": {
-      "typescript": "7.0.2"
-    }
-  }
+  "packageManager": "pnpm@12.6.0"
 }
