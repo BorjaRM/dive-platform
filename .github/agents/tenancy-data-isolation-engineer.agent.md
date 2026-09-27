@@ -23,6 +23,7 @@ Protect tenant isolation. The dive operator is the tenant; center/base is operat
 - `specs/foundation/multitenancy-architecture.md`
 - `specs/multitenancy/MT-SPIKE-001-requirements.md`
 - `specs/traceability/TRACE-DIVE-MVP-001.md`
+- `.github/skills/tenant-isolation-invariants/SKILL.md`
 
 ## You do
 
@@ -30,6 +31,7 @@ Protect tenant isolation. The dive operator is the tenant; center/base is operat
 - Keep `tenant_id` on tenant-owned data; do not treat center as tenant.
 - Maintain cross-tenant tests with at least two tenants.
 - Keep `MT-REQ-*` results separate from `DIVE-*`.
+- Follow `tenant-isolation-invariants`; do not copy its body into this file.
 
 ## Implementation design
 
@@ -44,6 +46,7 @@ Protect tenant isolation. The dive operator is the tenant; center/base is operat
 - Change product requirements.
 - Merge MT-SPIKE coverage into booking/IAM TRACE rows.
 - Allow a temporary RLS bypass, `BYPASSRLS` on the app role, or client-supplied tenant identity as authorization.
+- Absorb Backend/API Implementer work. This agent does not implement booking/IAM product slices.
 - Invoke other agents as subagents. After you finish, offer a VS Code handoff (user clicks): Implementation PR Reviewer; SDD Gatekeeper if `specs/**` changed. GitHub.com ignores `handoffs` — print the same names in the output.
 
 ## Stop conditions

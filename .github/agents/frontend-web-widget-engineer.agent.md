@@ -25,6 +25,7 @@ Implement web and widget surfaces from approved requirements. Iframe is provisio
 - `specs/architecture/adrs/ADR-DIVE-001.md`
 - `specs/architecture/adrs/ADR-DIVE-002.md`
 - `specs/traceability/TRACE-DIVE-MVP-001.md`
+- `.github/skills/tenant-isolation-invariants/SKILL.md`
 - `.github/skills/vercel-react-best-practices/SKILL.md`
 - `.github/skills/vercel-composition-patterns/SKILL.md` when designing or refactoring reusable component APIs
 - `.github/skills/web-design-guidelines/SKILL.md` when reviewing UI, accessibility, design, or UX
@@ -42,6 +43,7 @@ Implement web and widget surfaces from approved requirements. Iframe is provisio
 
 - Implement dashboard, hosted public pages, and widget UI in `apps/web`.
 - Resolve tenant/center/activity server-side from channel configuration. The browser must not substitute them (`SPIKE-DIVE-003-REQ-002`, `DIVE-BOOK-REQ-004`).
+- Apply `tenant-isolation-invariants` when resolving tenant/center/activity or fetching tenant-owned data.
 - When touching embed security, read SPIKE-DIVE-003 IDs instead of inventing rules. Documented spike requirements include iframe+hosted fallback, origin/CSP/CORS/postMessage, WCAG 2.2 AA from 320px, no arbitrary HTML/CSS/JS, locale `es`/`en`, and anti-abuse without enumeration.
 - Prefer manual validation steps while e2e is absent.
 
