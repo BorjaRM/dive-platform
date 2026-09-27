@@ -3,6 +3,7 @@ import {
   disableIamMembership,
   type IamAccessContext,
   IamAccessDeniedError,
+  type IamOperator,
   iamCenters,
   issueIamInvitation,
   issueIamTenantContext,
@@ -76,8 +77,10 @@ export class IamService {
     correlationId: string,
   ) {
     const operators = await listIamOperators(this.pool, principal);
-    let selected = operators.length === 1 ? operators[0] : undefined;
-    if (operatorRef) {
+    let selected: IamOperator | undefined;
+    if (operatorRef === undefined) {
+      selected = operators.length === 1 ? operators[0] : undefined;
+    } else if (typeof operatorRef === 'string') {
       selected = operators.find(
         (operator) =>
           this.contextCrypto.operatorRef(
@@ -86,7 +89,7 @@ export class IamService {
           ) === operatorRef,
       );
     }
-    if (!selected || (operators.length !== 1 && !operatorRef)) {
+    if (!selected) {
       this.securityDenied(
         IAM_ACTIONS.tenantContextIssue,
         'membership_missing_or_inactive',

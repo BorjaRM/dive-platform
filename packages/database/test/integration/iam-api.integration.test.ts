@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { bootstrapRoles } from '../../src/bootstrap-roles.js';
 import { resolveIamAccess } from '../../src/iam-authorize.js';
 import { disableIamMembership } from '../../src/iam-membership-commands.js';
+import { cleanupRevokedIamTenantContexts } from '../../src/iam-tenant-context-commands.js';
 import { migrateProduct } from '../../src/migrate.js';
 import { createAdminPool, createAppPool } from './harness.js';
 
@@ -268,6 +269,47 @@ describe('IAM/API persistence controls', () => {
     } finally {
       await singleConnectionPool.end();
     }
+  });
+
+  it('retains active and recent revoked contexts while cleaning older revoked contexts (ADR-DIVE-008)', async () => {
+    await adminPool.query(
+      `INSERT INTO iam_app.tenants(id,name) VALUES ($1,'A')`,
+      [tenantA],
+    );
+    await adminPool.query('INSERT INTO iam_app.identities(id) VALUES ($1)', [
+      identity,
+    ]);
+    await adminPool.query(
+      `INSERT INTO iam_app.tenant_contexts(
+         handle_hash, identity_id, tenant_id, session_id_hash, issued_at, revoked_at
+       ) VALUES
+         ($1,$2,$3,$4,clock_timestamp() - interval '31 days',clock_timestamp() - interval '31 days'),
+         ($5,$2,$3,$4,clock_timestamp() - interval '29 days',clock_timestamp() - interval '29 days'),
+         ($6,$2,$3,$4,clock_timestamp(),NULL)`,
+      [
+        'a'.repeat(64),
+        identity,
+        tenantA,
+        'b'.repeat(64),
+        'c'.repeat(64),
+        'd'.repeat(64),
+      ],
+    );
+
+    await expect(cleanupRevokedIamTenantContexts(appPool)).resolves.toEqual({
+      deletedCount: 1,
+    });
+    const remaining = await adminPool.query<{ handle_hash: string }>(
+      `SELECT handle_hash
+       FROM iam_app.tenant_contexts
+       WHERE identity_id=$1
+       ORDER BY handle_hash`,
+      [identity],
+    );
+    expect(remaining.rows).toEqual([
+      { handle_hash: 'c'.repeat(64) },
+      { handle_hash: 'd'.repeat(64) },
+    ]);
   });
 
   it('denies direct app-role updates and enforces last-owner through the command (DIVE-IAM-REQ-018, DIVE-IAM-REQ-025)', async () => {
