@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const clerk = vi.hoisted(() => ({
+  createClerkClient: vi.fn(),
   getSession: vi.fn(),
   getUser: vi.fn(),
   verifyToken: vi.fn(),
@@ -8,10 +9,7 @@ const clerk = vi.hoisted(() => ({
 }));
 
 vi.mock('@clerk/backend', () => ({
-  createClerkClient: () => ({
-    sessions: { getSession: clerk.getSession },
-    users: { getUser: clerk.getUser },
-  }),
+  createClerkClient: clerk.createClerkClient,
   verifyToken: clerk.verifyToken,
 }));
 
@@ -19,7 +17,10 @@ vi.mock('@clerk/backend/webhooks', () => ({
   verifyWebhook: clerk.verifyWebhook,
 }));
 
-import { ClerkIdentityAdapter } from './clerk.js';
+import {
+  ClerkIdentityAdapter,
+  type ClerkIdentityAdapterDependencies,
+} from './clerk.js';
 import { authenticateIdentity } from './index.js';
 
 const config = {
@@ -28,6 +29,17 @@ const config = {
   issuer: 'https://clerk.example.test',
   authorizedParties: ['https://dashboard.example.test'],
 };
+
+const dependencies: ClerkIdentityAdapterDependencies = {
+  verifyToken: clerk.verifyToken,
+  getSession: clerk.getSession,
+  getUser: clerk.getUser,
+  verifyWebhook: clerk.verifyWebhook,
+};
+
+function createAdapter() {
+  return new ClerkIdentityAdapter(config, dependencies);
+}
 
 function activeSession(overrides: Record<string, unknown> = {}) {
   return {
@@ -65,15 +77,20 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
       iss: config.issuer,
       sub: 'user_123',
       sid: 'sess_123',
+      azp: config.authorizedParties[0],
       iat: 1_800_000_000,
       fva: [2, -1],
     });
     clerk.getSession.mockResolvedValue(activeSession());
     clerk.getUser.mockResolvedValue(activeUser());
+    clerk.createClerkClient.mockReturnValue({
+      sessions: { getSession: clerk.getSession },
+      users: { getUser: clerk.getUser },
+    });
   });
 
   it('accepts an audience-free token and returns only provider-verified identity data', async () => {
-    const adapter = new ClerkIdentityAdapter(config);
+    const adapter = createAdapter();
 
     await expect(
       authenticateIdentity(adapter, 'session-token'),
@@ -94,6 +111,45 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
     expect(clerk.getUser).toHaveBeenCalledWith('user_123');
   });
 
+  it('uses the default Clerk SDK wiring for authentication', async () => {
+    const adapter = new ClerkIdentityAdapter(config);
+
+    await expect(
+      authenticateIdentity(adapter, 'session-token'),
+    ).resolves.toMatchObject({
+      issuer: config.issuer,
+      subject: 'user_123',
+    });
+    expect(clerk.createClerkClient).toHaveBeenCalledWith({
+      secretKey: config.secretKey,
+    });
+    expect(clerk.verifyToken).toHaveBeenCalledWith('session-token', {
+      authorizedParties: config.authorizedParties,
+      secretKey: config.secretKey,
+    });
+    expect(clerk.getSession).toHaveBeenCalledWith('sess_123');
+    expect(clerk.getUser).toHaveBeenCalledWith('user_123');
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['unapproved', 'https://other.example.test'],
+  ])('rejects a token with %s azp', async (_kind, azp) => {
+    clerk.verifyToken.mockResolvedValue({
+      iss: config.issuer,
+      sub: 'user_123',
+      sid: 'sess_123',
+      azp,
+      iat: 1_800_000_000,
+    });
+
+    await expect(createAdapter().authenticate('session-token')).rejects.toThrow(
+      'Unauthenticated',
+    );
+    expect(clerk.getSession).not.toHaveBeenCalled();
+    expect(clerk.getUser).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['string', 'dive-dashboard'],
     ['array', ['dive-dashboard']],
@@ -102,13 +158,14 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
       iss: config.issuer,
       sub: 'user_123',
       sid: 'sess_123',
+      azp: config.authorizedParties[0],
       iat: 1_800_000_000,
       aud,
     });
 
-    await expect(
-      new ClerkIdentityAdapter(config).authenticate('session-token'),
-    ).rejects.toThrow('Unauthenticated');
+    await expect(createAdapter().authenticate('session-token')).rejects.toThrow(
+      'Unauthenticated',
+    );
     expect(clerk.getSession).not.toHaveBeenCalled();
     expect(clerk.getUser).not.toHaveBeenCalled();
   });
@@ -117,7 +174,7 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
     clerk.getUser.mockResolvedValue(activeUser({ emailAddresses: [] }));
 
     await expect(
-      new ClerkIdentityAdapter(config).authenticate('session-token'),
+      createAdapter().authenticate('session-token'),
     ).resolves.toMatchObject({ verifiedAddresses: [] });
   });
 
@@ -126,12 +183,13 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
       iss: config.issuer,
       sub: 'user_123',
       sid: 'sess_123',
+      azp: config.authorizedParties[0],
       iat: 1_800_000_000,
       fva: [5, 1],
     });
 
     const principal = await authenticateIdentity(
-      new ClerkIdentityAdapter(config),
+      createAdapter(),
       'session-token',
     );
 
@@ -146,11 +204,12 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
       iss: config.issuer,
       sub: 'user_123',
       sid: 'sess_123',
+      azp: config.authorizedParties[0],
       iat: 1_800_000_000,
     });
 
     const principal = await authenticateIdentity(
-      new ClerkIdentityAdapter(config),
+      createAdapter(),
       'session-token',
     );
 
@@ -159,6 +218,24 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
       verifiedAt: null,
     });
   });
+
+  it.each([null, false, 0, '', [], [2], ['2', -1]])(
+    'rejects malformed factor-age claim %#',
+    async (fva) => {
+      clerk.verifyToken.mockResolvedValue({
+        iss: config.issuer,
+        sub: 'user_123',
+        sid: 'sess_123',
+        azp: config.authorizedParties[0],
+        iat: 1_800_000_000,
+        fva,
+      });
+
+      await expect(
+        createAdapter().authenticate('session-token'),
+      ).rejects.toThrow('Unauthenticated');
+    },
+  );
 
   it.each([
     [
@@ -214,13 +291,13 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
     ],
   ])('fails closed for %s', async (_name, arrange) => {
     arrange();
-    await expect(
-      new ClerkIdentityAdapter(config).authenticate('session-token'),
-    ).rejects.toThrow('Unauthenticated');
+    await expect(createAdapter().authenticate('session-token')).rejects.toThrow(
+      'Unauthenticated',
+    );
   });
 
   it('revalidates the token, session, and user on every call', async () => {
-    const adapter = new ClerkIdentityAdapter(config);
+    const adapter = createAdapter();
     await expect(adapter.authenticate('session-token')).resolves.toMatchObject({
       subject: 'user_123',
     });
