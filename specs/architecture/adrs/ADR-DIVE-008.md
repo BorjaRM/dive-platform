@@ -1,7 +1,7 @@
 # ADR-DIVE-008 — Internal tenant-scoped dashboard context
 
 - **Status:** Ready to start
-- **Version:** 0.7
+- **Version:** 0.8
 - **Date:** 2026-09-27
 - **Decision date:** 2026-09-27
 - **Deciders:** Product / Security / Architecture
@@ -31,6 +31,7 @@ The path and credential decisions were introduced as `Proposed` on 2026-09-27. P
 | Delete revoked handles after 30 days; do not expire active handles through an independent product TTL | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | Configure dashboard CORS with exact origins from `DASHBOARD_CORS_ORIGINS`, without wildcard origins or cookie credentials, and allow `Authorization`, `X-Tenant-Context`, and `Content-Type` | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | Use `operators`, `operatorRef`, `displayName`, and `tenantContext` in the context API response shapes; operator references use the opaque `op_...` form | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| A center application establishes the organization context from its trusted center entry configuration without showing an intermediate operator or center selector | `Proposed` | Product confirmation by Borja on 2026-09-27; constrained by `DIVE-IAM-REQ-002`, `003`, `006`, `024`, `029..031` | Approved product direction 2026-09-27; exact bootstrap interface remains open and is not implementation-authorized by this revision |
 | Separate the database login used by provider webhooks from the shared application login | `Proposed` | Security hardening discussion with Borja on 2026-09-27 | Future consideration; not approved and not part of the current runtime contract |
 
 ## Context
@@ -38,6 +39,8 @@ The path and credential decisions were introduced as `Proposed` on 2026-09-27. P
 The current IAM/API vertical authenticates a Clerk session token and receives `tenantId` in dashboard route paths. The service then resolves the identity–tenant membership and establishes authorized transaction-local tenant context.
 
 The product direction is to remove tenant identifiers from dashboard API paths while keeping Clerk limited to identity authentication and PostgreSQL authoritative for product authorization. The solution must preserve multi-tenant isolation, multi-center scopes, revocation, non-disclosing failures, and identities that belong to several operators.
+
+The product owner also approved direct entry into a center application: login → center URL or domain → application limited to that center, with no intermediate operator or center selection screen. This creates a deliberate extension point over the current multi-membership issuance contract. The trusted URL/application-to-center resolution, request shape, and denial behavior must be closed before implementation; this revision does not silently choose them.
 
 This decision applies to authenticated dashboard traffic. It does not change public widget, hosted-page, or booking-specific capability authorization defined by ADR-DIVE-005 and `SPEC-DIVE-BOOKING-001`.
 
@@ -120,6 +123,19 @@ The raw handle secret and raw Clerk `sid` exist only in trusted backend memory w
 - Logs, traces, and audit must not record the raw handle, `Authorization` value, or `X-Tenant-Context` value. A safe internal tenant id may appear in audit after trusted resolution.
 
 Browser clients persist the handle in `sessionStorage`, never `localStorage`, and remove it after logout or explicit revocation.
+
+### Center-application entry (approved direction; interface open)
+
+The center application, not a user-facing selector, establishes the organization context for direct-center entry. The intended journey is login → center URL or domain → application limited to that center. The center entry value is a selector only; it never authorizes access. The server must resolve the center and tenant from trusted application configuration, then validate the authenticated identity, active membership, permission, and current center scope before issuing or accepting a tenant context. Failure must preserve the non-disclosure requirement.
+
+This direction is approved by the product owner. The following implementation details remain open and therefore are not authorized by this ADR revision:
+
+1. the MVP center-entry identifier and canonical URL shape;
+2. whether issuance extends `POST /v1/me/tenant-contexts` or uses a dedicated bootstrap endpoint;
+3. the exact generic denial response and neutral navigation behavior;
+4. the trusted persistence/configuration that maps URL or host to center and tenant without treating browser input as authorization.
+
+Until those points are approved in GitHub, the existing `operatorRef` contract below remains the implemented API contract. Applications must not add a hidden display-name match, infer tenant from arbitrary `centerId`, or expose an intermediate operator selector as a workaround.
 
 ### Operator selection
 
@@ -286,10 +302,14 @@ Tests must link the relevant `DIVE-IAM-REQ-*` and existing `MT-SC-*` rows withou
 
 ## Remaining open questions
 
-These do not reopen the closed path or credential-shape decision:
+The first four questions close the center-application extension and block its implementation. They do not reopen the existing path or credential-shape decision:
 
-1. Whether forgotten active handles need an approved maximum-age or idle TTL, and whether continuity of existing tabs or availability for new tabs has priority at the 20-handle cap.
-2. The operational cleanup contract: scheduler ownership, cadence, database credential, batching, retry, alerting, and deletion metrics for revoked handles older than 30 days.
+1. Which selector and canonical URL shape identify the center application in the MVP?
+2. Does context issuance extend `POST /v1/me/tenant-contexts` or use a dedicated authenticated bootstrap endpoint?
+3. What exact generic response and navigation apply when the authenticated identity has no access to the center entry?
+4. Which trusted configuration maps URL or host to center and tenant, and how is that mapping administered without introducing white-label scope into this increment?
+5. Whether forgotten active handles need an approved maximum-age or idle TTL, and whether continuity of existing tabs or availability for new tabs has priority at the 20-handle cap.
+6. The operational cleanup contract: scheduler ownership, cadence, database credential, batching, retry, alerting, and deletion metrics for revoked handles older than 30 days.
 
 ## Alternatives considered
 
