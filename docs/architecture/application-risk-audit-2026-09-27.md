@@ -207,6 +207,11 @@ El resumen y la tabla de prioridad describen el estado observado al inicio de la
 2. Mantener las pruebas de `packages/identity` en su propio workspace.
 3. Ejecutar una vez sin caché y revisar la lista de archivos descubiertos.
 
+**Corrección aplicada.** La configuración de Vitest del API solo descubre
+`src/**/*.spec.ts` y excluye explícitamente `node_modules`, `dist`, `coverage`
+y las pruebas e2e. Las pruebas de `packages/identity` continúan ejecutándose
+desde su propio workspace.
+
 ### GOV-01 — ADR y TRACE quedan fuera de la gobernanza automática
 
 **Evidencia.** El validador descubre exclusivamente nombres `SPEC-*.md`: [validate-spec-governance.mjs](../../scripts/validate-spec-governance.mjs#L17-L39). En consecuencia, una PR que solo modifica ADR o TRACE no activa la validación de cuerpo ni revisa estado, versión o procedencia, aunque el workflow sí se dispara para todo `specs/**`: [spec-governance.yml](../../.github/workflows/spec-governance.yml#L3-L10).
