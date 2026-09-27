@@ -436,6 +436,7 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
       );
     }
     await app?.close();
+    await moduleFixture?.close();
     await browser?.close();
     await admin?.end();
   });
