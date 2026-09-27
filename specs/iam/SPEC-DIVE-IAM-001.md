@@ -142,7 +142,7 @@ Write variants of `audit.*` and `support.tenant.write` are out of MVP.
 - **DIVE-IAM-REQ-029:** Dashboard HTTP paths MUST NOT include `/tenants/:tenantId` or another tenant-identifier segment. Product routes MUST NOT take tenant context from query string or body. `:centerId` and `:membershipId` remain resource selectors and never select the tenant.
 - **DIVE-IAM-REQ-030:** After Clerk authentication, dashboard tenant context is an opaque server-stored handle presented in `X-Tenant-Context`, bound to the authenticated identity and Clerk `sid`. The handle selects a tenant and is not sufficient authorization. Roles, permissions, center scopes, and membership state are read from PostgreSQL on the request.
 - **DIVE-IAM-REQ-031:** The server lists only the identity’s active operator memberships as opaque `operatorRef` values. Zero active memberships issue no handle. Exactly one active membership may be selected automatically. Several require an explicit `operatorRef` from that list on `POST /v1/me/tenant-contexts`. Invalid, inactive, unrelated, or cross-identity selections fail without disclosure. Several handles may exist for one Clerk session. The handle is tenant-scoped, not center-scoped.
-- **DIVE-IAM-REQ-032:** A center application may issue the same tenant-scoped handle without `operatorRef` through `POST /v1/me/center-entry-contexts` after resolving a trusted `centerRef` from the center-application host, authenticating Clerk, and validating an active membership plus current center scope. This path MUST NOT list other operators or centers. Unknown or unauthorized `centerRef` fails without disclosure. Center-application catalog and availability operations remain limited to that center even when the identity has other authorized centers.
+- **DIVE-IAM-REQ-032:** A center application may issue the same tenant-scoped handle without `operatorRef` through `POST /v1/me/center-entry-contexts` after resolving the request `Origin` through trusted host configuration (platform subdomain or custom domain), authenticating Clerk, and validating an active membership plus current center scope. This path MUST NOT accept `centerRef` or list other operators or centers. Unknown or unauthorized host/`Origin` fails without disclosure. Center-application catalog and availability operations remain limited to that center even when the identity has other authorized centers.
 
 ## Dashboard API (`ADR-DIVE-008`)
 
@@ -192,7 +192,7 @@ Protected product requests send `Authorization: Bearer <clerk-session-token>` an
 - Public channel and token negative tests
 - Revocation timing test or documented measurement
 - Support access expiry test
-- Dashboard routes without `/tenants/:tenantId`; old tenant-path shapes rejected; handle/session/identity mismatch; automatic and explicit operator selection; non-disclosing invalid `operatorRef`; center-entry without `operatorRef`; non-disclosing invalid `centerRef`; no cross-center mix in a center application
+- Dashboard routes without `/tenants/:tenantId`; old tenant-path shapes rejected; handle/session/identity mismatch; automatic and explicit operator selection; non-disclosing invalid `operatorRef`; center-entry without `operatorRef` or `centerRef`; non-disclosing invalid host/`Origin`; no cross-center mix in a center application
 
 ## Open questions
 
@@ -203,8 +203,10 @@ The product-level questions for the implemented dashboard tenant-context slice a
 Follow-up decisions remain explicit and are not authorized here:
 
 - reserved `centerKey` set and key administration;
-- exact-origin CORS population for many center subdomains, without wildcard CORS;
+- exact-origin CORS population for many center hosts, including custom domains, without wildcard CORS;
 - Clerk allowed origins and redirect URLs for center-application hosts;
 - per-environment `<domain>` values;
+- custom-domain verification, DNS/TLS provisioning, and host administration;
+- whether a non-browser client without `Origin` may call center-entry bootstrap;
 - active-handle TTL policy and cleanup execution;
-- white-label brand ownership, custom domains, branded login, and cross-domain session continuity.
+- `BrandConfiguration`, branded login, and cross-domain session continuity.

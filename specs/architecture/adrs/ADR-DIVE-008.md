@@ -32,9 +32,9 @@ The path and credential decisions were introduced as `Proposed` on 2026-09-27. P
 | Configure dashboard CORS with exact origins from `DASHBOARD_CORS_ORIGINS`, without wildcard origins or cookie credentials, and allow `Authorization`, `X-Tenant-Context`, and `Content-Type` | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | Use `operators`, `operatorRef`, `displayName`, and `tenantContext` in the context API response shapes; operator references use the opaque `op_...` form | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | A center application establishes the organization context from its trusted center entry configuration without showing an intermediate operator or center selector | `Proposed` | Product confirmation by Borja on 2026-09-27; constrained by `DIVE-IAM-REQ-002`, `003`, `006`, `024`, `029..032` | Approved by product owner 2026-09-27; Ready to start |
-| Center-application host shape `<centerKey>.app.<domain>`, dedicated `POST /v1/me/center-entry-contexts`, body `{ "centerRef": "…" }`, and one-time `{ "tenantContext": "…", "center": { "centerId": "…" } }` | `Proposed` | Product confirmation by Borja on 2026-09-27 closing ADR-DIVE-008 v0.8 open questions 1–4 | Approved by product owner 2026-09-27; Ready to start |
+| Center-application host is a platform subdomain or a custom domain; dedicated `POST /v1/me/center-entry-contexts` has no `centerRef`; server resolves request `Origin` against trusted host mapping; success returns `{ "tenantContext": "…", "center": { "centerId": "…" } }` once | `Proposed` | Product confirmation by Borja on 2026-09-27 to use subdomain or custom domain and not `centerRef`; constrained by `DIVE-IAM-REQ-006`, `024`, `029..032` and existing exact-origin CORS | Approved by product owner 2026-09-27; Ready to start |
 | Unauthenticated center-application visitors are sent to login with the center URL preserved; authenticated identities without access see a generic unavailable-center page and receive a non-disclosing API denial | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
-| White-label brand ownership, custom domains, branded login, and cross-domain session continuity are out of this increment; authentication, branding, center resolution, and authorization stay decoupled | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved as future constraint 2026-09-27; not implementation scope |
+| White-label brand ownership, branded login, and cross-domain session continuity stay out of this increment; custom domains are an allowed center-entry host form; authentication, branding, center resolution, and authorization stay decoupled | `Proposed` | Product confirmation by Borja on 2026-09-27 to use subdomain or custom domain, without introducing BrandConfiguration | Approved as host-form decision 2026-09-27; branded login/session remain out of scope |
 | Separate the database login used by provider webhooks from the shared application login | `Proposed` | Security hardening discussion with Borja on 2026-09-27 | Future consideration; not approved and not part of the current runtime contract |
 
 ## Context
@@ -43,7 +43,7 @@ The current IAM/API vertical authenticates a Clerk session token and receives `t
 
 The product direction is to remove tenant identifiers from dashboard API paths while keeping Clerk limited to identity authentication and PostgreSQL authoritative for product authorization. The solution must preserve multi-tenant isolation, multi-center scopes, revocation, non-disclosing failures, and identities that belong to several operators.
 
-The product owner approved direct entry into a center application: center subdomain → login if needed → return to the application limited to that center, with no intermediate operator or center selection screen. This revision closes the bootstrap interface for that journey. `POST /v1/me/tenant-contexts` with `operatorRef` remains the contract for non-center-application operator selection.
+The product owner approved direct entry into a center application: center host (platform subdomain or custom domain) → login if needed → return to the application limited to that center, with no intermediate operator or center selection screen and without a client-supplied `centerRef`. This revision closes that host-form decision. `POST /v1/me/tenant-contexts` with `operatorRef` remains the contract for non-center-application operator selection.
 
 This decision applies to authenticated dashboard traffic. It does not change public widget, hosted-page, or booking-specific capability authorization defined by ADR-DIVE-005 and `SPEC-DIVE-BOOKING-001`.
 
@@ -133,25 +133,33 @@ Browser clients persist the handle in `sessionStorage`, never `localStorage`, an
 The center application, not a user-facing selector, establishes the organization context for direct-center entry. The journey is:
 
 ```text
-https://<centerKey>.app.<domain>
+https://<center-application-host>
   → login if unauthenticated, preserving that URL
   → return to the same center application
 ```
 
-There is no intermediate operator or center selection screen. Changing center means navigating to that center's subdomain. Logout ends the identity session; it is not the mechanism for changing center.
+Permitted host forms:
 
-`centerKey` is a readable DNS label, unique per environment, and immutable for the MVP. It is not the editable center name and is not a tenant or center UUID. `centerRef` in the bootstrap request is that same untrusted selector. The server resolves host/`centerRef` through trusted configuration to tenant + center, then validates Clerk identity, active membership, and current center scope. The selector never authorizes access.
+- platform subdomain `https://<centerKey>.app.<domain>`;
+- custom domain of that center.
 
-MVP host mapping uses the platform domain pattern above, with wildcard DNS/TLS for `*.app.<domain>`. This increment does not create a `BrandConfiguration` model, custom domains, branded login, or white-label ownership. Authentication, branding, center resolution, and authorization remain separate so a later white-label story can attach a verified host without rewriting authorization.
+There is no intermediate operator or center selection screen. Changing center means navigating to that center's host. Logout ends the identity session; it is not the mechanism for changing center.
+
+The application host is the only center-entry selector. Clients MUST NOT send `centerRef`, `centerKey`, `operatorRef`, or `tenantId` to establish this context. Path selectors such as `/c/...` are not used for this journey.
+
+`centerKey` is a readable DNS label for the platform-subdomain form only. It is unique per environment and immutable for the MVP. It is not the editable center name and is not a tenant or center UUID.
+
+The dashboard API is cross-origin relative to the center application. The server resolves the request `Origin` (scheme + host + port) through trusted host configuration to tenant + center, then validates Clerk identity, active membership, and current center scope. Host and `Origin` are selectors only; they never authorize access.
+
+Trusted configuration maps host → center + tenant. This increment does not create a `BrandConfiguration` model, branded login, or cross-domain session continuity. Custom domains are an allowed host form; verification, DNS/TLS issuance, and host administration remain open and must not be invented here. Wildcard DNS/TLS may be used for `*.app.<domain>`; that does not authorize wildcard CORS.
 
 ```http
 POST /v1/me/center-entry-contexts
 Authorization: Bearer <clerk-session-token>
-
-{ "centerRef": "<centerKey>" }
+Origin: https://<center-application-host>
 ```
 
-Success returns once:
+The request has no body selector. Success returns once:
 
 ```json
 { "tenantContext": "ctx_…", "center": { "centerId": "…" } }
@@ -159,17 +167,17 @@ Success returns once:
 
 `tenantContext` is the same tenant-scoped handle issued by `POST /v1/me/tenant-contexts`. `centerId` is the resource selector used in product paths. The handle remains tenant-scoped; center-application product operations are center-scoped in their paths and must not aggregate other centers.
 
-This endpoint MUST NOT accept `operatorRef`, `tenantId`, or a client-supplied tenant selector. It MUST NOT return other operators or centers. `GET /v1/me/operators` is not part of the center-application journey.
+This endpoint MUST NOT accept `centerRef`, `centerKey`, `operatorRef`, `tenantId`, or another client-supplied tenant or center selector in the body, query, or path. It MUST NOT return other operators or centers. `GET /v1/me/operators` is not part of the center-application journey.
 
 Denial:
 
 - missing or invalid Clerk session: `401`; the application preserves the center URL and sends the user to login;
-- unknown, inactive, cross-tenant, or unauthorized `centerRef`: non-disclosing failure, same observable result as an unknown selector; the application shows a generic unavailable-center page with only back, logout, and support actions;
+- missing `Origin`, or an unknown, inactive, cross-tenant, or unauthorized host/`Origin`: non-disclosing failure, same observable result as an unknown selector; the application shows a generic unavailable-center page with only back, logout, and support actions;
 - the page MUST NOT list other centers, operators, or memberships.
 
 `POST /v1/me/tenant-contexts` is unchanged: multiple active memberships still require `operatorRef`. Center applications MUST use `POST /v1/me/center-entry-contexts` instead of inferring tenant from `centerId` or matching display names.
 
-A reserved-word list for `centerKey` is required before issuing public hosts. The exact reserved set is an open question and must not be invented here.
+A reserved-word list for `centerKey` is required before issuing public platform subdomains. The exact reserved set is an open question and must not be invented here.
 
 ### Operator selection
 
@@ -325,8 +333,9 @@ Implementation must demonstrate:
 - one active membership can be selected automatically;
 - multiple memberships require an explicit valid `operatorRef` on `POST /v1/me/tenant-contexts`;
 - fabricated, unrelated, inactive, and cross-identity selections issue no context;
-- `POST /v1/me/center-entry-contexts` issues a handle without `operatorRef` when host/`centerRef` resolves and the identity has current access to that center;
-- unknown or unauthorized `centerRef` is non-disclosing and issues no handle;
+- `POST /v1/me/center-entry-contexts` issues a handle without `operatorRef` when request `Origin` maps to a trusted host and the identity has current access to that center;
+- missing, unknown, or unauthorized `Origin`/host is non-disclosing and issues no handle;
+- a body, query, or path `centerRef` is rejected and does not select the center;
 - a context for tenant A cannot read or mutate tenant B;
 - a center outside the current membership scope is denied;
 - a center application with access to center A cannot list or mutate center B through catalog or availability routes;
@@ -341,17 +350,22 @@ Tests must link the relevant `DIVE-IAM-REQ-*` and existing `MT-SC-*` rows withou
 
 ## Remaining open questions
 
-These questions do not reopen the approved center-application host, bootstrap endpoint, or denial behavior:
+These questions do not reopen the approved host-form decision (platform subdomain or custom domain, no `centerRef`) or the dedicated bootstrap endpoint:
 
-1. Exact reserved `centerKey` set and the administrative process for allocating or retiring keys.
-2. How `DASHBOARD_CORS_ORIGINS` is populated for many center subdomains while remaining an exact-origin allowlist. This ADR still forbids wildcard CORS origins; wildcard DNS/TLS for `*.app.<domain>` does not authorize wildcard CORS.
+1. Exact reserved `centerKey` set and the administrative process for allocating or retiring platform subdomain labels.
+2. How `DASHBOARD_CORS_ORIGINS` is populated for many center hosts, including custom domains, while remaining an exact-origin allowlist. This ADR still forbids wildcard CORS origins; wildcard DNS/TLS for `*.app.<domain>` does not authorize wildcard CORS.
 3. How Clerk allowed origins and redirect URLs include center-application hosts without silently broadening the identity adapter contract.
 4. Per-environment values of `<domain>` and whether preview/staging share the production `centerKey` namespace.
 5. Whether forgotten active handles need an approved maximum-age or idle TTL, and whether continuity of existing tabs or availability for new tabs has priority at the 20-handle cap.
 6. The operational cleanup contract: scheduler ownership, cadence, database credential, batching, retry, alerting, and deletion metrics for revoked handles older than 30 days.
-7. White-label brand ownership, custom domains, branded login, CORS registration of verified domains, and cross-domain session continuity. Out of this increment.
+7. Custom-domain verification, DNS/TLS provisioning, and host administration. Out of this increment: `BrandConfiguration`, branded login, and cross-domain session continuity.
+8. Whether a non-browser client without `Origin` may call `POST /v1/me/center-entry-contexts`. Not authorized until decided.
 
 ## Alternatives considered
+
+### Client-supplied `centerRef` or path selector
+
+Not selected. Product owner required the center-application identifier to be the host (platform subdomain or custom domain) and rejected a parallel `centerRef` selector.
 
 ### Active Clerk Organization
 
