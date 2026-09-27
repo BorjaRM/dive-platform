@@ -95,7 +95,11 @@ function record(value: unknown): Record<string, unknown> {
 
 function sessionExpiresAtMs(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
-    return value >= 1_000_000_000_000 ? value : value * 1_000;
+    if (value >= 1_000_000_000_000) return value;
+    if (value >= 1_000_000_000 && value < 10_000_000_000) {
+      return value * 1_000;
+    }
+    return null;
   }
   if (typeof value !== 'string') return null;
   const parsed = Date.parse(value);

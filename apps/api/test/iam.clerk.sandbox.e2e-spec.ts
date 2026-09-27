@@ -143,7 +143,7 @@ function loadSandboxConfig(): SandboxConfig {
       'SPIKE_ADMIN_DATABASE_URL',
       'postgres',
     ),
-    appDatabaseUrl: sandboxDatabaseUrl('APP_DATABASE_URL', 'dive_app'),
+    appDatabaseUrl: sandboxDatabaseUrl('SPIKE_APP_DATABASE_URL', 'dive_app'),
     userId: requiredEnvironment('DIVE_CLERK_SANDBOX_USER_ID'),
     userPassword: requiredEnvironment('DIVE_CLERK_SANDBOX_USER_PASSWORD'),
     controlUserId: requiredEnvironment('DIVE_CLERK_SANDBOX_CONTROL_USER_ID'),
@@ -369,6 +369,7 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
 
   beforeAll(async () => {
     config = loadSandboxConfig();
+    process.env.APP_DATABASE_URL = config.appDatabaseUrl;
     browser = await chromium.launch();
     admin = new Pool({ connectionString: config.adminDatabaseUrl });
     await bootstrapRoles(admin);

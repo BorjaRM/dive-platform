@@ -21,7 +21,7 @@ CLERK_AUTHORIZED_PARTIES=https://<sandbox-instance>.accounts.dev
 DIVE_CLERK_SANDBOX_ACCOUNT_PORTAL_URL=https://<sandbox-instance>.accounts.dev
 MIGRATION_DATABASE_URL=postgres://dive_migration:<password>@127.0.0.1:55432/dive_spike
 SPIKE_ADMIN_DATABASE_URL=postgres://postgres:<password>@127.0.0.1:55432/dive_spike
-APP_DATABASE_URL=postgres://dive_app:<password>@127.0.0.1:55432/dive_spike
+SPIKE_APP_DATABASE_URL=postgres://dive_app:<password>@127.0.0.1:55432/dive_spike
 DIVE_CLERK_SANDBOX_USER_ID=user_<authorized-technical-user>
 DIVE_CLERK_SANDBOX_USER_PASSWORD=<authorized-technical-user-password>
 DIVE_CLERK_SANDBOX_CONTROL_USER_ID=user_<control-technical-user>
@@ -39,9 +39,10 @@ All three database URLs must target the local `dive_spike` database exposed on
 port `55432`; the harness rejects other hosts, ports, database names, query
 strings, fragments, or unexpected usernames before connecting. The admin URL
 uses `postgres` for fixture setup and cleanup, the migration URL uses
-`dive_migration` for existing product migrations, and Nest receives
-`APP_DATABASE_URL` using the normal `dive_app` role through the normal
-`AppModule` provider, with no test provider override.
+`dive_migration` for existing product migrations, and the sandbox harness copies
+`SPIKE_APP_DATABASE_URL` into `APP_DATABASE_URL` before booting Nest so the
+normal `AppModule` provider still uses the standard `dive_app` role with no
+test provider override.
 
 ## Security preflight
 
