@@ -1,7 +1,7 @@
 # ADR-DIVE-008 — Internal tenant-scoped dashboard context
 
 - **Status:** Ready to start
-- **Version:** 0.5
+- **Version:** 0.7
 - **Date:** 2026-09-27
 - **Decision date:** 2026-09-27
 - **Deciders:** Product / Security / Architecture
@@ -142,7 +142,7 @@ Returns only operators for which the authenticated identity has an active member
 POST /v1/me/tenant-contexts
 Authorization: Bearer <clerk-session-token>
 
-{ "operatorRef": "opref_…" }
+{ "operatorRef": "op_…" }
 ```
 
 `operatorRef` is omitted only when automatic selection is allowed (exactly one active membership). Success returns `{ "tenantContext": "ctx_…" }` once. The value is a selector, not an access token.
@@ -171,7 +171,7 @@ The field names above are part of this contract. The path rule and header-based 
 
 - Several independent handles may exist for the same identity and Clerk session.
 - Each browser tab or API client presents the handle it holds. Two tabs may operate in two tenants without a process-wide “active tenant”.
-- A numeric cap on live handles is not defined here.
+- The server permits at most 20 live handles for one identity and Clerk session; reaching that cap does not revoke an existing handle automatically.
 
 ### Multi-center organizations
 
@@ -246,7 +246,7 @@ The design does not remove Clerk session theft as the primary dashboard credenti
 - **Stolen Clerk session token.** An attacker who has the Bearer token can call `GET /v1/me/operators` and mint a new handle. Protecting the handle does not compensate for session theft. Session validation, logout, and short-lived Clerk session tokens remain the main control.
 - **Dashboard XSS.** Script in the dashboard origin can read JS-held Clerk tokens and the handle. HttpOnly cookies for the handle would not fix XSS of the Clerk Bearer token. Treat XSS as a full dashboard compromise.
 - **Handle leakage in logs and traces.** Proxies, APM, and exception reports often capture headers. Raw `X-Tenant-Context` and `Authorization` values must be redacted. A leaked handle is still insufficient without the session, but leakage plus session theft extends attacker window until revoke.
-- **Unbounded issuance.** A valid session can create many handle rows. That is a resource-exhaustion and cleanup concern, not a tenant-escape by itself. A rate limit or live-handle cap is not defined here.
+- **Issuance pressure.** A valid session can create handle rows. The approved limit of 10 issuances per minute and 20 live handles per identity and session bounds that pressure, but a forgotten live handle can still occupy a slot until revocation. This remains a resource-exhaustion and cleanup concern, not a tenant-escape by itself.
 - **CORS misconfiguration.** If the API reflects arbitrary `Origin` and allows `Authorization` plus `X-Tenant-Context`, a browser on another origin could use a stolen or ambient session. Dashboard CORS must remain an explicit allowlist; this ADR does not define the origin list.
 - **Implementation footgun: accepting `tenantId` anyway.** If product routes still read tenant from path, query, or body, the untrusted-field invariant is broken. Tests must fail closed when `/tenants/:tenantId` is requested after replacement.
 - **Implementation footgun: missing `sid` or identity bind.** A handle usable with any later session of the same user, or with another user, is a defect. Negative tests for identity/session mismatch are mandatory.
@@ -288,12 +288,8 @@ Tests must link the relevant `DIVE-IAM-REQ-*` and existing `MT-SC-*` rows withou
 
 These do not reopen the closed path or credential-shape decision:
 
-1. Browser persistence of the handle (in-memory, `sessionStorage`, or another client store).
-2. Issuance rate limit or cap on live handles per identity/session.
-3. Whether verified `session.revoked` webhooks should also mark handle rows revoked, in addition to request-time Clerk session checks.
-4. Physical persistence schema, hash algorithm, and cleanup job.
-5. Dashboard API CORS origin allowlist.
-6. Exact JSON field names in the implementation PR, provided they preserve this contract.
+1. Whether forgotten active handles need an approved maximum-age or idle TTL, and whether continuity of existing tabs or availability for new tabs has priority at the 20-handle cap.
+2. The operational cleanup contract: scheduler ownership, cadence, database credential, batching, retry, alerting, and deletion metrics for revoked handles older than 30 days.
 
 ## Alternatives considered
 

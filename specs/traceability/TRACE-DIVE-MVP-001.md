@@ -23,7 +23,7 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..031` are Ready to start
 | ADR-DIVE-005 | `specs/architecture/adrs/ADR-DIVE-005.md` | Ready to start | 0.1 |
 | ADR-DIVE-006 | `specs/architecture/adrs/ADR-DIVE-006.md` | Ready to start | 0.1 |
 | ADR-DIVE-007 | `specs/architecture/adrs/ADR-DIVE-007.md` | Ready to start | 0.2 |
-| ADR-DIVE-008 | `specs/architecture/adrs/ADR-DIVE-008.md` | Ready to start | 0.5 |
+| ADR-DIVE-008 | `specs/architecture/adrs/ADR-DIVE-008.md` | Ready to start | 0.7 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 0.5 |
 | SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.8 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.2-draft |
@@ -57,7 +57,7 @@ Notion pages are indexes only. They are not coverage evidence.
 
 Coverage is recorded in the current-coverage table below. Cross-tenant cases also map to `MT-REQ-*` and remain separate from `DIVE-*` results. Public-token and support-access evidence is not yet available in this vertical.
 
-Dashboard tenant-context requirements `DIVE-IAM-REQ-029..031` are Ready to start with `ADR-DIVE-008` v0.5. Implementation coverage is recorded below.
+Dashboard tenant-context requirements `DIVE-IAM-REQ-029..031` are Ready to start with `ADR-DIVE-008` v0.7. Implementation coverage is recorded below.
 
 ### Multi-tenant — `MT-REQ-001` … `010`
 

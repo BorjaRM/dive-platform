@@ -4,7 +4,7 @@
 - **Version:** 0.8
 - **Last reviewed:** 2026-09-27
 - **Approved by:** Borja (Product owner)
-- **Approval reference:** PR #1, provenance migration PR, PR #13 (`ADR-DIVE-008` Ready to start), and product confirmation 2026-09-27 for `ADR-DIVE-008` v0.5 implementation closures
+- **Approval reference:** PR #1, provenance migration PR, PR #13 (`ADR-DIVE-008` Ready to start), and product confirmation 2026-09-27 for `ADR-DIVE-008` v0.7 implementation closures
 - **Owner:** Product / Security
 - **IDs:** `DIVE-IAM-REQ-001` … `DIVE-IAM-REQ-031`
 
@@ -144,7 +144,7 @@ Write variants of `audit.*` and `support.tenant.write` are out of MVP.
 
 ## Dashboard API (`ADR-DIVE-008`)
 
-Ready to start. The dashboard route contract is defined by `ADR-DIVE-008` v0.5.
+Ready to start. The dashboard route contract is defined by `ADR-DIVE-008` v0.7.
 
 ```text
 GET    /v1/me/operators
@@ -193,4 +193,4 @@ Protected product requests send `Authorization: Bearer <clerk-session-token>` an
 
 ## Open questions
 
-The product-level questions for the dashboard tenant-context slice are closed by `ADR-DIVE-008` v0.5, with provenance `Proposed` and explicit product-owner approval on 2026-09-27. The implementation may choose physical table/index names and deployment secret names only when those choices preserve the approved contract and do not introduce new defaults.
+The product-level questions for the dashboard tenant-context slice are closed by `ADR-DIVE-008` v0.7, with provenance `Proposed` and explicit product-owner approval on 2026-09-27. The implementation may choose physical table/index names and deployment secret names only when those choices preserve the approved contract and do not introduce new defaults. Active-handle TTL policy and cleanup execution remain explicit follow-up decisions.

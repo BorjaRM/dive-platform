@@ -38,6 +38,7 @@ const membershipOwnerA2 = 'aa222222-2222-2222-2222-222222222222';
 const membershipManagerA = 'aa333333-3333-3333-3333-333333333333';
 const membershipPendingA = 'aa444444-4444-4444-4444-444444444444';
 const membershipB = 'bb111111-1111-1111-1111-111111111111';
+const membershipManagerB = 'bb333333-3333-3333-3333-333333333333';
 const invalidIdentity = 'cccccccc-3333-3333-3333-333333333333';
 const webhookIdentity = 'dddddddd-4444-4444-4444-444444444444';
 const webhookMembership = 'dd444444-4444-4444-4444-444444444444';
@@ -287,6 +288,137 @@ describe('IAM/API vertical (e2e)', () => {
         error: 'Forbidden',
         statusCode: 403,
       });
+  });
+
+  it('lists operators and requires an explicit selector for multiple memberships (DIVE-IAM-REQ-031)', async () => {
+    await admin.query(
+      `INSERT INTO iam_app.memberships(id,tenant_id,identity_id,status,roles,center_ids)
+       VALUES ($1,$2,$3,'active',ARRAY['tenant_admin'],NULL)`,
+      [membershipManagerB, tenantB, managerA],
+    );
+
+    const operators = await request(app.getHttpServer())
+      .get('/v1/me/operators')
+      .set('authorization', 'Bearer manager-a-token')
+      .expect(200);
+    expect(operators.body.operators).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ displayName: 'A' }),
+        expect.objectContaining({ displayName: 'B' }),
+      ]),
+    );
+    const tenantBOperator = operators.body.operators.find(
+      (operator: { displayName: string; operatorRef: string }) =>
+        operator.displayName === 'B',
+    );
+    expect(tenantBOperator?.operatorRef).toMatch(/^op_[A-Za-z0-9_-]+$/);
+
+    await request(app.getHttpServer())
+      .post('/v1/me/tenant-contexts')
+      .set('authorization', 'Bearer manager-a-token')
+      .send({ operatorRef: tenantBOperator?.operatorRef })
+      .expect(201);
+
+    for (const operatorRef of ['', null, 'op_unknown']) {
+      await request(app.getHttpServer())
+        .post('/v1/me/tenant-contexts')
+        .set('authorization', 'Bearer manager-a-token')
+        .send({ operatorRef })
+        .expect(403)
+        .expect({
+          message: 'Access denied',
+          error: 'Forbidden',
+          statusCode: 403,
+        });
+    }
+  });
+
+  it('lists centers allowed by the selected tenant context (DIVE-IAM-REQ-029..031)', async () => {
+    const managerCenters = await request(app.getHttpServer())
+      .get('/v1/centers')
+      .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', await contextFor('manager-a-token'))
+      .expect(200);
+    expect(managerCenters.body).toEqual([{ id: centerA1, name: 'A1' }]);
+
+    const ownerCenters = await request(app.getHttpServer())
+      .get('/v1/centers')
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', await contextFor('owner-a-token'))
+      .expect(200);
+    expect(ownerCenters.body).toHaveLength(2);
+    expect(ownerCenters.body).toEqual(
+      expect.arrayContaining([
+        { id: centerA1, name: 'A1' },
+        { id: centerA2, name: 'A2' },
+      ]),
+    );
+  });
+
+  it('binds handles to the caller session and revokes them explicitly (DIVE-IAM-REQ-024, DIVE-IAM-REQ-030..031)', async () => {
+    const ownerContext = await contextFor('owner-a-token');
+
+    await request(app.getHttpServer())
+      .get('/v1/centers')
+      .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', ownerContext)
+      .expect(403);
+    await request(app.getHttpServer())
+      .get('/v1/centers')
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', 'ctx_unknown')
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .delete('/v1/me/tenant-contexts')
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .expect(204);
+    await request(app.getHttpServer())
+      .get('/v1/centers')
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .expect(403);
+  });
+
+  it('limits context issuance to ten requests per minute (ADR-DIVE-008)', async () => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await request(app.getHttpServer())
+        .post('/v1/me/tenant-contexts')
+        .set('authorization', 'Bearer manager-a-token')
+        .expect(201);
+    }
+
+    await request(app.getHttpServer())
+      .post('/v1/me/tenant-contexts')
+      .set('authorization', 'Bearer manager-a-token')
+      .expect(403);
+  });
+
+  it('limits live context handles to twenty per identity and session (ADR-DIVE-008)', async () => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await request(app.getHttpServer())
+        .post('/v1/me/tenant-contexts')
+        .set('authorization', 'Bearer manager-a-token')
+        .expect(201);
+    }
+    await admin.query(
+      `UPDATE iam_app.tenant_contexts
+       SET issued_at = clock_timestamp() - interval '2 minutes'
+       WHERE identity_id=$1`,
+      [managerA],
+    );
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await request(app.getHttpServer())
+        .post('/v1/me/tenant-contexts')
+        .set('authorization', 'Bearer manager-a-token')
+        .expect(201);
+    }
+
+    await request(app.getHttpServer())
+      .post('/v1/me/tenant-contexts')
+      .set('authorization', 'Bearer manager-a-token')
+      .expect(403);
   });
 
   it('denies missing identity, foreign tenant, and foreign center without disclosure', async () => {
