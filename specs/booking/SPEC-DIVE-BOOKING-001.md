@@ -1,10 +1,10 @@
 # SPEC-DIVE-BOOKING-001 — Bookings, widget, and calendar
 
 - **Status:** Ready to start
-- **Version:** 0.6
+- **Version:** 0.7
 - **Last reviewed:** 2026-09-27
 - **Approved by:** Borja (Product owner)
-- **Approval reference:** PR #1, provenance migration PR, and product confirmation 2026-09-27 for catalog HTTP and slot time representation
+- **Approval reference:** PR #1, provenance migration PR, and product confirmations 2026-09-27 for catalog HTTP, slot time representation, and public visibility of full slots
 - **Owner:** Product / Booking
 - **IDs:** `DIVE-BOOK-REQ-001` … `DIVE-BOOK-REQ-057`
 
@@ -27,7 +27,7 @@ The ranges below cover every requirement in this SPEC. `Derived` consolidates th
 | `DIVE-BOOK-REQ-017..DIVE-BOOK-REQ-024` | `Proposed` | PR #1 booking lifecycle consolidation | Approved by product owner for MVP validation |
 | `DIVE-BOOK-REQ-025..DIVE-BOOK-REQ-032` | `Derived` | `specs/spikes/SPIKE-DIVE-001/specification.md`; `specs/spikes/SPIKE-DIVE-001/requirements.md`; PR #1 | Approved by product owner |
 | `DIVE-BOOK-REQ-033..DIVE-BOOK-REQ-036` | `Proposed` | PR #1 mutation and cancellation consolidation | Approved by product owner for MVP validation |
-| `DIVE-BOOK-REQ-037..DIVE-BOOK-REQ-042` | `Derived` | `specs/architecture/adrs/ADR-DIVE-002.md`; `specs/spikes/SPIKE-DIVE-003/specification.md`; PR #1 | Approved by product owner |
+| `DIVE-BOOK-REQ-037..DIVE-BOOK-REQ-042` | `Derived` | `specs/architecture/adrs/ADR-DIVE-002.md`; `specs/spikes/SPIKE-DIVE-003/specification.md`; PR #1; product confirmation by Borja on 2026-09-27 for public visibility of full slots | Approved by product owner, including `Available` + `Full` visibility on 2026-09-27 |
 | `DIVE-BOOK-REQ-043..DIVE-BOOK-REQ-048` | `Derived` | `specs/foundation/security-privacy-baseline.md`; `specs/foundation/operations-quality-recovery.md`; `specs/product/dive-mvp-profile.md`; PR #1 | Approved by product owner |
 | `DIVE-BOOK-REQ-049..DIVE-BOOK-REQ-057` | `Proposed` | Product confirmation by Borja on 2026-09-27 for US-08 catalog HTTP, center-scoped operations, slot time representation, and listing defaults | Approved by product owner 2026-09-27 for MVP validation |
 
@@ -161,8 +161,8 @@ Public, widget, hosted-page, and dashboard channels apply this invariant with th
 
 ### Channels and widget
 
-- **DIVE-BOOK-REQ-037:** Channel type `center_catalog` publishes the published activities and available slots of one center.
-- **DIVE-BOOK-REQ-038:** Channel type `single_activity` publishes one published activity and its available slots.
+- **DIVE-BOOK-REQ-037:** Channel type `center_catalog` publishes the published activities and future slots in state `Available` or `Full` of one center. `Full` slots are visible as non-bookable. `Closed` and `Cancelled` slots are excluded.
+- **DIVE-BOOK-REQ-038:** Channel type `single_activity` publishes one published activity and its future slots in state `Available` or `Full`. `Full` slots are visible as non-bookable. `Closed` and `Cancelled` slots are excluded.
 - **DIVE-BOOK-REQ-039:** Multi-center public channels are out of MVP.
 - **DIVE-BOOK-REQ-040:** The MVP widget is a responsive iframe of the hosted booking page. The hosted page is the required fallback.
 - **DIVE-BOOK-REQ-041:** Each channel has an exact allow-list of origins. Production uses `frame-ancestors`. Wildcards and subdomains are allowed only when explicitly configured. Staging has a separate test mode.
