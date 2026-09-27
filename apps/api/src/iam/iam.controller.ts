@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto';
 import type { AuthenticatedPrincipal } from '@dive-center/identity';
+import { correlationIdForCurrentContext } from '@dive-center/observability';
 import {
   Body,
   Controller,
@@ -65,7 +65,7 @@ export class IamController {
       correlationId: string,
     ) => Promise<T>,
   ) {
-    const correlationId = randomUUID();
+    const correlationId = correlationIdForCurrentContext();
     try {
       return await action(principal, correlationId);
     } catch (error) {

@@ -1,20 +1,21 @@
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { AppModule, ObserveInstrument } from './app/app.module.js';
+import { AppModule } from './app/app.module.js';
 import { dashboardCorsOriginsFromEnvironment } from './common/tenant-context/tenant-context.crypto.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(
-    AppModule,
-    ObserveInstrument === undefined
-      ? { rawBody: true }
-      : { instrument: ObserveInstrument, rawBody: true },
-  );
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   app.enableShutdownHooks();
   app.enableCors({
     origin: [...dashboardCorsOriginsFromEnvironment(process.env)],
     credentials: false,
-    allowedHeaders: ['Authorization', 'X-Tenant-Context', 'Content-Type'],
+    allowedHeaders: [
+      'Authorization',
+      'X-Tenant-Context',
+      'X-Correlation-ID',
+      'Content-Type',
+    ],
+    exposedHeaders: ['X-Correlation-ID'],
   });
 
   // ADR-DIVE-002: REST / OpenAPI. UI at /docs, raw document at /docs-json.

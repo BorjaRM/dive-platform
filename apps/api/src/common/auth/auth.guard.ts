@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import {
   type AuthenticatedPrincipal,
   authenticateIdentity,
@@ -6,6 +5,7 @@ import {
   type IdentityProviderPort,
   IdentityProviderUnavailableError,
 } from '@dive-center/identity';
+import { correlationIdForCurrentContext } from '@dive-center/observability';
 import {
   type CanActivate,
   createParamDecorator,
@@ -68,7 +68,7 @@ export class ClerkAuthGuard implements CanActivate {
   private logAuthenticationOperationalFailure(): void {
     this.logger.operational?.({
       event: 'identity_provider_unavailable',
-      correlationId: randomUUID(),
+      correlationId: correlationIdForCurrentContext(),
     });
   }
 
@@ -82,7 +82,7 @@ export class ClerkAuthGuard implements CanActivate {
       event: 'iam_security_event',
       action,
       reason: 'authentication_missing_or_invalid',
-      correlationId: randomUUID(),
+      correlationId: correlationIdForCurrentContext(),
     });
   }
 }

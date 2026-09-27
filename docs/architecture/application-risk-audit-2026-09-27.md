@@ -339,3 +339,14 @@ Para controles deterministas de CI, permisos o comandos obligatorios, preferir w
 - Autorización server-side, CORS exacto, webhook firmado con raw body, handles opacos y errores no divulgativos.
 - Audit y outbox atómicos en las mutaciones implementadas.
 - Build, typecheck y tests actuales pasan con Node 22.22.3.
+
+## Corrección aplicada: OBS-01
+
+La frontera de observabilidad vive ahora en `@dive-center/observability` y
+usa la API estándar de OpenTelemetry. El API ya no importa `@nestjs/observe` ni
+condiciona el arranque a credenciales de un proveedor concreto. El middleware
+HTTP valida o genera `X-Correlation-ID`, lo devuelve en la respuesta y lo
+propaga mediante `AsyncLocalStorage` a los logs de seguridad, IAM, webhooks y
+mutaciones de catálogo que alimentan audit/outbox. Los UUID de recursos siguen
+siendo independientes. La evidencia ejecutable está en
+[evidence/operations/OBS-01.md](../../evidence/operations/OBS-01.md).
