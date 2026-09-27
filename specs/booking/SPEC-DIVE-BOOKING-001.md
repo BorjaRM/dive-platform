@@ -1,12 +1,12 @@
 # SPEC-DIVE-BOOKING-001 — Bookings, widget, and calendar
 
 - **Status:** Ready to start
-- **Version:** 0.8
+- **Version:** 1.3
 - **Last reviewed:** 2026-09-27
 - **Approved by:** Borja (Product owner)
-- **Approval reference:** PR #1, provenance migration PR, and product confirmations 2026-09-27 for catalog HTTP, slot time representation, public visibility of full slots, and ADR-DIVE-010 public create closures
+- **Approval reference:** PR #1, provenance migration PR, product confirmations 2026-09-27 for catalog HTTP, slot time representation, public visibility of full slots, ADR-DIVE-010 public create closures, and explicit approval by Product, Security, and Architecture on 2026-09-27 of the point 1 rejection contract and public capability contract; PR #35 product-owner confirmations on 2026-09-27 for simple page pagination on activity and slot lists, catalog DTOs, and persistence naming
 - **Owner:** Product / Booking
-- **IDs:** `DIVE-BOOK-REQ-001` … `DIVE-BOOK-REQ-067`
+- **IDs:** `DIVE-BOOK-REQ-001` … `DIVE-BOOK-REQ-072`
 
 ## Normative authority
 
@@ -29,8 +29,10 @@ The ranges below cover every requirement in this SPEC. `Derived` consolidates th
 | `DIVE-BOOK-REQ-033..DIVE-BOOK-REQ-036` | `Proposed` | PR #1 mutation and cancellation consolidation | Approved by product owner for MVP validation |
 | `DIVE-BOOK-REQ-037..DIVE-BOOK-REQ-042` | `Derived` | `specs/architecture/adrs/ADR-DIVE-002.md`; `specs/spikes/SPIKE-DIVE-003/specification.md`; PR #1; product confirmation by Borja on 2026-09-27 for public visibility of full slots | Approved by product owner, including `Available` + `Full` visibility on 2026-09-27 |
 | `DIVE-BOOK-REQ-043..DIVE-BOOK-REQ-048` | `Derived` | `specs/foundation/security-privacy-baseline.md`; `specs/foundation/operations-quality-recovery.md`; `specs/product/dive-mvp-profile.md`; PR #1 | Approved by product owner |
-| `DIVE-BOOK-REQ-049..DIVE-BOOK-REQ-057` | `Proposed` | Product confirmation by Borja on 2026-09-27 for US-08 catalog HTTP, center-scoped operations, slot time representation, and listing defaults | Approved by product owner 2026-09-27 for MVP validation |
+| `DIVE-BOOK-REQ-049..DIVE-BOOK-REQ-057` | `Proposed` | Product confirmation by Borja on 2026-09-27 for US-08 catalog HTTP, center-scoped operations, slot time representation, listing defaults, and PR #35 page-pagination contract for activity/slot listing | Approved by product owner 2026-09-27 for MVP validation |
 | `DIVE-BOOK-REQ-058..DIVE-BOOK-REQ-067` | `Proposed` | ADR-DIVE-010 v0.3; explicit acceptance by Borja on 2026-09-27 of public create, channel policy, retry, surface, origin, and OTA-boundary closures | Approved by product owner 2026-09-27; Ready to start |
+| `DIVE-BOOK-REQ-068..DIVE-BOOK-REQ-069` | `Proposed` | Product, Security, and Architecture approval on 2026-09-27 of the rejected-booking state and internal rejection contract | Approved; Ready to start |
+| `DIVE-BOOK-REQ-070..DIVE-BOOK-REQ-072` | `Proposed` | Product, Security, and Architecture approval on 2026-09-27 of the public capability recommendations; ADR-DIVE-005 v0.3 | Approved; Ready to start |
 
 ### Normative defaults provenance
 
@@ -44,7 +46,7 @@ The ranges below cover every requirement in this SPEC. `Derived` consolidates th
 | `postMessage` excludes secrets and full personal data | `Derived` | `specs/foundation/security-privacy-baseline.md`; PR #1 | Approved by product owner |
 | Widget customization allow-list | `Proposed` | PR #1 | Approved by product owner for MVP validation |
 | Slot persists `starts_at` timestamptz and `duration_minutes`; end is derived | `Proposed` | Product confirmation by Borja on 2026-09-27; specializes `DIVE-BOOK-REQ-010` | Approved by product owner 2026-09-27 for MVP validation |
-| Catalog list page size maximum is 50 | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved by product owner 2026-09-27 for MVP validation |
+| Activity and slot lists use page pagination with default page size 20 and maximum 50 | `Proposed` | Product confirmation by Borja in PR #35 on 2026-09-27 | Approved by product owner 2026-09-27 for MVP validation |
 | Public channel `confirmation_mode` defaults to `immediate` | `Proposed` | ADR-DIVE-010 v0.3; explicit product-owner acceptance 2026-09-27 | Approved; Ready to start |
 | Public create first success is `201`, same-request replay is `200`, and key reuse with a different request is `409 idempotency_conflict` | `Proposed` | ADR-DIVE-010 v0.3; explicit product-owner acceptance 2026-09-27 | Approved; Ready to start |
 
@@ -94,10 +96,10 @@ Out of scope:
 ## States
 
 - Activity: `Draft → Published → Disabled`
-- Slot: `Available → Full → Closed | Cancelled`; `Closed → Cancelled` is allowed
-- Booking: `Pending → Confirmed → Cancelled | Expired`
+- Slot: `Available → Full → Closed | Cancelled`; `Full → Available` is allowed when seats are released and the slot is not `Closed` or `Cancelled`; `Closed → Cancelled` is allowed
+- Booking: `Pending → Confirmed | Rejected | Cancelled | Expired`; `Confirmed → Cancelled`
 
-`Cancelled` and `Expired` are terminal. `Closed` is terminal except for the approved `Closed → Cancelled` transition. `Disabled` on an activity does not change existing slot states.
+`Cancelled`, `Rejected`, and `Expired` are terminal. `Closed` is terminal except for the approved `Closed → Cancelled` transition. `Disabled` on an activity does not change existing slot states.
 
 ## Capacity invariant
 
@@ -200,7 +202,7 @@ PATCH  /v1/centers/:centerId/slots/:slotId/cancel
 - **DIVE-BOOK-REQ-054:** Repeating `publish`, `disable`, `close`, or `cancel` when the resource is already in the resulting state is idempotent success (`204`). An incompatible transition returns `409`.
 - **DIVE-BOOK-REQ-055:** A slot may transition `Closed → Cancelled`.
 - **DIVE-BOOK-REQ-056:** Catalog HTTP uses `application/problem+json`. Create returns `201`. Successful commands return `204`. Malformed JSON returns `400`. Missing session or tenant context returns `401`. A permission failure inside the current authorized center returns `403`. A missing resource or a resource outside the current center/tenant returns `404` with the same observable result. Semantic field errors return `422`.
-- **DIVE-BOOK-REQ-057:** Catalog lists never accept multiple centers. Pagination is cursor-based with a maximum page size of 50. Activities are ordered by `created_at DESC`, then `id`, and may be filtered by `status`. Slots are ordered by `starts_at ASC`, then `id`, and may be filtered by date range and `status`.
+- **DIVE-BOOK-REQ-057:** Catalog lists never accept multiple centers. Activity and slot lists use one-based page pagination with optional `page` and `pageSize` query parameters. `page` defaults to `1`; `pageSize` defaults to `20` and has a maximum of `50`. Values outside those bounds return the existing `422 validation_error`. Responses return `items`, `page`, `pageSize`, and `hasNext`; they do not require a total count. Activities are ordered by `created_at DESC`, then `id DESC`, and may be filtered by `status`. Slots are ordered by `starts_at ASC`, then `id ASC`, and may be filtered by optional date range and `status`. The walking skeleton uses limit/offset pagination; cursor pagination requires a separately approved contract change.
 
 ### Public create-booking
 
@@ -214,6 +216,11 @@ PATCH  /v1/centers/:centerId/slots/:slotId/cancel
 - **DIVE-BOOK-REQ-065:** First create returns `201` and idempotent replay returns `200`; both return `bookingId`, `status`, `seats`, `locale`, `confirmationReadToken`, and `cancelToken`. `bookingId` is a selector, not authorization. Status is `Confirmed` or `Pending` according to trusted channel policy and capacity.
 - **DIVE-BOOK-REQ-066:** First-party hosted create accepts only its exact configured origin and MUST NOT use wildcard CORS. Origin checking constrains browser use and never replaces channel authorization. Widget origins and `frame-ancestors` remain governed by ADR-DIVE-005, `DIVE-BOOK-REQ-041`, and SPIKE-DIVE-003.
 - **DIVE-BOOK-REQ-067:** Marketplace / OTA transport is outside the MVP. A future adapter requires a separately approved channel, authentication, idempotency/reconciliation, response/token transport, mapping, and operational contract; it may reuse the booking aggregate and invariants but MUST NOT infer authority from the hosted page or `channelPublicId` as a credential.
+- **DIVE-BOOK-REQ-068:** Booking states are `Pending`, `Confirmed`, `Rejected`, `Cancelled`, and `Expired`. The allowed booking transitions are `Pending → Confirmed | Rejected | Cancelled | Expired` and `Confirmed → Cancelled`. `Rejected`, `Cancelled`, and `Expired` are terminal. Rejection applies only to `Pending` bookings and releases their held seats exactly once. Blocking a rejected booking is outside this command and requires a separate explicitly authorized action.
+- **DIVE-BOOK-REQ-069:** Authorized staff reject a booking through `POST /v1/centers/:centerId/bookings/:bookingId/reject` with Clerk authentication, `X-Tenant-Context`, current center scope, and `booking.reject`. The request has no required body or free-text reason. A `Pending` booking returns `204`, transitions to `Rejected`, releases held seats exactly once, and atomically records the booking change, audit event, and `booking.rejected` outbox event. Repeating the command for an already `Rejected` booking returns `204` without duplicating effects. A command for `Confirmed`, `Cancelled`, or `Expired` returns `409 booking_state_conflict`; missing authentication/context returns `401`, a missing capability returns `403`, and an out-of-scope resource returns the existing non-disclosing `404` contract. A competing confirmation, cancellation, or expiry has one observable order and only the winning transition applies its side effects.
+- **DIVE-BOOK-REQ-070:** Public confirmation read uses `GET /v1/public/bookings/:bookingId/confirmation` with a `booking_confirmation_read` bearer token in `Authorization`. The route does not use Clerk or `X-Tenant-Context`; `bookingId` is a selector only. A valid token returns only the safe booking projection (`bookingId`, `status`, `seats`, `locale`, and non-sensitive slot presentation data), including terminal states. Invalid, expired, revoked, wrong-purpose, wrong-booking, and unknown credentials produce one indistinguishable non-disclosing `404` result.
+- **DIVE-BOOK-REQ-071:** Public cancellation uses `POST /v1/public/bookings/:bookingId/cancel` with a `booking_cancel` bearer token and an `Idempotency-Key`. A valid request may cancel `Pending` or `Confirmed`, releases its held or consumed seats exactly once, and commits the booking change, audit, and outbox atomically. Public cancellation cannot select a blocking disposition. Reusing the same idempotency key returns the persisted result without repeating side effects. A valid token for `Rejected`, `Expired`, or already `Cancelled` returns `409 booking_not_cancellable`; invalid credentials use the non-disclosing `404` contract from `DIVE-BOOK-REQ-070`.
+- **DIVE-BOOK-REQ-072:** Public token resend uses `POST /v1/public/bookings/:bookingId/tokens/resend` with the booker email, a requested token purpose, and an `Idempotency-Key`. The requested purpose MUST be `booking_confirmation_read` or `booking_cancel`. The confirmation-read token may be resent for any retained booking state; the cancellation token may be resent only for `Pending` or `Confirmed`. The endpoint always returns the same non-disclosing `202` response and sends no bearer value in HTTP. When the retained booking and normalized email match and the requested purpose is eligible, it queues a replacement token email, revokes the previous active token for that purpose, applies rate limits by IP, booking, and email, and records audit/outbox effects without exposing whether a match occurred.
 
 ## Catalog HTTP (center application)
 
@@ -232,6 +239,28 @@ This interface is for the authenticated center application. Public widget and ho
 
 Protected requests send `Authorization: Bearer <clerk-session-token>` and `X-Tenant-Context` issued for the center application. Entry follows `ADR-DIVE-008`: body `centerRef` equals the platform-subdomain `centerKey` during bootstrap; afterward product paths use the returned `centerId`. `centerId` in the path must match the center resolved at entry.
 
+## Booking rejection HTTP
+
+This authenticated dashboard command is separate from public cancellation. `:centerId` and `:bookingId` are selectors; tenant, center scope, roles, and permissions come from the authenticated request and PostgreSQL authorization state.
+
+| Method and path | Required authorization | Effect |
+|---|---|---|
+| `POST /v1/centers/:centerId/bookings/:bookingId/reject` | Clerk session, `X-Tenant-Context`, center scope, `booking.reject` | Reject a `Pending` booking and release its held seats once |
+
+The command uses `application/problem+json` for failures. A repeated command against `Rejected` is idempotent success; incompatible terminal states return `409 booking_state_conflict`. No customer email is emitted by this command in the MVP.
+
+## Public booking capability HTTP
+
+Public capability routes use the booking-specific bearer tokens from the successful public-create response. They do not use Clerk, dashboard roles, or `X-Tenant-Context`. A booking identifier in a public path is a selector and never authorizes access.
+
+| Method and path | Credential | Effect |
+|---|---|---|
+| `GET /v1/public/bookings/:bookingId/confirmation` | `booking_confirmation_read` | Read the safe current booking projection, including terminal status |
+| `POST /v1/public/bookings/:bookingId/cancel` | `booking_cancel` + `Idempotency-Key` | Cancel a `Pending` or `Confirmed` booking once |
+| `POST /v1/public/bookings/:bookingId/tokens/resend` | Booker's email + `Idempotency-Key` | Queue a purpose-specific replacement token email without disclosure |
+
+Public credential failures are indistinguishable from unknown or mismatched booking selectors. Business-state failures after successful credential verification use `application/problem+json` with stable codes such as `booking_not_cancellable`. Resend never returns a token in the HTTP response.
+
 
 ## Default values for implementation
 
@@ -245,9 +274,10 @@ These defaults are normative until a later SPEC/ADR changes them:
 - `postMessage` never transports secrets or full personal data
 - Allowed widget customization: logo, validated colors, catalog font, localized copy, predefined corner radius. No center-supplied HTML, CSS, or JavaScript
 - Slot time fields: persist `starts_at` as timestamptz and `duration_minutes`; derive end; do not persist remaining seats
-- Catalog list maximum page size: 50
+- Catalog pagination: one-based `page` defaults to 1; `pageSize` defaults to 20 and has a maximum of 50; responses include `hasNext` and no total count
 - Public channel confirmation mode: `immediate` when omitted
 - Public create first success: `201`; same-request replay: `200`; different-request key reuse: `409 idempotency_conflict`
+- Public capability cancellation requires an `Idempotency-Key`; a same-key retry returns the persisted result without repeating side effects
 - First public implementation surface: `public_hosted`; `public_widget` requires server-derived SPIKE-DIVE-003 evidence
 - Public hosted create CORS: exact configured origin; no wildcard
 
@@ -259,6 +289,10 @@ These defaults are normative until a later SPEC/ADR changes them:
 - Slot cancelled while a pending booking exists
 - Disabled activity with still-available slots
 - Token reuse after public cancellation
+- Staff rejection racing with confirmation, cancellation, or expiry
+- Public confirmation read for each booking terminal state
+- Public cancellation retry with the same and a different idempotency key
+- Public token resend with unknown, mismatched, rate-limited, and repeated requests
 - Locale switched mid-flow
 - Origin not on the channel allow-list
 - Center-application user with access to two centers opens center A and must not see center B catalog
@@ -277,6 +311,7 @@ No real personal data in development, preview, or staging for this increment.
 
 - `specs/architecture/adrs/ADR-DIVE-001.md`
 - `specs/architecture/adrs/ADR-DIVE-002.md`
+- `specs/architecture/adrs/ADR-DIVE-005.md`
 - `specs/architecture/adrs/ADR-DIVE-008.md`
 - `specs/architecture/adrs/ADR-DIVE-010.md`
 - `specs/iam/SPEC-DIVE-IAM-001.md`
@@ -294,12 +329,12 @@ No real personal data in development, preview, or staging for this increment.
 - Widget origin/CSP/fallback evidence (`SPIKE-DIVE-003`) before pilot
 - Catalog HTTP contract tests for `DIVE-BOOK-REQ-049..057`, including center-scope negatives and idempotent commands
 - Public-create contract tests for `DIVE-BOOK-REQ-058..067`: trusted channel resolution, mode policy, exact origin, idempotent replay/conflict, atomic side effects, token secrecy, non-disclosing errors, and last-seat contention
+- Booking rejection contract tests for `DIVE-BOOK-REQ-068..069`: state transitions, seat release, permission/scope enforcement, repeated-command idempotency, atomic audit/outbox effects, and concurrent terminal transitions
+- Public-capability contract tests for `DIVE-BOOK-REQ-070..072`: confirmation-read and cancellation token purposes, cancellation retry semantics, terminal-state responses, resend non-disclosure, rate limiting, and replacement-token revocation
 - Until a tenant/center onboarding story exists, catalog tests may insert tenant and center rows with fixtures; that is not an onboarding API
 
 ## Open questions
 
-These items are pending product decision. Implementation MUST NOT invent a value, encoding, extra field, or physical name to close them.
+No US-08 catalog-contract decision remains open for the walking skeleton. PR #35 records the product-owner confirmation for page pagination, response DTOs, and physical persistence naming.
 
-1. **Pending decision — catalog cursor.** Cursor encoding, integrity protection, and continuation-token format for catalog lists (`DIVE-BOOK-REQ-057`).
-2. **Pending decision — catalog response DTO.** Additional response fields beyond the approved request keys and the identifiers required to call subsequent endpoints.
-3. **Pending decision — physical names.** Table, column, and index names for activities and slots.
+Cursor pagination is deferred rather than specified. If demonstrated volume or offset drift later requires it, a separately approved contract change must define its scope and compatibility semantics before implementation.

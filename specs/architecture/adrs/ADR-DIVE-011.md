@@ -1,7 +1,7 @@
 # ADR-DIVE-011 — Public availability query and presentation boundary
 
 - **Status:** Draft
-- **Version:** 0.2
+- **Version:** 0.3
 - **Date:** 2026-09-27
 - **Deciders:** Product
 - **Affected IDs:** `DIVE-BOOK-REQ-003`, `004`, `006`, `019`, `025`, `037..042`, `047`, `049`, `057`; `DIVE-IAM-REQ-024`; ADR-DIVE-005; ADR-DIVE-010
@@ -23,7 +23,7 @@ The existing constraints below are `Documented`. The public-query closures were 
 | A published channel with no matching future slots renders a localized “no dates” state | `Proposed` | Product confirmation by Borja on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
 | List future slots with `starts_at > now` in UTC, ordered by `starts_at ASC`, then `id`; no fixed horizon | `Proposed` | Product confirmation by Borja on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
 | A `center_catalog` initially uses one chronological list including the activity name; grouping may change later | `Proposed` | Product confirmation by Borja on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
-| Include `Available` and `Full` slots; render `Full` as non-bookable “Full”; exclude `Closed` and `Cancelled` | `Proposed` | Explicit product approval by Borja on 2026-09-27 | Approved for incorporation into `DIVE-BOOK-REQ-037..038`; implementation authority begins after this PR merges |
+| Include `Available` and `Full` slots; render `Full` as non-bookable “Full”; exclude `Closed` and `Cancelled` | `Proposed` | Explicit product approval by Borja on 2026-09-27 | Approved and incorporated into `DIVE-BOOK-REQ-037..038`; implementation authority is the merged SPEC |
 | Availability presentation is configured per channel: status is always shown, low-availability threshold defaults to 3, and exact remaining seats default to hidden | `Proposed` | Product confirmation by Borja on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
 | Public list page size is server-configurable with a hard maximum of 50; the cursor is opaque and internally follows `starts_at`, then `id` | `Proposed` | Product confirmation by Borja on 2026-09-27; aligned with `DIVE-BOOK-REQ-057` | Product-confirmed; Draft; not implementation-authorized |
 
@@ -31,7 +31,7 @@ The existing constraints below are `Documented`. The public-query closures were 
 
 US-09 needs a hosted public availability surface before widget evidence exists. The same underlying availability result must remain reusable by the iframe and must not encode B2C copy as the booking-domain contract.
 
-`SPEC-DIVE-BOOKING-001` previously said that `center_catalog` and `single_activity` publish available slots. Product explicitly approved keeping full future slots visible as non-bookable. This PR reconciles `DIVE-BOOK-REQ-037..038`; merged `main` remains authoritative until the PR merges.
+`SPEC-DIVE-BOOKING-001` now reconciles `DIVE-BOOK-REQ-037..038` by making future `Full` slots visible as non-bookable. The merged SPEC remains the normative source for this rule; this Draft ADR does not promote its other Proposed decisions.
 
 ADR-DIVE-010 owns public create-booking. This ADR stops at availability and presentation. It does not define create-booking payloads, token transport, confirmation policy, partner authentication, or OTA HTTP.
 
@@ -93,7 +93,7 @@ The public query:
 
 `center_catalog` initially renders one chronological list and includes the localized activity name on each item. This is a presentation choice, not a new channel type; later grouping does not change channel authorization.
 
-Product explicitly approved showing `Full`, and this PR reconciles `DIVE-BOOK-REQ-037..038`. Implementations must continue to follow merged `main` until this PR merges.
+Product explicitly approved showing `Full`, and the merged SPEC now records that rule in `DIVE-BOOK-REQ-037..038`. Implementations must follow the merged SPEC for this behavior.
 
 ### Availability presentation configuration
 
@@ -133,7 +133,7 @@ A later partner / OTA adapter may reuse the capacity invariant and application r
 | Non-disclosing channel denial | Compatible with `DIVE-BOOK-REQ-006`, `047`, ADR-DIVE-005, ADR-DIVE-010 |
 | Maximum 50 and `starts_at`, `id` cursor order | Compatible with the established catalog-list limit and order in `DIVE-BOOK-REQ-057`; public use remains Proposed |
 | Future OTA boundary | Compatible with the MVP exclusion and ADR-DIVE-010 |
-| Showing `Full` | Product-approved and reconciled in this PR through `DIVE-BOOK-REQ-037..038`; becomes implementation authority after merge |
+| Showing `Full` | Product-approved and reconciled in the merged SPEC through `DIVE-BOOK-REQ-037..038` |
 
 ## Consequences
 
@@ -141,7 +141,7 @@ A later partner / OTA adapter may reuse the capacity invariant and application r
 - Public copy and disclosure preferences remain outside the domain invariant.
 - Invalid locale cannot be used to probe whether a channel exists.
 - A published empty catalog is observable, while an unpublished channel is not.
-- After this PR merges, `DIVE-BOOK-REQ-037..038` authorize exposing `Full` slots as non-bookable. The remaining Draft ADR decisions do not authorize runtime routes or schema changes.
+- The merged `DIVE-BOOK-REQ-037..038` authorize exposing `Full` slots as non-bookable. The remaining Draft ADR decisions do not authorize runtime routes or schema changes.
 
 ## Open questions
 
@@ -155,4 +155,4 @@ A later partner / OTA adapter may reuse the capacity invariant and application r
 
 ## Implementation authority
 
-This ADR is Draft. It records Product-confirmed Proposed decisions. The accompanying, explicitly approved update to `DIVE-BOOK-REQ-037..038` becomes implementation authority after merge; all other decisions in this ADR remain non-authoritative until separately approved. This ADR does not authorize schema migrations or runtime routes.
+This ADR is Draft. It records Product-confirmed Proposed decisions. The merged update to `DIVE-BOOK-REQ-037..038` is implementation authority for `Available` and `Full` visibility; all other decisions in this ADR remain non-authoritative until separately approved. This ADR does not authorize schema migrations or runtime routes.

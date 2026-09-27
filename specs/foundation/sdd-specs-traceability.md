@@ -50,7 +50,7 @@ Reviewers validate the change using this record and confirm that the evidence su
 
 ## Artifact versions
 
-Provenance: `Proposed` until this change is approved and merged. Source: product decision to unify documentary versions without extracting the baseline to another repository.
+Provenance is tracked per normative statement in the applicable SPEC, ADR, or TRACE artifact. This baseline is `Ready to start`; it does not carry a global `Proposed` status pending a merge.
 
 Rules:
 
