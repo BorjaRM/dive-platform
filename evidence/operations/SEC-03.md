@@ -4,19 +4,22 @@
 
 `.github/workflows/security.yml` adds these read-only security jobs:
 
-- Dependency review on pull requests.
+- Dependency review on pull requests where the repository plan supports GitHub
+  Dependency Review. It is skipped for this private repository because the
+  current plan does not expose the required Dependency Graph and Advanced
+  Security capability.
 - `pnpm audit --prod` as an auxiliary production-dependency signal.
 - Gitleaks secret scanning on pull requests and `main`.
 - CycloneDX SBOM generation as an uploaded artifact for `v*` release tags.
 
-CodeQL is intentionally disabled because code scanning is not available for
-this private repository under the current GitHub plan. The `security-events`
-permission was already present and was not the cause of the warning. No job
-commits or pushes repository changes.
+CodeQL and dependency review are intentionally unavailable for this private
+repository under the current GitHub plan. The `security-events` permission was
+already present and was not the cause of the CodeQL warning. No job commits or
+pushes repository changes.
 
-For a private repository, the Gitleaks action requires the repository or
-organization secret `GITLEAKS_LICENSE` to be configured before the workflow can
-run successfully. That secret is intentionally not stored in the repository.
+The Gitleaks action may require the repository or organization secret
+`GITLEAKS_LICENSE` for some account types. This account does not require that
+secret, and it is intentionally not stored in the repository.
 
 ## Executable evidence
 
