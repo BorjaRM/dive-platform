@@ -34,7 +34,7 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` are Ready to start
 | SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.24 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.25 |
 
 Notion indexes must show this map’s version. They must not invent an independent version sequence.
 
