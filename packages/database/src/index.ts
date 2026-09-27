@@ -39,4 +39,9 @@ export {
 } from './iam-tenant-context-commands.js';
 export { migrateProduct } from './migrate.js';
 export * from './product-schema.js';
+export type { RuntimeDatabaseRoleSnapshot } from './runtime-role.js';
+export {
+  assertRuntimeDatabaseRole,
+  validateRuntimeDatabaseRole,
+} from './runtime-role.js';
 export type { TenantUnitOfWork } from './unit-of-work.js';

@@ -1,6 +1,25 @@
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  assertRuntimeDatabaseRole,
+  type RuntimeDatabaseRoleSnapshot,
+  validateRuntimeDatabaseRole,
+} from '../../src/runtime-role.js';
 import { createAdminPool, createAppPool, setupHarness } from './harness.js';
+
+const safeRuntimeRoleSnapshot: RuntimeDatabaseRoleSnapshot = {
+  canCreateApplicationSchemaObjects: false,
+  canCreateDatabaseObjects: false,
+  databaseName: 'dive_spike',
+  currentUser: 'dive_app',
+  isMigrationRole: false,
+  ownsDatabase: false,
+  ownsUserRelation: false,
+  roleBypassesRls: false,
+  roleCanCreateDatabase: false,
+  roleCanCreateRoles: false,
+  roleIsSuperuser: false,
+};
 
 describe('MT-SPIKE-001 runtime role', () => {
   let adminPool: Pool;
@@ -15,6 +34,30 @@ describe('MT-SPIKE-001 runtime role', () => {
   afterAll(async () => {
     await appPool.end();
     await adminPool.end();
+  });
+
+  it('accepts the restricted runtime connection', async () => {
+    await expect(assertRuntimeDatabaseRole(appPool)).resolves.toBeUndefined();
+  });
+
+  it.each([
+    ['migration role', 'isMigrationRole'],
+    ['SUPERUSER', 'roleIsSuperuser'],
+    ['BYPASSRLS', 'roleBypassesRls'],
+    ['CREATEDB', 'roleCanCreateDatabase'],
+    ['CREATEROLE', 'roleCanCreateRoles'],
+    ['database ownership', 'ownsDatabase'],
+    ['relation ownership', 'ownsUserRelation'],
+    ['database CREATE privilege', 'canCreateDatabaseObjects'],
+    ['schema CREATE privilege', 'canCreateApplicationSchemaObjects'],
+  ] as const)('rejects %s', (violation, property) => {
+    const unsafeSnapshot = {
+      ...safeRuntimeRoleSnapshot,
+      [property]: true,
+    } as RuntimeDatabaseRoleSnapshot;
+    expect(() => validateRuntimeDatabaseRole(unsafeSnapshot)).toThrow(
+      `Unsafe runtime database role dive_app: ${violation}`,
+    );
   });
 
   it('has forced RLS, no BYPASSRLS, and no DDL (MT-REQ-004)', async () => {

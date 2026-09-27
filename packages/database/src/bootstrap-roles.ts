@@ -28,6 +28,10 @@ export async function bootstrapRoles(adminPool: Pool): Promise<void> {
         CREATE ROLE dive_app LOGIN PASSWORD '${appPassword}'
           NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
       END IF;
+      ALTER ROLE dive_migration
+        WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+      ALTER ROLE dive_app
+        WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
     END
     $$;
   `);

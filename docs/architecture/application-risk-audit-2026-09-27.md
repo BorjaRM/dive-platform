@@ -114,6 +114,8 @@ Sí existen **8 riesgos altos**, **7 medios** y **1 divergencia baja**. Los prob
 3. Fallar el arranque si el rol no cumple el perfil runtime.
 4. Añadir pruebas negativas con rol migrador, propietario y `BYPASSRLS`.
 
+**Corrección aplicada.** `bootstrapRoles` revalida los atributos de `dive_migration` y `dive_app`; `assertRuntimeDatabaseRole` inspecciona la conexión efectiva y el `DatabaseModule` cierra el pool y aborta el arranque ante un rol inseguro. La prueba focalizada cubre el rol válido y las condiciones de migración, `SUPERUSER`, `BYPASSRLS`, creación de base/roles, propiedad y privilegios `CREATE`: [runtime-role.ts](../../packages/database/src/runtime-role.ts), [database.module.ts](../../apps/api/src/common/database/database.module.ts) y [roles.integration.test.ts](../../packages/database/test/integration/roles.integration.test.ts).
+
 ### DATA-03 — Pool contaminable si falla el rollback
 
 **Evidencia.** La unidad de trabajo ignora el error de `ROLLBACK` y siempre ejecuta `client.release()` sin destruir la conexión: [unit-of-work.ts](../../packages/database/src/unit-of-work.ts#L13-L35). El harness duplica exactamente el patrón: [harness-unit-of-work.ts](../../packages/database/src/harness-unit-of-work.ts#L12-L34). Las pruebas cubren rollback normal y error SQL, no fallo del propio rollback: [pooling.integration.test.ts](../../packages/database/test/integration/pooling.integration.test.ts#L34-L139).

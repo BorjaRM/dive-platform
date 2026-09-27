@@ -20,8 +20,10 @@ internal source paths.
 
 ## Current `dive_app` consumers
 
-The API runtime reads `APP_DATABASE_URL` and creates the shared `dive_app` pool in
-`apps/api/src/app.module.ts`. That pool is injected into both `IamService` for
+The API runtime reads `APP_DATABASE_URL`, verifies the effective PostgreSQL role,
+and creates the shared `dive_app` pool in `apps/api/src/common/database/database.module.ts`.
+Startup fails closed if the connection is the migration role, a superuser,
+`BYPASSRLS`, an owner, or has database/schema DDL privileges. That pool is injected into both `IamService` for
 dashboard IAM operations and `IdentityWebhookController` for the verified Clerk
 webhook command. The integration harness uses the equivalent `dive_app` login from
 `SPIKE_APP_DATABASE_URL`; `dive_migration` is reserved for migrations and role
