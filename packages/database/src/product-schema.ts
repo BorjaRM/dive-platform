@@ -1,3 +1,4 @@
+export * from './booking-schema.js';
 export {
   iamApp,
   iamAuditRecords,

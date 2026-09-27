@@ -15,6 +15,7 @@
 | Activities and slots use one-based page pagination; cursor pagination is deferred | `Proposed` | Product-owner confirmation by Borja for PR #35 on 2026-09-27 | Approved for incorporation into `SPEC-DIVE-BOOKING-001` v1.3; ADR remains Draft |
 | Minimal activity/slot representations | `Proposed` | Product-owner confirmation by Borja for PR #35 on 2026-09-27 | Approved for incorporation into the booking contract; ADR remains Draft |
 | `booking_app.activities` / `booking_app.slots`, physical columns, constraints, and catalog indexes | `Proposed` | Existing `iam_app` PostgreSQL/Drizzle conventions; product-owner confirmation by Borja for PR #35 on 2026-09-27 | Approved for incorporation into the booking contract; ADR remains Draft |
+| RFC3339 instants are persisted as `timestamptz`; slot responses render with the center's confirmed IANA time zone; missing or invalid center time zones fail closed | `Proposed` | Product-owner confirmation by Borja for PR #35 on 2026-09-27; `DIVE-BOOK-REQ-049`; `DIVE-ONB-REQ-022` | Approved for incorporation into the booking contract; ADR remains Draft |
 
 ## Context
 
@@ -53,6 +54,8 @@ Both endpoints return:
 `GET /v1/centers/:centerId/activities/:activityId/slots` may be filtered by optional date range and `status` and is ordered by `starts_at ASC`, then `id ASC`. A calendar normally supplies a date range, but the HTTP contract does not require one.
 
 There is no catalog cursor in the walking skeleton. A future cursor requires demonstrated need and a separately approved contract change. Tenant, center, activity, permissions, and filters are revalidated on every request.
+
+Slot input accepts an RFC3339 instant with an explicit offset or `Z`. The instant is persisted in `starts_at` as `timestamptz`; the center's `iam_app.centers.time_zone` is used only to render the response offset. The implementation does not reinterpret a wall-clock value or persist a slot-specific time zone. A missing or invalid center IANA time zone returns `422` rather than silently defaulting.
 
 The accepted limitation is that concurrent inserts or updates can cause an item to repeat or move between offset pages. This does not alter booking capacity, authorization, or state invariants. The dashboard may refresh and restart from page 1.
 
