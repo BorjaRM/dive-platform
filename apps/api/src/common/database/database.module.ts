@@ -1,5 +1,5 @@
 import {
-  appDatabaseUrl,
+  appDatabasePoolConfig,
   assertRuntimeDatabaseRole,
 } from '@dive-center/database';
 import {
@@ -27,7 +27,7 @@ class DatabasePoolLifecycle implements OnApplicationShutdown {
     {
       provide: DATABASE_POOL,
       useFactory: async () => {
-        const pool = new Pool({ connectionString: appDatabaseUrl() });
+        const pool = new Pool(appDatabasePoolConfig());
         try {
           await assertRuntimeDatabaseRole(pool);
           return pool;

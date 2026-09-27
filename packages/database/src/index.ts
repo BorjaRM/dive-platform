@@ -2,6 +2,7 @@ export type { BookingCatalogMutation } from './booking-catalog-commands.js';
 export { recordBookingCatalogMutation } from './booking-catalog-commands.js';
 export { bootstrapRoles } from './bootstrap-roles.js';
 export {
+  appDatabasePoolConfig,
   appDatabaseUrl,
   migrationDatabaseUrl,
 } from './env.js';

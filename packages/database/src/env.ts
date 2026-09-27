@@ -1,3 +1,5 @@
+import type { PoolConfig } from 'pg';
+
 function requiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -8,8 +10,34 @@ function requiredEnv(name: string): string {
   return value;
 }
 
+function requiredPositiveIntegerEnv(name: string): number {
+  const value = requiredEnv(name);
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive safe integer.`);
+  }
+  return parsed;
+}
+
 export function appDatabaseUrl(): string {
   return requiredEnv('APP_DATABASE_URL');
+}
+
+export function appDatabasePoolConfig(): PoolConfig {
+  return {
+    connectionString: appDatabaseUrl(),
+    max: requiredPositiveIntegerEnv('APP_DATABASE_POOL_MAX'),
+    connectionTimeoutMillis: requiredPositiveIntegerEnv(
+      'APP_DATABASE_CONNECTION_TIMEOUT_MS',
+    ),
+    statement_timeout: requiredPositiveIntegerEnv(
+      'APP_DATABASE_STATEMENT_TIMEOUT_MS',
+    ),
+    lock_timeout: requiredPositiveIntegerEnv('APP_DATABASE_LOCK_TIMEOUT_MS'),
+    idle_in_transaction_session_timeout: requiredPositiveIntegerEnv(
+      'APP_DATABASE_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS',
+    ),
+  };
 }
 
 export function migrationDatabaseUrl(): string {

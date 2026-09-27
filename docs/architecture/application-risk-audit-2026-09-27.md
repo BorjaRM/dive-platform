@@ -10,6 +10,8 @@ No se ha demostrado una vulnerabilidad crítica ni una fuga activa entre tenants
 
 Sí existen **8 riesgos altos**, **7 medios** y **1 divergencia baja**. Los problemas más urgentes son transversales: CI ejecuta código de PR con permiso de escritura, CI no compila los artefactos desplegables, faltan límites de tiempo en PostgreSQL y Clerk, el rol de runtime no se verifica al arrancar y `tenant_contexts` conserva una excepción a RLS forzada incompatible con el criterio literal de `MT-REQ-004`.
 
+El resumen y la tabla de prioridad describen el estado observado al inicio de la auditoría. Las correcciones aplicadas después se anotan en cada sección y no cambian retrospectivamente el recuento inicial.
+
 ### Prioridad recomendada
 
 | Orden | ID | Severidad | Ámbito | Problema |
@@ -135,7 +137,7 @@ Sí existen **8 riesgos altos**, **7 medios** y **1 divergencia baja**. Los prob
 
 ### REL-01 — PostgreSQL sin límites operativos
 
-**Evidencia.** El pool solo recibe `connectionString`: [database.module.ts](../../apps/api/src/common/database/database.module.ts#L20-L28). La unidad de trabajo puede esperar indefinidamente conexión, sentencia o lock: [unit-of-work.ts](../../packages/database/src/unit-of-work.ts#L13-L35).
+**Evidencia.** El pool runtime recibe límites de tamaño, conexión, sentencia, lock y transacción inactiva desde `APP_DATABASE_*`: [env.ts](../../packages/database/src/env.ts) y [database.module.ts](../../apps/api/src/common/database/database.module.ts). La prueba operativa cubre configuración efectiva en PostgreSQL, saturación de checkout, sentencia bloqueada, lock contention y terminación de transacción inactiva: [operability.integration.test.ts](../../packages/database/test/integration/operability.integration.test.ts).
 
 **Impacto.** Locks o consultas bloqueadas pueden consumir el pool y convertir una degradación local en indisponibilidad total.
 
@@ -145,6 +147,8 @@ Sí existen **8 riesgos altos**, **7 medios** y **1 divergencia baja**. Los prob
 2. Configurar `connectionTimeoutMillis` y timeouts PostgreSQL transaction-local o por rol.
 3. Añadir métricas de espera, uso y saturación del pool.
 4. Probar lock contention, cancelación, rollback y reutilización sana de la conexión.
+
+**Corrección aplicada.** El pool runtime exige `APP_DATABASE_POOL_MAX`, `APP_DATABASE_CONNECTION_TIMEOUT_MS`, `APP_DATABASE_STATEMENT_TIMEOUT_MS`, `APP_DATABASE_LOCK_TIMEOUT_MS` y `APP_DATABASE_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS`; `pg` aplica los límites a las conexiones de aplicación. La prueba focalizada pasa `5/5`, incluyendo checkout con `max: 1`, `statement_timeout` (`57014`), `lock_timeout` (`55P03`) e idle transaction. Los valores del `.env.example` son ejemplos locales `Proposed`, no una política de producción. Las métricas de pool siguen abiertas porque el paquete de observabilidad aún no expone una API.
 
 ### REL-02 — Dependencias remotas sin deadline y errores operativos ocultos
 
@@ -293,7 +297,7 @@ Para controles deterministas de CI, permisos o comandos obligatorios, preferir w
 ### Fase 1 — Antes de exponer el API
 
 1. Cerrar DATA-01 mediante decisión SDD y pruebas de propietario/funciones privilegiadas.
-2. Implementar REL-01, REL-02, SEC-02 y SEC-04.
+2. Cerrar REL-01 con límites operativos y evidencia; implementar REL-02, SEC-02 y SEC-04.
 3. Implementar OBS-01 antes de depender de diagnósticos de producción.
 4. Añadir los gates SEC-03.
 
@@ -310,6 +314,7 @@ Para controles deterministas de CI, permisos o comandos obligatorios, preferir w
 - `CI=1 pnpm exec turbo run test --ui=stream`: correcto; web 22, identity 40 y API 339, con la duplicación descrita en QA-02.
 - `CI=1 pnpm audit --prod --audit-level high`: sin vulnerabilidades conocidas.
 - No se ejecutó `pnpm test:integration` durante esta auditoría porque modifica la base configurada. CI sí contiene un job PostgreSQL 18 para esa suite.
+- La corrección de REL-01 se validó aparte con `pnpm --filter @dive-center/database exec node --env-file=../../.env.example ./node_modules/vitest/vitest.mjs run --config vitest.config.ts test/integration/operability.integration.test.ts`: 1 archivo y 5 tests pasaron localmente.
 
 ## Controles sólidos observados
 
