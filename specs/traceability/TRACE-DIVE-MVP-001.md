@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.34
+- **Version:** 0.35
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -31,6 +31,7 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` are Ready to start
 | ADR-DIVE-013 | `specs/architecture/adrs/ADR-DIVE-013.md` | Draft | 0.2 |
 | ADR-DIVE-014 | `specs/architecture/adrs/ADR-DIVE-014.md` | Draft | 0.3 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 1.3 |
+| SPEC-DIVE-WEB-001 | `specs/web/SPEC-DIVE-WEB-001.md` | Draft | 0.1 |
 | SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.14 |
 | SPEC-DIVE-ONBOARDING-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md` | Draft | 0.2 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.2-draft |
@@ -66,6 +67,10 @@ Notion pages are indexes only. They are not coverage evidence.
 
 `DIVE-BOOK-REQ-003` is the capacity invariant. `DIVE-BOOK-REQ-029` states that capacity lives on the slot.
 `DIVE-BOOK-REQ-037..038` publish future `Available` and `Full` slots; `Full` is visible as non-bookable.
+
+### Web dashboard — `DIVE-WEB-REQ-001` … `012` (Draft)
+
+`SPEC-DIVE-WEB-001` proposes the US-08 center-dashboard presentation and interaction contract. Its `Derived` and `Proposed` rows are pending approval and provide no implementation authority or coverage. Blocking questions cover Draft-activity editing, trusted center time-zone exposure, frontend capability exposure, and Product/Design acceptance of the proposed navigation. Intended proof lives in a later `apps/web` implementation PR; existing catalog API proof does not demonstrate the web slice.
 
 ### IAM — `DIVE-IAM-REQ-001` … `032`
 
