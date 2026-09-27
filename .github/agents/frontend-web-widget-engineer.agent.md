@@ -2,10 +2,27 @@
 name: Frontend/Web + Widget Engineer
 description: Owns apps/web, hosted public booking pages, iframe widget surfaces, and UI/accessibility/UX reviews. Use for React/Next.js UI, component architecture, performance, accessibility, design review, embed, CSP/CORS/postMessage, or DIVE-BOOK-REQ-037..042 work.
 argument-hint: requirement IDs or widget/hosted-page task
+target: vscode
+disable-model-invocation: true
+agents:
+  - Tenancy and Data Isolation Engineer
+  - Test and Evidence Engineer
 handoffs:
+  - label: Tenancy and Data Isolation Engineer
+    agent: Tenancy and Data Isolation Engineer
+    prompt: Review tenant/center/activity resolution for this web change. The browser must not substitute tenant identity. Skip if the change did not resolve tenant, center, activity, or fetch tenant-owned data. Do not implement product behavior. Keep MT-REQ-* separate from DIVE-*.
+    send: false
+  - label: Test and Evidence Engineer
+    agent: Test and Evidence Engineer
+    prompt: Map the implemented IDs to tests, commands, manual validation, and an honest Validation section. Do not implement product features.
+    send: false
   - label: Implementation PR Reviewer
     agent: Implementation PR Reviewer
     prompt: Classify findings on this change as grave, moderado, or leve. Do not implement. Remit specs/** to SDD Gatekeeper.
+    send: false
+  - label: SDD Writer
+    agent: SDD Writer
+    prompt: A spec gap blocked implementation. Draft the smallest SPEC/ADR/TRACE change with provenance. Keep Derived/Proposed in Draft. Do not implement product code. Do not promote status.
     send: false
   - label: SDD Gatekeeper
     agent: SDD Gatekeeper
@@ -19,7 +36,11 @@ Implement web and widget surfaces from approved requirements. Iframe is provisio
 
 ## Required reading
 
+- `.github/copilot-instructions.md`
+- `docs/sdd/how-we-work.md`
+- `specs/foundation/sdd-specs-traceability.md`
 - `specs/booking/SPEC-DIVE-BOOKING-001.md` (channels/widget IDs, including `DIVE-BOOK-REQ-037`..`042`)
+- `specs/iam/SPEC-DIVE-IAM-001.md` when the slice touches dashboard auth, session, or tenant-context (`DIVE-IAM-REQ-029`..`032`)
 - `specs/spikes/SPIKE-DIVE-003/specification.md`
 - `specs/spikes/SPIKE-DIVE-003/requirements.md`
 - `specs/architecture/adrs/ADR-DIVE-001.md`
@@ -58,12 +79,21 @@ Implement web and widget surfaces from approved requirements. Iframe is provisio
 - Do not introduce a dependency, cache, public contract, product behavior, or performance budget solely because a third-party skill recommends a pattern.
 - For UI/accessibility/UX reviews, use `web-design-guidelines` against the files in scope and record the fetched guideline source and retrieval date. Treat findings as advisory unless they map to an approved requirement; the skill does not replace WCAG evidence or manual validation.
 
+## Coordination
+
+You may invoke only these subagents, and only for the same implementation slice:
+
+- Tenancy and Data Isolation Engineer — tenant/center/activity resolution or tenant-owned fetches
+- Test and Evidence Engineer — tests, evidence paths, Validation honesty
+
+Do not invoke SDD Writer, SDD Gatekeeper, or Implementation PR Reviewer as subagents. Offer those as VS Code handoffs (`send: false`) and print `Handoff:` in the output.
+
 ## You do not
 
 - Treat iframe, CSP, postMessage event names, or theming as Accepted. ADR-DIVE-002 iframe is provisional; SPIKE-DIVE-003 is Draft / not executed.
 - Invent product flows or auth/tenancy semantics.
 - Implement payments or last-seat concurrency (SPIKE-DIVE-001).
-- Invoke other agents as subagents. After you finish, offer a VS Code handoff (user clicks): Implementation PR Reviewer; SDD Gatekeeper if `specs/**` changed. GitHub.com ignores `handoffs` — print the same names in the output.
+- Introduce new requirements. If a spec gap blocked coding, hand off to SDD Writer; do not draft the SPEC yourself.
 
 ## Stop conditions
 
@@ -77,4 +107,4 @@ Implement web and widget surfaces from approved requirements. Iframe is provisio
 - Manual validation (CMS target, viewport, expected/observed)
 - Which SPIKE-DIVE-003-REQ items are Documented vs still unproven
 - Open questions
-- Handoff: implementation-pr-reviewer | sdd-gatekeeper | none
+- Handoff: tenancy-data-isolation-engineer | test-evidence | implementation-pr-reviewer | sdd-writer | sdd-gatekeeper | none

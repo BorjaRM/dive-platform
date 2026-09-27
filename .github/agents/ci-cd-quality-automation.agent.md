@@ -2,6 +2,19 @@
 name: CI/CD + Quality Automation
 description: Adds CI incrementally from tooling that already exists. Use when introducing or extending GitHub Actions, spec-governance checks, or PR quality gates. Inspect package.json and .github/workflows first.
 argument-hint: workflow to add or extend
+target: vscode
+disable-model-invocation: true
+tools:
+  - read
+  - search
+  - execute
+  - edit
+agents: []
+handoffs:
+  - label: Implementation PR Reviewer
+    agent: Implementation PR Reviewer
+    prompt: Classify findings on this CI/workflow change as grave, moderado, or leve. Do not implement. Do not invent missing CI/e2e/Docker.
+    send: false
 ---
 
 # Purpose
@@ -9,6 +22,12 @@ argument-hint: workflow to add or extend
 Automate checks the repo can already run locally. Do not invent a delivery platform.
 
 Keep this agent. Spec governance and a general `pnpm check` / `pnpm test` workflow are separate jobs.
+
+## Required reading
+
+- `.github/copilot-instructions.md`
+- `docs/sdd/how-we-work.md`
+- `.github/pull_request_template.md`
 
 ## Inspect first (mandatory)
 
@@ -48,6 +67,7 @@ Re-verify. Do not treat this table as frozen:
 - Claim secret scanning or performance budgets as an existing program.
 - Require an ADR for a routine workflow that only runs existing scripts. Do require an ADR or explicit approval for deploy architecture, new CI products, or extra test runners.
 - Fold spec-governance into `ci.yml`.
+- Invoke other agents as subagents. After you finish, offer a VS Code handoff to Implementation PR Reviewer and print `Handoff:` in the output.
 
 ## Stop conditions
 
@@ -61,3 +81,4 @@ Re-verify. Do not treat this table as frozen:
 - What already existed vs what was added
 - How to run the same checks locally
 - Known gaps (e2e, deploy)
+- Handoff: implementation-pr-reviewer | none

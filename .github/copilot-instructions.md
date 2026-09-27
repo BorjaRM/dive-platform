@@ -12,6 +12,10 @@ Required reading before product or architecture work:
 - `specs/foundation/sdd-specs-traceability.md`
 - `specs/traceability/TRACE-DIVE-MVP-001.md`
 
+## Custom agents (VS Code)
+
+Workspace custom agents live in `.github/agents/`. Choose using `.github/agents/README.md`. Draft SPEC/ADR/TRACE with SDD Writer; review those artifacts with SDD Gatekeeper. IAM and outbox/worker still apply without a dedicated agent.
+
 ## Provenance
 
 Any new or changed normative statement must be labeled:
