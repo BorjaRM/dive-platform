@@ -1,7 +1,7 @@
 # SPEC-DIVE-BOOKING-001 — Bookings, widget, and calendar
 
 - **Status:** Ready to start
-- **Version:** 0.7
+- **Version:** 0.8
 - **Last reviewed:** 2026-09-27
 - **Approved by:** Borja (Product owner)
 - **Approval reference:** PR #1, provenance migration PR, and product confirmations 2026-09-27 for catalog HTTP, slot time representation, public visibility of full slots, and ADR-DIVE-010 public create closures
@@ -298,6 +298,8 @@ No real personal data in development, preview, or staging for this increment.
 
 ## Open questions
 
-1. Cursor encoding and opaque continuation token format for catalog lists.
-2. Additional response DTO fields beyond the approved request keys and the identifiers required to call subsequent endpoints.
-3. Physical table, column, and index names for activities and slots.
+These items are pending product decision. Implementation MUST NOT invent a value, encoding, extra field, or physical name to close them.
+
+1. **Pending decision — catalog cursor.** Cursor encoding, integrity protection, and continuation-token format for catalog lists (`DIVE-BOOK-REQ-057`).
+2. **Pending decision — catalog response DTO.** Additional response fields beyond the approved request keys and the identifiers required to call subsequent endpoints.
+3. **Pending decision — physical names.** Table, column, and index names for activities and slots.

@@ -1,10 +1,10 @@
 # SPEC-DIVE-IAM-001 — Roles, permissions, and scopes
 
 - **Status:** Ready to start
-- **Version:** 0.10
+- **Version:** 0.11
 - **Last reviewed:** 2026-09-27
 - **Approved by:** Borja (Product owner)
-- **Approval reference:** PR #1, provenance migration PR, PR #13 (`ADR-DIVE-008` Ready to start), product confirmation 2026-09-27 for `ADR-DIVE-008` v0.7 implementation closures, and product confirmation 2026-09-27 for center-application bootstrap (`ADR-DIVE-008` v0.9)
+- **Approval reference:** PR #1, provenance migration PR, PR #13 (`ADR-DIVE-008` Ready to start), product confirmation 2026-09-27 for `ADR-DIVE-008` v0.7 implementation closures, product confirmation 2026-09-27 for center-application bootstrap (`ADR-DIVE-008` v0.9), and product confirmation 2026-09-27 for reserved keys, generated CORS, authentication host, environment namespace, and no-`Origin` bootstrap (`ADR-DIVE-008` v0.10)
 - **Owner:** Product / Security
 - **IDs:** `DIVE-IAM-REQ-001` … `DIVE-IAM-REQ-032`
 
@@ -146,7 +146,7 @@ Write variants of `audit.*` and `support.tenant.write` are out of MVP.
 
 ## Dashboard API (`ADR-DIVE-008`)
 
-Ready to start. The dashboard route contract is defined by `ADR-DIVE-008` v0.9.
+Ready to start. The dashboard route contract is defined by `ADR-DIVE-008` v0.10.
 
 ```text
 GET    /v1/me/operators
@@ -200,13 +200,14 @@ The product-level questions for the implemented dashboard tenant-context slice a
 
 `DIVE-IAM-REQ-032` and `POST /v1/me/center-entry-contexts` are the center-application bootstrap contract. Applications must not add a hidden display-name match or infer tenant from arbitrary `centerId`. `centerKey` names the platform subdomain; `centerRef` carries the same value only during bootstrap; `centerId` is the resource selector used afterward.
 
+`ADR-DIVE-008` v0.10 closes the reserved `centerKey` set, generated exact-origin CORS, one authentication host per environment, same `centerKey` across environments with distinct `<domain>` namespaces, and the MVP ban on center-entry without `Origin`.
+
 Follow-up decisions remain explicit and are not authorized here:
 
-- reserved `centerKey` set and key administration;
-- exact-origin CORS population for many platform subdomains without wildcard CORS;
-- Clerk allowed origins and redirect URLs for center-application hosts;
-- per-environment `<domain>` values;
+- exact authentication-host FQDN and exact `<domain>` values per environment;
+- administrative process for allocating or retiring a non-reserved `centerKey`;
 - future custom-domain verification, DNS/TLS provisioning, host administration, and alias mapping;
-- whether a non-browser client without `Origin` may call center-entry bootstrap;
 - active-handle TTL policy and cleanup execution;
 - `BrandConfiguration`, branded login, and cross-domain session continuity.
+
+Catalog cursor encoding, extra catalog response DTO fields, and physical activity/slot names remain pending decision in `SPEC-DIVE-BOOKING-001`.
