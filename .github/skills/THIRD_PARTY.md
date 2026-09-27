@@ -4,8 +4,9 @@ The directories below are vendored from [`vercel-labs/agent-skills`](https://git
 
 - `vercel-react-best-practices`
 - `vercel-composition-patterns`
+- `web-design-guidelines`
 
-Their `SKILL.md` files declare the MIT license and Vercel authorship. The vendored files are kept unchanged; only their directories are named after each skill's frontmatter `name` so GitHub Copilot can discover them under this repository's naming convention.
+The React skills' `SKILL.md` files declare the MIT license and Vercel authorship. `web-design-guidelines` records Vercel as author but does not declare a license in its `SKILL.md`; keep this explicit during review. The vendored files are kept unchanged; only the React skill directories are renamed after each skill's frontmatter `name` so GitHub Copilot can discover them under this repository's naming convention.
 
 ## Precedence and scope
 
@@ -19,6 +20,10 @@ When guidance conflicts, use this order:
 4. These third-party skills.
 
 Apply only rules relevant to the change. Do not add SWR, caching, new dependencies, public contracts, or abstractions merely because a skill mentions them. Missing product or architecture decisions remain open questions.
+
+## Mutable review source
+
+`web-design-guidelines` is pinned here, but its procedure fetches `vercel-labs/web-interface-guidelines` from `main` at review time. UI review output must record the fetched source URL and retrieval date. Those remote guidelines remain advisory and cannot override approved requirements, repository instructions, or version-matched framework documentation.
 
 ## Updating
 

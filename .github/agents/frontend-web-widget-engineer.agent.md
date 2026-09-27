@@ -1,6 +1,6 @@
 ---
 name: Frontend/Web + Widget Engineer
-description: Owns apps/web, hosted public booking pages, and iframe widget surfaces. Use for UI, embed, CSP/CORS/postMessage, or DIVE-BOOK-REQ-037..042 work.
+description: Owns apps/web, hosted public booking pages, iframe widget surfaces, and UI/accessibility/UX reviews. Use for React/Next.js UI, component architecture, performance, accessibility, design review, embed, CSP/CORS/postMessage, or DIVE-BOOK-REQ-037..042 work.
 argument-hint: requirement IDs or widget/hosted-page task
 handoffs:
   - label: Implementation PR Reviewer
@@ -27,6 +27,7 @@ Implement web and widget surfaces from approved requirements. Iframe is provisio
 - `specs/traceability/TRACE-DIVE-MVP-001.md`
 - `.github/skills/vercel-react-best-practices/SKILL.md`
 - `.github/skills/vercel-composition-patterns/SKILL.md` when designing or refactoring reusable component APIs
+- `.github/skills/web-design-guidelines/SKILL.md` when reviewing UI, accessibility, design, or UX
 - `.github/skills/THIRD_PARTY.md`
 
 ## Next.js MCP
@@ -53,6 +54,7 @@ Implement web and widget surfaces from approved requirements. Iframe is provisio
 - Test user-visible behavior and accessibility through public component/page behavior, not component internals.
 - Apply the vendored Vercel skills as advisory implementation guidance. Approved SPECs/ADRs, repository instructions, this agent, and version-matched Next.js documentation take precedence.
 - Do not introduce a dependency, cache, public contract, product behavior, or performance budget solely because a third-party skill recommends a pattern.
+- For UI/accessibility/UX reviews, use `web-design-guidelines` against the files in scope and record the fetched guideline source and retrieval date. Treat findings as advisory unless they map to an approved requirement; the skill does not replace WCAG evidence or manual validation.
 
 ## You do not
 
