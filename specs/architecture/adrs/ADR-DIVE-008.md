@@ -1,11 +1,11 @@
 # ADR-DIVE-008 — Internal tenant-scoped dashboard context
 
 - **Status:** Ready to start
-- **Version:** 0.8
+- **Version:** 0.9
 - **Date:** 2026-09-27
 - **Decision date:** 2026-09-27
 - **Deciders:** Product / Security / Architecture
-- **Affected IDs:** `DIVE-IAM-REQ-001..006`, `016`, `022`, `024`, `028..031`; `MT-REQ-002`, `006`, `009`
+- **Affected IDs:** `DIVE-IAM-REQ-001..006`, `016`, `022`, `024`, `028..032`; `MT-REQ-002`, `006`, `009`
 
 ## Provenance
 
@@ -31,7 +31,10 @@ The path and credential decisions were introduced as `Proposed` on 2026-09-27. P
 | Delete revoked handles after 30 days; do not expire active handles through an independent product TTL | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | Configure dashboard CORS with exact origins from `DASHBOARD_CORS_ORIGINS`, without wildcard origins or cookie credentials, and allow `Authorization`, `X-Tenant-Context`, and `Content-Type` | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | Use `operators`, `operatorRef`, `displayName`, and `tenantContext` in the context API response shapes; operator references use the opaque `op_...` form | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
-| A center application establishes the organization context from its trusted center entry configuration without showing an intermediate operator or center selector | `Proposed` | Product confirmation by Borja on 2026-09-27; constrained by `DIVE-IAM-REQ-002`, `003`, `006`, `024`, `029..031` | Approved product direction 2026-09-27; exact bootstrap interface remains open and is not implementation-authorized by this revision |
+| A center application establishes the organization context from its trusted center entry configuration without showing an intermediate operator or center selector | `Proposed` | Product confirmation by Borja on 2026-09-27; constrained by `DIVE-IAM-REQ-002`, `003`, `006`, `024`, `029..032` | Approved by product owner 2026-09-27; Ready to start |
+| Center-application host shape `<centerKey>.app.<domain>`, dedicated `POST /v1/me/center-entry-contexts`, body `{ "centerRef": "…" }`, and one-time `{ "tenantContext": "…", "center": { "centerId": "…" } }` | `Proposed` | Product confirmation by Borja on 2026-09-27 closing ADR-DIVE-008 v0.8 open questions 1–4 | Approved by product owner 2026-09-27; Ready to start |
+| Unauthenticated center-application visitors are sent to login with the center URL preserved; authenticated identities without access see a generic unavailable-center page and receive a non-disclosing API denial | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| White-label brand ownership, custom domains, branded login, and cross-domain session continuity are out of this increment; authentication, branding, center resolution, and authorization stay decoupled | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved as future constraint 2026-09-27; not implementation scope |
 | Separate the database login used by provider webhooks from the shared application login | `Proposed` | Security hardening discussion with Borja on 2026-09-27 | Future consideration; not approved and not part of the current runtime contract |
 
 ## Context
@@ -40,7 +43,7 @@ The current IAM/API vertical authenticates a Clerk session token and receives `t
 
 The product direction is to remove tenant identifiers from dashboard API paths while keeping Clerk limited to identity authentication and PostgreSQL authoritative for product authorization. The solution must preserve multi-tenant isolation, multi-center scopes, revocation, non-disclosing failures, and identities that belong to several operators.
 
-The product owner also approved direct entry into a center application: login → center URL or domain → application limited to that center, with no intermediate operator or center selection screen. This creates a deliberate extension point over the current multi-membership issuance contract. The trusted URL/application-to-center resolution, request shape, and denial behavior must be closed before implementation; this revision does not silently choose them.
+The product owner approved direct entry into a center application: center subdomain → login if needed → return to the application limited to that center, with no intermediate operator or center selection screen. This revision closes the bootstrap interface for that journey. `POST /v1/me/tenant-contexts` with `operatorRef` remains the contract for non-center-application operator selection.
 
 This decision applies to authenticated dashboard traffic. It does not change public widget, hosted-page, or booking-specific capability authorization defined by ADR-DIVE-005 and `SPEC-DIVE-BOOKING-001`.
 
@@ -79,6 +82,7 @@ Required dashboard shapes:
 ```text
 GET    /v1/me/operators
 POST   /v1/me/tenant-contexts
+POST   /v1/me/center-entry-contexts
 DELETE /v1/me/tenant-contexts
 GET    /v1/centers
 GET    /v1/centers/:centerId
@@ -124,18 +128,48 @@ The raw handle secret and raw Clerk `sid` exist only in trusted backend memory w
 
 Browser clients persist the handle in `sessionStorage`, never `localStorage`, and remove it after logout or explicit revocation.
 
-### Center-application entry (approved direction; interface open)
+### Center-application entry
 
-The center application, not a user-facing selector, establishes the organization context for direct-center entry. The intended journey is login → center URL or domain → application limited to that center. The center entry value is a selector only; it never authorizes access. The server must resolve the center and tenant from trusted application configuration, then validate the authenticated identity, active membership, permission, and current center scope before issuing or accepting a tenant context. Failure must preserve the non-disclosure requirement.
+The center application, not a user-facing selector, establishes the organization context for direct-center entry. The journey is:
 
-This direction is approved by the product owner. The following implementation details remain open and therefore are not authorized by this ADR revision:
+```text
+https://<centerKey>.app.<domain>
+  → login if unauthenticated, preserving that URL
+  → return to the same center application
+```
 
-1. the MVP center-entry identifier and canonical URL shape;
-2. whether issuance extends `POST /v1/me/tenant-contexts` or uses a dedicated bootstrap endpoint;
-3. the exact generic denial response and neutral navigation behavior;
-4. the trusted persistence/configuration that maps URL or host to center and tenant without treating browser input as authorization.
+There is no intermediate operator or center selection screen. Changing center means navigating to that center's subdomain. Logout ends the identity session; it is not the mechanism for changing center.
 
-Until those points are approved in GitHub, the existing `operatorRef` contract below remains the implemented API contract. Applications must not add a hidden display-name match, infer tenant from arbitrary `centerId`, or expose an intermediate operator selector as a workaround.
+`centerKey` is a readable DNS label, unique per environment, and immutable for the MVP. It is not the editable center name and is not a tenant or center UUID. `centerRef` in the bootstrap request is that same untrusted selector. The server resolves host/`centerRef` through trusted configuration to tenant + center, then validates Clerk identity, active membership, and current center scope. The selector never authorizes access.
+
+MVP host mapping uses the platform domain pattern above, with wildcard DNS/TLS for `*.app.<domain>`. This increment does not create a `BrandConfiguration` model, custom domains, branded login, or white-label ownership. Authentication, branding, center resolution, and authorization remain separate so a later white-label story can attach a verified host without rewriting authorization.
+
+```http
+POST /v1/me/center-entry-contexts
+Authorization: Bearer <clerk-session-token>
+
+{ "centerRef": "<centerKey>" }
+```
+
+Success returns once:
+
+```json
+{ "tenantContext": "ctx_…", "center": { "centerId": "…" } }
+```
+
+`tenantContext` is the same tenant-scoped handle issued by `POST /v1/me/tenant-contexts`. `centerId` is the resource selector used in product paths. The handle remains tenant-scoped; center-application product operations are center-scoped in their paths and must not aggregate other centers.
+
+This endpoint MUST NOT accept `operatorRef`, `tenantId`, or a client-supplied tenant selector. It MUST NOT return other operators or centers. `GET /v1/me/operators` is not part of the center-application journey.
+
+Denial:
+
+- missing or invalid Clerk session: `401`; the application preserves the center URL and sends the user to login;
+- unknown, inactive, cross-tenant, or unauthorized `centerRef`: non-disclosing failure, same observable result as an unknown selector; the application shows a generic unavailable-center page with only back, logout, and support actions;
+- the page MUST NOT list other centers, operators, or memberships.
+
+`POST /v1/me/tenant-contexts` is unchanged: multiple active memberships still require `operatorRef`. Center applications MUST use `POST /v1/me/center-entry-contexts` instead of inferring tenant from `centerId` or matching display names.
+
+A reserved-word list for `centerKey` is required before issuing public hosts. The exact reserved set is an open question and must not be invented here.
 
 ### Operator selection
 
@@ -192,10 +226,12 @@ The field names above are part of this contract. The path rule and header-based 
 ### Multi-center organizations
 
 - A context credential is tenant-scoped, not center-scoped.
-- An operator with several centers still uses one tenant context.
+- An operator with several centers still uses one tenant context per selected tenant.
 - Each center-scoped operation validates that the center belongs to the selected tenant and is within the membership’s current authorized center scopes.
 - Center identifiers remain resource selectors and never authorize access by themselves.
-- Tenant-wide roles may operate across centers only as already allowed by `SPEC-DIVE-IAM-001`.
+- A center application is limited to the center resolved from its host. Permissions on other centers or organizations do not mix data into that application.
+- Tenant-wide roles may still be authorized for another center, but they reach it only by opening that center’s application/host, not by aggregating catalog or availability in the current application.
+- Existing list endpoints such as `GET /v1/centers` are not part of the center-application catalog journey.
 
 ### Authorization path
 
@@ -287,10 +323,13 @@ Implementation must demonstrate:
 - client-supplied `tenantId` in query or body is ignored and does not select tenant context;
 - zero memberships issues no tenant context;
 - one active membership can be selected automatically;
-- multiple memberships require an explicit valid selection;
+- multiple memberships require an explicit valid `operatorRef` on `POST /v1/me/tenant-contexts`;
 - fabricated, unrelated, inactive, and cross-identity selections issue no context;
+- `POST /v1/me/center-entry-contexts` issues a handle without `operatorRef` when host/`centerRef` resolves and the identity has current access to that center;
+- unknown or unauthorized `centerRef` is non-disclosing and issues no handle;
 - a context for tenant A cannot read or mutate tenant B;
 - a center outside the current membership scope is denied;
+- a center application with access to center A cannot list or mutate center B through catalog or availability routes;
 - membership disable, Clerk logout, and session expiry prevent further authorized calls within the existing requirements;
 - context credentials cannot be replayed by another identity or another Clerk session;
 - missing Clerk session or missing/revoked handle fails closed;
@@ -302,14 +341,15 @@ Tests must link the relevant `DIVE-IAM-REQ-*` and existing `MT-SC-*` rows withou
 
 ## Remaining open questions
 
-The first four questions close the center-application extension and block its implementation. They do not reopen the existing path or credential-shape decision:
+These questions do not reopen the approved center-application host, bootstrap endpoint, or denial behavior:
 
-1. Which selector and canonical URL shape identify the center application in the MVP?
-2. Does context issuance extend `POST /v1/me/tenant-contexts` or use a dedicated authenticated bootstrap endpoint?
-3. What exact generic response and navigation apply when the authenticated identity has no access to the center entry?
-4. Which trusted configuration maps URL or host to center and tenant, and how is that mapping administered without introducing white-label scope into this increment?
+1. Exact reserved `centerKey` set and the administrative process for allocating or retiring keys.
+2. How `DASHBOARD_CORS_ORIGINS` is populated for many center subdomains while remaining an exact-origin allowlist. This ADR still forbids wildcard CORS origins; wildcard DNS/TLS for `*.app.<domain>` does not authorize wildcard CORS.
+3. How Clerk allowed origins and redirect URLs include center-application hosts without silently broadening the identity adapter contract.
+4. Per-environment values of `<domain>` and whether preview/staging share the production `centerKey` namespace.
 5. Whether forgotten active handles need an approved maximum-age or idle TTL, and whether continuity of existing tabs or availability for new tabs has priority at the 20-handle cap.
 6. The operational cleanup contract: scheduler ownership, cadence, database credential, batching, retry, alerting, and deletion metrics for revoked handles older than 30 days.
+7. White-label brand ownership, custom domains, branded login, CORS registration of verified domains, and cross-domain session continuity. Out of this increment.
 
 ## Alternatives considered
 
@@ -335,4 +375,4 @@ Not selected. It implies one active tenant per browser profile, couples dashboar
 
 ## Implementation authority
 
-Ready to start authorizes reversible implementation with synthetic data for `DIVE-IAM-REQ-029..031`. Do not invent values for the remaining open questions. Runtime routes change only in the implementation PR, with the tests listed above.
+Ready to start authorizes reversible implementation with synthetic data for `DIVE-IAM-REQ-029..032`. Do not invent values for the remaining open questions. Runtime routes change only in the implementation PR, with the tests listed above.

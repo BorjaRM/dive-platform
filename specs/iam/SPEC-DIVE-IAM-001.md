@@ -1,12 +1,12 @@
 # SPEC-DIVE-IAM-001 — Roles, permissions, and scopes
 
 - **Status:** Ready to start
-- **Version:** 0.9
+- **Version:** 0.10
 - **Last reviewed:** 2026-09-27
 - **Approved by:** Borja (Product owner)
-- **Approval reference:** PR #1, provenance migration PR, PR #13 (`ADR-DIVE-008` Ready to start), and product confirmation 2026-09-27 for `ADR-DIVE-008` v0.7 implementation closures
+- **Approval reference:** PR #1, provenance migration PR, PR #13 (`ADR-DIVE-008` Ready to start), product confirmation 2026-09-27 for `ADR-DIVE-008` v0.7 implementation closures, and product confirmation 2026-09-27 for center-application bootstrap (`ADR-DIVE-008` v0.9)
 - **Owner:** Product / Security
-- **IDs:** `DIVE-IAM-REQ-001` … `DIVE-IAM-REQ-031`
+- **IDs:** `DIVE-IAM-REQ-001` … `DIVE-IAM-REQ-032`
 
 ## Normative authority
 
@@ -14,7 +14,7 @@ This SPEC is the single normative source for MVP identity, membership, roles, pe
 
 It adopts `specs/foundation/iam-baseline.md`. Dive-specific roles and public-channel capabilities are defined here. Clerk is an adapter, not the authorization source of truth.
 
-Dashboard tenant-context HTTP contract is owned with `ADR-DIVE-008`. The approved direct-center product direction is recorded there, but its bootstrap interface remains open and does not yet replace the implemented `operatorRef` contract.
+Dashboard tenant-context HTTP contract is owned with `ADR-DIVE-008`. Center-application bootstrap is `DIVE-IAM-REQ-032` and does not replace `DIVE-IAM-REQ-031` for `POST /v1/me/tenant-contexts`.
 
 ## Requirement provenance
 
@@ -28,6 +28,7 @@ The ranges below cover every requirement in this SPEC. Decisions originating in 
 | `DIVE-IAM-REQ-017..DIVE-IAM-REQ-020` | `Proposed` | PR #1 invitation, owner-lockout, MFA-readiness, and support-access decisions | Approved by product owner for MVP validation |
 | `DIVE-IAM-REQ-021..DIVE-IAM-REQ-028` | `Derived` | `specs/foundation/iam-baseline.md`; `specs/foundation/security-privacy-baseline.md`; PR #1 | Approved by product owner |
 | `DIVE-IAM-REQ-029..DIVE-IAM-REQ-031` | `Proposed` | `ADR-DIVE-008`; product confirmation 2026-09-27 | Approved by product owner 2026-09-27 for MVP validation; Ready to start |
+| `DIVE-IAM-REQ-032` | `Proposed` | `ADR-DIVE-008` v0.9; product confirmation 2026-09-27 | Approved by product owner 2026-09-27 for MVP validation; Ready to start |
 
 ## Goal
 
@@ -43,7 +44,7 @@ In scope:
 - Public booking capabilities without internal roles
 - Invitation, disable, and revocation for MVP dashboard users
 - Read-only platform support path
-- Dashboard tenant-context credential and path contract (`DIVE-IAM-REQ-029..031`)
+- Dashboard tenant-context credential and path contract (`DIVE-IAM-REQ-029..032`)
 
 Out of scope:
 
@@ -140,15 +141,17 @@ Write variants of `audit.*` and `support.tenant.write` are out of MVP.
 - **DIVE-IAM-REQ-028:** Tests must cover cross-tenant access, center-scope enforcement, public-token limits, and support-access expiry.
 - **DIVE-IAM-REQ-029:** Dashboard HTTP paths MUST NOT include `/tenants/:tenantId` or another tenant-identifier segment. Product routes MUST NOT take tenant context from query string or body. `:centerId` and `:membershipId` remain resource selectors and never select the tenant.
 - **DIVE-IAM-REQ-030:** After Clerk authentication, dashboard tenant context is an opaque server-stored handle presented in `X-Tenant-Context`, bound to the authenticated identity and Clerk `sid`. The handle selects a tenant and is not sufficient authorization. Roles, permissions, center scopes, and membership state are read from PostgreSQL on the request.
-- **DIVE-IAM-REQ-031:** The server lists only the identity’s active operator memberships as opaque `operatorRef` values. Zero active memberships issue no handle. Exactly one active membership may be selected automatically. Several require an explicit `operatorRef` from that list. Invalid, inactive, unrelated, or cross-identity selections fail without disclosure. Several handles may exist for one Clerk session. The handle is tenant-scoped, not center-scoped.
+- **DIVE-IAM-REQ-031:** The server lists only the identity’s active operator memberships as opaque `operatorRef` values. Zero active memberships issue no handle. Exactly one active membership may be selected automatically. Several require an explicit `operatorRef` from that list on `POST /v1/me/tenant-contexts`. Invalid, inactive, unrelated, or cross-identity selections fail without disclosure. Several handles may exist for one Clerk session. The handle is tenant-scoped, not center-scoped.
+- **DIVE-IAM-REQ-032:** A center application may issue the same tenant-scoped handle without `operatorRef` through `POST /v1/me/center-entry-contexts` after resolving a trusted `centerRef` from the center-application host, authenticating Clerk, and validating an active membership plus current center scope. This path MUST NOT list other operators or centers. Unknown or unauthorized `centerRef` fails without disclosure. Center-application catalog and availability operations remain limited to that center even when the identity has other authorized centers.
 
 ## Dashboard API (`ADR-DIVE-008`)
 
-Ready to start. The dashboard route contract is defined by `ADR-DIVE-008` v0.7.
+Ready to start. The dashboard route contract is defined by `ADR-DIVE-008` v0.9.
 
 ```text
 GET    /v1/me/operators
 POST   /v1/me/tenant-contexts
+POST   /v1/me/center-entry-contexts
 DELETE /v1/me/tenant-contexts
 GET    /v1/centers
 GET    /v1/centers/:centerId
@@ -189,10 +192,19 @@ Protected product requests send `Authorization: Bearer <clerk-session-token>` an
 - Public channel and token negative tests
 - Revocation timing test or documented measurement
 - Support access expiry test
-- Dashboard routes without `/tenants/:tenantId`; old tenant-path shapes rejected; handle/session/identity mismatch; automatic and explicit operator selection; non-disclosing invalid `operatorRef`
+- Dashboard routes without `/tenants/:tenantId`; old tenant-path shapes rejected; handle/session/identity mismatch; automatic and explicit operator selection; non-disclosing invalid `operatorRef`; center-entry without `operatorRef`; non-disclosing invalid `centerRef`; no cross-center mix in a center application
 
 ## Open questions
 
-The product-level questions for the implemented dashboard tenant-context slice are closed by `ADR-DIVE-008` v0.7, with provenance `Proposed` and explicit product-owner approval on 2026-09-27. The implementation may choose physical table/index names and deployment secret names only when those choices preserve the approved contract and do not introduce new defaults. Active-handle TTL policy and cleanup execution remain explicit follow-up decisions.
+The product-level questions for the implemented dashboard tenant-context slice are closed by `ADR-DIVE-008` v0.9, with provenance `Proposed` and explicit product-owner approval on 2026-09-27. The implementation may choose physical table/index names and deployment secret names only when those choices preserve the approved contract and do not introduce new defaults.
 
-`ADR-DIVE-008` v0.8 records the approved direction that a center application establishes organization context without an intermediate selector. Its center-entry identifier, bootstrap endpoint/request shape, generic denial behavior, and trusted URL/host mapping remain open. Until approved, `DIVE-IAM-REQ-031` and the existing `operatorRef` API remain the implementation contract; no hidden display-name matching or arbitrary `centerId` inference is allowed.
+`DIVE-IAM-REQ-032` and `POST /v1/me/center-entry-contexts` are the center-application bootstrap contract. Applications must not add a hidden display-name match or infer tenant from arbitrary `centerId`.
+
+Follow-up decisions remain explicit and are not authorized here:
+
+- reserved `centerKey` set and key administration;
+- exact-origin CORS population for many center subdomains, without wildcard CORS;
+- Clerk allowed origins and redirect URLs for center-application hosts;
+- per-environment `<domain>` values;
+- active-handle TTL policy and cleanup execution;
+- white-label brand ownership, custom domains, branded login, and cross-domain session continuity.

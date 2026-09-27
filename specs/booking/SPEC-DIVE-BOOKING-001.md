@@ -1,12 +1,12 @@
 # SPEC-DIVE-BOOKING-001 — Bookings, widget, and calendar
 
 - **Status:** Ready to start
-- **Version:** 0.5
-- **Last reviewed:** 2026-09-26
+- **Version:** 0.6
+- **Last reviewed:** 2026-09-27
 - **Approved by:** Borja (Product owner)
-- **Approval reference:** PR #1 and this provenance migration PR
+- **Approval reference:** PR #1, provenance migration PR, and product confirmation 2026-09-27 for catalog HTTP and slot time representation
 - **Owner:** Product / Booking
-- **IDs:** `DIVE-BOOK-REQ-001` … `DIVE-BOOK-REQ-048`
+- **IDs:** `DIVE-BOOK-REQ-001` … `DIVE-BOOK-REQ-057`
 
 ## Normative authority
 
@@ -29,6 +29,7 @@ The ranges below cover every requirement in this SPEC. `Derived` consolidates th
 | `DIVE-BOOK-REQ-033..DIVE-BOOK-REQ-036` | `Proposed` | PR #1 mutation and cancellation consolidation | Approved by product owner for MVP validation |
 | `DIVE-BOOK-REQ-037..DIVE-BOOK-REQ-042` | `Derived` | `specs/architecture/adrs/ADR-DIVE-002.md`; `specs/spikes/SPIKE-DIVE-003/specification.md`; PR #1 | Approved by product owner |
 | `DIVE-BOOK-REQ-043..DIVE-BOOK-REQ-048` | `Derived` | `specs/foundation/security-privacy-baseline.md`; `specs/foundation/operations-quality-recovery.md`; `specs/product/dive-mvp-profile.md`; PR #1 | Approved by product owner |
+| `DIVE-BOOK-REQ-049..DIVE-BOOK-REQ-057` | `Proposed` | Product confirmation by Borja on 2026-09-27 for US-08 catalog HTTP, center-scoped operations, slot time representation, and listing defaults | Approved by product owner 2026-09-27 for MVP validation |
 
 ### Normative defaults provenance
 
@@ -41,6 +42,8 @@ The ranges below cover every requirement in this SPEC. `Derived` consolidates th
 | Allowed `postMessage` types | `Proposed` | PR #1 | Approved by product owner for MVP validation |
 | `postMessage` excludes secrets and full personal data | `Derived` | `specs/foundation/security-privacy-baseline.md`; PR #1 | Approved by product owner |
 | Widget customization allow-list | `Proposed` | PR #1 | Approved by product owner for MVP validation |
+| Slot persists `starts_at` timestamptz and `duration_minutes`; end is derived | `Proposed` | Product confirmation by Borja on 2026-09-27; specializes `DIVE-BOOK-REQ-010` | Approved by product owner 2026-09-27 for MVP validation |
+| Catalog list page size maximum is 50 | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved by product owner 2026-09-27 for MVP validation |
 
 ## Goal
 
@@ -88,10 +91,10 @@ Out of scope:
 ## States
 
 - Activity: `Draft → Published → Disabled`
-- Slot: `Available → Full → Closed | Cancelled`
+- Slot: `Available → Full → Closed | Cancelled`; `Closed → Cancelled` is allowed
 - Booking: `Pending → Confirmed → Cancelled | Expired`
 
-`Cancelled` and `Expired` are terminal. `Disabled` on an activity does not change existing slot states.
+`Cancelled` and `Expired` are terminal. `Closed` is terminal except for the approved `Closed → Cancelled` transition. `Disabled` on an activity does not change existing slot states.
 
 ## Capacity invariant
 
@@ -173,6 +176,46 @@ Public, widget, hosted-page, and dashboard channels apply this invariant with th
 - **DIVE-BOOK-REQ-046:** MVP booking does not collect payments, medical answers, diagnoses, document images, emergency contacts, or certification evidence.
 - **DIVE-BOOK-REQ-047:** Rate limits, validation, and anti-abuse controls must not create an enumeration oracle for tenants, centers, slots, or personal data.
 - **DIVE-BOOK-REQ-048:** Booking-related personal data is limited to contact and booking operation. Retention, export, correction, and deletion follow the privacy baseline and must be defined before any real-data pilot.
+- **DIVE-BOOK-REQ-049:** A slot persists `starts_at` as timestamptz and `duration_minutes` as a positive integer. End time is derived. Remaining sellable seats are not persisted; they are derived from bookings.
+- **DIVE-BOOK-REQ-050:** Dashboard catalog and availability HTTP for the center application is always scoped to one center:
+
+```text
+GET    /v1/centers/:centerId/activities
+POST   /v1/centers/:centerId/activities
+PATCH  /v1/centers/:centerId/activities/:activityId/publish
+PATCH  /v1/centers/:centerId/activities/:activityId/disable
+GET    /v1/centers/:centerId/activities/:activityId/slots
+POST   /v1/centers/:centerId/activities/:activityId/slots
+PATCH  /v1/centers/:centerId/slots/:slotId/close
+PATCH  /v1/centers/:centerId/slots/:slotId/cancel
+```
+
+`:centerId`, `:activityId`, and `:slotId` are selectors, never authorization. Paths MUST NOT include a tenant identifier. A request MUST NOT list, create, or mutate resources of another center, even when the actor has access to that other center.
+- **DIVE-BOOK-REQ-051:** `POST /v1/centers/:centerId/activities` creates an activity in `Draft`. The client sends localized `name` (`es` / `en` object), optional localized `description`, and optional positive `defaultCapacity`. The client MUST NOT send `tenantId`, `centerId`, or `status`.
+- **DIVE-BOOK-REQ-052:** `POST /v1/centers/:centerId/activities/:activityId/slots` is allowed only when that activity is `Published`. The created slot is `Available`. The client sends `startsAt`, positive `durationMinutes`, and positive `capacity`. Tenant and center are taken from the authorized path and activity. The client MUST NOT send `tenantId`, another `centerId`, `status`, `end`, or remaining seats.
+- **DIVE-BOOK-REQ-053:** `PATCH .../publish` requires both `name.es` and `name.en`. A Draft may be saved with incomplete translations. `PATCH .../disable` stops new use of the activity and does not cancel existing slots.
+- **DIVE-BOOK-REQ-054:** Repeating `publish`, `disable`, `close`, or `cancel` when the resource is already in the resulting state is idempotent success (`204`). An incompatible transition returns `409`.
+- **DIVE-BOOK-REQ-055:** A slot may transition `Closed → Cancelled`.
+- **DIVE-BOOK-REQ-056:** Catalog HTTP uses `application/problem+json`. Create returns `201`. Successful commands return `204`. Malformed JSON returns `400`. Missing session or tenant context returns `401`. A permission failure inside the current authorized center returns `403`. A missing resource or a resource outside the current center/tenant returns `404` with the same observable result. Semantic field errors return `422`.
+- **DIVE-BOOK-REQ-057:** Catalog lists never accept multiple centers. Pagination is cursor-based with a maximum page size of 50. Activities are ordered by `created_at DESC`, then `id`, and may be filtered by `status`. Slots are ordered by `starts_at ASC`, then `id`, and may be filtered by date range and `status`.
+
+## Catalog HTTP (center application)
+
+This interface is for the authenticated center application. Public widget and hosted-page routes remain outside it.
+
+| Method and path | Effect |
+|---|---|
+| `GET /v1/centers/:centerId/activities` | List activities of that center only |
+| `POST /v1/centers/:centerId/activities` | Create a Draft activity in that center |
+| `PATCH /v1/centers/:centerId/activities/:activityId/publish` | Publish that activity |
+| `PATCH /v1/centers/:centerId/activities/:activityId/disable` | Disable new use of that activity |
+| `GET /v1/centers/:centerId/activities/:activityId/slots` | List slots of that activity and center |
+| `POST /v1/centers/:centerId/activities/:activityId/slots` | Schedule a slot on a Published activity |
+| `PATCH /v1/centers/:centerId/slots/:slotId/close` | Close the slot to new bookings; keep confirmed bookings |
+| `PATCH /v1/centers/:centerId/slots/:slotId/cancel` | Cancel the slot and block remaining sellable capacity |
+
+Protected requests send `Authorization: Bearer <clerk-session-token>` and `X-Tenant-Context` issued for the center application. `centerId` in the path must match the center resolved at entry.
+
 
 ## Default values for implementation
 
@@ -185,6 +228,8 @@ These defaults are normative until a later SPEC/ADR changes them:
 - `postMessage` types allowed: height, load, navigate-to-fallback, booking-result
 - `postMessage` never transports secrets or full personal data
 - Allowed widget customization: logo, validated colors, catalog font, localized copy, predefined corner radius. No center-supplied HTML, CSS, or JavaScript
+- Slot time fields: persist `starts_at` as timestamptz and `duration_minutes`; derive end; do not persist remaining seats
+- Catalog list maximum page size: 50
 
 ## Edge cases
 
@@ -196,6 +241,11 @@ These defaults are normative until a later SPEC/ADR changes them:
 - Token reuse after public cancellation
 - Locale switched mid-flow
 - Origin not on the channel allow-list
+- Center-application user with access to two centers opens center A and must not see center B catalog
+- `centerId` A with an activity or slot of center B
+- Repeat publish/disable/close/cancel on an already applied state
+- Publish with missing `en` or `es` name
+- Create slot on a Draft or Disabled activity
 
 ## Security, privacy, and operations
 
@@ -207,6 +257,7 @@ No real personal data in development, preview, or staging for this increment.
 
 - `specs/architecture/adrs/ADR-DIVE-001.md`
 - `specs/architecture/adrs/ADR-DIVE-002.md`
+- `specs/architecture/adrs/ADR-DIVE-008.md`
 - `specs/iam/SPEC-DIVE-IAM-001.md`
 - `specs/spikes/SPIKE-DIVE-001/` for last-seat evidence
 - `specs/spikes/SPIKE-DIVE-003/` for widget evidence
@@ -220,3 +271,11 @@ No real personal data in development, preview, or staging for this increment.
 - Outbox/audit atomicity tests
 - Locale catalogs `es`/`en`
 - Widget origin/CSP/fallback evidence (`SPIKE-DIVE-003`) before pilot
+- Catalog HTTP contract tests for `DIVE-BOOK-REQ-049..057`, including center-scope negatives and idempotent commands
+- Until a tenant/center onboarding story exists, catalog tests may insert tenant and center rows with fixtures; that is not an onboarding API
+
+## Open questions
+
+1. Cursor encoding and opaque continuation token format for catalog lists.
+2. Additional response DTO fields beyond the approved request keys and the identifiers required to call subsequent endpoints.
+3. Physical table, column, and index names for activities and slots.
