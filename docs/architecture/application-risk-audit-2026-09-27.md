@@ -193,6 +193,8 @@ El resumen y la tabla de prioridad describen el estado observado al inicio de la
 2. Mantenerlo separado de integración para identificar con claridad el fallo.
 3. Validar desde checkout limpio y conservar logs/artefactos cuando fallen.
 
+**Corrección aplicada.** El job `check-and-test` ejecuta `pnpm build` después de instalar el lockfile y antes de check/test. CI usa permisos `contents: read` y ya no modifica ni empuja la rama desde GitHub Actions; el formateo debe ejecutarse localmente o corregirse mediante un commit explícito.
+
 ### QA-02 — La suite API incluye tests duplicados de dependencias
 
 **Evidencia.** `include: ['**/*.spec.ts']` no limita descubrimiento a `src` ni excluye `node_modules`: [vitest.config.ts](../../apps/api/vitest.config.ts#L1-L12). En la ejecución auditada, API ejecutó dos copias adicionales de cada suite Clerk a través de dependencias workspace, al menos 80 tests duplicados.
