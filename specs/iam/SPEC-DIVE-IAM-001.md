@@ -142,7 +142,7 @@ Write variants of `audit.*` and `support.tenant.write` are out of MVP.
 - **DIVE-IAM-REQ-029:** Dashboard HTTP paths MUST NOT include `/tenants/:tenantId` or another tenant-identifier segment. Product routes MUST NOT take tenant context from query string or body. `:centerId` and `:membershipId` remain resource selectors and never select the tenant.
 - **DIVE-IAM-REQ-030:** After Clerk authentication, dashboard tenant context is an opaque server-stored handle presented in `X-Tenant-Context`, bound to the authenticated identity and Clerk `sid`. The handle selects a tenant and is not sufficient authorization. Roles, permissions, center scopes, and membership state are read from PostgreSQL on the request.
 - **DIVE-IAM-REQ-031:** The server lists only the identity’s active operator memberships as opaque `operatorRef` values. Zero active memberships issue no handle. Exactly one active membership may be selected automatically. Several require an explicit `operatorRef` from that list on `POST /v1/me/tenant-contexts`. Invalid, inactive, unrelated, or cross-identity selections fail without disclosure. Several handles may exist for one Clerk session. The handle is tenant-scoped, not center-scoped.
-- **DIVE-IAM-REQ-032:** A center application may issue the same tenant-scoped handle without `operatorRef` through `POST /v1/me/center-entry-contexts` after resolving the request `Origin` through trusted host configuration (platform subdomain or custom domain), authenticating Clerk, and validating an active membership plus current center scope. This path MUST NOT accept `centerRef` or list other operators or centers. Unknown or unauthorized host/`Origin` fails without disclosure. Center-application catalog and availability operations remain limited to that center even when the identity has other authorized centers.
+- **DIVE-IAM-REQ-032:** A center application may issue the same tenant-scoped handle without `operatorRef` through `POST /v1/me/center-entry-contexts`. Its canonical MVP URL is `https://<centerKey>.app.<domain>` and its JSON body is `{ "centerRef": "<centerKey>" }`; `centerRef` and `centerKey` MUST carry the same value and are one untrusted selector expressed at the API and DNS boundaries, not two identifiers. The server derives `centerKey` from the exact request `Origin`, requires equality with `centerRef`, resolves trusted configuration to tenant + center, authenticates Clerk, and validates active membership plus current center scope. Unknown, malformed, mismatched, inactive, cross-tenant, or unauthorized selection fails without disclosure. Success returns the tenant-scoped handle and internal `centerId`; subsequent product paths use `centerId`, not `centerRef`. The endpoint MUST NOT list other operators or centers. Center-application catalog and availability operations remain limited to that center even when the identity has other authorized centers. Custom center domains are outside the MVP.
 
 ## Dashboard API (`ADR-DIVE-008`)
 
@@ -192,21 +192,21 @@ Protected product requests send `Authorization: Bearer <clerk-session-token>` an
 - Public channel and token negative tests
 - Revocation timing test or documented measurement
 - Support access expiry test
-- Dashboard routes without `/tenants/:tenantId`; old tenant-path shapes rejected; handle/session/identity mismatch; automatic and explicit operator selection; non-disclosing invalid `operatorRef`; center-entry without `operatorRef` or `centerRef`; non-disclosing invalid host/`Origin`; no cross-center mix in a center application
+- Dashboard routes without `/tenants/:tenantId`; old tenant-path shapes rejected; handle/session/identity mismatch; automatic and explicit operator selection; non-disclosing invalid `operatorRef`; center-entry without `operatorRef`; required equality of `centerRef` and host-derived `centerKey`; non-disclosing missing, mismatched, or unauthorized selection; no cross-center mix in a center application
 
 ## Open questions
 
 The product-level questions for the implemented dashboard tenant-context slice are closed by `ADR-DIVE-008` v0.9, with provenance `Proposed` and explicit product-owner approval on 2026-09-27. The implementation may choose physical table/index names and deployment secret names only when those choices preserve the approved contract and do not introduce new defaults.
 
-`DIVE-IAM-REQ-032` and `POST /v1/me/center-entry-contexts` are the center-application bootstrap contract. Applications must not add a hidden display-name match or infer tenant from arbitrary `centerId`.
+`DIVE-IAM-REQ-032` and `POST /v1/me/center-entry-contexts` are the center-application bootstrap contract. Applications must not add a hidden display-name match or infer tenant from arbitrary `centerId`. `centerKey` names the platform subdomain; `centerRef` carries the same value only during bootstrap; `centerId` is the resource selector used afterward.
 
 Follow-up decisions remain explicit and are not authorized here:
 
 - reserved `centerKey` set and key administration;
-- exact-origin CORS population for many center hosts, including custom domains, without wildcard CORS;
+- exact-origin CORS population for many platform subdomains without wildcard CORS;
 - Clerk allowed origins and redirect URLs for center-application hosts;
 - per-environment `<domain>` values;
-- custom-domain verification, DNS/TLS provisioning, and host administration;
+- future custom-domain verification, DNS/TLS provisioning, host administration, and alias mapping;
 - whether a non-browser client without `Origin` may call center-entry bootstrap;
 - active-handle TTL policy and cleanup execution;
 - `BrandConfiguration`, branded login, and cross-domain session continuity.

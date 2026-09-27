@@ -59,7 +59,7 @@ Notion pages are indexes only. They are not coverage evidence.
 
 Coverage is recorded in the current-coverage table below. Cross-tenant cases also map to `MT-REQ-*` and remain separate from `DIVE-*` results. Public-token and support-access evidence is not yet available in this vertical.
 
-Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` remain Ready to start. `ADR-DIVE-008` v0.9 closes center-application bootstrap as host-based (platform subdomain or custom domain, no `centerRef`). Implementation coverage for `DIVE-IAM-REQ-032` is not yet recorded.
+Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` remain Ready to start. `ADR-DIVE-008` v0.9 closes center-application bootstrap with a platform subdomain `centerKey` and an equal body `centerRef`; custom center domains remain future scope. Implementation coverage for `DIVE-IAM-REQ-032` is not yet recorded.
 
 ### Multi-tenant — `MT-REQ-001` … `010`
 
