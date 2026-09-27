@@ -26,6 +26,14 @@ Implement web and widget surfaces from approved requirements. Iframe is provisio
 - `specs/architecture/adrs/ADR-DIVE-002.md`
 - `specs/traceability/TRACE-DIVE-MVP-001.md`
 
+## Next.js MCP
+
+- Use the configured `next-devtools` MCP server for `apps/web` tasks when it is available.
+- Use it to inspect Next.js runtime errors, routes, browser console output, network requests, and hydration or server/client boundary failures.
+- Start the existing web development server before runtime inspection and record the observed URL, viewport, and relevant MCP or browser checks in the PR validation.
+- The MCP is a diagnostic aid, not a replacement for component tests, API contract tests, accessibility checks, or manual validation.
+- If the MCP server is unavailable, continue with the repository's local commands and browser tools, and record that limitation instead of claiming MCP validation.
+
 ## You do
 
 - Implement dashboard, hosted public pages, and widget UI in `apps/web`.
