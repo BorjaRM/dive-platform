@@ -18,17 +18,15 @@ TanStack Query cancellation and bounds token/fetch waits.
 Focused commands:
 
 ```text
-pnpm --filter @dive-center/identity typecheck
-pnpm --filter @dive-center/identity test --run src/clerk.spec.ts src/clerk-webhook.spec.ts
-pnpm --filter @dive-center/api typecheck
-pnpm --filter @dive-center/api test --run src/common/auth/clerk.config.spec.ts src/iam/iam.error-handling.spec.ts
-pnpm --filter @dive-center/web typecheck
-pnpm --filter @dive-center/web test --run src/features/dashboard/tenant-context.test.ts src/features/dashboard/dashboard-tenant-context.test.tsx src/features/dashboard/clerk-dashboard-session.test.tsx
+pnpm --filter @dive-center/identity typecheck && pnpm --filter @dive-center/identity exec vitest run src/clerk.spec.ts src/clerk-webhook.spec.ts
+pnpm --filter @dive-center/api exec vitest run src/common/auth/clerk.config.spec.ts src/iam/iam.error-handling.spec.ts
+pnpm --filter @dive-center/web typecheck && pnpm --filter @dive-center/web exec vitest run src/features/dashboard/tenant-context.test.ts src/features/dashboard/dashboard-tenant-context.test.tsx src/features/dashboard/clerk-dashboard-session.test.tsx
 ```
 
-Observed locally: identity `41/41` tests, API `34/34` tests, and web `24/24`
-tests passed. The focused suites cover a never-resolving provider, abort signal
-propagation, 401 versus 503 classification, and response-body non-disclosure.
+Observed locally: identity `39/39` tests, API `34/34` tests, and web `24/24`
+tests passed; both identity and web typechecks also passed. The focused suites
+cover a never-resolving provider, abort signal propagation, 401 versus 503
+classification, and response-body non-disclosure.
 
 ## Known gaps
 

@@ -15,13 +15,12 @@ Focused commands:
 pnpm --filter @dive-center/api exec vitest run src/catalog/catalog.validation.spec.ts
 pnpm --filter @dive-center/api typecheck
 pnpm --filter @dive-center/database typecheck
-pnpm --filter @dive-center/database exec node --env-file=../../.env.example ./node_modules/vitest/vitest.mjs run --config vitest.config.ts test/integration/migrations.integration.test.ts
-pnpm db:migrate
+pnpm --filter @dive-center/database exec node --env-file=../../.env.example ./node_modules/vitest/vitest.mjs run --config vitest.config.ts test/integration/operability.integration.test.ts test/integration/migrations.integration.test.ts
 ```
 
-Observed locally: catalog validation `4/4`, migration integration `7/7`, and
-both API/database typechecks passed. The migration test verifies the four
-catalog indexes and the temporal column order.
+Observed locally: catalog validation `4/4`, migration plus operability
+integration `12/12`, and both API/database typechecks passed. The migration
+test verifies the four catalog indexes and the temporal column order.
 
 The pre-change plans used the status-prefixed indexes followed by `Sort` for
 activity and slot lists without a status predicate. After migration, a plan

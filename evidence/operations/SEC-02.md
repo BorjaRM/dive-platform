@@ -14,11 +14,11 @@
 ## Executable evidence
 
 ```text
+pnpm --filter @dive-center/api exec vitest run src/common/security/http-hardening.spec.ts src/common/tenant-context/tenant-context.crypto.spec.ts src/common/config/environment.spec.ts src/catalog/catalog.validation.spec.ts src/app/openapi.spec.ts
 pnpm --filter @dive-center/api typecheck
-pnpm --filter @dive-center/api exec vitest run src/common/security/http-hardening.spec.ts src/app/openapi.spec.ts
-pnpm exec biome check apps/api/src/main.ts apps/api/src/common/security/http-hardening.ts apps/api/src/common/security/http-hardening.spec.ts apps/api/src/app/openapi.spec.ts
 ```
 
+Observed locally: 5 test files, 29 tests passed, and the API typecheck passed.
 The focused tests cover secure headers, a configured 429 response, fail-closed
 rate-limit configuration, Swagger opt-in, and the real `/docs-json` route.
 

@@ -330,7 +330,11 @@ Para controles deterministas de CI, permisos o comandos obligatorios, preferir w
 2. Refactorizar ARCH-01 preservando los tests de caracterización.
 3. Extender la gobernanza de GOV-01 y reconciliar DOC-01.
 
-## Validación realizada
+## Validación histórica realizada
+
+Las afirmaciones de esta sección corresponden a la ejecución de la auditoría
+inicial. La validación de las correcciones posteriores está separada al final
+del documento y no se infiere de estos resultados históricos.
 
 - `pnpm check`: correcto; Biome y 17 tareas de typecheck pasaron.
 - `nvm use 22.22.3 && CI=1 pnpm exec turbo run build --ui=stream`: correcto; 14 tareas, incluyendo `next build`, `nest build` y worker.
@@ -393,3 +397,44 @@ es la versión efectiva del catálogo pnpm, lockfile e instalación. También se
 eliminó la afirmación de un `pnpm.overrides` inexistente. No se cambiaron
 dependencias ni lockfile. La evidencia está en
 [evidence/architecture/DOC-01.md](../../evidence/architecture/DOC-01.md).
+
+## Corrección aplicada: DATA-01
+
+La excepción `NO FORCE ROW LEVEL SECURITY` de `iam_app.tenant_contexts` se
+mantiene explícita. La prueba de PostgreSQL demuestra controles compensatorios
+en la frontera de comandos: emisión autorizada para tenants A y B, rechazo de
+emisión cruzada, denegación de lectura directa con el rol app y rechazo de
+resolución de un handle de otra identidad. Esto no es conformidad literal con
+`MT-REQ-004`; la decisión SDD sobre la clasificación de la tabla y la
+conformidad final siguen abiertas. La evidencia está en
+[evidence/multitenancy/MT-SPIKE-001/README.md](../../evidence/multitenancy/MT-SPIKE-001/README.md)
+y en `packages/database/test/integration/iam-api.integration.test.ts`.
+
+## Corrección aplicada: SEC-04
+
+La configuración de producción ahora falla cerrada ante orígenes no HTTPS o
+sintéticos, secretos HMAC débiles o sintéticos y emisores Clerk inválidos. La
+prueba focalizada cubre esas combinaciones y la no divulgación de valores
+sensibles. La evidencia está en
+[evidence/operations/SEC-04.md](../../evidence/operations/SEC-04.md).
+
+## Validación de correcciones
+
+Ejecución local reproducida para este registro:
+
+- API: `pnpm --filter @dive-center/api exec vitest run src/common/security/http-hardening.spec.ts src/common/tenant-context/tenant-context.crypto.spec.ts src/common/config/environment.spec.ts src/catalog/catalog.validation.spec.ts src/app/openapi.spec.ts` — 5 archivos, 29 tests pasaron.
+- API/DB typecheck: `pnpm --filter @dive-center/api typecheck && pnpm --filter @dive-center/database typecheck` — ambos pasaron.
+- Identidad: `pnpm --filter @dive-center/identity typecheck && pnpm --filter @dive-center/identity exec vitest run src/clerk.spec.ts src/clerk-webhook.spec.ts` — typecheck y 39 tests pasaron.
+- API IAM error mapping: `pnpm --filter @dive-center/api exec vitest run src/common/auth/clerk.config.spec.ts src/iam/iam.error-handling.spec.ts` — 34 tests pasaron.
+- Web: `pnpm --filter @dive-center/web typecheck && pnpm --filter @dive-center/web exec vitest run src/features/dashboard/tenant-context.test.ts src/features/dashboard/dashboard-tenant-context.test.tsx src/features/dashboard/clerk-dashboard-session.test.tsx` — typecheck y 24 tests pasaron; Vite emitió un warning no bloqueante sobre `configLoader: 'native'`.
+- Database operability/migrations: `pnpm --filter @dive-center/database exec node --env-file=../../.env.example ./node_modules/vitest/vitest.mjs run --config vitest.config.ts test/integration/operability.integration.test.ts test/integration/migrations.integration.test.ts` — 2 archivos, 12 tests pasaron contra PostgreSQL 18 sintético.
+- DATA-01: `pnpm --filter @dive-center/database exec node --env-file=../../.env.example ./node_modules/vitest/vitest.mjs run --config vitest.config.ts test/integration/iam-api.integration.test.ts` — 1 archivo, 5 tests pasaron.
+- Especificaciones: `pnpm test:spec-governance` — 3 tests pasaron.
+- `pnpm check` — no pasó: Biome reportó solo errores de formato en `scripts/validate-spec-governance.mjs` y `scripts/validate-spec-governance.test.mjs`; no se atribuye ese fallo a las correcciones auditadas.
+
+No se ejecutaron CI, e2e, browser automation, producción, carga representativa
+ni `EXPLAIN (ANALYZE, BUFFERS)` con volumen aprobado. Siguen abiertos las
+métricas de pool de REL-01, la limitación por identidad/tenant de SEC-02, la
+cancelación del transporte HTTP interno del SDK Clerk de REL-02 y la medición
+de coste por volumen de PERF-01. ARCH-01 permanece Deferred por decisión
+explícita; no se presenta como corregido.

@@ -27,8 +27,9 @@ pnpm --filter @dive-center/database exec node --env-file=../../.env.example ./no
 ```
 
 Observed result: 1 test file, 5 tests passed locally against synthetic
-PostgreSQL 18. No CI, production database, load, or browser evidence is
-claimed.
+PostgreSQL 18. The same run combined with `migrations.integration.test.ts`
+passed 2 files and 12 tests. No CI, production database, load, or browser
+evidence is claimed.
 
 ## Known gaps
 
