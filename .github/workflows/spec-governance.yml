@@ -5,6 +5,8 @@ on:
     paths:
       - "specs/**"
       - "scripts/validate-spec-governance.mjs"
+      - "scripts/validate-spec-governance.test.mjs"
+      - "scripts/fixtures/spec-governance/**"
       - ".github/workflows/spec-governance.yml"
 
 permissions:
@@ -29,3 +31,6 @@ jobs:
         env:
           GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: node scripts/validate-spec-governance.mjs --all
+
+      - name: Test governance validator
+        run: node --test scripts/validate-spec-governance.test.mjs

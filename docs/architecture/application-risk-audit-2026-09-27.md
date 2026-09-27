@@ -225,6 +225,11 @@ desde su propio workspace.
 3. Añadir fixtures válidos e inválidos y tests del script.
 4. No promover estados ni reinterpretar procedencia como parte de este cambio técnico.
 
+**Corrección aplicada.** El validador descubre y valida por separado SPEC, ADR
+y TRACE. La validación de cambios usa todos esos tipos de artefacto y exige el
+esqueleto de la PR cuando cambia cualquiera de ellos. Fixtures válidos e
+inválidos cubren las tres reglas mediante el test Node nativo del validador.
+
 ### OBS-01 — Observabilidad acoplada y correlación fragmentada
 
 **Evidencia.** API importa `@nestjs/observe` directamente y desactiva instrumentación si falta una de dos variables: [app.module.ts](../../apps/api/src/app/app.module.ts#L1-L29). El paquete previsto como frontera está vacío: [packages/observability/src/index.ts](../../packages/observability/src/index.ts#L1). Los IDs de correlación se generan por acción, por ejemplo en [iam.controller.ts](../../apps/api/src/iam/iam.controller.ts#L59-L84) y [auth.guard.ts](../../apps/api/src/common/auth/auth.guard.ts#L58-L73), sin una identidad de request propagada por HTTP. ADR-DIVE-002 decide OpenTelemetry vendor-neutral y correlation ID: [ADR-DIVE-002.md](../../specs/architecture/adrs/ADR-DIVE-002.md#L18-L30).
