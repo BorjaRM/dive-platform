@@ -6,13 +6,13 @@
 
 - Dependency review on pull requests.
 - `pnpm audit --prod` as an auxiliary production-dependency signal.
-- CodeQL analysis for JavaScript and TypeScript on pull requests and `main`.
 - Gitleaks secret scanning on pull requests and `main`.
 - CycloneDX SBOM generation as an uploaded artifact for `v*` release tags.
 
-The workflow keeps `contents: read`; CodeQL receives only the
-`security-events: write` permission needed to publish findings. No job commits
-or pushes repository changes.
+CodeQL is intentionally disabled because code scanning is not available for
+this private repository under the current GitHub plan. The `security-events`
+permission was already present and was not the cause of the warning. No job
+commits or pushes repository changes.
 
 For a private repository, the Gitleaks action requires the repository or
 organization secret `GITLEAKS_LICENSE` to be configured before the workflow can
@@ -33,9 +33,9 @@ environment, so GitHub Actions schema validation remains a CI responsibility.
 ## Ownership and patching
 
 The CI/CD Quality & Automation owner maintains the workflow and its action
-versions. Repository maintainers triage CodeQL, secret, dependency-review, and
-audit findings before merging or tagging a release. `pnpm audit --prod`
-separates the production dependency signal from development-only dependencies;
-CodeQL, secret scanning, dependency review, and the SBOM continue to cover the
-repository and dependency graph more broadly. No unapproved numeric patching
-SLA is introduced by this remediation.
+versions. Repository maintainers triage secret, dependency-review, and audit
+findings before merging or tagging a release. `pnpm audit --prod` separates the
+production dependency signal from development-only dependencies. CodeQL/SAST
+coverage remains an explicit gap until code scanning is enabled for the
+repository. No unapproved numeric patching SLA is introduced by this
+remediation.

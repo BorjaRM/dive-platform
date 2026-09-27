@@ -383,12 +383,11 @@ no se usa un header controlado por el cliente como clave de autorización.
 
 ## Corrección aplicada: SEC-03
 
-El nuevo workflow de seguridad versiona dependency review para PRs, CodeQL
-para JavaScript/TypeScript, Gitleaks para secretos, `pnpm audit --prod` como
-señal auxiliar y un SBOM CycloneDX como artefacto de los tags `v*`. Mantiene
-permisos de lectura para el repositorio y exige `GITLEAKS_LICENSE` fuera del
-código cuando el repositorio privado lo requiere. La evidencia está en
-[evidence/operations/SEC-03.md](../../evidence/operations/SEC-03.md).
+El nuevo workflow de seguridad versiona dependency review para PRs, Gitleaks
+para secretos, `pnpm audit --prod` como señal auxiliar y un SBOM CycloneDX como
+artefacto de los tags `v*`. CodeQL queda desactivado porque el repositorio
+privado no tiene disponible code scanning bajo el plan actual; la evidencia
+mantiene este gap explícito en [evidence/operations/SEC-03.md](../../evidence/operations/SEC-03.md).
 
 ## Corrección aplicada: DOC-01
 

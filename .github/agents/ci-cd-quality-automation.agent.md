@@ -49,7 +49,7 @@ Re-verify. Do not treat this table as frozen:
 | Yes | `pnpm check`, `pnpm check:fix`, `pnpm test`, `pnpm typecheck` |
 | Yes | `infra/docker/postgres/docker-compose.yml` (PostgreSQL 18, local) |
 | Yes | `ci.yml` `integration` job (`pnpm test:integration`) |
-| Yes | `.github/workflows/security.yml` (dependency review on PRs, CodeQL, Gitleaks, SBOM on `v*` tags) |
+| Yes | `.github/workflows/security.yml` (dependency review on PRs, Gitleaks, SBOM on `v*` tags; CodeQL deferred because repository code scanning is unavailable) |
 | Do not assume | deploy, release publication, production credentials |
 
 ## You do
