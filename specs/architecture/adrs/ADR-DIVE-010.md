@@ -1,98 +1,61 @@
 # ADR-DIVE-010 — Public create-booking (hosted page)
 
-- **Status:** Draft
-- **Version:** 0.2
+- **Status:** Ready to start
+- **Version:** 0.3
 - **Date:** 2026-09-27
+- **Decision date:** 2026-09-27
 - **Deciders:** Product
-- **Affected IDs:** `DIVE-BOOK-REQ-004`, `007`, `012`, `013`, `016`, `021`, `025`, `028`, `037`, `038`, `040`, `042`, `044`, `045`; `DIVE-IAM-REQ-007..009`, `026`; ADR-DIVE-005
+- **Affected IDs:** `DIVE-BOOK-REQ-004`, `007`, `012`, `013`, `016`, `021`, `025`, `028`, `037`, `038`, `040`, `042`, `044`, `045`, `058..067`; `DIVE-IAM-REQ-007..009`, `026`; ADR-DIVE-005
 
 ## Provenance
 
-These closures were captured on 2026-09-27 from a product survey on US-10. They remain `Proposed` / `Draft`. They are not implementation authority. They do not add `DIVE-BOOK-REQ-*` IDs to `SPEC-DIVE-BOOKING-001` while that SPEC is Ready to start.
-
-Marketplace / OTA distribution (GetYourGuide, Civitatis, and similar) remains out of MVP (`SPEC-DIVE-BOOKING-001` scope). This ADR must not be read as authorizing partner adapters.
+The public-create closures were introduced as `Proposed` on 2026-09-27. Product owner Borja explicitly accepted the remaining recommendations and the idempotent-retry contract on 2026-09-27. This revision promotes the ADR to Ready to start and maps the approved decisions to `DIVE-BOOK-REQ-058..067`. Provenance remains visible; approval makes these decisions implementation authority with synthetic data.
 
 | Decision | Provenance | Exact source | Approval / status |
 |---|---|---|---|
 | Public create is authorized by published server-side channel configuration; browser values are not authorization | `Documented` | `DIVE-BOOK-REQ-004`; `DIVE-IAM-REQ-008`; ADR-DIVE-005 | Existing normative constraint |
 | Public bookers receive no dashboard roles; confirmation-read and cancel use opaque purpose-limited tokens | `Documented` | `DIVE-BOOK-REQ-007`, `023`; `DIVE-IAM-REQ-007`, `009`, `026`; ADR-DIVE-005 | Existing normative constraint |
 | Idempotency keys are unique within tenant and channel; retry returns the persisted result without duplicate side effects | `Documented` | `DIVE-BOOK-REQ-028` | Existing normative constraint |
-| Public create-booking requires an idempotency key | `Documented` | SPEC-DIVE-BOOKING-001 normative defaults | Existing normative constraint |
-| `Pending` holds seats; `Confirmed` consumes seats; last-seat is confirm or hold; Pending hold TTL is 15 minutes | `Documented` | `DIVE-BOOK-REQ-021`, `025`; SPEC defaults | Existing normative constraint |
-| Confirmation and cancellation emails go through `TransactionalEmailPort` and the transactional outbox; domain + audit + outbox commit atomically | `Documented` | `DIVE-BOOK-REQ-044`, `045`; ADR-DIVE-002 | Existing normative constraint |
-| Widget is an iframe of the hosted page; hosted page is the required fallback | `Documented` | `DIVE-BOOK-REQ-040` | Existing normative constraint |
-| Channel types `single_activity` and `center_catalog` are in MVP; multi-center public channels are not | `Documented` | `DIVE-BOOK-REQ-037..039` | Existing normative constraint |
-| Persist `channel_id` (FK to the channel that authorized the create) plus a stable `booking_channel` type; uniqueness `(tenant_id, channel_id, idempotency_key)` | `Proposed` | Product confirmation by Borja on 2026-09-27 | Draft; not implementation-authorized |
-| The HTTP caller generates the idempotency key; the API must not mint a new key per request; the booker does not supply it | `Proposed` | Product owner asked the agent to close this for hosted page, future widget, and possible later partner channels | Draft; not implementation-authorized |
-| Public create commits booking + audit + outbox email + confirmation-read and cancel verifiers in one transaction; browser surfaces receive bearers once | `Proposed` | Same product direction; constrained by `DIVE-BOOK-REQ-044`, `045` and ADR-DIVE-005 | Draft; not implementation-authorized |
-| A center can choose per public channel whether create requires staff approval | `Proposed` | Product confirmation by Borja on 2026-09-27 | Draft; new behavior not in SPEC-DIVE-BOOKING-001; not implementation-authorized |
-| Default `confirmation_mode` is `immediate` (`Confirmed` when capacity exists) | `Proposed` | Product owner asked the agent to choose the default | Draft; not implementation-authorized |
-| First implementation slice is hosted page + `single_activity` + last-seat PostgreSQL contention test in the same implementation PR; widget origins stay out; SPIKE-DIVE-001 remains not executed | `Proposed` | Product confirmation by Borja on 2026-09-27 | Sequencing only; not a requirement ID |
-| HTTP failures use `application/problem+json`: malformed JSON `400`; field validation `422`; in-scope unavailable slot `409` with stable `slot_unavailable`; unknown/unpublished/mismatched/cross-tenant channel access uses the same non-disclosing `404` | `Proposed` | Product confirmation by Borja on 2026-09-27, applying the documented recommendation | Draft; product-confirmed; not implementation-authorized |
-| Successful create returns `bookingId` in addition to status, seats, locale, and both bearer tokens; the ID is not authorization | `Proposed` | Product confirmation by Borja on 2026-09-27, applying the documented recommendation | Draft; product-confirmed; not implementation-authorized |
-| A `Pending` booking created under `staff_approval` receives confirmation-read and cancel tokens before staff confirmation | `Proposed` | Product confirmation by Borja on 2026-09-27, applying the documented recommendation | Draft; product-confirmed; not implementation-authorized |
+| `Pending` holds seats; `Confirmed` consumes seats; Pending hold TTL is 15 minutes | `Documented` | `DIVE-BOOK-REQ-021`, `025`; SPEC defaults | Existing normative constraint |
+| Confirmation/cancellation email uses `TransactionalEmailPort` and the outbox; domain + audit + outbox commit atomically | `Documented` | `DIVE-BOOK-REQ-044`, `045`; ADR-DIVE-002 | Existing normative constraint |
+| Public create persists the authorizing channel, caller idempotency identity, atomic side effects, and capability verifiers | `Proposed` | Product decisions accepted by Borja on 2026-09-27 | Approved; `DIVE-BOOK-REQ-059`, `062`, `063`; Ready to start |
+| Per-channel `confirmation_mode`, default `immediate`, and staff administration contract | `Proposed` | Product decisions and accepted recommendation on 2026-09-27 | Approved; `DIVE-BOOK-REQ-060`, `061`; Ready to start |
+| Public HTTP path, response, errors, and idempotent replay behavior | `Proposed` | Product decisions and accepted recommendation on 2026-09-27 | Approved; `DIVE-BOOK-REQ-058`, `062`, `064`, `065`; Ready to start |
+| First slice records `public_hosted`; `public_widget` is server-derived only after SPIKE-DIVE-003 | `Proposed` | Accepted recommendation on 2026-09-27 | Approved; `DIVE-BOOK-REQ-059`; Ready to start |
+| Exact hosted-create origin; no wildcard CORS; widget origins remain SPIKE-DIVE-003 scope | `Proposed` | Accepted recommendation on 2026-09-27 | Approved; `DIVE-BOOK-REQ-066`; Ready to start |
+| OTA transport remains outside MVP and requires a separate approved adapter contract | `Proposed` | Accepted recommendation on 2026-09-27; SPEC MVP exclusion | Approved scope boundary; `DIVE-BOOK-REQ-067` |
 
 ## Context
 
-`SPEC-DIVE-BOOKING-001` is Ready to start for `DIVE-BOOK-REQ-001..048` and allows both `Pending` and `Confirmed` on public create. There is no payment step. SPIKE-DIVE-001 results on `main` are not executed and are not evidence.
+US-10 needs an implementation-authorized public create contract without treating browser input as tenant authorization. The first slice is a hosted public page for a `single_activity` channel. Marketplace / OTA distribution remains outside the MVP. SPIKE-DIVE-001 remains not executed and is not evidence.
 
-US-10 needs closures for initial status, who generates the idempotency key, what the create transaction emits, how the channel is persisted, and the public HTTP shape. Those closures must not be copied into Notion as a second contract.
+This ADR owns public create-booking. ADR-DIVE-011 owns public availability and presentation while it remains Draft. Dashboard/center-application traffic continues to use ADR-DIVE-008 and does not use this public contract.
 
-## Proposed decision
+## Decision
 
-### Confirmation policy
+### Channel and confirmation policy
 
 A published public channel carries `confirmation_mode`:
 
-- `immediate` — if the capacity invariant allows the request, the booking is `Confirmed`.
-- `staff_approval` — if the capacity invariant allows the request, the booking is `Pending` and holds seats. The 15-minute Pending TTL applies. Staff confirmation, rejection, and expiry follow `DIVE-BOOK-REQ-024`.
+- `immediate` — when capacity allows, create a `Confirmed` booking;
+- `staff_approval` — when capacity allows, create a `Pending` booking that holds seats for the approved 15-minute TTL.
 
-The setting belongs on the **channel**, not on the tenant. Hosted page, widget, and a later partner channel may differ. Center staff with `channel.manage` choose the mode for that channel.
+The setting belongs to the channel. The public caller cannot select or override it. A newly created channel uses `immediate` when the field is omitted.
 
-**Default:** `immediate`.
+Authorized center staff manage the value through:
 
-This policy is new relative to `SPEC-DIVE-BOOKING-001`. It must be added as numbered requirements only after this ADR is approved. Until then, do not implement `staff_approval` as if it were documented.
+```http
+PATCH /v1/centers/:centerId/channels/:channelId
+Authorization: Bearer <clerk-session-token>
+X-Tenant-Context: ctx_…
+Content-Type: application/json
 
-### Idempotency
+{ "confirmationMode": "immediate" | "staff_approval" }
+```
 
-- The **caller of the HTTP create** generates the key and reuses it on retry and double-submit.
-- Hosted page: generate a UUID for the attempt, keep it in `sessionStorage` for that attempt, never show it to the booker.
-- Widget: same hosted page in an iframe, so the same client key strategy.
-- A future partner channel would use its own `channel_id` and its own keys. Optional `external_reference` (`DIVE-BOOK-REQ-016`) remains available for reconciliation and is not an authorization credential.
-- The API rejects a missing key on public create. It must not generate a replacement key.
-- Uniqueness is `(tenant_id, channel_id, idempotency_key)`.
+The operation requires `channel.manage`, current center scope, and audit. `centerId` and `channelId` are selectors, never authorization. The route does not make public create a dashboard operation.
 
-### Create transaction and tokens
-
-On a successful public create, one transaction commits:
-
-1. the booking row;
-2. the audit record;
-3. the outbox record for booker email;
-4. verifiers for `booking_confirmation_read` and `booking_cancel` (ADR-DIVE-005).
-
-Browser surfaces (hosted page, and later the widget iframe) receive the bearer tokens **once** in the HTTP response and in the email. Bearers are never persisted. Logs and traces omit bearers and unnecessary PII.
-
-A future partner channel would reuse the same aggregate and outbox. It would not assume an HTML confirmation page or the same token transport. Partner HTTP is out of MVP and is an open question.
-
-A `Pending` (`staff_approval`) booking receives both tokens before staff confirmation. Confirmation-read exposes the current `Pending` state; cancel lets the booker release the hold. Staff confirmation remains a separate privileged transition under `DIVE-BOOK-REQ-024`. This is Product-confirmed Proposed behavior and remains non-authoritative while this ADR is Draft.
-
-### Persistence (conceptual)
-
-Physical table, column, and index names are not selected here.
-
-A booking stores at least:
-
-- `tenant_id`, `center_id` resolved from the channel, never from the client as authorization;
-- `channel_id` (FK to the authorizing channel);
-- stable `booking_channel` type — first slice value `public_hosted`; `public_widget` and `dashboard_manual` are later surfaces;
-- `slot_id`, positive `seats`, `status`, booker first/last/email, optional phone, `locale` `es`\|`en`, `idempotency_key`, `created_at`.
-
-Participants, payment fields, medical fields, and OTA payloads are out of this increment.
-
-### Public HTTP contract (Proposed)
-
-Not a dashboard route. No Clerk session. No `X-Tenant-Context`. No tenant identifier in the path, query, or body as authorization.
+### Public create HTTP contract
 
 ```http
 POST /v1/public/channels/:channelPublicId/bookings
@@ -100,7 +63,9 @@ Idempotency-Key: <caller-generated-key>
 Content-Type: application/json
 ```
 
-`:channelPublicId` is the channel's immutable opaque public identifier (lookup key, not a credential). The server resolves tenant, center, publication state, allowed activity scope, origin policy, and `confirmation_mode`.
+No Clerk session or `X-Tenant-Context` is used. The client must not send `tenantId`, `centerId`, `status`, `confirmationMode`, or another channel selector in the body.
+
+`:channelPublicId` is an immutable opaque lookup key, not a credential. The server resolves tenant, center, channel type, publication state, allowed activity/slot scope, origin policy, and confirmation mode from trusted channel configuration.
 
 Body:
 
@@ -118,42 +83,39 @@ Body:
 }
 ```
 
-- `phone` may be omitted. `locale` must be `es` or `en`.
-- The client MUST NOT send `tenantId`, `centerId`, `status`, `confirmationMode`, or another channel identifier in the body.
-- `slotId` is a selector. It is accepted only if it is in the resolved channel's published scope.
+`phone` is optional. `locale` is `es` or `en`. `slotId` is accepted only inside the resolved published channel scope.
 
-Successful first create returns `201`. Retry with the same `Idempotency-Key` returns the persisted result without duplicating booking, seats, audit, email, or outbox. The retry response status is not selected by this ADR.
+### Persistence and surface attribution
 
-#### Error contract — Product-confirmed Proposed
+A booking stores the authorizing `channel_id` plus a stable `booking_channel` value. Uniqueness is `(tenant_id, channel_id, idempotency_key)`.
 
-Errors use `Content-Type: application/problem+json`. The stable public mapping is:
+The first slice records `public_hosted`. The client cannot claim a surface in the request body. `public_widget` may be introduced only after SPIKE-DIVE-003 defines server-verifiable embed/origin evidence; it is then derived by the server. `dashboard_manual` belongs to the authenticated dashboard contract, not this endpoint.
 
-| Case | HTTP | Stable `code` | Rationale |
-|---|---:|---|---|
-| Malformed JSON / unreadable request syntax | `400` | `malformed_json` | The server cannot validate fields until syntax is readable |
-| Invalid `locale`, email, `seats`, missing required field, or missing/invalid idempotency header | `422` | `validation_error` | The request is syntactically valid but violates the public contract |
-| In-scope slot cannot accept the requested seats, including the losing last-seat request | `409` | `slot_unavailable` | Stable state conflict required by `DIVE-BOOK-REQ-025` |
-| Unknown, disabled, or unpublished channel; slot outside the channel scope; tenant mismatch | `404` | `resource_not_found` | One identical response prevents channel, scope, and tenant enumeration (`DIVE-BOOK-REQ-006`, `DIVE-IAM-REQ-024`) |
+### Idempotency and retry
 
-The `404` cases MUST be indistinguishable in status, `type`, `title`, `code`, and detail. Public errors MUST NOT expose remaining capacity, tenant/center identifiers, foreign slot/booking identifiers, or internal authorization reasons. Field-level validation details may identify only fields supplied by the caller.
+The HTTP caller generates the idempotency key and reuses it for retries and double-submits. The hosted page keeps one attempt key in `sessionStorage` and never shows it to the booker. The server does not mint a replacement key.
 
-Minimum problem-details shape:
+- missing or malformed key: `422 validation_error`;
+- first successful create: `201`;
+- same key and semantically same request: `200` with the persisted result and no duplicated booking, seats, audit, tokens, email, or outbox;
+- same key with a semantically different request: `409 idempotency_conflict`.
 
-```json
-{
-  "type": "https://dive.example/problems/slot-unavailable",
-  "title": "Slot unavailable",
-  "status": 409,
-  "code": "slot_unavailable",
-  "requestId": "…"
-}
-```
+Comparison excludes transport-only metadata but includes every field that can change the booking result. Physical request-hash representation is an implementation detail.
 
-The production problem `type` base URI remains a deployment/configuration concern; the semantic suffix and `code` above are stable.
+### Atomic create and capability tokens
 
-#### Success body — Product-confirmed Proposed
+One successful transaction commits:
 
-The hosted page receives the booking identifier plus both bearers once:
+1. booking;
+2. audit record;
+3. outbox record for booker email;
+4. versioned verifiers for `booking_confirmation_read` and `booking_cancel`.
+
+The browser receives both bearer tokens once in the successful response. Bearers are never persisted or logged. A `Pending` booking under `staff_approval` receives both tokens before staff confirmation: read exposes current state and cancel releases the hold according to the booking lifecycle.
+
+### Success and error contract
+
+First create returns `201`; idempotent replay returns `200`. Both return:
 
 ```json
 {
@@ -166,62 +128,63 @@ The hosted page receives the booking identifier plus both bearers once:
 }
 ```
 
-`bookingId` is a selector and correlation identifier, not an authorization credential. No second public reference is added for MVP. `status` is `Confirmed` or `Pending` according to `confirmation_mode` and capacity. Both statuses receive both tokens. Tokens follow ADR-DIVE-005 (confirmation-read reusable until expiry/revocation; cancel single-use; 72-hour TTL).
+`status` is `Confirmed` or `Pending` according to trusted channel policy and capacity. `bookingId` is a selector/correlation identifier, not authorization.
 
-### First implementation slice (Proposed sequencing)
+Errors use `application/problem+json`:
 
-After this ADR is approved:
+| Case | HTTP | Stable `code` |
+|---|---:|---|
+| Malformed JSON | `400` | `malformed_json` |
+| Field or idempotency-header validation | `422` | `validation_error` |
+| In-scope slot cannot accept seats | `409` | `slot_unavailable` |
+| Same idempotency key with different request | `409` | `idempotency_conflict` |
+| Unknown, disabled, unpublished, mismatched, or cross-tenant channel/scope | `404` | `resource_not_found` |
 
-1. Hosted public page only.
+All `404` cases are indistinguishable and expose no tenant, center, capacity, foreign resource, or internal authorization detail.
+
+### Browser origin boundary
+
+First-party hosted create accepts only the exact configured hosted-page origin. Wildcard CORS origins are not allowed for this endpoint. CORS/origin checking constrains browser use; it never replaces published-channel authorization.
+
+Widget embed origins and `frame-ancestors` remain governed by ADR-DIVE-005, `DIVE-BOOK-REQ-041`, and SPIKE-DIVE-003. The widget cannot be classified or authorized from a client body flag.
+
+### First implementation slice
+
+1. Hosted public page.
 2. Channel type `single_activity`.
-3. Last-seat contention test against real PostgreSQL with a barrier in the **same** implementation PR as create-booking. Do not mark SPIKE-DIVE-001 Done. Do not mock persistence or RLS.
-4. Widget, `frame-ancestors`, and wildcard origins stay with ADR-DIVE-005 / SPIKE-DIVE-003.
-5. Do not implement OTA adapters.
+3. `booking_channel = public_hosted`.
+4. Real PostgreSQL last-seat contention test in the same implementation PR.
+5. No widget classification until SPIKE-DIVE-003 evidence.
+6. No OTA adapter.
 
 ## Consequences
 
-- Notion US-10 remains a story index. This ADR is the Draft home for the closures.
-- `SPEC-DIVE-BOOKING-001` stays Ready to start for `DIVE-BOOK-REQ-001..048` until a later approved SPEC PR allocates new IDs.
-- Callers, not the server, own idempotency identity, so widget and a later partner channel can share the uniqueness rule without sharing keys.
-- Default `immediate` avoids expiring real public bookings when no payment or review step exists.
-- `staff_approval` reuses the existing Pending hold instead of inventing a fifth booking status.
+- Channel policy is explicit and cannot be selected by a public caller.
+- Retry semantics distinguish creation, replay, and conflicting key reuse.
+- Hosted/widget attribution is trustworthy at the cost of deferring widget attribution until evidence exists.
+- Exact origin configuration adds operations work but avoids wildcard browser access.
+- A later OTA adapter can reuse domain invariants but requires separate authentication, transport, token, reconciliation, and operational decisions.
 
 ## Alternatives considered
 
-### Always `Pending` on public create
+- Always `Pending`: rejected because the default flow has no payment/review step and the 15-minute hold would expire without a customer action.
+- Always `Confirmed`: rejected because centers may require approval per channel.
+- Server-generated idempotency key per request: rejected because retries would not share identity.
+- Booker-supplied visible key: rejected because it is transport state, not user input.
+- Client-supplied hosted/widget surface: rejected because it is forgeable.
+- Wildcard CORS for create: rejected because browser origin is explicitly configured and CORS is not authorization.
+- OTA in MVP: rejected by product scope.
 
-Rejected as the default. There is no payment capture. A 15-minute hold would expire customer bookings with no next step.
+## Remaining open questions
 
-### Always `Confirmed`, no channel policy
+These do not reopen the approved contract:
 
-Rejected by product: the center must be able to require approval. That policy is Proposed here and still needs SPEC IDs after approval.
-
-### Server-generated idempotency key per request
-
-Rejected. A retry or double-submit would create a second booking.
-
-### Booker-supplied idempotency key
-
-Rejected. Not usable on a public form.
-
-### Create persists the booking only; tokens and email in a later story
-
-Rejected for browser public create. Public users have no account; IAM requires token capabilities for confirmation-read and cancel.
-
-### Persist only `booking_channel` text, no `channel_id`
-
-Rejected by product. Server-side channel authorization needs a FK to the channel that authorized the create.
-
-## Pending confirmation — recommendations 4–8
-
-The following items are **Proposed and pending explicit confirmation**. They are not implementation authority and remain deliberately outside the Product-confirmed decisions above.
-
-4. **Channel-admin HTTP for `confirmation_mode`.** Recommendation: configure it in the channel-management contract (not US-10 public create), through the channel update operation protected by `channel.manage`; channel creation uses `immediate` when omitted. Justification: policy belongs to the authorizing channel and the public caller must never select it. The exact admin route and payload remain pending confirmation.
-5. **`public_widget` versus `public_hosted`.** Recommendation: the first slice records `public_hosted`; do not trust a client-supplied surface. Introduce `public_widget` only after SPIKE-DIVE-003 defines origin/embed evidence that the server can resolve. Justification: both surfaces execute the same hosted page, so a body flag is forgeable and adds no authorization evidence. Pending confirmation.
-6. **Partner / OTA transport.** Recommendation: define no OTA HTTP adapter in MVP. A future adapter should use a distinct `channel_id`, caller-owned idempotency keys, the same booking aggregate/capacity/audit/outbox invariants, and a separately approved response/token transport. Justification: GetYourGuide/Civitatis are out of MVP and premature transport choices would create an unsupported contract. Pending confirmation.
-7. **CORS / origin enforcement.** Recommendation: first-party hosted create allows only the exact configured hosted-page origin; no wildcard. Widget origins and `frame-ancestors` remain blocked on SPIKE-DIVE-003. Justification: an exact allow-list preserves ADR-DIVE-005's non-wildcard posture without pretending that CORS is authorization. The exact configuration and failure behavior remain pending confirmation.
-8. **Requirement IDs.** Recommendation: allocate the next contiguous `DIVE-BOOK-REQ-*` IDs from merged `main` only after this ADR is approved and after the in-flight catalog HTTP work settles; do not reserve IDs on this Draft branch. Justification: this avoids collisions (tentatively `058+` if #24 owns the preceding range) and keeps TRACE tied to merged normative sources. Pending confirmation.
+1. Physical table, column, index, and request-hash representation.
+2. Production base URI for problem `type` values.
+3. Retention/deletion of expired capability-verifier metadata, owned by the privacy/retention decision.
+4. Widget embed evidence and server-derived `public_widget` attribution, owned by SPIKE-DIVE-003.
+5. Future OTA authentication, allotment, cutoff, webhook, payment, locale, mapping, and service-level contract.
 
 ## Implementation authority
 
-This ADR is Draft. It documents Proposed closures. It does not authorize implementation, schema migration, or runtime routes until Borja explicitly promotes it or it is merged as an accepted source according to the repository lifecycle. Do not invent values for the open questions.
+Ready to start authorizes reversible implementation with synthetic data for `DIVE-BOOK-REQ-058..067`. It does not authorize a real-data pilot, widget attribution without SPIKE-DIVE-003 evidence, or any OTA adapter.

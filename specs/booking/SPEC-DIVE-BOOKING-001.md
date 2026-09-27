@@ -4,9 +4,9 @@
 - **Version:** 0.7
 - **Last reviewed:** 2026-09-27
 - **Approved by:** Borja (Product owner)
-- **Approval reference:** PR #1, provenance migration PR, and product confirmations 2026-09-27 for catalog HTTP, slot time representation, and public visibility of full slots
+- **Approval reference:** PR #1, provenance migration PR, and product confirmations 2026-09-27 for catalog HTTP, slot time representation, public visibility of full slots, and ADR-DIVE-010 public create closures
 - **Owner:** Product / Booking
-- **IDs:** `DIVE-BOOK-REQ-001` … `DIVE-BOOK-REQ-057`
+- **IDs:** `DIVE-BOOK-REQ-001` … `DIVE-BOOK-REQ-067`
 
 ## Normative authority
 
@@ -30,6 +30,7 @@ The ranges below cover every requirement in this SPEC. `Derived` consolidates th
 | `DIVE-BOOK-REQ-037..DIVE-BOOK-REQ-042` | `Derived` | `specs/architecture/adrs/ADR-DIVE-002.md`; `specs/spikes/SPIKE-DIVE-003/specification.md`; PR #1; product confirmation by Borja on 2026-09-27 for public visibility of full slots | Approved by product owner, including `Available` + `Full` visibility on 2026-09-27 |
 | `DIVE-BOOK-REQ-043..DIVE-BOOK-REQ-048` | `Derived` | `specs/foundation/security-privacy-baseline.md`; `specs/foundation/operations-quality-recovery.md`; `specs/product/dive-mvp-profile.md`; PR #1 | Approved by product owner |
 | `DIVE-BOOK-REQ-049..DIVE-BOOK-REQ-057` | `Proposed` | Product confirmation by Borja on 2026-09-27 for US-08 catalog HTTP, center-scoped operations, slot time representation, and listing defaults | Approved by product owner 2026-09-27 for MVP validation |
+| `DIVE-BOOK-REQ-058..DIVE-BOOK-REQ-067` | `Proposed` | ADR-DIVE-010 v0.3; explicit acceptance by Borja on 2026-09-27 of public create, channel policy, retry, surface, origin, and OTA-boundary closures | Approved by product owner 2026-09-27; Ready to start |
 
 ### Normative defaults provenance
 
@@ -44,6 +45,8 @@ The ranges below cover every requirement in this SPEC. `Derived` consolidates th
 | Widget customization allow-list | `Proposed` | PR #1 | Approved by product owner for MVP validation |
 | Slot persists `starts_at` timestamptz and `duration_minutes`; end is derived | `Proposed` | Product confirmation by Borja on 2026-09-27; specializes `DIVE-BOOK-REQ-010` | Approved by product owner 2026-09-27 for MVP validation |
 | Catalog list page size maximum is 50 | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved by product owner 2026-09-27 for MVP validation |
+| Public channel `confirmation_mode` defaults to `immediate` | `Proposed` | ADR-DIVE-010 v0.3; explicit product-owner acceptance 2026-09-27 | Approved; Ready to start |
+| Public create first success is `201`, same-request replay is `200`, and key reuse with a different request is `409 idempotency_conflict` | `Proposed` | ADR-DIVE-010 v0.3; explicit product-owner acceptance 2026-09-27 | Approved; Ready to start |
 
 ## Goal
 
@@ -199,6 +202,19 @@ PATCH  /v1/centers/:centerId/slots/:slotId/cancel
 - **DIVE-BOOK-REQ-056:** Catalog HTTP uses `application/problem+json`. Create returns `201`. Successful commands return `204`. Malformed JSON returns `400`. Missing session or tenant context returns `401`. A permission failure inside the current authorized center returns `403`. A missing resource or a resource outside the current center/tenant returns `404` with the same observable result. Semantic field errors return `422`.
 - **DIVE-BOOK-REQ-057:** Catalog lists never accept multiple centers. Pagination is cursor-based with a maximum page size of 50. Activities are ordered by `created_at DESC`, then `id`, and may be filtered by `status`. Slots are ordered by `starts_at ASC`, then `id`, and may be filtered by date range and `status`.
 
+### Public create-booking
+
+- **DIVE-BOOK-REQ-058:** Public create uses `POST /v1/public/channels/:channelPublicId/bookings` without Clerk or `X-Tenant-Context`. The server resolves tenant, center, publication state, activity/slot scope, origin policy, and confirmation mode from the published channel. The client MUST NOT send tenant, center, status, confirmation mode, or another channel selector as authorization.
+- **DIVE-BOOK-REQ-059:** A public booking stores the authorizing `channel_id`, a stable `booking_channel`, and an idempotency key unique within tenant + channel. The first slice records `public_hosted`. A client-supplied surface is never authoritative; `public_widget` may be recorded only when server-derived from evidence approved by SPIKE-DIVE-003.
+- **DIVE-BOOK-REQ-060:** Each public channel has `confirmation_mode = immediate | staff_approval`. Omission when creating a channel means `immediate`. `immediate` creates `Confirmed` when capacity allows; `staff_approval` creates `Pending` and applies the approved 15-minute hold TTL. The public caller cannot select or override this policy.
+- **DIVE-BOOK-REQ-061:** Authorized staff manage channel confirmation policy through `PATCH /v1/centers/:centerId/channels/:channelId` with body `{ "confirmationMode": "immediate" | "staff_approval" }`. The operation requires `channel.manage`, current center scope, and audit. Path identifiers are selectors, never authorization.
+- **DIVE-BOOK-REQ-062:** The HTTP caller generates and reuses the public-create idempotency key. Missing or malformed key returns `422 validation_error`. First success returns `201`; replay with the same key and semantically same request returns `200` with the persisted result; reuse with a semantically different request returns `409 idempotency_conflict`. No replay duplicates booking, capacity, audit, tokens, email, or outbox.
+- **DIVE-BOOK-REQ-063:** A successful public create transaction atomically commits booking, audit, email outbox, and versioned verifiers for confirmation-read and cancellation. The response exposes both bearer tokens once, including for `Pending`; bearer values are never persisted or logged.
+- **DIVE-BOOK-REQ-064:** Public-create errors use `application/problem+json`: malformed JSON is `400 malformed_json`; semantic/header validation is `422 validation_error`; an in-scope unavailable slot is `409 slot_unavailable`; idempotency payload conflict is `409 idempotency_conflict`; unknown, disabled, unpublished, mismatched, or cross-tenant channel/scope is one indistinguishable `404 resource_not_found`.
+- **DIVE-BOOK-REQ-065:** First create returns `201` and idempotent replay returns `200`; both return `bookingId`, `status`, `seats`, `locale`, `confirmationReadToken`, and `cancelToken`. `bookingId` is a selector, not authorization. Status is `Confirmed` or `Pending` according to trusted channel policy and capacity.
+- **DIVE-BOOK-REQ-066:** First-party hosted create accepts only its exact configured origin and MUST NOT use wildcard CORS. Origin checking constrains browser use and never replaces channel authorization. Widget origins and `frame-ancestors` remain governed by ADR-DIVE-005, `DIVE-BOOK-REQ-041`, and SPIKE-DIVE-003.
+- **DIVE-BOOK-REQ-067:** Marketplace / OTA transport is outside the MVP. A future adapter requires a separately approved channel, authentication, idempotency/reconciliation, response/token transport, mapping, and operational contract; it may reuse the booking aggregate and invariants but MUST NOT infer authority from the hosted page or `channelPublicId` as a credential.
+
 ## Catalog HTTP (center application)
 
 This interface is for the authenticated center application. Public widget and hosted-page routes remain outside it.
@@ -230,6 +246,10 @@ These defaults are normative until a later SPEC/ADR changes them:
 - Allowed widget customization: logo, validated colors, catalog font, localized copy, predefined corner radius. No center-supplied HTML, CSS, or JavaScript
 - Slot time fields: persist `starts_at` as timestamptz and `duration_minutes`; derive end; do not persist remaining seats
 - Catalog list maximum page size: 50
+- Public channel confirmation mode: `immediate` when omitted
+- Public create first success: `201`; same-request replay: `200`; different-request key reuse: `409 idempotency_conflict`
+- First public implementation surface: `public_hosted`; `public_widget` requires server-derived SPIKE-DIVE-003 evidence
+- Public hosted create CORS: exact configured origin; no wildcard
 
 ## Edge cases
 
@@ -258,6 +278,7 @@ No real personal data in development, preview, or staging for this increment.
 - `specs/architecture/adrs/ADR-DIVE-001.md`
 - `specs/architecture/adrs/ADR-DIVE-002.md`
 - `specs/architecture/adrs/ADR-DIVE-008.md`
+- `specs/architecture/adrs/ADR-DIVE-010.md`
 - `specs/iam/SPEC-DIVE-IAM-001.md`
 - `specs/spikes/SPIKE-DIVE-001/` for last-seat evidence
 - `specs/spikes/SPIKE-DIVE-003/` for widget evidence
@@ -272,6 +293,7 @@ No real personal data in development, preview, or staging for this increment.
 - Locale catalogs `es`/`en`
 - Widget origin/CSP/fallback evidence (`SPIKE-DIVE-003`) before pilot
 - Catalog HTTP contract tests for `DIVE-BOOK-REQ-049..057`, including center-scope negatives and idempotent commands
+- Public-create contract tests for `DIVE-BOOK-REQ-058..067`: trusted channel resolution, mode policy, exact origin, idempotent replay/conflict, atomic side effects, token secrecy, non-disclosing errors, and last-seat contention
 - Until a tenant/center onboarding story exists, catalog tests may insert tenant and center rows with fixtures; that is not an onboarding API
 
 ## Open questions
