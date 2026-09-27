@@ -14,6 +14,16 @@ import {
   Patch,
   UnauthorizedException,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiForbiddenResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
+import { CenterDto, DisableMembershipResultDto } from './iam.dto.js';
 import { IamService } from './iam.service.js';
 import {
   IAM_ACTIONS,
@@ -22,6 +32,9 @@ import {
   type SecurityLoggerPort,
 } from './iam.tokens.js';
 
+@ApiTags('IAM')
+@ApiBearerAuth()
+@ApiUnauthorizedResponse({ description: 'Missing or invalid bearer token' })
 @Controller('v1/tenants/:tenantId')
 export class IamController {
   constructor(
@@ -69,6 +82,16 @@ export class IamController {
     }
   }
 
+  @ApiOperation({
+    summary: 'Read a center',
+    description: 'Returns a center scoped to the caller tenant.',
+  })
+  @ApiParam({ name: 'tenantId', format: 'uuid' })
+  @ApiParam({ name: 'centerId', format: 'uuid' })
+  @ApiOkResponse({ type: CenterDto })
+  @ApiForbiddenResponse({
+    description: 'Access denied for the requested center',
+  })
   @Get('centers/:centerId')
   readCenter(
     @Headers('authorization') authorization: string | undefined,
@@ -83,6 +106,17 @@ export class IamController {
     );
   }
 
+  @ApiOperation({
+    summary: 'Disable a membership',
+    description: 'Disables an active membership within the caller tenant.',
+  })
+  @ApiParam({ name: 'tenantId', format: 'uuid' })
+  @ApiParam({ name: 'membershipId', format: 'uuid' })
+  @ApiOkResponse({ type: DisableMembershipResultDto })
+  @ApiForbiddenResponse({
+    description:
+      'Membership missing/inactive, or the caller cannot disable the last owner',
+  })
   @Patch('memberships/:membershipId/disable')
   disableMembership(
     @Headers('authorization') authorization: string | undefined,

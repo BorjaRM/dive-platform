@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule, ObserveInstrument } from './app.module.js';
 
 async function bootstrap() {
@@ -8,6 +9,17 @@ async function bootstrap() {
       ? { rawBody: true }
       : { instrument: ObserveInstrument, rawBody: true },
   );
+
+  // ADR-DIVE-002: REST / OpenAPI. UI at /docs, raw document at /docs-json.
+  const openApiConfig = new DocumentBuilder()
+    .setTitle('Dive Platform API')
+    .setDescription('REST API for the Dive Platform.')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const openApiDocument = SwaggerModule.createDocument(app, openApiConfig);
+  SwaggerModule.setup('docs', app, openApiDocument);
+
   await app.listen(process.env.PORT ?? 3000);
 }
 await bootstrap();

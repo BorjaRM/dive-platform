@@ -15,6 +15,13 @@ import {
   RawBody,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiServiceUnavailableResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Pool } from 'pg';
 import {
   DATABASE_POOL,
@@ -22,7 +29,9 @@ import {
   SECURITY_LOGGER,
   type SecurityLoggerPort,
 } from './iam.tokens.js';
+import { WebhookAckDto } from './identity-webhook.dto.js';
 
+@ApiTags('Webhooks')
 @Controller('v1/webhooks')
 export class IdentityWebhookController {
   constructor(
@@ -32,6 +41,18 @@ export class IdentityWebhookController {
     @Inject(SECURITY_LOGGER) private readonly logger: SecurityLoggerPort,
   ) {}
 
+  @ApiOperation({
+    summary: 'Receive a Clerk identity webhook',
+    description:
+      'Verifies the Svix signature on the raw request body and applies the identity event. Not bearer-authenticated.',
+  })
+  @ApiOkResponse({ type: WebhookAckDto })
+  @ApiBadRequestResponse({
+    description: 'Missing raw body or invalid webhook signature',
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'Webhook verified but could not be applied',
+  })
   @Post('clerk')
   @HttpCode(200)
   async receiveClerkWebhook(
