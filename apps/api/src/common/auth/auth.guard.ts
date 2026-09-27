@@ -19,7 +19,7 @@ import {
   type IamAction,
   SECURITY_LOGGER,
   type SecurityLoggerPort,
-} from './security.tokens.js';
+} from '../security/security.tokens.js';
 
 export const AUTH_ACTION_METADATA = 'api:auth-action';
 export const AuthAction = (action: IamAction) =>

@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.33
+- **Version:** 0.34
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -31,14 +31,14 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` are Ready to start
 | ADR-DIVE-013 | `specs/architecture/adrs/ADR-DIVE-013.md` | Draft | 0.2 |
 | ADR-DIVE-014 | `specs/architecture/adrs/ADR-DIVE-014.md` | Draft | 0.3 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 1.3 |
-| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.13 |
+| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.14 |
 | SPEC-DIVE-ONBOARDING-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md` | Draft | 0.2 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.2-draft |
 | MT-SPIKE-001 | `specs/multitenancy/` | Accepted with conditions | 0.3 |
 | SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.33 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.34 |
 
 Notion indexes must show this map’s version. They must not invent an independent version sequence.
 
@@ -83,7 +83,7 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` remain Ready to st
 | Replaceable guidance | 027–034 | component, Playwright, storage, i18n, analytics-port, rollout, and accessibility checks | implementation PR plus manual WCAG evidence |
 | Acceptance matrix | 036 | evidence mapped to every applicable row above | implementation PR |
 
-`SPEC-DIVE-ONBOARDING-001` and `ADR-DIVE-013` remain Draft. US-19 is limited to invited self bootstrap; assisted provisioning is outside the story. The open `centerKey`/host-entry decision still blocks Ready to start. `SPEC-DIVE-IAM-001` v0.13 only clarifies the authority boundary; this TRACE relationship is not implementation coverage or approval to start.
+`SPEC-DIVE-ONBOARDING-001` and `ADR-DIVE-013` remain Draft. US-19 is limited to invited self bootstrap; assisted provisioning is outside the story. The open `centerKey`/host-entry decision still blocks Ready to start. `SPEC-DIVE-IAM-001` v0.14 only clarifies the authority boundary; this TRACE relationship is not implementation coverage or approval to start.
 
 ### Multi-tenant — `MT-REQ-001` … `010`
 
@@ -163,5 +163,7 @@ Clerk authentication and session revocation (`DIVE-IAM-REQ-004`, `DIVE-IAM-REQ-0
 Non-disclosure and complete sensitive-operation audit coverage (`DIVE-IAM-REQ-024`, `DIVE-IAM-REQ-025`) remain partial beyond the exposed center-read, membership-disable, and invitation persistence paths. Purpose-limited customer-contact access and booking-operation audit belong to later approved slices and are not demonstrated here.
 
 Public capabilities and token limits (`DIVE-IAM-REQ-007..009`, `DIVE-IAM-REQ-026`) and support access plus expiry evidence (`DIVE-IAM-REQ-020`, `DIVE-IAM-REQ-028`) remain follow-ups. Provider-neutral assurance is demonstrated for current dashboard authentication, while the exact Clerk step-up contract remains open for Phase 4. See `docs/architecture/iam-vertical-follow-ups.md`. `DIVE-IAM-REQ-027` remains governed by deferred `SPEC-DIVE-OPS-001` scope. `MT-COND-IAM-001` and `MT-COND-WORKER-001` remain activation gates; Option B channels remain deferred. Do not treat this map as additional verification.
+
+Invitation application-boundary hardening is a Draft follow-up in `SPEC-DIVE-IAM-001`, with no implementation coverage before invitation HTTP exposure. Related requirements: `DIVE-IAM-REQ-006`, `DIVE-IAM-REQ-017`, `DIVE-IAM-REQ-024`, `DIVE-IAM-REQ-025`, `DIVE-IAM-REQ-028`, and `DIVE-IAM-REQ-030`.
 
 Approved Phase 0 decision relationships are recorded in `ADR-DIVE-004` through `ADR-DIVE-008`. Approval authorizes implementation but is not implementation evidence.

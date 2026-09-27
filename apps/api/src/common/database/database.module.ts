@@ -7,7 +7,7 @@ import {
   type OnApplicationShutdown,
 } from '@nestjs/common';
 import { Pool } from 'pg';
-import { DATABASE_POOL } from './tokens.js';
+import { DATABASE_POOL } from './database.tokens.js';
 
 @Injectable()
 class DatabasePoolLifecycle implements OnApplicationShutdown {

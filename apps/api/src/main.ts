@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule, ObserveInstrument } from './app/app.module.js';
-import { dashboardCorsOriginsFromEnvironment } from './common/tenant-context.crypto.js';
+import { dashboardCorsOriginsFromEnvironment } from './common/tenant-context/tenant-context.crypto.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(

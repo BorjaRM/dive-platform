@@ -5,10 +5,12 @@ import {
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { describe, expect, it, vi } from 'vitest';
-import { AuthAction, ClerkAuthGuard } from '../common/auth.guard.js';
-import { TenantContextCrypto } from '../common/tenant-context.crypto.js';
+import { AuthAction, ClerkAuthGuard } from '../common/auth/auth.guard.js';
+import { TenantContextCrypto } from '../common/tenant-context/tenant-context.crypto.js';
+import { CentersService } from './centers/centers.service.js';
 import { IamController } from './iam.controller.js';
-import { IamService } from './iam.service.js';
+import { MembershipsService } from './memberships/memberships.service.js';
+import { TenantContextService } from './tenant-context/tenant-context.service.js';
 
 const principalProvider: IdentityProviderPort = {
   authenticate: async () => ({
@@ -29,7 +31,12 @@ describe('IAM error handling', () => {
       query: vi.fn().mockResolvedValue({ rows: [{ access: null }] }),
     };
     const logger = { warn: vi.fn() };
-    const service = new IamService(pool as never, logger, contextCrypto);
+    const tenantContexts = new TenantContextService(
+      pool as never,
+      logger,
+      contextCrypto,
+    );
+    const service = new CentersService(pool as never, logger, tenantContexts);
 
     await expect(
       service.readCenter(
@@ -59,7 +66,12 @@ describe('IAM error handling', () => {
       query: vi.fn().mockRejectedValue(dependencyFailure),
     };
     const logger = { warn: vi.fn() };
-    const service = new IamService(pool as never, logger, contextCrypto);
+    const tenantContexts = new TenantContextService(
+      pool as never,
+      logger,
+      contextCrypto,
+    );
+    const service = new CentersService(pool as never, logger, tenantContexts);
 
     await expect(
       service.readCenter(
@@ -77,10 +89,15 @@ describe('IAM error handling', () => {
     const pool = {
       query: vi.fn().mockRejectedValue(dependencyFailure),
     };
-    const service = new IamService(
+    const tenantContexts = new TenantContextService(
       pool as never,
       { warn: vi.fn() },
       contextCrypto,
+    );
+    const service = new MembershipsService(
+      pool as never,
+      { warn: vi.fn() },
+      tenantContexts,
     );
 
     await expect(

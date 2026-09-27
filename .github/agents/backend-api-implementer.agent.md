@@ -37,6 +37,7 @@ Smallest backend change that satisfies listed requirement IDs. Do not invent pro
 ## Required reading
 
 - `.github/copilot-instructions.md`
+- `docs/architecture/api-feature-based-refactor-plan.md` when changing the internal structure of `apps/api`
 - `docs/sdd/how-we-work.md`
 - `specs/foundation/sdd-specs-traceability.md`
 - `specs/architecture/adrs/ADR-DIVE-001.md`
@@ -69,15 +70,22 @@ Smallest backend change that satisfies listed requirement IDs. Do not invent pro
 ## Implementation design
 
 - Organize `apps/api` with a Feature-Based Modular Architecture: group NestJS code by business capability/domain (for example, `iam/` or `booking/`), not in global technical folders such as `controllers/`, `services/`, `dtos/`, or `entities/`.
-- Give each feature a clear NestJS module boundary and colocate its transport controllers, DTOs, providers, and wiring. Reserve `common/` for cross-cutting NestJS concerns that have more than one real consumer.
+- Top-level feature folders are necessary but not sufficient. Split a feature by cohesive business subcapability when one service owns unrelated use cases or reasons to change.
+- Prefer a flat feature directory while the feature remains cohesive. Add subcapability folders only when responsibilities have genuinely diverged; do not split solely by technical type, arbitrary line count, or file count.
+- Avoid catch-all `*Service` classes that combine unrelated flows. A thin compatibility facade may delegate to focused providers when preserving an existing controller or module contract is useful.
+- Give each feature a clear NestJS module boundary and colocate its transport controllers, DTOs, providers, filters, errors, tests, and wiring.
+- Keep shared feature-internal providers inside the owning feature and module. Export a provider or contract only for a demonstrated cross-feature consumer; never import another feature's internal implementation files.
+- Register feature-owned filters, interceptors, controllers, and providers through the owning feature module rather than the application root. Keep `AppModule` limited to process-level composition and bootstrap concerns.
+- Keep identity-provider webhooks under the IAM/identity capability unless they have an independently reusable business boundary. Preserve signature authentication separately from bearer-authenticated IAM routes.
+- Reserve `common/` for cross-cutting NestJS concerns that have more than one real consumer. Group it by actual concern such as authentication, database, security, or tenant context; `common/` must not import feature internals.
 - Let features collaborate through explicit public providers or contracts; do not import another feature's internal implementation files.
 - Preserve the repository-level domain, application, contract, and persistence boundaries required by ADR-DIVE-002 and ADR-DIVE-003. Do not recreate Clean or Hexagonal Architecture layers inside every NestJS feature; add ports, interfaces, repositories, or extra layers only for a demonstrated boundary, external dependency, or variation.
-- Keep NestJS controllers and adapters thin: translate transport concerns and delegate business behavior to application/domain code.
+- Keep NestJS controllers and adapters thin: translate transport concerns and delegate business behavior to application/domain code. A controller may remain a transport facade only while it contains no business decisions or transaction orchestration.
 - Keep domain code independent of NestJS, persistence, and vendor SDKs; place integrations behind ports only when there is a real consumer.
-- Make transaction, idempotency, and outbox boundaries explicit at the use-case level. Do not hide them in generic helpers.
+- Make tenant authorization, RLS/query scoping, transaction, idempotency, audit, and outbox boundaries explicit at the use-case level. Preserve those boundaries when extracting or moving behavior; do not hide them in generic helpers.
 - Reuse established modules and injection tokens. Add repositories, factories, or strategies only for a demonstrated boundary or variation.
 - Tenant-owned persistence must use established tenant-scoped primitives. Do not add ad-hoc queries that omit `tenant_id` or assume RLS will be added later.
-- Test use-case behavior through public entry points, including failure and authorization paths; avoid assertions on private method calls.
+- Keep tests colocated with the provider, controller, or module behavior they verify. Test use-case behavior through public entry points, including failure, authorization, and operational-error paths; avoid assertions on private method calls or pure delegation.
 
 ## Coordination
 

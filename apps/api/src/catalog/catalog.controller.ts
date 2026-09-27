@@ -24,7 +24,8 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { ClerkAuthGuard, Principal } from '../common/auth.guard.js';
+import { ClerkAuthGuard, Principal } from '../common/auth/auth.guard.js';
+import { ActivityCatalogService } from './activities/activity-catalog.service.js';
 import {
   ActivityDto,
   ActivityListDto,
@@ -35,12 +36,12 @@ import {
   SlotListDto,
 } from './catalog.dto.js';
 import { CatalogProblemFilter } from './catalog.errors.js';
-import { CatalogService } from './catalog.service.js';
 import {
   CatalogActivityInputPipe,
   CatalogListQueryPipe,
   CatalogSlotInputPipe,
 } from './catalog.validation.pipe.js';
+import { SlotCatalogService } from './slots/slot-catalog.service.js';
 
 @ApiTags('Catalog')
 @ApiBearerAuth()
@@ -54,7 +55,10 @@ import {
 @Controller('v1/centers/:centerId')
 export class CatalogController {
   constructor(
-    @Inject(CatalogService) private readonly catalog: CatalogService,
+    @Inject(ActivityCatalogService)
+    private readonly activities: ActivityCatalogService,
+    @Inject(SlotCatalogService)
+    private readonly slots: SlotCatalogService,
   ) {}
 
   private async execute<T>(
@@ -74,7 +78,7 @@ export class CatalogController {
     @Query(CatalogListQueryPipe) query: CatalogListQueryDto,
   ) {
     return this.execute(principal, (principal) =>
-      this.catalog.listActivities(principal, handle, centerId, query),
+      this.activities.listActivities(principal, handle, centerId, query),
     );
   }
 
@@ -89,7 +93,7 @@ export class CatalogController {
     @Body(CatalogActivityInputPipe) input: CatalogActivityInputDto,
   ) {
     return this.execute(principal, (principal) =>
-      this.catalog.createActivity(principal, handle, centerId, input),
+      this.activities.createActivity(principal, handle, centerId, input),
     );
   }
 
@@ -104,7 +108,7 @@ export class CatalogController {
     @Param('activityId') activityId: string,
   ) {
     return this.execute(principal, (principal) =>
-      this.catalog.setActivityStatus(
+      this.activities.setActivityStatus(
         principal,
         handle,
         centerId,
@@ -125,7 +129,7 @@ export class CatalogController {
     @Param('activityId') activityId: string,
   ) {
     return this.execute(principal, (principal) =>
-      this.catalog.setActivityStatus(
+      this.activities.setActivityStatus(
         principal,
         handle,
         centerId,
@@ -146,7 +150,7 @@ export class CatalogController {
     @Query(CatalogListQueryPipe) query: CatalogListQueryDto,
   ) {
     return this.execute(principal, (principal) =>
-      this.catalog.listSlots(principal, handle, centerId, activityId, query),
+      this.slots.listSlots(principal, handle, centerId, activityId, query),
     );
   }
 
@@ -162,7 +166,7 @@ export class CatalogController {
     @Body(CatalogSlotInputPipe) input: CatalogSlotInputDto,
   ) {
     return this.execute(principal, (principal) =>
-      this.catalog.createSlot(principal, handle, centerId, activityId, input),
+      this.slots.createSlot(principal, handle, centerId, activityId, input),
     );
   }
 
@@ -177,7 +181,7 @@ export class CatalogController {
     @Param('slotId') slotId: string,
   ) {
     return this.execute(principal, (principal) =>
-      this.catalog.setSlotStatus(principal, handle, centerId, slotId, 'Closed'),
+      this.slots.setSlotStatus(principal, handle, centerId, slotId, 'Closed'),
     );
   }
 
@@ -192,7 +196,7 @@ export class CatalogController {
     @Param('slotId') slotId: string,
   ) {
     return this.execute(principal, (principal) =>
-      this.catalog.setSlotStatus(
+      this.slots.setSlotStatus(
         principal,
         handle,
         centerId,

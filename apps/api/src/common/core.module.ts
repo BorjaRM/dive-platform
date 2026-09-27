@@ -4,14 +4,14 @@ import {
   IDENTITY_WEBHOOK_VERIFIER,
 } from '@dive-center/identity';
 import { Global, Module } from '@nestjs/common';
-import { ClerkAuthGuard } from './auth.guard.js';
-import { clerkIdentityConfigFromEnvironment } from './clerk.config.js';
-import { SECURITY_LOGGER } from './security.tokens.js';
+import { ClerkAuthGuard } from './auth/auth.guard.js';
+import { clerkIdentityConfigFromEnvironment } from './auth/clerk.config.js';
+import { SECURITY_LOGGER } from './security/security.tokens.js';
 import {
   dashboardContextHmacSecretFromEnvironment,
   TenantContextCrypto,
-} from './tenant-context.crypto.js';
-import { TENANT_CONTEXT_CRYPTO } from './tokens.js';
+} from './tenant-context/tenant-context.crypto.js';
+import { TENANT_CONTEXT_CRYPTO } from './tenant-context/tenant-context.tokens.js';
 
 @Global()
 @Module({

@@ -12,8 +12,8 @@ import { Test } from '@nestjs/testing';
 import { Pool } from 'pg';
 import request from 'supertest';
 import { AppModule } from '../src/app/app.module.js';
-import { SECURITY_LOGGER } from '../src/common/security.tokens.js';
-import { DATABASE_POOL } from '../src/common/tokens.js';
+import { DATABASE_POOL } from '../src/common/database/database.tokens.js';
+import { SECURITY_LOGGER } from '../src/common/security/security.tokens.js';
 import { legacyDashboardCenterPath } from './legacy-dashboard-routes.js';
 
 function testDatabaseUrl(
