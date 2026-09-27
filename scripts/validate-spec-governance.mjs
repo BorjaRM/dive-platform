@@ -24,8 +24,7 @@ export function artifactKind(file) {
   const relative = path.relative(root, file).replaceAll(path.sep, '/');
   if (!relative.startsWith('specs/')) return undefined;
   if (/^specs\/.+\/SPEC-[^/]+\.md$/.test(relative)) return 'spec';
-  if (/^specs\/architecture\/adrs\/ADR-[^/]+\.md$/.test(relative))
-    return 'adr';
+  if (/^specs\/architecture\/adrs\/ADR-[^/]+\.md$/.test(relative)) return 'adr';
   if (/^specs\/traceability\/TRACE-[^/]+\.md$/.test(relative)) return 'trace';
   return undefined;
 }
@@ -72,7 +71,9 @@ function expandIds(expression) {
 function metadata(text, name) {
   const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return (
-    text.match(new RegExp(`^- \\*\\*${escapedName}:\\*\\*\\s*(.+)$`, 'm'))?.[1]?.trim() ??
+    text
+      .match(new RegExp(`^- \\*\\*${escapedName}:\\*\\*\\s*(.+)$`, 'm'))?.[1]
+      ?.trim() ??
     text.match(new RegExp(`^- ${escapedName}:\\s*(.+)$`, 'm'))?.[1]?.trim()
   );
 }

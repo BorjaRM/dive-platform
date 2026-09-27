@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
   artifactKind,
   validateAdr,
@@ -21,14 +21,8 @@ function errorsFor(validate, fixture) {
 describe('spec governance artifact discovery', () => {
   it('classifies SPEC, ADR, and TRACE paths independently', () => {
     assert.equal(artifactKind('specs/booking/SPEC-fixture.md'), 'spec');
-    assert.equal(
-      artifactKind('specs/architecture/adrs/ADR-fixture.md'),
-      'adr',
-    );
-    assert.equal(
-      artifactKind('specs/traceability/TRACE-fixture.md'),
-      'trace',
-    );
+    assert.equal(artifactKind('specs/architecture/adrs/ADR-fixture.md'), 'adr');
+    assert.equal(artifactKind('specs/traceability/TRACE-fixture.md'), 'trace');
   });
 });
 
