@@ -23,16 +23,27 @@ import {
   TenantContextCrypto,
 } from './tenant-context.crypto.js';
 
-export const { ObserveModule, ObserveInstrument } = createObserveModule();
+const observe = createObserveModule();
+const observeAppKey = process.env.OBSERVE_APP_KEY;
+const observeAppSecret = process.env.OBSERVE_APP_SECRET;
+const observeConfigured = Boolean(observeAppKey && observeAppSecret);
+
+export const ObserveModule = observe.ObserveModule;
+export const ObserveInstrument = observeConfigured
+  ? observe.ObserveInstrument
+  : undefined;
+
+const observeImport =
+  observeAppKey && observeAppSecret
+    ? ObserveModule.forRoot({
+        appKey: observeAppKey,
+        appSecret: observeAppSecret,
+        serviceId: 'api',
+      })
+    : undefined;
 
 @Module({
-  imports: [
-    ObserveModule.forRoot({
-      appKey: 'YOUR_APP_KEY',
-      appSecret: 'YOUR_APP_SECRET',
-      serviceId: 'api',
-    }),
-  ],
+  imports: observeImport ? [observeImport] : [],
   controllers: [AppController, IamController, IdentityWebhookController],
   providers: [
     AppService,

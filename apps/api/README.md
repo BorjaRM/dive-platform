@@ -31,8 +31,8 @@ The local verifier contract test executes the real Clerk SDK against an RS256 fi
 
 `main.ts` builds an OpenAPI document via `@nestjs/swagger` on every boot. With the app running locally:
 
-- Swagger UI: `http://localhost:3000/docs`
-- Raw OpenAPI JSON: `http://localhost:3000/docs-json`
+- Swagger UI: `http://localhost:3001/docs`
+- Raw OpenAPI JSON: `http://localhost:3001/docs-json`
 
 ## Local commands
 
@@ -129,7 +129,7 @@ In production applications, observability is essential for understanding how you
 - **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
 - **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
 
-This project is already instrumented. Create a free account at [observe.nestjs.com](https://observe.nestjs.com), add an application, and paste the generated app key and secret into the `ObserveModule.forRoot()` call in `src/app.module.ts`.
+This project is already instrumented. To enable NestJS Observe, set `OBSERVE_APP_KEY` and `OBSERVE_APP_SECRET` in the environment. When either value is absent, Observe is disabled for local development.
 
 The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
 

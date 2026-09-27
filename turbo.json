@@ -1,7 +1,20 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
-  "globalPassThroughEnv": ["GITHUB_EVENT_PATH"],
+  "globalPassThroughEnv": [
+    "APP_DATABASE_URL",
+    "CLERK_AUTHORIZED_PARTIES",
+    "CLERK_ISSUER",
+    "CLERK_SECRET_KEY",
+    "CLERK_WEBHOOK_SIGNING_SECRET",
+    "DASHBOARD_CONTEXT_HMAC_SECRET",
+    "DASHBOARD_CORS_ORIGINS",
+    "GITHUB_EVENT_PATH",
+    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+    "NEXT_PUBLIC_DASHBOARD_API_URL",
+    "OBSERVE_APP_KEY",
+    "OBSERVE_APP_SECRET"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
