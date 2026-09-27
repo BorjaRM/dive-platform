@@ -23,6 +23,7 @@ describe('IAM identity assertion boundary (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005)',
     expect(principal).toEqual({
       issuer: 'issuer',
       subject: 'subject',
+      sessionId: 'session',
       verifiedAddresses: ['person@example.test'],
       assurance: { level: 'single_factor', verifiedAt: null },
     });
@@ -31,6 +32,7 @@ describe('IAM identity assertion boundary (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005)',
       assertAuthenticatedPrincipal({
         issuer: 'issuer',
         subject: 'subject',
+        sessionId: 'session',
         verifiedAddresses: ['person@example.test'],
       }),
     ).toThrow('Untrusted identity assertion');
@@ -74,30 +76,35 @@ describe('IAM identity assertion boundary (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005)',
     {
       issuer: '',
       subject: 'subject',
+      sessionId: 'session',
       verifiedAddresses: ['a@example.test'],
       assurance: { level: 'single_factor' as const, verifiedAt: null },
     },
     {
       issuer: 'issuer',
       subject: '   ',
+      sessionId: 'session',
       verifiedAddresses: ['a@example.test'],
       assurance: { level: 'single_factor' as const, verifiedAt: null },
     },
     {
       issuer: 'issuer',
       subject: 'subject',
+      sessionId: 'session',
       verifiedAddresses: [' '],
       assurance: { level: 'single_factor' as const, verifiedAt: null },
     },
     {
       issuer: 'issuer',
       subject: 'subject',
+      sessionId: 'session',
       verifiedAddresses: 'not-an-array',
       assurance: { level: 'single_factor' as const, verifiedAt: null },
     },
     {
       issuer: 'issuer',
       subject: 'subject',
+      sessionId: 'session',
       verifiedAddresses: [],
     },
   ])('rejects malformed provider output %#', async (principal) => {

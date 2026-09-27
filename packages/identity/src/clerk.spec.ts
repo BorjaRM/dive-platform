@@ -97,6 +97,7 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
     ).resolves.toEqual({
       issuer: config.issuer,
       subject: 'user_123',
+      sessionId: 'sess_123',
       verifiedAddresses: ['verified@example.test'],
       assurance: {
         level: 'single_factor',

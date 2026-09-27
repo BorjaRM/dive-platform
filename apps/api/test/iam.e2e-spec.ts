@@ -119,6 +119,15 @@ const principals = new Map([
     },
   ],
   [
+    'webhook-token',
+    {
+      issuer: clerkIssuer,
+      subject: clerkSubject,
+      sessionId: 'sess_webhook',
+      verifiedAddresses: [],
+    },
+  ],
+  [
     'malformed-principal-token',
     {
       issuer: 'test',
@@ -147,7 +156,21 @@ describe('IAM/API vertical (e2e)', () => {
     connectionString: testDatabaseUrl('SPIKE_APP_DATABASE_URL'),
   });
   const logs: unknown[] = [];
+  const contextHandles = new Map<string, string>();
   let app: INestApplication;
+
+  async function contextFor(token: string): Promise<string> {
+    const existing = contextHandles.get(token);
+    if (existing) return existing;
+    const response = await request(app.getHttpServer())
+      .post('/v1/me/tenant-contexts')
+      .set('authorization', `Bearer ${token}`)
+      .expect(201);
+    const handle = response.body.tenantContext;
+    expect(handle).toMatch(/^ctx_[A-Za-z0-9_-]+$/);
+    contextHandles.set(token, handle);
+    return handle;
+  }
 
   beforeAll(async () => {
     await bootstrapRoles(admin);
@@ -171,10 +194,12 @@ describe('IAM/API vertical (e2e)', () => {
       .compile();
     app = module.createNestApplication({ rawBody: true });
     await app.init();
+    await app.listen(0);
   });
 
   beforeEach(async () => {
     logs.length = 0;
+    contextHandles.clear();
     terminatedTokens.clear();
     await admin.query(
       'TRUNCATE iam_app.outbox_events, iam_app.audit_records, iam_app.memberships, iam_app.centers, iam_app.external_identities, iam_app.identities, iam_app.tenants CASCADE',
@@ -242,17 +267,20 @@ describe('IAM/API vertical (e2e)', () => {
     await request(app.getHttpServer())
       .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', await contextFor('manager-a-token'))
       .expect(200)
       .expect({ id: centerA1, name: 'A1' });
 
     await request(app.getHttpServer())
       .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer owner-a-no-email-token')
+      .set('x-tenant-context', await contextFor('owner-a-no-email-token'))
       .expect(200)
       .expect({ id: centerA1, name: 'A1' });
     await request(app.getHttpServer())
       .get(legacyDashboardCenterPath(tenantA, centerA2))
       .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', await contextFor('manager-a-token'))
       .expect(403)
       .expect({
         message: 'Access denied',
@@ -263,11 +291,16 @@ describe('IAM/API vertical (e2e)', () => {
 
   it('denies missing identity, foreign tenant, and foreign center without disclosure', async () => {
     await request(app.getHttpServer())
+      .get(`/v1/tenants/${tenantA}/centers/${centerA1}`)
+      .set('authorization', 'Bearer owner-a-token')
+      .expect(404);
+    await request(app.getHttpServer())
       .get(legacyDashboardCenterPath(tenantA, centerA1))
       .expect(401);
     const foreign = await request(app.getHttpServer())
       .get(legacyDashboardCenterPath(tenantB, centerB1))
       .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', await contextFor('owner-a-token'))
       .expect(403);
     expect(JSON.stringify(foreign.body)).not.toContain(centerB1);
     expect(JSON.stringify(logs)).not.toContain(centerB1);
@@ -300,6 +333,7 @@ describe('IAM/API vertical (e2e)', () => {
     await request(app.getHttpServer())
       .get(legacyDashboardCenterPath(tenantA, centerA2))
       .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', await contextFor('manager-a-token'))
       .set('x-tenant-id', tenantB)
       .set('x-permissions', 'membership.disable')
       .expect(403);
@@ -324,6 +358,7 @@ describe('IAM/API vertical (e2e)', () => {
     await request(app.getHttpServer())
       .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', await contextFor('manager-a-token'))
       .expect(200);
     await admin.query(
       'ALTER TABLE iam_app.memberships DISABLE TRIGGER memberships_lifecycle_guard',
@@ -344,6 +379,7 @@ describe('IAM/API vertical (e2e)', () => {
     await request(app.getHttpServer())
       .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', await contextFor('manager-a-token'))
       .expect(403);
     const elapsedMilliseconds = performance.now() - committedAt;
     expect(elapsedMilliseconds).toBeLessThanOrEqual(
@@ -375,9 +411,11 @@ describe('IAM/API vertical (e2e)', () => {
   });
 
   it('disables a membership with atomic audit and outbox derived from context', async () => {
+    const managerContext = await contextFor('manager-a-token');
     await request(app.getHttpServer())
-      .patch(`/v1/tenants/${tenantA}/memberships/${membershipManagerA}/disable`)
+      .patch(`/v1/memberships/${membershipManagerA}/disable`)
       .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', await contextFor('owner-a-token'))
       .expect(200)
       .expect({ status: 'disabled' });
     const result = await admin.query(
@@ -400,6 +438,7 @@ describe('IAM/API vertical (e2e)', () => {
     await request(app.getHttpServer())
       .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', managerContext)
       .expect(403);
     const elapsedMilliseconds = performance.now() - committedAt;
     expect(elapsedMilliseconds).toBeLessThanOrEqual(
@@ -414,6 +453,7 @@ describe('IAM/API vertical (e2e)', () => {
     await request(app.getHttpServer())
       .get(legacyDashboardCenterPath(tenantA, centerA1))
       .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', await contextFor('manager-a-token'))
       .expect(200);
 
     terminatedTokens.add('manager-a-token');
@@ -443,8 +483,9 @@ describe('IAM/API vertical (e2e)', () => {
       ],
     );
     await request(app.getHttpServer())
-      .patch(`/v1/tenants/${tenantA}/memberships/${membershipManagerA}/disable`)
+      .patch(`/v1/memberships/${membershipManagerA}/disable`)
       .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', await contextFor('owner-a-token'))
       .expect(500);
     const state = await admin.query(
       'SELECT status FROM iam_app.memberships WHERE id=$1',
@@ -460,16 +501,19 @@ describe('IAM/API vertical (e2e)', () => {
 
   it('denies cross-tenant disable and protects the last active owner', async () => {
     await request(app.getHttpServer())
-      .patch(`/v1/tenants/${tenantB}/memberships/${membershipB}/disable`)
+      .patch(`/v1/memberships/${membershipB}/disable`)
       .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', await contextFor('owner-a-token'))
       .expect(403);
     await request(app.getHttpServer())
-      .patch(`/v1/tenants/${tenantA}/memberships/${membershipOwnerA2}/disable`)
+      .patch(`/v1/memberships/${membershipOwnerA2}/disable`)
       .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', await contextFor('owner-a-token'))
       .expect(200);
     await request(app.getHttpServer())
-      .patch(`/v1/tenants/${tenantA}/memberships/${membershipOwnerA}/disable`)
+      .patch(`/v1/memberships/${membershipOwnerA}/disable`)
       .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', await contextFor('owner-a-token'))
       .expect(403)
       .expect({
         message: 'Operation not allowed',
@@ -512,17 +556,16 @@ describe('IAM/API vertical (e2e)', () => {
       EXECUTE FUNCTION iam_app.test_delay_owner_disable();
     `);
     try {
+      const ownerContext = await contextFor('owner-a-token');
       const responses = await Promise.all([
         request(app.getHttpServer())
-          .patch(
-            `/v1/tenants/${tenantA}/memberships/${membershipOwnerA}/disable`,
-          )
-          .set('authorization', 'Bearer owner-a-token'),
+          .patch(`/v1/memberships/${membershipOwnerA}/disable`)
+          .set('authorization', 'Bearer owner-a-token')
+          .set('x-tenant-context', ownerContext),
         request(app.getHttpServer())
-          .patch(
-            `/v1/tenants/${tenantA}/memberships/${membershipOwnerA2}/disable`,
-          )
-          .set('authorization', 'Bearer owner-a-token'),
+          .patch(`/v1/memberships/${membershipOwnerA2}/disable`)
+          .set('authorization', 'Bearer owner-a-token')
+          .set('x-tenant-context', ownerContext),
       ]);
 
       expect(responses.map(({ status }) => status).sort()).toEqual([200, 403]);
@@ -543,8 +586,9 @@ describe('IAM/API vertical (e2e)', () => {
 
   it('does not grant membership.disable to center managers', async () => {
     await request(app.getHttpServer())
-      .patch(`/v1/tenants/${tenantA}/memberships/${membershipOwnerA}/disable`)
+      .patch(`/v1/memberships/${membershipOwnerA}/disable`)
       .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', await contextFor('manager-a-token'))
       .expect(403);
     const audits = await admin.query(
       `SELECT actor_identity_id, result, reason
@@ -685,8 +729,9 @@ describe('IAM/API vertical (e2e)', () => {
     expect(after.rows[0]?.count).toBe(before.rows[0]?.count);
   });
 
-  it('acknowledges a verified session revocation without mutating authorization state', async () => {
+  it('revokes contexts for a verified session event without changing membership state', async () => {
     const providerEventId = 'evt_http_session_revoked';
+    await contextFor('webhook-token');
     const body = JSON.stringify({
       type: 'session.revoked',
       data: {
@@ -706,16 +751,22 @@ describe('IAM/API vertical (e2e)', () => {
 
     const state = await admin.query<{
       processing_result: string;
+      revoked_at: string | null;
     }>(
-      `SELECT inbox.processing_result
+      `SELECT inbox.processing_result, context.revoked_at
        FROM iam_app.external_identities external_identity
        JOIN iam_app.identity_webhook_inbox inbox
          ON inbox.issuer=external_identity.issuer AND inbox.subject=external_identity.subject
+       LEFT JOIN iam_app.tenant_contexts context
+         ON context.identity_id=(SELECT identity_id FROM iam_app.external_identities WHERE issuer=$1 AND subject=$2)
        WHERE external_identity.issuer=$1 AND external_identity.subject=$2
          AND inbox.provider_event_id=$3`,
       [clerkIssuer, clerkSubject, providerEventId],
     );
-    expect(state.rows).toEqual([{ processing_result: 'ignored' }]);
+    expect(state.rows).toEqual([
+      expect.objectContaining({ processing_result: 'applied' }),
+    ]);
+    expect(state.rows[0]?.revoked_at).not.toBeNull();
   });
 
   afterAll(async () => {

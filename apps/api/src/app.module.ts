@@ -12,8 +12,16 @@ import { AppService } from './app.service.js';
 import { clerkIdentityConfigFromEnvironment } from './clerk.config.js';
 import { IamController } from './iam.controller.js';
 import { IamService } from './iam.service.js';
-import { DATABASE_POOL, SECURITY_LOGGER } from './iam.tokens.js';
+import {
+  DATABASE_POOL,
+  SECURITY_LOGGER,
+  TENANT_CONTEXT_CRYPTO,
+} from './iam.tokens.js';
 import { IdentityWebhookController } from './identity-webhook.controller.js';
+import {
+  dashboardContextHmacSecretFromEnvironment,
+  TenantContextCrypto,
+} from './tenant-context.crypto.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -47,6 +55,13 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       useValue: {
         warn: (entry: unknown) => console.warn(JSON.stringify(entry)),
       },
+    },
+    {
+      provide: TENANT_CONTEXT_CRYPTO,
+      useFactory: () =>
+        new TenantContextCrypto(
+          dashboardContextHmacSecretFromEnvironment(process.env),
+        ),
     },
   ],
 })

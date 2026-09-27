@@ -7,8 +7,13 @@ import { Test } from '@nestjs/testing';
 import { describe, expect, it, vi } from 'vitest';
 import { IamController } from './iam.controller.js';
 import { IamService } from './iam.service.js';
-import { DATABASE_POOL, SECURITY_LOGGER } from './iam.tokens.js';
+import {
+  DATABASE_POOL,
+  SECURITY_LOGGER,
+  TENANT_CONTEXT_CRYPTO,
+} from './iam.tokens.js';
 import { IdentityWebhookController } from './identity-webhook.controller.js';
+import { TenantContextCrypto } from './tenant-context.crypto.js';
 
 describe('OpenAPI document generation', () => {
   it('includes the IAM and webhook routes with a bearer security scheme', async () => {
@@ -20,6 +25,10 @@ describe('OpenAPI document generation', () => {
         { provide: SECURITY_LOGGER, useValue: { warn: vi.fn() } },
         { provide: IamService, useValue: {} },
         { provide: DATABASE_POOL, useValue: {} },
+        {
+          provide: TENANT_CONTEXT_CRYPTO,
+          useValue: new TenantContextCrypto('t'.repeat(32)),
+        },
       ],
     }).compile();
 
@@ -36,14 +45,17 @@ describe('OpenAPI document generation', () => {
     );
     await app.close();
 
+    expect(document.paths['/v1/me/operators']?.get).toBeDefined();
+    expect(document.paths['/v1/me/tenant-contexts']?.post).toBeDefined();
+    expect(document.paths['/v1/me/tenant-contexts']?.delete).toBeDefined();
+    expect(document.paths['/v1/centers']?.get).toBeDefined();
+    expect(document.paths['/v1/centers/{centerId}']?.get).toBeDefined();
     expect(
-      document.paths['/v1/tenants/{tenantId}/centers/{centerId}']?.get,
+      document.paths['/v1/memberships/{membershipId}/disable']?.patch,
     ).toBeDefined();
     expect(
-      document.paths[
-        '/v1/tenants/{tenantId}/memberships/{membershipId}/disable'
-      ]?.patch,
-    ).toBeDefined();
+      document.paths['/v1/tenants/{tenantId}/centers/{centerId}'],
+    ).toBeUndefined();
     expect(document.paths['/v1/webhooks/clerk']?.post).toBeDefined();
     expect(document.components?.securitySchemes?.bearer).toBeDefined();
   });

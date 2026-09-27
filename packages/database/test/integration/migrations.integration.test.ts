@@ -18,6 +18,7 @@ const iamTables = [
   iamSchema.iamCenters,
   iamSchema.iamMemberships,
   iamSchema.iamIdentityTenants,
+  iamSchema.iamTenantContexts,
   iamSchema.iamInvitations,
   iamSchema.iamAuditRecords,
   iamSchema.iamOutboxEvents,
