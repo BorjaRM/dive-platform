@@ -43,6 +43,27 @@ Everyone else: `agents: []` and no `agent` tool. SDD Writer, SDD Gatekeeper, Imp
 - Relevant SPEC/ADR/spike files for the task
 - `.github/copilot-instructions.md`
 
+## Workflow (you are the coordinator)
+
+Agents do **not** split a task in parallel. One agent is active; you advance the phase.
+
+```text
+SPEC change
+  you → SDD Writer → handoff → SDD Gatekeeper
+                              ↘ handoff → SDD Writer (fix provenance)
+
+Ready-to-start implementation
+  you → Backend or Frontend
+          ↳ may subagent Tenancy (isolation) and Test Evidence (proof)
+          ↳ handoff → Implementation PR Reviewer
+                          ↳ handoff → Backend / Frontend / Tenancy (fix findings)
+                          ↳ handoff → Test Evidence (missing proof)
+                          ↳ handoff → SDD Gatekeeper (specs/** only)
+                          ↳ then you hand off back to Reviewer
+```
+
+Pick **Backend** vs **Frontend** from the Reviewer buttons according to the finding paths. Do not expect the Reviewer to spawn implementers on its own.
+
 ## How to choose
 
 | Agent | Use when |
@@ -65,5 +86,5 @@ Typical flow:
 1. **SDD Writer** → SDD Gatekeeper
 2. **SDD Gatekeeper** → SDD Writer (fix provenance). If the change set is implementation-only, stop and use Implementation PR Reviewer.
 3. **Implementers** → Tenancy (if isolation surface) → Test and Evidence → Implementation PR Reviewer; SDD Writer if a spec gap blocked coding; SDD Gatekeeper if `specs/**` changed
-4. **Implementation PR Reviewer** → SDD Gatekeeper or Test and Evidence — not to implementers
+4. **Implementation PR Reviewer** → SDD Gatekeeper (specs), Test and Evidence (proof gaps), or the matching implementer (**Backend**, **Frontend**, **Tenancy**) to fix classified findings. Those are handoffs you click, not subagents: the Reviewer still does not implement.
 5. **CI/CD + Quality Automation** → Implementation PR Reviewer

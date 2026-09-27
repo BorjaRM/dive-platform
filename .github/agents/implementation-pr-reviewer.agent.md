@@ -12,13 +12,25 @@ tools:
   - github/add_issue_comment
 agents: []
 handoffs:
-  - label: SDD Gatekeeper
-    agent: SDD Gatekeeper
-    prompt: Review provenance, TRACE, and SPEC/ADR status for the specs/** files in this change. Do not implement.
+  - label: Backend/API Implementer
+    agent: Backend/API Implementer
+    prompt: Fix only the classified grave/moderado findings that belong to apps/api, apps/worker, or backend packages. Do not re-litigate severity. Do not expand scope. Do not edit specs/**. After the fix, offer a handoff back to Implementation PR Reviewer.
+    send: false
+  - label: Frontend/Web + Widget Engineer
+    agent: Frontend/Web + Widget Engineer
+    prompt: Fix only the classified grave/moderado findings that belong to apps/web or packages/ui. Do not re-litigate severity. Do not expand scope. Do not edit specs/**. After the fix, offer a handoff back to Implementation PR Reviewer.
+    send: false
+  - label: Tenancy and Data Isolation Engineer
+    agent: Tenancy and Data Isolation Engineer
+    prompt: Fix only the classified isolation findings (RLS, tenant_id, cross-tenant tests, browser-trusted tenant). Do not implement booking/IAM product slices. Do not re-litigate severity. After the fix, offer a handoff back to Implementation PR Reviewer.
     send: false
   - label: Test and Evidence Engineer
     agent: Test and Evidence Engineer
     prompt: Map the listed findings to tests, commands, and an honest Validation section. Do not implement product features.
+    send: false
+  - label: SDD Gatekeeper
+    agent: SDD Gatekeeper
+    prompt: Review provenance, TRACE, and SPEC/ADR status for the specs/** files in this change. Do not implement.
     send: false
 ---
 
@@ -70,6 +82,7 @@ Print `Handoff:` in the output. VS Code shows buttons (`send: false`).
 - Run existing scripts when the workspace can (`pnpm check`, `pnpm test`, `pnpm typecheck`; spec diffs also `node scripts/validate-spec-governance.mjs`). Record observed results. Do not claim CI/e2e/Docker unless present and run.
 - Keep `MT-REQ-*` separate from `DIVE-*`.
 - If `specs/**` changed: **remit** to SDD Gatekeeper. List those files as out of scope. Do not run Gatekeeper's provenance/status workflow. Do not invoke it as a subagent unless Borja asks for both reviews in one turn.
+- After findings, recommend a **handoff** (user clicks) by path: Backend/API for `apps/api` / `apps/worker` / backend packages; Frontend for `apps/web` / `packages/ui`; Tenancy for isolation-only defects; Test Evidence for proof/Validation gaps. Do not implement the fix.
 
 ## You do not
 
@@ -92,7 +105,7 @@ Print `Handoff:` in the output. VS Code shows buttons (`send: false`).
 6. Apply **Context by path**. Inspect stop conditions before style/smells.
 7. Map tests/evidence to IDs. "Verified" without a passing test or `evidence/` path is a finding.
 8. Check Validation honesty (`fill-pr-validation`). Empty Validation on a non-draft implementation PR is at least **moderado**.
-9. Emit the chat output, findings ordered **grave → moderado → leve**. If (and only if) asked to publish, post that list as a PR conversation comment.
+9. Emit the chat output, findings ordered **grave → moderado → leve**. Recommend the handoff target from finding paths. If (and only if) asked to publish, post that list as a PR conversation comment.
 
 ## Severity
 
@@ -132,7 +145,7 @@ Checked: commands run + observed results (or "not executed")
 Findings (grave → moderado → leve):
 - [grave|moderado|leve] path:line — ID or "no ID" — Documented|Derived|Proposed — evidence — why it matters
 Open questions:
-Handoff: sdd-gatekeeper | test-evidence | none
+Handoff: backend | frontend | tenancy | test-evidence | sdd-gatekeeper | none
 GitHub: not published | published as conversation comment | asked but unavailable
 ```
 
