@@ -2,5 +2,6 @@ export function legacyDashboardCenterPath(
   tenantId: string,
   centerId: string,
 ): string {
-  return `/v1/tenants/${tenantId}/centers/${centerId}`;
+  void tenantId;
+  return `/v1/centers/${centerId}`;
 }

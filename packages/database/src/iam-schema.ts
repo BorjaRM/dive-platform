@@ -129,6 +129,34 @@ export const iamIdentityTenants = iamApp.table(
   (table) => [primaryKey({ columns: [table.identityId, table.tenantId] })],
 );
 
+export const iamTenantContexts = iamApp.table(
+  'tenant_contexts',
+  {
+    handleHash: text('handle_hash').primaryKey(),
+    identityId: uuid('identity_id')
+      .notNull()
+      .references(() => iamIdentities.id),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => iamTenants.id),
+    sessionIdHash: text('session_id_hash').notNull(),
+    issuedAt: timestamp('issued_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  },
+  () => [
+    check(
+      'tenant_contexts_handle_hash_format',
+      sql`handle_hash ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'tenant_contexts_session_id_hash_format',
+      sql`session_id_hash ~ '^[0-9a-f]{64}$'`,
+    ),
+  ],
+);
+
 export const iamInvitations = iamApp.table(
   'invitations',
   {

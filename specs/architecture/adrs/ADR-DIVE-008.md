@@ -1,7 +1,7 @@
 # ADR-DIVE-008 — Internal tenant-scoped dashboard context
 
 - **Status:** Ready to start
-- **Version:** 0.3
+- **Version:** 0.5
 - **Date:** 2026-09-27
 - **Decision date:** 2026-09-27
 - **Deciders:** Product / Security / Architecture
@@ -9,7 +9,7 @@
 
 ## Provenance
 
-The path and credential decisions were introduced as `Proposed` on 2026-09-27. Product owner (Borja) explicitly promoted this ADR to Ready to start on 2026-09-27. It is now implementation authority for dashboard tenant context. Remaining open questions stay outside the approved decision and must not be filled with silent defaults.
+The path and credential decisions were introduced as `Proposed` on 2026-09-27. Product owner (Borja) explicitly promoted this ADR to Ready to start on 2026-09-27 and accepted the implementation closures below on the same date. It is now implementation authority for dashboard tenant context. The implementation must not add defaults beyond this decision.
 
 | Decision | Provenance | Exact source | Status |
 |---|---|---|---|
@@ -23,6 +23,15 @@ The path and credential decisions were introduced as `Proposed` on 2026-09-27. P
 | Automatically select the tenant when exactly one active membership is available | `Proposed` | Product discussion on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | Keep roles, permissions, and center scopes out of the context credential and resolve current authorization from PostgreSQL | `Derived` | `DIVE-IAM-REQ-003`, `004`, `016`, `022`; multitenancy baseline §5; ADR-DIVE-007 | Approved by product owner 2026-09-27; Ready to start |
 | Opaque server-stored handle, `X-Tenant-Context` header, Clerk-session lifetime, multiple simultaneous contexts, atomic route replacement, and the `/v1/me/*` context API below | `Proposed` | Product confirmation by Borja on 2026-09-27 to apply the recommended closures | Approved by product owner 2026-09-27; Ready to start |
+| Store the handle as a 32-byte random secret shown once, with only its SHA-256 hash persisted; bind it to an internal HMAC-SHA-256 hash of the Clerk `sid` | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| Keep the raw Clerk `sid` backend-internal; do not return it, log it, trace it, or include it in the context credential | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| Use `sessionStorage` for browser context persistence; do not use `localStorage` | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| Limit issuance to 10 requests per identity and Clerk `sid` per minute and 20 live handles per identity and session; do not revoke handles automatically to enforce the cap | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| Mark handles revoked for idempotently processed `session.revoked`, `session.ended`, and `session.removed` events; request-time Clerk validation remains authoritative | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| Delete revoked handles after 30 days; do not expire active handles through an independent product TTL | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| Configure dashboard CORS with exact origins from `DASHBOARD_CORS_ORIGINS`, without wildcard origins or cookie credentials, and allow `Authorization`, `X-Tenant-Context`, and `Content-Type` | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| Use `operators`, `operatorRef`, `displayName`, and `tenantContext` in the context API response shapes; operator references use the opaque `op_...` form | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| Separate the database login used by provider webhooks from the shared application login | `Proposed` | Security hardening discussion with Borja on 2026-09-27 | Future consideration; not approved and not part of the current runtime contract |
 
 ## Context
 
@@ -83,32 +92,41 @@ Public widget and hosted-page routes stay outside this dashboard contract and co
 - The handle is not a signed application JWT and must not carry authoritative roles, permissions, center scopes, membership state, or resource state.
 - Transport is the request header `X-Tenant-Context` together with `Authorization: Bearer <clerk-session-token>`.
 - Cookies are not used for this credential, so a browser has no single implicit active tenant and a custom header is not sent automatically on cross-site form requests.
+- Dashboard CORS uses exact origins from `DASHBOARD_CORS_ORIGINS`, with no wildcard origins or cookie credentials, and allows `Authorization`, `X-Tenant-Context`, and `Content-Type`.
 
-Conceptual stored fields (physical schema remains an implementation detail):
+Conceptual stored fields (physical table and index names remain implementation details):
 
 - handle hash;
 - internal identity;
 - tenant id;
-- Clerk `sid`;
+- HMAC-SHA-256 hash of Clerk `sid`;
 - issued-at;
 - revoked-at, when revoked.
+
+The raw handle secret and raw Clerk `sid` exist only in trusted backend memory while needed for issuance or validation. They are never returned in API responses or written to logs, traces, or audit records.
 
 ### Lifetime, renewal, and revocation
 
 - The handle has no independent product TTL. It remains usable only while the Clerk session is valid, the row is not revoked, and the membership remains active.
 - There is no sliding renewal. A revoked, unknown, or session-mismatched handle requires a new `POST /v1/me/tenant-contexts`.
 - Selecting another operator issues another handle. It does not rewrite the previous handle unless the client revokes it.
+- The server limits issuance to 10 requests per identity and Clerk `sid` per minute and 20 live handles per identity and session. Reaching the live-handle cap does not revoke an existing handle automatically.
 - Membership disable, role/scope change, and authorization decisions are read from PostgreSQL on the request, as required by ADR-DIVE-007. Disable takes effect on the next request even if the handle row still exists.
 - Clerk logout, session expiry, or adapter failure to confirm an active session deny the request. Existing adapter session checks remain the authorization gate; a later webhook that also revokes handle rows is defense in depth and is not required by this ADR.
+- Idempotently processed `session.revoked`, `session.ended`, and `session.removed` events mark handles bound to that session as revoked. Request-time Clerk validation remains authoritative.
+- Session webhook processing receives the provider session identifier internally, hashes it with the same HMAC-SHA-256 procedure, and never persists or emits the raw identifier.
 - Explicit `DELETE /v1/me/tenant-contexts` revokes the presented handle.
-- Cleanup of revoked or session-orphan rows is operational and must not invent a retention period here.
+- Revoked handles are deleted after 30 days. Active handles have no independent product TTL.
 - Logs, traces, and audit must not record the raw handle, `Authorization` value, or `X-Tenant-Context` value. A safe internal tenant id may appear in audit after trusted resolution.
+
+Browser clients persist the handle in `sessionStorage`, never `localStorage`, and remove it after logout or explicit revocation.
 
 ### Operator selection
 
 - With no active tenant membership, no dashboard tenant context is issued.
 - With exactly one active tenant membership, `POST /v1/me/tenant-contexts` without `operatorRef` may select it automatically.
 - With more than one active tenant membership, the user selects from `GET /v1/me/operators`. `operatorRef` is an opaque untrusted selector and is revalidated before issuance.
+- Operator references use the opaque `op_...` form and never expose or directly encode a tenant UUID.
 - Missing, inactive, unrelated, malformed, or cross-identity selections fail with the existing non-disclosing authorization behavior.
 
 ### Context API (dashboard, authenticated)
@@ -129,6 +147,8 @@ Authorization: Bearer <clerk-session-token>
 
 `operatorRef` is omitted only when automatic selection is allowed (exactly one active membership). Success returns `{ "tenantContext": "ctx_…" }` once. The value is a selector, not an access token.
 
+The operator list response is `{ "operators": [{ "operatorRef": "op_…", "displayName": "…" }] }`. `DELETE /v1/me/tenant-contexts` returns `204` on success.
+
 ```http
 DELETE /v1/me/tenant-contexts
 Authorization: Bearer <clerk-session-token>
@@ -145,7 +165,7 @@ Authorization: Bearer <clerk-session-token>
 X-Tenant-Context: ctx_…
 ```
 
-Exact JSON field names may be chosen in the implementation PR if they preserve this contract. The path rule and header-based context must not change.
+The field names above are part of this contract. The path rule and header-based context must not change.
 
 ### Simultaneous contexts
 
@@ -179,6 +199,26 @@ Public channels do not use this dashboard credential:
 - published channel configuration resolves tenant, center, allowed offering scope, publication state, and origin policy server-side;
 - public users receive no dashboard membership or role;
 - booking confirmation-read and cancellation continue to use separate purpose-limited credentials under ADR-DIVE-005.
+
+### Future hardening: separate webhook database role (`Proposed`)
+
+This proposal does not change the current implementation or authorize a new runtime
+role. Today, the API's shared `dive_app` pool is used by both dashboard IAM
+operations and the verified Clerk webhook controller. A future implementation could
+introduce a dedicated `dive_webhook` login and grant it only execution of the
+webhook command function, while revoking that execution privilege from `dive_app`.
+
+The expected benefit is reduced privilege concentration: a compromise or accidental
+SQL capability in the normal dashboard path would not also provide the database
+capability to invoke webhook processing. The function would remain `SECURITY
+DEFINER`, owned by `dive_migration`, with its fixed `search_path`; the separate login
+would not bypass RLS or receive direct access to `identity_tenants`.
+
+This proposal is stronger when webhook processing runs in a separate process or
+worker. If both pools remain in the same API process, process compromise could still
+expose both credentials. Adoption would require a separate connection URL and pool,
+role bootstrap and grants, secret rotation, integration harness support, and tests
+proving that `dive_app` can no longer execute the webhook command.
 
 ## Performance notes
 

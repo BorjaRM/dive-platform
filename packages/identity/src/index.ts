@@ -13,6 +13,7 @@ export type IdentityAssurance = Readonly<{
 export type AuthenticatedPrincipal = Readonly<{
   issuer: string;
   subject: string;
+  sessionId: string;
   verifiedAddresses: readonly string[];
   assurance: IdentityAssurance;
   [authenticatedPrincipal]: true;
@@ -21,6 +22,7 @@ export type AuthenticatedPrincipal = Readonly<{
 export type IdentityProviderPrincipal = Readonly<{
   issuer: string;
   subject: string;
+  sessionId: string;
   verifiedAddresses: readonly string[];
   assurance: IdentityAssurance;
 }>;
@@ -39,7 +41,8 @@ export class DeterministicIdentityProvider implements IdentityProviderPort {
   constructor(
     private readonly principals: ReadonlyMap<
       string,
-      Omit<IdentityProviderPrincipal, 'assurance'> & {
+      Omit<IdentityProviderPrincipal, 'assurance' | 'sessionId'> & {
+        sessionId?: string;
         assurance?: IdentityAssurance;
       }
     >,
@@ -50,6 +53,7 @@ export class DeterministicIdentityProvider implements IdentityProviderPort {
     if (!principal) throw new Error('Unauthenticated');
     return Object.freeze({
       ...principal,
+      sessionId: principal.sessionId ?? token,
       verifiedAddresses: Object.freeze([...principal.verifiedAddresses]),
       assurance: Object.freeze(
         principal.assurance ?? {
@@ -79,12 +83,14 @@ export async function authenticateIdentity(
   const assuranceRecord = assurance as Record<string, unknown>;
   const issuer = candidateRecord.issuer;
   const subject = candidateRecord.subject;
+  const sessionId = candidateRecord.sessionId;
   const verifiedAddressesValue = candidateRecord.verifiedAddresses;
   const level = assuranceRecord.level;
   const verifiedAt = assuranceRecord.verifiedAt;
   if (
     typeof issuer !== 'string' ||
     typeof subject !== 'string' ||
+    typeof sessionId !== 'string' ||
     !Array.isArray(verifiedAddressesValue) ||
     verifiedAddressesValue.some((address) => typeof address !== 'string') ||
     !['single_factor', 'multi_factor'].includes(level as string) ||
@@ -94,6 +100,7 @@ export async function authenticateIdentity(
   }
   const normalizedIssuer = issuer.trim();
   const normalizedSubject = subject.trim();
+  const normalizedSessionId = sessionId.trim();
   const verifiedAddresses = verifiedAddressesValue.map((address) =>
     address.trim(),
   );
@@ -101,6 +108,7 @@ export async function authenticateIdentity(
   if (
     !normalizedIssuer ||
     !normalizedSubject ||
+    !normalizedSessionId ||
     verifiedAddresses.some((address) => !address) ||
     (assuranceVerifiedAt !== null &&
       Number.isNaN(assuranceVerifiedAt.getTime())) ||
@@ -111,6 +119,7 @@ export async function authenticateIdentity(
   const principal = Object.freeze({
     issuer: normalizedIssuer,
     subject: normalizedSubject,
+    sessionId: normalizedSessionId,
     verifiedAddresses: Object.freeze(verifiedAddresses),
     assurance: Object.freeze({
       level,

@@ -38,14 +38,16 @@ const inviteePrincipal = {
 } as const;
 
 async function trustedPrincipal(
-  principal: Omit<IdentityProviderPrincipal, 'assurance'> & {
+  principal: Omit<IdentityProviderPrincipal, 'assurance' | 'sessionId'> & {
     assurance?: IdentityProviderPrincipal['assurance'];
+    sessionId?: string;
   },
 ): Promise<AuthenticatedPrincipal> {
   return authenticateIdentity(
     {
       authenticate: async () => ({
         ...principal,
+        sessionId: principal.sessionId ?? 'provider-session',
         assurance: principal.assurance ?? {
           level: 'single_factor',
           verifiedAt: null,

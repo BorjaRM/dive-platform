@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { applyIdentityWebhook } from '@dive-center/database';
+import {
+  applyIdentityWebhook,
+  sessionIdHashForWebhook,
+} from '@dive-center/database';
 import {
   IDENTITY_WEBHOOK_VERIFIER,
   type IdentityWebhookEvent,
@@ -28,8 +31,10 @@ import {
   IAM_ACTIONS,
   SECURITY_LOGGER,
   type SecurityLoggerPort,
+  TENANT_CONTEXT_CRYPTO,
 } from './iam.tokens.js';
 import { WebhookAckDto } from './identity-webhook.dto.js';
+import type { TenantContextCrypto } from './tenant-context.crypto.js';
 
 @ApiTags('Webhooks')
 @Controller('v1/webhooks')
@@ -39,6 +44,8 @@ export class IdentityWebhookController {
     private readonly verifier: IdentityWebhookVerifierPort,
     @Inject(DATABASE_POOL) private readonly pool: Pool,
     @Inject(SECURITY_LOGGER) private readonly logger: SecurityLoggerPort,
+    @Inject(TENANT_CONTEXT_CRYPTO)
+    private readonly contextCrypto: TenantContextCrypto,
   ) {}
 
   @ApiOperation({
@@ -76,7 +83,14 @@ export class IdentityWebhookController {
     }
 
     try {
-      await applyIdentityWebhook(this.pool, event, correlationId);
+      await applyIdentityWebhook(
+        this.pool,
+        event,
+        correlationId,
+        sessionIdHashForWebhook(event, (sessionId) =>
+          this.contextCrypto.sessionIdHash(sessionId),
+        ),
+      );
     } catch {
       this.logger.warn({
         event: 'iam_security_event',

@@ -9,5 +9,6 @@ export {
   iamInvitations,
   iamMemberships,
   iamOutboxEvents,
+  iamTenantContexts,
   iamTenants,
 } from './iam-schema.js';

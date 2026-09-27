@@ -5,25 +5,37 @@ import {
   type IdentityProviderPort,
 } from '@dive-center/identity';
 import {
+  Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Headers,
+  HttpCode,
+  HttpStatus,
   Inject,
   Param,
   Patch,
+  Post,
   UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { CenterDto, DisableMembershipResultDto } from './iam.dto.js';
+import type { IssueTenantContextDto } from './iam.dto.js';
+import {
+  CenterDto,
+  DisableMembershipResultDto,
+  OperatorListDto,
+  TenantContextDto,
+} from './iam.dto.js';
 import { IamService } from './iam.service.js';
 import {
   IAM_ACTIONS,
@@ -35,7 +47,7 @@ import {
 @ApiTags('IAM')
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ description: 'Missing or invalid bearer token' })
-@Controller('v1/tenants/:tenantId')
+@Controller('v1')
 export class IamController {
   constructor(
     @Inject(IDENTITY_PROVIDER)
@@ -75,18 +87,77 @@ export class IamController {
         });
         throw error;
       }
-      if (error instanceof ForbiddenException) {
-        throw error;
-      }
+      if (error instanceof ForbiddenException) throw error;
       throw error;
     }
   }
 
-  @ApiOperation({
-    summary: 'Read a center',
-    description: 'Returns a center scoped to the caller tenant.',
+  @ApiOperation({ summary: 'List active operators for the caller' })
+  @ApiOkResponse({ type: OperatorListDto })
+  @Get('me/operators')
+  listOperators(@Headers('authorization') authorization: string | undefined) {
+    return this.execute(
+      authorization,
+      IAM_ACTIONS.tenantContextIssue,
+      (principal) => this.iam.listOperators(principal),
+    );
+  }
+
+  @ApiOperation({ summary: 'Issue an opaque tenant context handle' })
+  @ApiOkResponse({ type: TenantContextDto })
+  @ApiForbiddenResponse({ description: 'No valid active operator selection' })
+  @Post('me/tenant-contexts')
+  issueTenantContext(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() input: IssueTenantContextDto,
+  ) {
+    return this.execute(
+      authorization,
+      IAM_ACTIONS.tenantContextIssue,
+      (principal, correlationId) =>
+        this.iam.issueTenantContext(
+          principal,
+          input?.operatorRef,
+          correlationId,
+        ),
+    );
+  }
+
+  @ApiOperation({ summary: 'Revoke the presented tenant context handle' })
+  @ApiNoContentResponse()
+  @ApiForbiddenResponse({
+    description: 'Context missing or not owned by caller',
   })
-  @ApiParam({ name: 'tenantId', format: 'uuid' })
+  @Delete('me/tenant-contexts')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  revokeTenantContext(
+    @Headers('authorization') authorization: string | undefined,
+    @Headers('x-tenant-context') handle: string | undefined,
+  ) {
+    return this.execute(
+      authorization,
+      IAM_ACTIONS.tenantContextRevoke,
+      (principal, correlationId) =>
+        this.iam.revokeTenantContext(principal, handle, correlationId),
+    );
+  }
+
+  @ApiOperation({ summary: 'List centers in the selected tenant context' })
+  @ApiOkResponse({ type: [CenterDto] })
+  @Get('centers')
+  readCenters(
+    @Headers('authorization') authorization: string | undefined,
+    @Headers('x-tenant-context') handle: string | undefined,
+  ) {
+    return this.execute(
+      authorization,
+      IAM_ACTIONS.centerRead,
+      (principal, correlationId) =>
+        this.iam.readCenters(principal, handle, correlationId),
+    );
+  }
+
+  @ApiOperation({ summary: 'Read a center in the selected tenant context' })
   @ApiParam({ name: 'centerId', format: 'uuid' })
   @ApiOkResponse({ type: CenterDto })
   @ApiForbiddenResponse({
@@ -95,22 +166,20 @@ export class IamController {
   @Get('centers/:centerId')
   readCenter(
     @Headers('authorization') authorization: string | undefined,
-    @Param('tenantId') tenantId: string,
+    @Headers('x-tenant-context') handle: string | undefined,
     @Param('centerId') centerId: string,
   ) {
     return this.execute(
       authorization,
       IAM_ACTIONS.centerRead,
       (principal, correlationId) =>
-        this.iam.readCenter(principal, tenantId, centerId, correlationId),
+        this.iam.readCenter(principal, handle, centerId, correlationId),
     );
   }
 
   @ApiOperation({
-    summary: 'Disable a membership',
-    description: 'Disables an active membership within the caller tenant.',
+    summary: 'Disable a membership in the selected tenant context',
   })
-  @ApiParam({ name: 'tenantId', format: 'uuid' })
   @ApiParam({ name: 'membershipId', format: 'uuid' })
   @ApiOkResponse({ type: DisableMembershipResultDto })
   @ApiForbiddenResponse({
@@ -120,7 +189,7 @@ export class IamController {
   @Patch('memberships/:membershipId/disable')
   disableMembership(
     @Headers('authorization') authorization: string | undefined,
-    @Param('tenantId') tenantId: string,
+    @Headers('x-tenant-context') handle: string | undefined,
     @Param('membershipId') membershipId: string,
   ) {
     return this.execute(
@@ -129,7 +198,7 @@ export class IamController {
       (principal, correlationId) =>
         this.iam.disableMembership(
           principal,
-          tenantId,
+          handle,
           membershipId,
           correlationId,
         ),

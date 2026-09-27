@@ -18,6 +18,20 @@ API or worker runtime code. Spike tests may import `harness-schema.ts`,
 `harness-unit-of-work.ts`, and the other harness helpers from their dedicated
 internal source paths.
 
+## Current `dive_app` consumers
+
+The API runtime reads `APP_DATABASE_URL` and creates the shared `dive_app` pool in
+`apps/api/src/app.module.ts`. That pool is injected into both `IamService` for
+dashboard IAM operations and `IdentityWebhookController` for the verified Clerk
+webhook command. The integration harness uses the equivalent `dive_app` login from
+`SPIKE_APP_DATABASE_URL`; `dive_migration` is reserved for migrations and role
+bootstrap. No separate webhook database role exists yet.
+
+The shared role is intentionally restricted: it has no `BYPASSRLS`, no DDL, no
+direct access to global identity bindings, and reaches sensitive mutations through
+reviewed command functions. A separate webhook login is a future hardening option,
+not the current runtime contract.
+
 ## Commands
 
 ```bash

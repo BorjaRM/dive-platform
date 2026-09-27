@@ -68,10 +68,11 @@ describe('IAM/API persistence controls', () => {
         'invitations',
         'memberships',
         'outbox_events',
+        'tenant_contexts',
         'tenants',
       ].map((relname) => ({
         owner: 'dive_migration',
-        relforcerowsecurity: true,
+        relforcerowsecurity: relname !== 'tenant_contexts',
         relname,
         relrowsecurity: true,
       })),
@@ -87,7 +88,7 @@ describe('IAM/API persistence controls', () => {
        WHERE schemaname = 'iam_app'
        ORDER BY tablename`,
     );
-    expect(policies.rows).toHaveLength(6);
+    expect(policies.rows).toHaveLength(7);
     for (const policy of policies.rows) {
       expect(policy.qual).toContain("current_setting('app.tenant_id'::text)");
       expect(policy.with_check).toContain(
@@ -128,22 +129,32 @@ describe('IAM/API persistence controls', () => {
        WHERE namespace.nspname = 'iam_app'
          AND routine.proname IN (
            'apply_identity_webhook_command',
+           'cleanup_revoked_tenant_contexts_command',
            'disable_membership_command',
            'issue_invitation_command',
+           'issue_tenant_context_command',
+           'list_operators_command',
+           'resolve_access',
+           'resolve_tenant_context_command',
            'respond_invitation_command',
            'revoke_invitation_command',
-           'resolve_access'
+           'revoke_tenant_context_command'
          )
        ORDER BY routine.proname`,
     );
     expect(commandFunctions.rows).toEqual(
       [
         'apply_identity_webhook_command',
+        'cleanup_revoked_tenant_contexts_command',
         'disable_membership_command',
         'issue_invitation_command',
+        'issue_tenant_context_command',
+        'list_operators_command',
         'resolve_access',
+        'resolve_tenant_context_command',
         'respond_invitation_command',
         'revoke_invitation_command',
+        'revoke_tenant_context_command',
       ].map((proname) => ({
         app_can_execute: true,
         owner: 'dive_migration',

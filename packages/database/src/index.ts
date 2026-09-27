@@ -21,6 +21,20 @@ export {
   respondToIamInvitation,
   revokeIamInvitation,
 } from './iam-membership-commands.js';
+export type {
+  IamOperator,
+  TenantContextDenied,
+  TenantContextIssueResult,
+  TenantContextResolution,
+} from './iam-tenant-context-commands.js';
+export {
+  cleanupRevokedIamTenantContexts,
+  issueIamTenantContext,
+  listIamOperators,
+  resolveIamTenantContext,
+  revokeIamTenantContext,
+  sessionIdHashForWebhook,
+} from './iam-tenant-context-commands.js';
 export { migrateProduct } from './migrate.js';
 export * from './product-schema.js';
 export type { TenantUnitOfWork } from './unit-of-work.js';

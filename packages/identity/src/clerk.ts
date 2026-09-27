@@ -37,6 +37,7 @@ export type IdentityWebhookEvent = Readonly<{
   issuer: string;
   type: string;
   subject: string | null;
+  sessionId?: string | null;
   occurredAt: string | null;
 }>;
 
@@ -150,6 +151,24 @@ function eventOccurredAt(data: Record<string, unknown>): string | null {
   return Number.isNaN(occurredAt.getTime()) ? null : occurredAt.toISOString();
 }
 
+function eventSessionId(
+  type: string,
+  data: Record<string, unknown>,
+): string | null {
+  if (
+    type !== 'session.created' &&
+    type !== 'session.ended' &&
+    type !== 'session.removed' &&
+    type !== 'session.revoked'
+  ) {
+    return null;
+  }
+  const candidate = data.id;
+  return typeof candidate === 'string' && candidate.trim()
+    ? candidate.trim()
+    : null;
+}
+
 function requestHeaders(
   values: Readonly<Record<string, string | readonly string[] | undefined>>,
 ): Headers {
@@ -259,6 +278,7 @@ export class ClerkIdentityAdapter
       return Object.freeze({
         issuer: claims.iss,
         subject: claims.sub,
+        sessionId: claims.sid,
         verifiedAddresses: Object.freeze(
           verifiedAddresses.filter(
             (address): address is string => address !== null,
@@ -299,6 +319,7 @@ export class ClerkIdentityAdapter
       issuer: this.config.issuer,
       type,
       subject: eventSubject(type, data),
+      sessionId: eventSessionId(type, data),
       occurredAt: eventOccurredAt(data),
     });
   }

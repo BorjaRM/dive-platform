@@ -45,6 +45,7 @@ describe('Clerk webhook verification (DIVE-IAM-REQ-021)', () => {
       issuer: config.issuer,
       type: 'user.deleted',
       subject: 'user_123',
+      sessionId: null,
       occurredAt: new Date(updatedAt).toISOString(),
     });
   });

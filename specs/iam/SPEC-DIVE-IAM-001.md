@@ -1,10 +1,10 @@
 # SPEC-DIVE-IAM-001 — Roles, permissions, and scopes
 
 - **Status:** Ready to start
-- **Version:** 0.6
+- **Version:** 0.8
 - **Last reviewed:** 2026-09-27
 - **Approved by:** Borja (Product owner)
-- **Approval reference:** PR #1, provenance migration PR, and PR #13 (`ADR-DIVE-008` Ready to start)
+- **Approval reference:** PR #1, provenance migration PR, PR #13 (`ADR-DIVE-008` Ready to start), and product confirmation 2026-09-27 for `ADR-DIVE-008` v0.5 implementation closures
 - **Owner:** Product / Security
 - **IDs:** `DIVE-IAM-REQ-001` … `DIVE-IAM-REQ-031`
 
@@ -144,7 +144,7 @@ Write variants of `audit.*` and `support.tenant.write` are out of MVP.
 
 ## Dashboard API (`ADR-DIVE-008`)
 
-Ready to start. Runtime routes today still use `/v1/tenants/:tenantId/...` until the implementation PR.
+Ready to start. The dashboard route contract is defined by `ADR-DIVE-008` v0.5.
 
 ```text
 GET    /v1/me/operators
@@ -193,11 +193,4 @@ Protected product requests send `Authorization: Bearer <clerk-session-token>` an
 
 ## Open questions
 
-Owned by `ADR-DIVE-008` and not closed here:
-
-- Browser persistence of the handle
-- Issuance rate limit or cap on live handles
-- Optional `session.revoked` handle-row revocation beyond request-time Clerk checks
-- Physical persistence schema and cleanup job
-- Dashboard API CORS origin allowlist
-- Exact JSON field names in the implementation PR, provided they preserve this contract
+The product-level questions for the dashboard tenant-context slice are closed by `ADR-DIVE-008` v0.5, with provenance `Proposed` and explicit product-owner approval on 2026-09-27. The implementation may choose physical table/index names and deployment secret names only when those choices preserve the approved contract and do not introduce new defaults.

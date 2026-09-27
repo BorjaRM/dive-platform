@@ -6,17 +6,20 @@ import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { IamController } from './iam.controller.js';
 import { IamService } from './iam.service.js';
+import { TenantContextCrypto } from './tenant-context.crypto.js';
 
 const principalProvider: IdentityProviderPort = {
   authenticate: async () => ({
     issuer: 'test',
     subject: 'owner-a',
+    sessionId: 'session-a',
     verifiedAddresses: [],
     assurance: { level: 'single_factor', verifiedAt: null },
   }),
 };
 
 const principal = () => authenticateIdentity(principalProvider, 'token');
+const contextCrypto = new TenantContextCrypto('t'.repeat(32));
 
 describe('IAM error handling', () => {
   it('keeps authorization denials as non-disclosing 403 responses', async () => {
@@ -24,12 +27,12 @@ describe('IAM error handling', () => {
       query: vi.fn().mockResolvedValue({ rows: [{ access: null }] }),
     };
     const logger = { warn: vi.fn() };
-    const service = new IamService(pool as never, logger);
+    const service = new IamService(pool as never, logger, contextCrypto);
 
     await expect(
       service.readCenter(
         await principal(),
-        '11111111-1111-1111-1111-111111111111',
+        'ctx_test',
         'aaaaaaaa-0001-0001-0001-000000000001',
         '33333333-3333-3333-3333-333333333333',
       ),
@@ -54,12 +57,12 @@ describe('IAM error handling', () => {
       query: vi.fn().mockRejectedValue(dependencyFailure),
     };
     const logger = { warn: vi.fn() };
-    const service = new IamService(pool as never, logger);
+    const service = new IamService(pool as never, logger, contextCrypto);
 
     await expect(
       service.readCenter(
         await principal(),
-        '11111111-1111-1111-1111-111111111111',
+        'ctx_test',
         'aaaaaaaa-0001-0001-0001-000000000001',
         '33333333-3333-3333-3333-333333333333',
       ),
@@ -72,12 +75,16 @@ describe('IAM error handling', () => {
     const pool = {
       query: vi.fn().mockRejectedValue(dependencyFailure),
     };
-    const service = new IamService(pool as never, { warn: vi.fn() });
+    const service = new IamService(
+      pool as never,
+      { warn: vi.fn() },
+      contextCrypto,
+    );
 
     await expect(
       service.disableMembership(
         await principal(),
-        '11111111-1111-1111-1111-111111111111',
+        'ctx_test',
         'aaaaaaaa-0001-0001-0001-000000000001',
         '33333333-3333-3333-3333-333333333333',
       ),
@@ -98,7 +105,7 @@ describe('IAM error handling', () => {
     await expect(
       controller.readCenter(
         'Bearer token',
-        '11111111-1111-1111-1111-111111111111',
+        'ctx_test',
         'aaaaaaaa-0001-0001-0001-000000000001',
       ),
     ).rejects.toBe(dependencyFailure);
@@ -109,7 +116,7 @@ describe('IAM error handling', () => {
           .mockRejectedValue(new ForbiddenException('Access denied')),
       } as never).readCenter(
         'Bearer token',
-        '11111111-1111-1111-1111-111111111111',
+        'ctx_test',
         'aaaaaaaa-0001-0001-0001-000000000001',
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
@@ -123,7 +130,7 @@ describe('IAM error handling', () => {
     await expect(
       controller.readCenter(
         undefined,
-        '11111111-1111-1111-1111-111111111111',
+        'ctx_test',
         'aaaaaaaa-0001-0001-0001-000000000001',
       ),
     ).rejects.toBeInstanceOf(UnauthorizedException);
