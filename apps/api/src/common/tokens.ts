@@ -1,0 +1,2 @@
+export const DATABASE_POOL = Symbol('DATABASE_POOL');
+export const TENANT_CONTEXT_CRYPTO = Symbol('TENANT_CONTEXT_CRYPTO');

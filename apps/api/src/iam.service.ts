@@ -22,13 +22,12 @@ import {
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import type { Pool } from 'pg';
+import { DATABASE_POOL, TENANT_CONTEXT_CRYPTO } from './common/tokens.js';
 import {
-  DATABASE_POOL,
   IAM_ACTIONS,
   type IamAction,
   SECURITY_LOGGER,
   type SecurityLoggerPort,
-  TENANT_CONTEXT_CRYPTO,
 } from './iam.tokens.js';
 import type { TenantContextCrypto } from './tenant-context.crypto.js';
 

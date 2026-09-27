@@ -30,12 +30,16 @@ import {
   parseCatalogInstant,
   validateCatalogTimeZone,
 } from './catalog.time.js';
-import { DATABASE_POOL, TENANT_CONTEXT_CRYPTO } from './iam.tokens.js';
+import {
+  localized,
+  pagination,
+  positiveInteger,
+  rejectUnknownFields,
+  statusFilter,
+  uuid,
+} from './catalog.validation.js';
+import { DATABASE_POOL, TENANT_CONTEXT_CRYPTO } from './common/tokens.js';
 import type { TenantContextCrypto } from './tenant-context.crypto.js';
-
-const PAGE_DEFAULT = 1;
-const PAGE_SIZE_DEFAULT = 20;
-const PAGE_SIZE_MAX = 50;
 
 const CATALOG_EVENT_TYPES = {
   activityCreated: 'booking.activity.created.v1',
@@ -53,140 +57,6 @@ type CatalogPermission =
 
 type ActivityRow = InferSelectModel<typeof bookingActivities>;
 type SlotRow = InferSelectModel<typeof bookingSlots>;
-
-function uuid(value: string, field: string): string {
-  if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value,
-    )
-  ) {
-    throw new CatalogProblemException(
-      422,
-      'validation_error',
-      `${field} must be a UUID`,
-    );
-  }
-  return value;
-}
-
-function positiveInteger(value: unknown, field: string): number {
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
-    throw new CatalogProblemException(
-      422,
-      'validation_error',
-      `${field} must be a positive integer`,
-    );
-  }
-  return value;
-}
-
-function pagination(query: CatalogListQueryInput) {
-  const page = query.page === undefined ? PAGE_DEFAULT : Number(query.page);
-  const pageSize =
-    query.pageSize === undefined ? PAGE_SIZE_DEFAULT : Number(query.pageSize);
-  if (
-    !Number.isSafeInteger(page) ||
-    page < 1 ||
-    !Number.isSafeInteger(pageSize) ||
-    pageSize < 1 ||
-    pageSize > PAGE_SIZE_MAX
-  ) {
-    throw new CatalogProblemException(
-      422,
-      'validation_error',
-      'Invalid pagination bounds',
-    );
-  }
-  return { page, pageSize, offset: (page - 1) * pageSize };
-}
-
-function localized(
-  value: unknown,
-  field: string,
-  required: true,
-): Record<string, string>;
-function localized(
-  value: unknown,
-  field: string,
-  required: false,
-): Record<string, string> | undefined;
-function localized(
-  value: unknown,
-  field: string,
-  required: boolean,
-): Record<string, string> | undefined {
-  if (value === undefined && !required) return undefined;
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new CatalogProblemException(
-      422,
-      'validation_error',
-      `${field} must be an object`,
-    );
-  }
-  const input = value as Record<string, unknown>;
-  const result: Record<string, string> = {};
-  for (const language of ['es', 'en']) {
-    if (input[language] !== undefined) {
-      if (
-        typeof input[language] !== 'string' ||
-        input[language].trim() === ''
-      ) {
-        throw new CatalogProblemException(
-          422,
-          'validation_error',
-          `${field}.${language} must be non-empty`,
-        );
-      }
-      result[language] = input[language];
-    }
-  }
-  if (Object.keys(result).length === 0 && required) {
-    throw new CatalogProblemException(
-      422,
-      'validation_error',
-      `${field} must contain es or en`,
-    );
-  }
-  if (Object.keys(input).some((key) => !['es', 'en'].includes(key))) {
-    throw new CatalogProblemException(
-      422,
-      'validation_error',
-      `${field} contains an unsupported locale`,
-    );
-  }
-  return result;
-}
-
-function rejectUnknownFields(value: unknown, allowed: readonly string[]) {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new CatalogProblemException(
-      422,
-      'validation_error',
-      'body must be an object',
-    );
-  }
-  const input = value as Record<string, unknown>;
-  const unknown = Object.keys(input).find((key) => !allowed.includes(key));
-  if (unknown) {
-    throw new CatalogProblemException(
-      422,
-      'validation_error',
-      `body contains an unsupported field: ${unknown}`,
-    );
-  }
-}
-
-function statusFilter(value: unknown, allowed: readonly string[]) {
-  if (value === undefined) return undefined;
-  if (typeof value !== 'string' || !allowed.includes(value)) {
-    throw new CatalogProblemException(
-      422,
-      'validation_error',
-      'Invalid status',
-    );
-  }
-  return value;
-}
 
 @Injectable()
 export class CatalogService {

@@ -2,16 +2,14 @@ import {
   IDENTITY_PROVIDER,
   IDENTITY_WEBHOOK_VERIFIER,
 } from '@dive-center/identity';
+import { Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
 import { describe, expect, it, vi } from 'vitest';
+import { DATABASE_POOL, TENANT_CONTEXT_CRYPTO } from './common/tokens.js';
 import { IamController } from './iam.controller.js';
 import { IamService } from './iam.service.js';
-import {
-  DATABASE_POOL,
-  SECURITY_LOGGER,
-  TENANT_CONTEXT_CRYPTO,
-} from './iam.tokens.js';
+import { SECURITY_LOGGER } from './iam.tokens.js';
 import { IdentityWebhookController } from './identity-webhook.controller.js';
 import { TenantContextCrypto } from './tenant-context.crypto.js';
 
@@ -23,6 +21,7 @@ describe('OpenAPI document generation', () => {
         { provide: IDENTITY_PROVIDER, useValue: { authenticate: vi.fn() } },
         { provide: IDENTITY_WEBHOOK_VERIFIER, useValue: { verify: vi.fn() } },
         { provide: SECURITY_LOGGER, useValue: { warn: vi.fn() } },
+        { provide: Reflector, useValue: new Reflector() },
         { provide: IamService, useValue: {} },
         { provide: DATABASE_POOL, useValue: {} },
         {

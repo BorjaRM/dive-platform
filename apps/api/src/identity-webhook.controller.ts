@@ -26,12 +26,11 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Pool } from 'pg';
+import { DATABASE_POOL, TENANT_CONTEXT_CRYPTO } from './common/tokens.js';
 import {
-  DATABASE_POOL,
   IAM_ACTIONS,
   SECURITY_LOGGER,
   type SecurityLoggerPort,
-  TENANT_CONTEXT_CRYPTO,
 } from './iam.tokens.js';
 import { WebhookAckDto } from './identity-webhook.dto.js';
 import type { TenantContextCrypto } from './tenant-context.crypto.js';

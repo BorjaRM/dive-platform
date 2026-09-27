@@ -10,6 +10,7 @@ async function bootstrap() {
       ? { rawBody: true }
       : { instrument: ObserveInstrument, rawBody: true },
   );
+  app.enableShutdownHooks();
   app.enableCors({
     origin: [...dashboardCorsOriginsFromEnvironment(process.env)],
     credentials: false,

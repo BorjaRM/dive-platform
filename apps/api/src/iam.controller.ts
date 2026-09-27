@@ -1,9 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import {
-  authenticateIdentity,
-  IDENTITY_PROVIDER,
-  type IdentityProviderPort,
-} from '@dive-center/identity';
+import type { AuthenticatedPrincipal } from '@dive-center/identity';
 import {
   Body,
   Controller,
@@ -18,6 +14,7 @@ import {
   Patch,
   Post,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -29,6 +26,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { AuthAction, ClerkAuthGuard, Principal } from './common/auth.guard.js';
 import type { IssueTenantContextDto } from './iam.dto.js';
 import {
   CenterDto,
@@ -47,36 +45,25 @@ import {
 @ApiTags('IAM')
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ description: 'Missing or invalid bearer token' })
+@UseGuards(ClerkAuthGuard)
 @Controller('v1')
 export class IamController {
   constructor(
-    @Inject(IDENTITY_PROVIDER)
-    private readonly identities: IdentityProviderPort,
     @Inject(SECURITY_LOGGER) private readonly logger: SecurityLoggerPort,
     @Inject(IamService) private readonly iam: IamService,
   ) {}
 
-  private async principal(authorization?: string) {
-    const token = authorization?.match(/^Bearer (.+)$/)?.[1];
-    if (!token) throw new UnauthorizedException('Unauthenticated');
-    try {
-      return await authenticateIdentity(this.identities, token);
-    } catch {
-      throw new UnauthorizedException('Unauthenticated');
-    }
-  }
-
   private async execute<T>(
-    authorization: string | undefined,
     actionName: IamAction,
+    principal: AuthenticatedPrincipal,
     action: (
-      principal: Awaited<ReturnType<IamController['principal']>>,
+      principal: AuthenticatedPrincipal,
       correlationId: string,
     ) => Promise<T>,
   ) {
     const correlationId = randomUUID();
     try {
-      return await action(await this.principal(authorization), correlationId);
+      return await action(principal, correlationId);
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         this.logger.warn({
@@ -94,11 +81,12 @@ export class IamController {
 
   @ApiOperation({ summary: 'List active operators for the caller' })
   @ApiOkResponse({ type: OperatorListDto })
+  @AuthAction(IAM_ACTIONS.tenantContextIssue)
   @Get('me/operators')
-  listOperators(@Headers('authorization') authorization: string | undefined) {
+  listOperators(@Principal() principal: AuthenticatedPrincipal) {
     return this.execute(
-      authorization,
       IAM_ACTIONS.tenantContextIssue,
+      principal,
       (principal) => this.iam.listOperators(principal),
     );
   }
@@ -106,14 +94,15 @@ export class IamController {
   @ApiOperation({ summary: 'Issue an opaque tenant context handle' })
   @ApiOkResponse({ type: TenantContextDto })
   @ApiForbiddenResponse({ description: 'No valid active operator selection' })
+  @AuthAction(IAM_ACTIONS.tenantContextIssue)
   @Post('me/tenant-contexts')
   issueTenantContext(
-    @Headers('authorization') authorization: string | undefined,
+    @Principal() principal: AuthenticatedPrincipal,
     @Body() input: IssueTenantContextDto,
   ) {
     return this.execute(
-      authorization,
       IAM_ACTIONS.tenantContextIssue,
+      principal,
       (principal, correlationId) =>
         this.iam.issueTenantContext(
           principal,
@@ -128,15 +117,16 @@ export class IamController {
   @ApiForbiddenResponse({
     description: 'Context missing or not owned by caller',
   })
+  @AuthAction(IAM_ACTIONS.tenantContextRevoke)
   @Delete('me/tenant-contexts')
   @HttpCode(HttpStatus.NO_CONTENT)
   revokeTenantContext(
-    @Headers('authorization') authorization: string | undefined,
+    @Principal() principal: AuthenticatedPrincipal,
     @Headers('x-tenant-context') handle: string | undefined,
   ) {
     return this.execute(
-      authorization,
       IAM_ACTIONS.tenantContextRevoke,
+      principal,
       (principal, correlationId) =>
         this.iam.revokeTenantContext(principal, handle, correlationId),
     );
@@ -144,14 +134,15 @@ export class IamController {
 
   @ApiOperation({ summary: 'List centers in the selected tenant context' })
   @ApiOkResponse({ type: [CenterDto] })
+  @AuthAction(IAM_ACTIONS.centerRead)
   @Get('centers')
   readCenters(
-    @Headers('authorization') authorization: string | undefined,
+    @Principal() principal: AuthenticatedPrincipal,
     @Headers('x-tenant-context') handle: string | undefined,
   ) {
     return this.execute(
-      authorization,
       IAM_ACTIONS.centerRead,
+      principal,
       (principal, correlationId) =>
         this.iam.readCenters(principal, handle, correlationId),
     );
@@ -163,15 +154,16 @@ export class IamController {
   @ApiForbiddenResponse({
     description: 'Access denied for the requested center',
   })
+  @AuthAction(IAM_ACTIONS.centerRead)
   @Get('centers/:centerId')
   readCenter(
-    @Headers('authorization') authorization: string | undefined,
+    @Principal() principal: AuthenticatedPrincipal,
     @Headers('x-tenant-context') handle: string | undefined,
     @Param('centerId') centerId: string,
   ) {
     return this.execute(
-      authorization,
       IAM_ACTIONS.centerRead,
+      principal,
       (principal, correlationId) =>
         this.iam.readCenter(principal, handle, centerId, correlationId),
     );
@@ -186,15 +178,16 @@ export class IamController {
     description:
       'Membership missing/inactive, or the caller cannot disable the last owner',
   })
+  @AuthAction(IAM_ACTIONS.membershipDisable)
   @Patch('memberships/:membershipId/disable')
   disableMembership(
-    @Headers('authorization') authorization: string | undefined,
+    @Principal() principal: AuthenticatedPrincipal,
     @Headers('x-tenant-context') handle: string | undefined,
     @Param('membershipId') membershipId: string,
   ) {
     return this.execute(
-      authorization,
       IAM_ACTIONS.membershipDisable,
+      principal,
       (principal, correlationId) =>
         this.iam.disableMembership(
           principal,
