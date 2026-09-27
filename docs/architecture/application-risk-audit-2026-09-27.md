@@ -177,6 +177,8 @@ El resumen y la tabla de prioridad describen el estado observado al inicio de la
 3. Rechazar offsets no seguros de inmediato.
 4. Evaluar cursor/keyset cuando el volumen o los objetivos aprobados demuestren que `OFFSET` no cumple; preservar el contrato vigente hasta aprobar el cambio.
 
+**Corrección aplicada.** La validación rechaza offsets fuera del rango entero seguro de JavaScript. La migración `0015_add_catalog_list_order_indexes.sql` añade índices que mantienen `tenant_id`, `center_id` y `activity_id` como prefijo, y dejan `status` fuera del camino de ordenación cuando el filtro es opcional. La consulta de actividades explicita `DESC NULLS LAST`, que coincide con el índice y no cambia resultados porque las claves son `NOT NULL`. La prueba de migración y una comprobación `EXPLAIN` con `enable_seqscan=off` confirman la ruta indexada; falta evidencia `ANALYZE` con volumen representativo para validar la elección por coste.
+
 ## Calidad, CI y gobierno
 
 ### QA-01 — CI no construye artefactos desplegables

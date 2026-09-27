@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CatalogProblemException } from './catalog.errors.js';
 import {
+  pagination,
   parseCatalogActivityInput,
   parseCatalogListQueryInput,
   parseCatalogSlotInput,
@@ -53,5 +54,16 @@ describe('catalog runtime validation', () => {
         status: 'Draft',
       }),
     ).toEqual({ page: 2, pageSize: 10, status: 'Draft' });
+  });
+
+  it('rejects an offset outside the safe integer range', () => {
+    expect(() =>
+      pagination(
+        parseCatalogListQueryInput({
+          page: Number.MAX_SAFE_INTEGER,
+          pageSize: 50,
+        }),
+      ),
+    ).toThrow(CatalogProblemException);
   });
 });

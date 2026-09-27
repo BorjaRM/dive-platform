@@ -3,7 +3,7 @@ import { bookingActivities } from '@dive-center/database';
 import type { AuthenticatedPrincipal } from '@dive-center/identity';
 import { Inject, Injectable } from '@nestjs/common';
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type {
   CatalogActivityInput,
   CatalogListQueryInput,
@@ -75,8 +75,7 @@ export class ActivityCatalogService {
             ),
           )
           .orderBy(
-            desc(bookingActivities.createdAt),
-            desc(bookingActivities.id),
+            sql`${bookingActivities.createdAt} DESC NULLS LAST, ${bookingActivities.id} DESC NULLS LAST`,
           )
           .limit(pageSize + 1)
           .offset(offset);

@@ -183,17 +183,38 @@ describe('product migrations', () => {
       'slots_tenant_id_tenants_id_fk',
     ]);
 
-    const indexes = await migratedPool.query<{ name: string }>(
-      `SELECT indexname AS name
+    const indexes = await migratedPool.query<{
+      name: string;
+      definition: string;
+    }>(
+      `SELECT indexname AS name, indexdef AS definition
        FROM pg_indexes
        WHERE schemaname = 'booking_app'
-         AND indexname IN ('activities_center_status_created_id_idx', 'slots_activity_status_starts_id_idx')
+         AND indexname IN (
+           'activities_center_status_created_id_idx',
+           'activities_center_created_id_idx',
+           'slots_activity_status_starts_id_idx',
+           'slots_activity_starts_id_idx'
+         )
        ORDER BY indexname`,
     );
     expect(indexes.rows.map(({ name }) => name)).toEqual([
+      'activities_center_created_id_idx',
       'activities_center_status_created_id_idx',
+      'slots_activity_starts_id_idx',
       'slots_activity_status_starts_id_idx',
     ]);
+    expect(
+      indexes.rows.find(
+        ({ name }) => name === 'activities_center_created_id_idx',
+      )?.definition,
+    ).toMatch(
+      /activities.*tenant_id, center_id, created_at DESC NULLS LAST, id DESC NULLS LAST/,
+    );
+    expect(
+      indexes.rows.find(({ name }) => name === 'slots_activity_starts_id_idx')
+        ?.definition,
+    ).toMatch(/slots.*tenant_id, center_id, activity_id, starts_at, id/);
   });
 
   it('runs as dive_migration and leaves dive_app without DDL', async () => {
