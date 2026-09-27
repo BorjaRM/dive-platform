@@ -1,4 +1,4 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient, QueryConfig } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { notes } from '../../src/harness-schema.js';
 import { withTenant } from '../../src/harness-unit-of-work.js';
@@ -161,6 +161,45 @@ describe('MT-SPIKE-001 pooling', () => {
       expect(afterError.rows[0]?.value ?? '').toBe('');
     } finally {
       client.release();
+    }
+  });
+
+  it('destroys the client when rollback itself fails (DATA-03)', async () => {
+    let failedBackendPid: number | undefined;
+    const rollbackFailurePool: Pick<Pool, 'connect'> = {
+      connect: async () => {
+        const client = await appPool.connect();
+        const originalQuery = client.query.bind(client) as (
+          ...args: unknown[]
+        ) => unknown;
+        client.query = ((query: string | QueryConfig, ...values: unknown[]) => {
+          const statement = typeof query === 'string' ? query : query.text;
+          if (statement === 'ROLLBACK') {
+            return Promise.reject(new Error('forced rollback failure'));
+          }
+          return originalQuery(query, ...values);
+        }) as PoolClient['query'];
+        return client;
+      },
+    };
+
+    await expect(
+      withTenant(rollbackFailurePool, tenantA, async ({ client }) => {
+        failedBackendPid = await client
+          .query<{ pid: number }>('SELECT pg_backend_pid() AS pid')
+          .then((result) => result.rows[0]?.pid);
+        throw new Error('forced transaction failure');
+      }),
+    ).rejects.toThrow('forced transaction failure');
+
+    const replacementClient = await appPool.connect();
+    try {
+      const replacementBackendPid = await replacementClient
+        .query<{ pid: number }>('SELECT pg_backend_pid() AS pid')
+        .then((result) => result.rows[0]?.pid);
+      expect(replacementBackendPid).not.toBe(failedBackendPid);
+    } finally {
+      replacementClient.release();
     }
   });
 });

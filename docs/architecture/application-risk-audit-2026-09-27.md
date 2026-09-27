@@ -129,6 +129,8 @@ Sí existen **8 riesgos altos**, **7 medios** y **1 divergencia baja**. Los prob
 3. Extraer la primitiva común para evitar que producción y harness diverjan.
 4. Añadir una prueba que fuerce fallo de rollback y demuestre que el backend físico no se reutiliza.
 
+**Corrección aplicada.** `rollbackAndReleaseClient` centraliza el cierre de la transacción para la UoW productiva y el harness; ante un `ROLLBACK` fallido usa `release(true)` y conserva el error original. `pooling.integration.test.ts` fuerza el fallo, verifica el error de negocio y comprueba que el siguiente checkout obtiene otro backend físico. La prueba focalizada pasa junto con los casos existentes de commit, rollback, error SQL y alternancia de tenants.
+
 ## Disponibilidad, errores y rendimiento
 
 ### REL-01 — PostgreSQL sin límites operativos
