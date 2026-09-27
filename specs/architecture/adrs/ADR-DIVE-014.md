@@ -1,7 +1,7 @@
 # ADR-DIVE-014 — Center catalog lists, response DTO, and persistence naming
 
 - **Status:** Draft
-- **Version:** 0.2
+- **Version:** 0.3
 - **Date:** 2026-09-27
 - **Deciders:** Product / Architecture / Data / Security
 - **Affected IDs:** `DIVE-BOOK-REQ-001..006`, `009..011`, `017..020`, `029`, `049..057`; `DIVE-IAM-REQ-024`; ADR-DIVE-001; ADR-DIVE-008
@@ -12,47 +12,49 @@
 |---|---|---|---|
 | Dashboard catalog is scoped to one authorized center; path identifiers are selectors, never authorization | `Documented` | `SPEC-DIVE-BOOKING-001` `DIVE-BOOK-REQ-001..006`, `050`; ADR-DIVE-008 | Existing normative constraint |
 | Activity and slot request fields, lifecycle, HTTP status/error contract, filters, and stable ordering | `Documented` | `SPEC-DIVE-BOOKING-001` `DIVE-BOOK-REQ-009..011`, `017..020`, `029`, `049..057` | Existing normative constraint |
-| Activities are unpaginated; slots require a date range and return at most 50 results; cursor pagination is deferred | `Proposed` | Product-owner confirmation by Borja for PR #35 on 2026-09-27 | Approved for incorporation into `SPEC-DIVE-BOOKING-001` v1.2; ADR remains Draft |
+| Activities and slots use one-based page pagination; cursor pagination is deferred | `Proposed` | Product-owner confirmation by Borja for PR #35 on 2026-09-27 | Approved for incorporation into `SPEC-DIVE-BOOKING-001` v1.3; ADR remains Draft |
 | Minimal activity/slot representations | `Proposed` | Product-owner confirmation by Borja for PR #35 on 2026-09-27 | Approved for incorporation into the booking contract; ADR remains Draft |
 | `booking_app.activities` / `booking_app.slots`, physical columns, constraints, and catalog indexes | `Proposed` | Existing `iam_app` PostgreSQL/Drizzle conventions; product-owner confirmation by Borja for PR #35 on 2026-09-27 | Approved for incorporation into the booking contract; ADR remains Draft |
 
 ## Context
 
-US-08 needs a small center catalog. A typical center is expected to manage approximately 15–20 activities, so cursor infrastructure for the activity list would add signing, rotation, validation, and client state without a demonstrated volume need. Slots can grow over time, but the center dashboard queries them for a bounded working period.
+US-08 needs predictable lists for activities and slots. A typical center is expected to manage approximately 15–20 activities, while slots can grow over time. Simple page pagination gives both endpoints one uniform contract without cursor signing, rotation, versioning, or a special “range too broad” failure.
 
-This ADR closes the walking-skeleton contract with the simplest bounded behavior. It does not change catalog lifecycle, permissions, routes, capacity semantics, public availability, booking creation, or onboarding.
+This ADR closes the walking-skeleton contract with limit/offset pagination. It does not change catalog lifecycle, permissions, routes, capacity semantics, public availability, booking creation, or onboarding.
 
 ## Decision
 
-### Activity list
+### Pagination contract
 
-`GET /v1/centers/:centerId/activities` returns all activities of the authorized center without pagination. It may be filtered by `status` and is ordered by `created_at DESC`, then `id DESC`.
+Both catalog list endpoints accept:
 
-The response is:
+```text
+?page=1&pageSize=20
+```
+
+- `page` is a one-based positive integer and defaults to `1`.
+- `pageSize` is a positive integer, defaults to `20`, and has a maximum of `50`.
+- Invalid values return the existing `422 validation_error`.
+- The implementation uses `LIMIT` / `OFFSET` and reads `pageSize + 1` rows to derive `hasNext`; it does not require `COUNT(*)`.
+
+Both endpoints return:
 
 ```json
 {
-  "items": []
+  "items": [],
+  "page": 1,
+  "pageSize": 20,
+  "hasNext": false
 }
 ```
 
-No `cursor`, `nextCursor`, `limit`, tenant selector, or multi-center selector is accepted or returned.
+`GET /v1/centers/:centerId/activities` may be filtered by `status` and is ordered by `created_at DESC`, then `id DESC`.
 
-### Slot list
+`GET /v1/centers/:centerId/activities/:activityId/slots` may be filtered by optional date range and `status` and is ordered by `starts_at ASC`, then `id ASC`. A calendar normally supplies a date range, but the HTTP contract does not require one.
 
-`GET /v1/centers/:centerId/activities/:activityId/slots` requires a date range. It may also be filtered by `status`, is ordered by `starts_at ASC`, then `id ASC`, and returns at most 50 matching slots.
+There is no catalog cursor in the walking skeleton. A future cursor requires demonstrated need and a separately approved contract change. Tenant, center, activity, permissions, and filters are revalidated on every request.
 
-The response is:
-
-```json
-{
-  "items": []
-}
-```
-
-If the requested range matches more than 50 slots, the server returns the existing `422 validation_error`; the client narrows the range. The response is never silently truncated.
-
-There is no catalog cursor in the walking skeleton. A future cursor requires demonstrated need and a separately approved contract change. Tenant, center, activity, permissions, and filters are revalidated on every request regardless of future pagination choices.
+The accepted limitation is that concurrent inserts or updates can cause an item to repeat or move between offset pages. This does not alter booking capacity, authorization, or state invariants. The dashboard may refresh and restart from page 1.
 
 ### Response DTO
 
@@ -136,37 +138,37 @@ RLS and transaction context remain governed by the multitenancy baseline and ADR
 
 ### Positive
 
-- The activity endpoint matches the expected catalog size without cursor infrastructure.
-- Slot queries are bounded by business input and an explicit result limit without silent truncation.
-- The first implementation does not need cursor signing, secret rotation, cursor versioning, or client continuation state.
+- Activities and slots share one simple HTTP and frontend contract.
+- The client can browse any number of slots without a range-overflow error.
+- The first implementation does not need cursor signing, secret rotation, cursor versioning, or `COUNT(*)`.
 - Composite relations enforce tenant and center consistency below the application layer.
 - DTOs remain minimal and exclude authorization context and derived remaining capacity.
 
 ### Costs and risks
 
-- A center with an unexpectedly large activity catalog receives the full activity collection.
-- A broad slot range may require one or more narrower requests.
+- Concurrent catalog changes can repeat or move an item between offset pages.
+- Very deep pages are less efficient than keyset pagination; that scale is not demonstrated for the MVP.
 - Cursor pagination, if later needed, requires a new approved contract rather than an implementation-only change.
 - JSONB localization requires application validation and database checks selected by the implementation.
 - Status-leading indexes may not fit every future query distribution; observed plans may justify later indexes.
 
 ## Alternatives considered
 
-### Signed keyset cursor for both lists
+### Signed keyset cursor
 
-Rejected for the walking skeleton. Expected activity volume does not justify signing, rotation, versioning, and client continuation complexity. The slot endpoint already has a natural date-range boundary.
+Deferred. Current volume and dashboard use do not justify signing, rotation, versioning, and client continuation complexity.
 
-### Cursor only for slots
+### Date-range-only slot list with a 50-result overflow error
 
-Deferred. The required date range plus 50-result maximum is simpler for the first vertical. Reconsider only with demonstrated volume or usability evidence.
+Rejected after Product review. It creates a special failure path and forces clients to subdivide ranges instead of traversing normal pages.
 
-### Offset pagination
+### Unpaginated activity list
 
-Rejected. It adds pagination state without a current need and drifts under concurrent changes.
+Rejected in favor of one uniform list contract. Although the expected catalog is small, page pagination is inexpensive and avoids a special-case response shape.
 
-### Silent truncation at 50 slots
+### Total count
 
-Rejected because callers could mistake an incomplete range for the complete result.
+Not selected. Fetching one extra row provides `hasNext` without an additional count query. A future UI that demonstrates a need for exact totals may propose it separately.
 
 ### Separate localized-text rows
 
@@ -182,8 +184,9 @@ This documentation PR provides no implementation evidence.
 
 An implementation PR must link `DIVE-BOOK-REQ-049..057` and include:
 
-- activity-list contract tests proving no pagination and center/status scoping;
-- slot-list tests for required date range, stable ordering, status filter, 50-result boundary, and non-truncating `422` behavior;
+- shared pagination contract tests for defaults, bounds, `hasNext`, and invalid-value `422` behavior;
+- activity-list tests for stable ordering and center/status scoping;
+- slot-list tests for stable ordering plus optional date-range and status filters;
 - activity and slot response contract tests, including omitted optional fields;
 - migration tests for keys, foreign keys, positive checks, status checks, and index names;
 - center-scope and cross-tenant negative tests;
@@ -196,8 +199,8 @@ An implementation PR must link `DIVE-BOOK-REQ-049..057` and include:
 
 No US-08 catalog-contract decision remains open for the walking skeleton.
 
-Cursor pagination is deferred. If demonstrated volume later requires it, its scope, cursor format, validation, and compatibility become a new proposed contract change.
+Cursor pagination is deferred. If demonstrated volume, deep-page cost, or offset drift later requires it, its scope, cursor format, validation, and compatibility become a new proposed contract change.
 
 ## Implementation authority
 
-`SPEC-DIVE-BOOKING-001` v1.2 is the normative implementation authority after merge. This ADR remains Draft as a decision record and is not independently promoted by this PR.
+`SPEC-DIVE-BOOKING-001` v1.3 is the normative implementation authority after merge. This ADR remains Draft as a decision record and is not independently promoted by this PR.
