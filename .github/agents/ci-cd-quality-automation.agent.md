@@ -49,7 +49,8 @@ Re-verify. Do not treat this table as frozen:
 | Yes | `pnpm check`, `pnpm check:fix`, `pnpm test`, `pnpm typecheck` |
 | Yes | `infra/docker/postgres/docker-compose.yml` (PostgreSQL 18, local) |
 | Yes | `ci.yml` `integration` job (`pnpm test:integration`) |
-| Do not assume | e2e in CI, deploy, dependency-audit |
+| Yes | `.github/workflows/security.yml` (dependency review on PRs, CodeQL, Gitleaks, SBOM on `v*` tags) |
+| Do not assume | deploy, release publication, production credentials |
 
 ## You do
 
@@ -64,7 +65,7 @@ Re-verify. Do not treat this table as frozen:
 - Auto-fix typecheck or test failures.
 - Add Docker, deploy, or e2e by default. Do not wait for a harness that does not exist if the task explicitly asks for the first one.
 - Name files, commands, or numeric budgets that are not in the repo.
-- Claim secret scanning or performance budgets as an existing program.
+- Claim performance budgets or security coverage beyond `.github/workflows/security.yml` as existing without verifying the workflow and its required secrets.
 - Require an ADR for a routine workflow that only runs existing scripts. Do require an ADR or explicit approval for deploy architecture, new CI products, or extra test runners.
 - Fold spec-governance into `ci.yml`.
 - Invoke other agents as subagents. After you finish, offer a VS Code handoff to Implementation PR Reviewer and print `Handoff:` in the output.
