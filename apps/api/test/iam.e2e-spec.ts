@@ -25,18 +25,20 @@ function testDatabaseUrl(
 
 const tenantA = '11111111-1111-1111-1111-111111111111';
 const tenantB = '22222222-2222-2222-2222-222222222222';
-const centerA1 = 'aaaaaaaa-0001-0001-0001-000000000001';
-const centerA2 = 'aaaaaaaa-0001-0001-0001-000000000002';
-const centerB1 = 'bbbbbbbb-0002-0002-0002-000000000001';
+const centerA1 = 'aaaaaaaa-0001-4001-8001-000000000001';
+const centerA2 = 'aaaaaaaa-0001-4001-8001-000000000002';
+const centerB1 = 'bbbbbbbb-0002-4002-8002-000000000001';
 const ownerA = 'a1111111-1111-1111-1111-111111111111';
 const ownerA2 = 'a2222222-2222-2222-2222-222222222222';
 const managerA = 'a3333333-3333-3333-3333-333333333333';
 const pendingA = 'a4444444-4444-4444-4444-444444444444';
+const auditorA = 'a5555555-5555-5555-5555-555555555555';
 const memberB = 'b1111111-1111-1111-1111-111111111111';
 const membershipOwnerA = 'aa111111-1111-1111-1111-111111111111';
 const membershipOwnerA2 = 'aa222222-2222-2222-2222-222222222222';
 const membershipManagerA = 'aa333333-3333-3333-3333-333333333333';
 const membershipPendingA = 'aa444444-4444-4444-4444-444444444444';
+const membershipAuditorA = 'aa555555-5555-5555-5555-555555555555';
 const membershipB = 'bb111111-1111-1111-1111-111111111111';
 const membershipManagerB = 'bb333333-3333-3333-3333-333333333333';
 const invalidIdentity = 'cccccccc-3333-3333-3333-333333333333';
@@ -93,6 +95,14 @@ const principals = new Map([
       issuer: 'test',
       subject: 'manager-a',
       verifiedAddresses: ['manager-a@example.test'],
+    },
+  ],
+  [
+    'auditor-a-token',
+    {
+      issuer: 'test',
+      subject: 'auditor-a',
+      verifiedAddresses: ['auditor-a@example.test'],
     },
   ],
   [
@@ -216,9 +226,12 @@ describe('IAM/API vertical (e2e)', () => {
     await admin.query('INSERT INTO iam_app.identities(id) VALUES ($1)', [
       pendingA,
     ]);
+    await admin.query('INSERT INTO iam_app.identities(id) VALUES ($1)', [
+      auditorA,
+    ]);
     await admin.query(
-      `INSERT INTO iam_app.external_identities(identity_id,issuer,subject) VALUES ($1,'test','owner-a'),($2,'test','owner-a2'),($3,'test','manager-a'),($4,'test','member-b')`,
-      [ownerA, ownerA2, managerA, memberB],
+      `INSERT INTO iam_app.external_identities(identity_id,issuer,subject) VALUES ($1,'test','owner-a'),($2,'test','owner-a2'),($3,'test','manager-a'),($4,'test','member-b'),($5,'test','auditor-a')`,
+      [ownerA, ownerA2, managerA, memberB, auditorA],
     );
     await admin.query(
       `INSERT INTO iam_app.external_identities(identity_id,issuer,subject)
@@ -231,7 +244,7 @@ describe('IAM/API vertical (e2e)', () => {
       [webhookIdentity, clerkIssuer, clerkSubject],
     );
     await admin.query(
-      `INSERT INTO iam_app.centers(id,tenant_id,name) VALUES ($1,$2,'A1'),($3,$2,'A2'),($4,$5,'B1')`,
+      `INSERT INTO iam_app.centers(id,tenant_id,name,time_zone) VALUES ($1,$2,'A1','Europe/Madrid'),($3,$2,'A2','Europe/Madrid'),($4,$5,'B1','Europe/Madrid')`,
       [centerA1, tenantA, centerA2, centerB1, tenantB],
     );
     await admin.query(
@@ -261,6 +274,11 @@ describe('IAM/API vertical (e2e)', () => {
       `INSERT INTO iam_app.memberships(id,tenant_id,status,roles,center_ids)
        VALUES ($1,$2,'pending',ARRAY['center_manager'],ARRAY[$3::uuid])`,
       [membershipPendingA, tenantA, centerA1],
+    );
+    await admin.query(
+      `INSERT INTO iam_app.memberships(id,tenant_id,identity_id,status,roles,center_ids)
+       VALUES ($1,$2,$3,'active',ARRAY['auditor_compliance'],NULL)`,
+      [membershipAuditorA, tenantA, auditorA],
     );
   });
 
@@ -899,6 +917,525 @@ describe('IAM/API vertical (e2e)', () => {
       expect.objectContaining({ processing_result: 'applied' }),
     ]);
     expect(state.rows[0]?.revoked_at).not.toBeNull();
+  });
+
+  it('implements the center-scoped catalog lifecycle and instant filters (DIVE-BOOK-REQ-049..057)', async () => {
+    const authorization = 'Bearer owner-a-token';
+    const tenantContext = await contextFor('owner-a-token');
+    const catalogHeaders = {
+      authorization,
+      'x-tenant-context': tenantContext,
+    };
+
+    const forbiddenActivity = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA1}/activities`)
+      .set(catalogHeaders)
+      .send({
+        name: { es: 'Solo español', en: 'English' },
+        status: 'Published',
+      })
+      .expect(422);
+    expect(forbiddenActivity.headers['content-type']).toMatch(
+      /^application\/problem\+json/,
+    );
+    expect(forbiddenActivity.body.code).toBe('validation_error');
+
+    const incomplete = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA1}/activities`)
+      .set(catalogHeaders)
+      .send({ name: { es: 'Solo español' } })
+      .expect(201);
+    expect(incomplete.body.status).toBe('Draft');
+
+    const incompletePublish = await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/activities/${incomplete.body.id}/publish`)
+      .set(catalogHeaders)
+      .expect(422);
+    expect(incompletePublish.body.code).toBe('validation_error');
+
+    const activity = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA1}/activities`)
+      .set(catalogHeaders)
+      .send({
+        name: { es: 'Buceo', en: 'Diving' },
+        description: { es: 'Descripción', en: 'Description' },
+        defaultCapacity: 8,
+      })
+      .expect(201);
+    expect(activity.body).toMatchObject({
+      status: 'Draft',
+      name: { es: 'Buceo', en: 'Diving' },
+      defaultCapacity: 8,
+    });
+
+    const defaultActivities = await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}/activities`)
+      .set(catalogHeaders)
+      .expect(200);
+    expect(defaultActivities.body).toMatchObject({
+      page: 1,
+      pageSize: 20,
+      hasNext: false,
+    });
+    expect(defaultActivities.body.items[0].id).toBe(activity.body.id);
+
+    const draftActivities = await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}/activities`)
+      .set(catalogHeaders)
+      .query({ status: 'Draft' })
+      .expect(200);
+    expect(draftActivities.body.items).toHaveLength(2);
+    expect(draftActivities.body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: incomplete.body.id, status: 'Draft' }),
+        expect.objectContaining({ id: activity.body.id, status: 'Draft' }),
+      ]),
+    );
+
+    for (const query of [
+      { page: 0 },
+      { page: -1 },
+      { pageSize: 0 },
+      { pageSize: 51 },
+    ]) {
+      await request(app.getHttpServer())
+        .get(`/v1/centers/${centerA1}/activities`)
+        .set(catalogHeaders)
+        .query(query)
+        .expect(422);
+    }
+    await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}/activities`)
+      .set(catalogHeaders)
+      .query({ pageSize: 50 })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.pageSize).toBe(50);
+      });
+
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/activities/${activity.body.id}/publish`)
+      .set(catalogHeaders)
+      .expect(204);
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/activities/${activity.body.id}/publish`)
+      .set(catalogHeaders)
+      .expect(204);
+
+    const forbiddenSlot = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA1}/activities/${activity.body.id}/slots`)
+      .set(catalogHeaders)
+      .send({
+        startsAt: '2024-01-15T10:00:00Z',
+        durationMinutes: 60,
+        capacity: 4,
+        end: '2024-01-15T11:00:00Z',
+      })
+      .expect(422);
+    expect(forbiddenSlot.body.code).toBe('validation_error');
+
+    const firstSlot = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA1}/activities/${activity.body.id}/slots`)
+      .set(catalogHeaders)
+      .send({
+        startsAt: '2024-01-15T10:00:00Z',
+        durationMinutes: 60,
+        capacity: 4,
+      })
+      .expect(201);
+    const secondSlot = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA1}/activities/${activity.body.id}/slots`)
+      .set(catalogHeaders)
+      .send({
+        startsAt: '2024-01-15T12:00:00Z',
+        durationMinutes: 90,
+        capacity: 6,
+      })
+      .expect(201);
+    expect(firstSlot.body).toMatchObject({
+      status: 'Available',
+      startsAt: '2024-01-15T11:00:00+01:00',
+    });
+
+    const slots = await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}/activities/${activity.body.id}/slots`)
+      .set(catalogHeaders)
+      .query({
+        from: '2024-01-15T09:00:00Z',
+        to: '2024-01-15T11:00:00Z',
+        page: 1,
+        pageSize: 1,
+      })
+      .expect(200);
+    expect(slots.body).toMatchObject({ page: 1, pageSize: 1, hasNext: false });
+    expect(slots.body.items).toHaveLength(1);
+    expect(slots.body.items[0].id).toBe(firstSlot.body.id);
+    expect(secondSlot.body.startsAt).toBe('2024-01-15T13:00:00+01:00');
+
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/slots/${firstSlot.body.id}/close`)
+      .set(catalogHeaders)
+      .expect(204);
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/slots/${firstSlot.body.id}/close`)
+      .set(catalogHeaders)
+      .expect(204);
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/slots/${firstSlot.body.id}/cancel`)
+      .set(catalogHeaders)
+      .expect(204);
+
+    const cancelledSlots = await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}/activities/${activity.body.id}/slots`)
+      .set(catalogHeaders)
+      .query({ status: 'Cancelled' })
+      .expect(200);
+    expect(cancelledSlots.body.items).toEqual([
+      expect.objectContaining({ id: firstSlot.body.id, status: 'Cancelled' }),
+    ]);
+    await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}/activities/${activity.body.id}/slots`)
+      .set(catalogHeaders)
+      .query({ from: '2024-01-15T12:00:00Z', to: '2024-01-15T10:00:00Z' })
+      .expect(422);
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/slots/${firstSlot.body.id}/cancel`)
+      .set(catalogHeaders)
+      .expect(204);
+
+    const evidence = await admin.query<{
+      action: string;
+      audit_correlation: string;
+      outbox_correlation: string;
+      resource_id: string;
+    }>(
+      `SELECT audit.action,
+              audit.resource_id,
+              audit.correlation_id AS audit_correlation,
+              outbox.correlation_id AS outbox_correlation
+       FROM iam_app.audit_records AS audit
+       JOIN iam_app.outbox_events AS outbox
+         ON outbox.tenant_id=audit.tenant_id
+        AND outbox.correlation_id=audit.correlation_id
+       WHERE audit.tenant_id=$1
+         AND audit.action IN ('booking.create', 'booking.update')
+       ORDER BY audit.created_at, audit.id`,
+      [tenantA],
+    );
+    expect(evidence.rows).toHaveLength(7);
+    expect(
+      evidence.rows.every(
+        (row) => row.audit_correlation === row.outbox_correlation,
+      ),
+    ).toBe(true);
+    expect(new Set(evidence.rows.map((row) => row.resource_id)).size).toBe(4);
+  });
+
+  it('disables an activity idempotently without cancelling existing slots', async () => {
+    const catalogHeaders = {
+      authorization: 'Bearer owner-a-token',
+      'x-tenant-context': await contextFor('owner-a-token'),
+    };
+    const activity = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA1}/activities`)
+      .set(catalogHeaders)
+      .send({ name: { es: 'Buceo', en: 'Diving' } })
+      .expect(201);
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/activities/${activity.body.id}/publish`)
+      .set(catalogHeaders)
+      .expect(204);
+    const slot = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA1}/activities/${activity.body.id}/slots`)
+      .set(catalogHeaders)
+      .send({
+        startsAt: '2026-10-01T10:00:00Z',
+        durationMinutes: 60,
+        capacity: 4,
+      })
+      .expect(201);
+
+    const concurrentDisables = await Promise.all(
+      [1, 2].map(() =>
+        request(app.getHttpServer())
+          .patch(
+            `/v1/centers/${centerA1}/activities/${activity.body.id}/disable`,
+          )
+          .set(catalogHeaders)
+          .expect(204),
+      ),
+    );
+    expect(concurrentDisables).toHaveLength(2);
+
+    const existingSlots = await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}/activities/${activity.body.id}/slots`)
+      .set(catalogHeaders)
+      .expect(200);
+    expect(existingSlots.body.items).toEqual([
+      expect.objectContaining({ id: slot.body.id, status: 'Available' }),
+    ]);
+    await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA1}/activities/${activity.body.id}/slots`)
+      .set(catalogHeaders)
+      .send({
+        startsAt: '2026-10-01T12:00:00Z',
+        durationMinutes: 60,
+        capacity: 4,
+      })
+      .expect(409);
+  });
+
+  it('rejects incompatible activity and slot transitions while allowing idempotent commands', async () => {
+    const catalogHeaders = {
+      authorization: 'Bearer owner-a-token',
+      'x-tenant-context': await contextFor('owner-a-token'),
+    };
+    const activity = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA1}/activities`)
+      .set(catalogHeaders)
+      .send({ name: { es: 'Buceo', en: 'Diving' } })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/activities/${activity.body.id}/disable`)
+      .set(catalogHeaders)
+      .expect(409);
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/activities/${activity.body.id}/publish`)
+      .set(catalogHeaders)
+      .expect(204);
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/activities/${activity.body.id}/publish`)
+      .set(catalogHeaders)
+      .expect(204);
+    const slot = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA1}/activities/${activity.body.id}/slots`)
+      .set(catalogHeaders)
+      .send({
+        startsAt: '2026-10-01T10:00:00Z',
+        durationMinutes: 60,
+        capacity: 4,
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/activities/${activity.body.id}/disable`)
+      .set(catalogHeaders)
+      .expect(204);
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/activities/${activity.body.id}/publish`)
+      .set(catalogHeaders)
+      .expect(409);
+
+    const concurrentCloses = await Promise.all(
+      [1, 2].map(() =>
+        request(app.getHttpServer())
+          .patch(`/v1/centers/${centerA1}/slots/${slot.body.id}/close`)
+          .set(catalogHeaders)
+          .expect(204),
+      ),
+    );
+    expect(concurrentCloses).toHaveLength(2);
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/slots/${slot.body.id}/cancel`)
+      .set(catalogHeaders)
+      .expect(204);
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/slots/${slot.body.id}/cancel`)
+      .set(catalogHeaders)
+      .expect(204);
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/slots/${slot.body.id}/close`)
+      .set(catalogHeaders)
+      .expect(409);
+  });
+
+  it('serializes disabling an activity with slot creation (DIVE-BOOK-REQ-052..053)', async () => {
+    const catalogHeaders = {
+      authorization: 'Bearer owner-a-token',
+      'x-tenant-context': await contextFor('owner-a-token'),
+    };
+    const activity = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA1}/activities`)
+      .set(catalogHeaders)
+      .send({ name: { es: 'Buceo', en: 'Diving' } })
+      .expect(201);
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/activities/${activity.body.id}/publish`)
+      .set(catalogHeaders)
+      .expect(204);
+
+    const [disableResponse, createSlotResponse] = await Promise.all([
+      request(app.getHttpServer())
+        .patch(`/v1/centers/${centerA1}/activities/${activity.body.id}/disable`)
+        .set(catalogHeaders),
+      request(app.getHttpServer())
+        .post(`/v1/centers/${centerA1}/activities/${activity.body.id}/slots`)
+        .set(catalogHeaders)
+        .send({
+          startsAt: '2026-10-01T10:00:00Z',
+          durationMinutes: 60,
+          capacity: 4,
+        }),
+    ]);
+
+    expect(disableResponse.status).toBe(204);
+    expect([201, 409]).toContain(createSlotResponse.status);
+
+    const disabledActivity = await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}/activities`)
+      .set(catalogHeaders)
+      .query({ status: 'Disabled' })
+      .expect(200);
+    expect(disabledActivity.body.items).toEqual([
+      expect.objectContaining({ id: activity.body.id, status: 'Disabled' }),
+    ]);
+
+    const slots = await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}/activities/${activity.body.id}/slots`)
+      .set(catalogHeaders)
+      .expect(200);
+    expect(slots.body.items).toHaveLength(
+      createSlotResponse.status === 201 ? 1 : 0,
+    );
+  });
+
+  it('enforces catalog context, permission, and date-range validation', async () => {
+    await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}/activities`)
+      .set('authorization', 'Bearer owner-a-token')
+      .expect(401);
+
+    const auditorHeaders = {
+      authorization: 'Bearer auditor-a-token',
+      'x-tenant-context': await contextFor('auditor-a-token'),
+    };
+    const forbiddenCreate = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA1}/activities`)
+      .set(auditorHeaders)
+      .send({ name: { es: 'Buceo', en: 'Diving' } })
+      .expect(403);
+    expect(forbiddenCreate.body.code).toBe('permission_denied');
+
+    const ownerHeaders = {
+      authorization: 'Bearer owner-a-token',
+      'x-tenant-context': await contextFor('owner-a-token'),
+    };
+    const activity = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA1}/activities`)
+      .set(ownerHeaders)
+      .send({ name: { es: 'Buceo', en: 'Diving' } })
+      .expect(201);
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/activities/${activity.body.id}/publish`)
+      .set(ownerHeaders)
+      .expect(204);
+    await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}/activities/${activity.body.id}/slots`)
+      .set(ownerHeaders)
+      .query({ from: 'not-a-date' })
+      .expect(422);
+    await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}/activities/${activity.body.id}/slots`)
+      .set(ownerHeaders)
+      .query({ from: '2026-10-01T12:00:00Z', to: '2026-10-01T10:00:00Z' })
+      .expect(422);
+  });
+
+  it('keeps catalog pagination and resources tenant-scoped', async () => {
+    const ownerHeaders = {
+      authorization: 'Bearer owner-a-token',
+      'x-tenant-context': await contextFor('owner-a-token'),
+    };
+    await admin.query(
+      `INSERT INTO booking_app.activities
+       (id, tenant_id, center_id, name, status)
+       SELECT gen_random_uuid(), $1, $2, jsonb_build_object('es', 'Actividad ' || n), 'Draft'
+      FROM generate_series(1, 21) AS series(n)`,
+      [tenantA, centerA1],
+    );
+
+    const firstPage = await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}/activities`)
+      .set(ownerHeaders)
+      .query({ page: 1, pageSize: 20 })
+      .expect(200);
+    expect(firstPage.body).toMatchObject({
+      page: 1,
+      pageSize: 20,
+      hasNext: true,
+    });
+    expect(firstPage.body.items).toHaveLength(20);
+
+    const lastPage = await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}/activities`)
+      .set(ownerHeaders)
+      .query({ page: 2, pageSize: 20 })
+      .expect(200);
+    expect(lastPage.body).toMatchObject({
+      page: 2,
+      pageSize: 20,
+      hasNext: false,
+    });
+    expect(lastPage.body.items).toHaveLength(1);
+
+    const foreign = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerB1}/activities`)
+      .set('authorization', 'Bearer member-b-token')
+      .set('x-tenant-context', await contextFor('member-b-token'))
+      .send({ name: { es: 'Buceo B', en: 'Diving B' } })
+      .expect(201);
+    await request(app.getHttpServer())
+      .get(`/v1/centers/${centerB1}/activities`)
+      .set(ownerHeaders)
+      .expect(404);
+    await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}/activities/${foreign.body.id}/slots`)
+      .set(ownerHeaders)
+      .expect(404);
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerB1}/activities/${foreign.body.id}/publish`)
+      .set(ownerHeaders)
+      .expect(404);
+    const foreignState = await admin.query<{ status: string }>(
+      `SELECT status
+       FROM booking_app.activities
+       WHERE tenant_id=$1 AND id=$2`,
+      [tenantB, foreign.body.id],
+    );
+    expect(foreignState.rows).toEqual([{ status: 'Draft' }]);
+  });
+
+  it('returns non-disclosing problem responses for catalog authentication and scope failures', async () => {
+    const missingSession = await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}/activities`)
+      .expect(401);
+    expect(missingSession.headers['content-type']).toMatch(
+      /^application\/problem\+json/,
+    );
+    expect(missingSession.body.code).toBe('unauthenticated');
+
+    const ownerContext = await contextFor('owner-a-token');
+    const foreignCenter = await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA2}/activities`)
+      .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', await contextFor('manager-a-token'))
+      .expect(404);
+    expect(foreignCenter.headers['content-type']).toMatch(
+      /^application\/problem\+json/,
+    );
+    expect(foreignCenter.body.code).toBe('resource_not_found');
+
+    const malformed = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA1}/activities`)
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .set('content-type', 'application/json')
+      .send('{"name":')
+      .expect(400);
+    expect(malformed.headers['content-type']).toMatch(
+      /^application\/problem\+json/,
+    );
+    expect(malformed.body.code).toBe('malformed_json');
   });
 
   afterAll(async () => {

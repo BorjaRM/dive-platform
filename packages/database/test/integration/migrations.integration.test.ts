@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import * as bookingSchema from '../../src/booking-schema.js';
 import { bootstrapRoles } from '../../src/bootstrap-roles.js';
 import { migrationDatabaseUrl, spikeAdminDatabaseUrl } from '../../src/env.js';
 import * as iamSchema from '../../src/iam-schema.js';
@@ -22,6 +23,10 @@ const iamTables = [
   iamSchema.iamInvitations,
   iamSchema.iamAuditRecords,
   iamSchema.iamOutboxEvents,
+];
+const bookingTables = [
+  bookingSchema.bookingActivities,
+  bookingSchema.bookingSlots,
 ];
 
 const emptyDatabaseName = 'dive_migrate_empty';
@@ -92,13 +97,16 @@ describe('product migrations', () => {
     }
   });
 
-  it('creates iam_app from an empty database without the spike harness', async () => {
+  it('creates product schemas from an empty database without the spike harness', async () => {
     const schemas = await requireEmptyAdminPool(emptyAdminPool).query<{
       nspname: string;
     }>(
-      `SELECT nspname FROM pg_namespace WHERE nspname IN ('iam_app', 'mt_spike') ORDER BY nspname`,
+      `SELECT nspname FROM pg_namespace WHERE nspname IN ('booking_app', 'iam_app', 'mt_spike') ORDER BY nspname`,
     );
-    expect(schemas.rows.map((row) => row.nspname)).toEqual(['iam_app']);
+    expect(schemas.rows.map((row) => row.nspname)).toEqual([
+      'booking_app',
+      'iam_app',
+    ]);
   });
 
   it('is a no-op on a second run', async () => {
@@ -115,9 +123,9 @@ describe('product migrations', () => {
   });
 
   it('keeps Drizzle product columns aligned with PostgreSQL', async () => {
-    for (const table of iamTables) {
+    for (const table of [...iamTables, ...bookingTables]) {
       const definition = getTableConfig(table);
-      const qualifiedName = `iam_app.${definition.name}`;
+      const qualifiedName = `${definition.schema}.${definition.name}`;
       const actual = await adminPool.query<{ name: string; not_null: boolean }>(
         `SELECT attname AS name, attnotnull AS not_null
          FROM pg_attribute
@@ -140,9 +148,9 @@ describe('product migrations', () => {
 
   it('keeps Drizzle check constraints aligned with PostgreSQL', async () => {
     const migratedPool = requireEmptyAdminPool(emptyAdminPool);
-    for (const table of iamTables) {
+    for (const table of [...iamTables, ...bookingTables]) {
       const definition = getTableConfig(table);
-      const qualifiedName = `iam_app.${definition.name}`;
+      const qualifiedName = `${definition.schema}.${definition.name}`;
       const actual = await migratedPool.query<{ name: string }>(
         `SELECT conname AS name
          FROM pg_constraint
@@ -156,6 +164,36 @@ describe('product migrations', () => {
         qualifiedName,
       ).toEqual(definition.checks.map(({ name }) => name).sort());
     }
+  });
+
+  it('keeps booking foreign keys and query indexes aligned with the catalog contract', async () => {
+    const migratedPool = requireEmptyAdminPool(emptyAdminPool);
+    const constraints = await migratedPool.query<{ name: string }>(
+      `SELECT conname AS name
+       FROM pg_constraint
+       WHERE conrelid IN ('booking_app.activities'::regclass, 'booking_app.slots'::regclass)
+         AND contype = 'f'
+       ORDER BY conname`,
+    );
+    expect(constraints.rows.map(({ name }) => name)).toEqual([
+      'activities_tenant_id_center_id_centers_tenant_id_id_fk',
+      'activities_tenant_id_tenants_id_fk',
+      'slots_tenant_id_center_id_activity_id_activities_tenant_id_cent',
+      'slots_tenant_id_center_id_centers_tenant_id_id_fk',
+      'slots_tenant_id_tenants_id_fk',
+    ]);
+
+    const indexes = await migratedPool.query<{ name: string }>(
+      `SELECT indexname AS name
+       FROM pg_indexes
+       WHERE schemaname = 'booking_app'
+         AND indexname IN ('activities_center_status_created_id_idx', 'slots_activity_status_starts_id_idx')
+       ORDER BY indexname`,
+    );
+    expect(indexes.rows.map(({ name }) => name)).toEqual([
+      'activities_center_status_created_id_idx',
+      'slots_activity_status_starts_id_idx',
+    ]);
   });
 
   it('runs as dive_migration and leaves dive_app without DDL', async () => {

@@ -78,6 +78,34 @@
       "when": 1790458000000,
       "tag": "0010_fix_context_issue_rls_context",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790520288475,
+      "tag": "0011_minor_husk",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790520288476,
+      "tag": "0012_booking_rls_and_grants",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790520391003,
+      "tag": "0013_fine_nightshade",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790520391004,
+      "tag": "0014_add_booking_catalog_audit_command",
+      "breakpoints": true
     }
   ]
 }

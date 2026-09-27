@@ -5,10 +5,14 @@ import {
   IDENTITY_WEBHOOK_VERIFIER,
 } from '@dive-center/identity';
 import { Module } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import { createObserveModule } from '@nestjs/observe';
 import { Pool } from 'pg';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { CatalogController } from './catalog.controller.js';
+import { CatalogProblemFilter } from './catalog.errors.js';
+import { CatalogService } from './catalog.service.js';
 import { clerkIdentityConfigFromEnvironment } from './clerk.config.js';
 import { IamController } from './iam.controller.js';
 import { IamService } from './iam.service.js';
@@ -44,10 +48,17 @@ const observeImport =
 
 @Module({
   imports: observeImport ? [observeImport] : [],
-  controllers: [AppController, IamController, IdentityWebhookController],
+  controllers: [
+    AppController,
+    IamController,
+    IdentityWebhookController,
+    CatalogController,
+  ],
   providers: [
     AppService,
+    { provide: APP_FILTER, useClass: CatalogProblemFilter },
     IamService,
+    CatalogService,
     {
       provide: ClerkIdentityAdapter,
       useFactory: () =>

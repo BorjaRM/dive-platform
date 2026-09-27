@@ -78,6 +78,7 @@ export const iamCenters = iamApp.table(
       .notNull()
       .references(() => iamTenants.id),
     name: text('name').notNull(),
+    timeZone: text('time_zone'),
   },
   (table) => [primaryKey({ columns: [table.tenantId, table.id] })],
 );
