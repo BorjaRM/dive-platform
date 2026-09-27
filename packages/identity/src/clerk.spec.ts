@@ -178,6 +178,16 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
     ).resolves.toMatchObject({ verifiedAddresses: [] });
   });
 
+  it('accepts numeric Clerk session expiry timestamps expressed in seconds', async () => {
+    clerk.getSession.mockResolvedValue(
+      activeSession({ expireAt: Math.floor(Date.now() / 1_000) + 60 }),
+    );
+
+    await expect(
+      createAdapter().authenticate('session-token'),
+    ).resolves.toMatchObject({ subject: 'user_123' });
+  });
+
   it('maps second-factor verification into provider-neutral assurance', async () => {
     clerk.verifyToken.mockResolvedValue({
       iss: config.issuer,
