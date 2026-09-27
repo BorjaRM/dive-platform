@@ -18,3 +18,9 @@ Skills auto-load from `description`; `/skill-name` also works. That does not add
 | `sdd-normative-change-hygiene` | Changing SPEC/ADR/TRACE |
 | `fill-pr-validation` | Writing or reviewing the PR Validation section |
 | `cross-cutting-performance-checklist` | Touching DB, API, worker/outbox, or web/widget |
+| `vercel-react-best-practices` | Writing, reviewing, or refactoring React/Next.js code in `apps/web` |
+| `vercel-composition-patterns` | Designing or refactoring reusable React component APIs in `apps/web` |
+
+## Third-party skills
+
+The Vercel skills are vendored and pinned. See [`THIRD_PARTY.md`](./THIRD_PARTY.md) for provenance, scope, precedence, and update instructions.
