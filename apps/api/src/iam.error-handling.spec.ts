@@ -128,4 +128,24 @@ describe('IAM error handling', () => {
       ),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
+
+  it('normalizes provider failures to 401 at the controller boundary', async () => {
+    const controller = new IamController(
+      {
+        authenticate: async () => {
+          throw new Error('provider unavailable');
+        },
+      },
+      { warn: vi.fn() },
+      { readCenter: vi.fn() } as never,
+    );
+
+    await expect(
+      controller.readCenter(
+        '******',
+        '11111111-1111-1111-1111-111111111111',
+        'aaaaaaaa-0001-0001-0001-000000000001',
+      ),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
 });

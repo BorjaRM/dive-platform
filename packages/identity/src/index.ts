@@ -67,63 +67,58 @@ export async function authenticateIdentity(
   provider: IdentityProviderPort,
   bearerToken: string,
 ): Promise<AuthenticatedPrincipal> {
-  try {
-    const candidate = await provider.authenticate(bearerToken);
-    if (typeof candidate !== 'object' || candidate === null) {
-      throw new Error('Unauthenticated');
-    }
-    const candidateRecord = candidate as Record<string, unknown>;
-    const assurance = candidateRecord.assurance;
-    if (typeof assurance !== 'object' || assurance === null) {
-      throw new Error('Unauthenticated');
-    }
-    const assuranceRecord = assurance as Record<string, unknown>;
-    const issuer = candidateRecord.issuer;
-    const subject = candidateRecord.subject;
-    const verifiedAddressesValue = candidateRecord.verifiedAddresses;
-    const level = assuranceRecord.level;
-    const verifiedAt = assuranceRecord.verifiedAt;
-    if (
-      typeof issuer !== 'string' ||
-      typeof subject !== 'string' ||
-      !Array.isArray(verifiedAddressesValue) ||
-      verifiedAddressesValue.some((address) => typeof address !== 'string') ||
-      !['single_factor', 'multi_factor'].includes(level as string) ||
-      (verifiedAt !== null && typeof verifiedAt !== 'string')
-    ) {
-      throw new Error('Unauthenticated');
-    }
-    const normalizedIssuer = issuer.trim();
-    const normalizedSubject = subject.trim();
-    const verifiedAddresses = verifiedAddressesValue.map((address) =>
-      address.trim(),
-    );
-    const assuranceVerifiedAt =
-      verifiedAt === null ? null : new Date(verifiedAt);
-    if (
-      !normalizedIssuer ||
-      !normalizedSubject ||
-      verifiedAddresses.some((address) => !address) ||
-      (assuranceVerifiedAt !== null &&
-        Number.isNaN(assuranceVerifiedAt.getTime())) ||
-      (level === 'multi_factor' && assuranceVerifiedAt === null)
-    ) {
-      throw new Error('Unauthenticated');
-    }
-    const principal = Object.freeze({
-      issuer: normalizedIssuer,
-      subject: normalizedSubject,
-      verifiedAddresses: Object.freeze(verifiedAddresses),
-      assurance: Object.freeze({
-        level,
-        verifiedAt: assuranceVerifiedAt?.toISOString() ?? null,
-      }),
-    }) as AuthenticatedPrincipal;
-    authenticatedPrincipals.add(principal);
-    return principal;
-  } catch {
+  const candidate = await provider.authenticate(bearerToken);
+  if (typeof candidate !== 'object' || candidate === null) {
     throw new Error('Unauthenticated');
   }
+  const candidateRecord = candidate as Record<string, unknown>;
+  const assurance = candidateRecord.assurance;
+  if (typeof assurance !== 'object' || assurance === null) {
+    throw new Error('Unauthenticated');
+  }
+  const assuranceRecord = assurance as Record<string, unknown>;
+  const issuer = candidateRecord.issuer;
+  const subject = candidateRecord.subject;
+  const verifiedAddressesValue = candidateRecord.verifiedAddresses;
+  const level = assuranceRecord.level;
+  const verifiedAt = assuranceRecord.verifiedAt;
+  if (
+    typeof issuer !== 'string' ||
+    typeof subject !== 'string' ||
+    !Array.isArray(verifiedAddressesValue) ||
+    verifiedAddressesValue.some((address) => typeof address !== 'string') ||
+    !['single_factor', 'multi_factor'].includes(level as string) ||
+    (verifiedAt !== null && typeof verifiedAt !== 'string')
+  ) {
+    throw new Error('Unauthenticated');
+  }
+  const normalizedIssuer = issuer.trim();
+  const normalizedSubject = subject.trim();
+  const verifiedAddresses = verifiedAddressesValue.map((address) =>
+    address.trim(),
+  );
+  const assuranceVerifiedAt = verifiedAt === null ? null : new Date(verifiedAt);
+  if (
+    !normalizedIssuer ||
+    !normalizedSubject ||
+    verifiedAddresses.some((address) => !address) ||
+    (assuranceVerifiedAt !== null &&
+      Number.isNaN(assuranceVerifiedAt.getTime())) ||
+    (level === 'multi_factor' && assuranceVerifiedAt === null)
+  ) {
+    throw new Error('Unauthenticated');
+  }
+  const principal = Object.freeze({
+    issuer: normalizedIssuer,
+    subject: normalizedSubject,
+    verifiedAddresses: Object.freeze(verifiedAddresses),
+    assurance: Object.freeze({
+      level,
+      verifiedAt: assuranceVerifiedAt?.toISOString() ?? null,
+    }),
+  }) as AuthenticatedPrincipal;
+  authenticatedPrincipals.add(principal);
+  return principal;
 }
 
 export type {

@@ -57,7 +57,7 @@ describe('IAM identity assertion boundary (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005)',
     expect(() => assertAuthenticatedPrincipal(principal)).not.toThrow();
   });
 
-  it('normalizes provider failures to an unauthenticated result', async () => {
+  it('propagates unexpected provider failures', async () => {
     await expect(
       authenticateIdentity(
         {
@@ -67,7 +67,7 @@ describe('IAM identity assertion boundary (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005)',
         },
         'provider-session',
       ),
-    ).rejects.toThrow('Unauthenticated');
+    ).rejects.toThrow('provider unavailable');
   });
 
   it.each([
