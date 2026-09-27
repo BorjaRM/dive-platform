@@ -1,6 +1,10 @@
 import type { ClerkIdentityAdapterConfig } from '@dive-center/identity';
-
-type Environment = Readonly<Record<string, string | undefined>>;
+import {
+  assertNoSyntheticProductionValue,
+  type Environment,
+  type RuntimeEnvironment,
+  runtimeEnvironmentFromEnvironment,
+} from '../config/environment.js';
 
 function required(environment: Environment, name: string): string {
   const value = environment[name]?.trim();
@@ -12,13 +16,18 @@ function secret(
   environment: Environment,
   name: string,
   pattern: RegExp,
+  runtimeEnvironment: RuntimeEnvironment,
 ): string {
   const value = required(environment, name);
   if (!pattern.test(value)) throw new Error(`Invalid ${name}`);
+  assertNoSyntheticProductionValue(value, name, runtimeEnvironment);
   return value;
 }
 
-function parseAuthorizedParties(value: string): readonly string[] {
+function parseAuthorizedParties(
+  value: string,
+  runtimeEnvironment: RuntimeEnvironment,
+): readonly string[] {
   let candidates: unknown;
   if (value.startsWith('[')) {
     try {
@@ -46,6 +55,7 @@ function parseAuthorizedParties(value: string): readonly string[] {
       const url = new URL(party);
       if (
         !['http:', 'https:'].includes(url.protocol) ||
+        (runtimeEnvironment === 'production' && url.protocol !== 'https:') ||
         url.username ||
         url.password ||
         url.pathname !== '/' ||
@@ -58,6 +68,11 @@ function parseAuthorizedParties(value: string): readonly string[] {
     } catch {
       throw new Error('Invalid CLERK_AUTHORIZED_PARTIES');
     }
+    assertNoSyntheticProductionValue(
+      party,
+      'CLERK_AUTHORIZED_PARTIES',
+      runtimeEnvironment,
+    );
   }
   return Object.freeze([...new Set(parties)]);
 }
@@ -65,6 +80,7 @@ function parseAuthorizedParties(value: string): readonly string[] {
 export function clerkIdentityConfigFromEnvironment(
   environment: Environment,
 ): ClerkIdentityAdapterConfig {
+  const runtimeEnvironment = runtimeEnvironmentFromEnvironment(environment);
   const issuer = required(environment, 'CLERK_ISSUER');
   try {
     const issuerUrl = new URL(issuer);
@@ -83,21 +99,25 @@ export function clerkIdentityConfigFromEnvironment(
   } catch {
     throw new Error('Invalid CLERK_ISSUER');
   }
+  assertNoSyntheticProductionValue(issuer, 'CLERK_ISSUER', runtimeEnvironment);
 
   return Object.freeze({
     secretKey: secret(
       environment,
       'CLERK_SECRET_KEY',
       /^sk_(?:test|live)_[^\s*]+$/,
+      runtimeEnvironment,
     ),
     webhookSigningSecret: secret(
       environment,
       'CLERK_WEBHOOK_SIGNING_SECRET',
       /^whsec_[^\s*]+$/,
+      runtimeEnvironment,
     ),
     issuer,
     authorizedParties: parseAuthorizedParties(
       required(environment, 'CLERK_AUTHORIZED_PARTIES'),
+      runtimeEnvironment,
     ),
   });
 }

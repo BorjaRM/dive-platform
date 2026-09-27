@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { clerkIdentityConfigFromEnvironment } from './clerk.config.js';
 
 const validEnvironment = {
+  NODE_ENV: 'test',
   CLERK_SECRET_KEY: 'sk_test_not-a-real-secret',
   CLERK_WEBHOOK_SIGNING_SECRET: 'whsec_not-a-real-secret',
   CLERK_ISSUER: 'https://clerk.example.test',

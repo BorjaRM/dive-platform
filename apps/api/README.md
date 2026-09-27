@@ -2,6 +2,8 @@
 
 ## Clerk configuration
 
+`NODE_ENV` is required and must be one of `development`, `test`, `staging`, `preview`, or `production`. Production startup rejects synthetic placeholders, weak dashboard HMAC secrets, and non-HTTPS origins. Non-production profiles may use the synthetic values in `.env.example` for local testing only.
+
 The approved topology is one API process for dashboard authentication and Clerk webhooks. The Nest module therefore creates one `ClerkIdentityAdapter` and aliases it as both `IDENTITY_PROVIDER` and `IDENTITY_WEBHOOK_VERIFIER`; these are two ports backed by one configuration boundary, not separate deployables. Startup fails closed when any required value is missing or invalid, so the process cannot serve either path with partial identity configuration:
 
 - `CLERK_SECRET_KEY`: Clerk Backend API secret used by `verifyToken` and the Backend API client. It must use Clerk's `sk_test_` or `sk_live_` format.

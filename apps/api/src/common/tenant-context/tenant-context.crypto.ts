@@ -1,6 +1,11 @@
 import { createHash, createHmac, randomBytes } from 'node:crypto';
-
-type Environment = Readonly<Record<string, string | undefined>>;
+import {
+  assertNoSyntheticProductionValue,
+  assertProductionSecretStrength,
+  type Environment,
+  type RuntimeEnvironment,
+  runtimeEnvironmentFromEnvironment,
+} from '../config/environment.js';
 
 function required(environment: Environment, name: string): string {
   const value = environment[name]?.trim();
@@ -8,11 +13,16 @@ function required(environment: Environment, name: string): string {
   return value;
 }
 
-function exactOrigin(value: string, name: string): string {
+function exactOrigin(
+  value: string,
+  name: string,
+  runtimeEnvironment: RuntimeEnvironment,
+): string {
   try {
     const origin = new URL(value);
     if (
       !['http:', 'https:'].includes(origin.protocol) ||
+      (runtimeEnvironment === 'production' && origin.protocol !== 'https:') ||
       origin.username ||
       origin.password ||
       origin.pathname !== '/' ||
@@ -23,6 +33,7 @@ function exactOrigin(value: string, name: string): string {
     ) {
       throw new Error('Invalid origin');
     }
+    assertNoSyntheticProductionValue(value, name, runtimeEnvironment);
     return origin.origin;
   } catch {
     throw new Error(`Invalid ${name}`);
@@ -32,11 +43,14 @@ function exactOrigin(value: string, name: string): string {
 export function dashboardCorsOriginsFromEnvironment(
   environment: Environment,
 ): readonly string[] {
+  const runtimeEnvironment = runtimeEnvironmentFromEnvironment(environment);
   const origins = required(environment, 'DASHBOARD_CORS_ORIGINS')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean)
-    .map((origin) => exactOrigin(origin, 'DASHBOARD_CORS_ORIGINS'));
+    .map((origin) =>
+      exactOrigin(origin, 'DASHBOARD_CORS_ORIGINS', runtimeEnvironment),
+    );
   if (origins.length === 0) throw new Error('Invalid DASHBOARD_CORS_ORIGINS');
   return Object.freeze([...new Set(origins)]);
 }
@@ -44,10 +58,16 @@ export function dashboardCorsOriginsFromEnvironment(
 export function dashboardContextHmacSecretFromEnvironment(
   environment: Environment,
 ): string {
+  const runtimeEnvironment = runtimeEnvironmentFromEnvironment(environment);
   const value = required(environment, 'DASHBOARD_CONTEXT_HMAC_SECRET');
   if (Buffer.byteLength(value, 'utf8') < 32) {
     throw new Error('Invalid DASHBOARD_CONTEXT_HMAC_SECRET');
   }
+  assertProductionSecretStrength(
+    value,
+    'DASHBOARD_CONTEXT_HMAC_SECRET',
+    runtimeEnvironment,
+  );
   return value;
 }
 
