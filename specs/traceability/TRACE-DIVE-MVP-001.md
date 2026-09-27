@@ -25,6 +25,7 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` are Ready to start
 | ADR-DIVE-007 | `specs/architecture/adrs/ADR-DIVE-007.md` | Ready to start | 0.2 |
 | ADR-DIVE-008 | `specs/architecture/adrs/ADR-DIVE-008.md` | Ready to start | 0.9 |
 | ADR-DIVE-009 | `specs/architecture/adrs/ADR-DIVE-009.md` | Draft | 0.1 |
+| ADR-DIVE-010 | `specs/architecture/adrs/ADR-DIVE-010.md` | Draft | 0.1 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 0.6 |
 | SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.10 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.2-draft |
@@ -52,6 +53,8 @@ Notion pages are indexes only. They are not coverage evidence.
 | Channels and widget | 037–042 | SPIKE-DIVE-003, e2e | `evidence/spikes/SPIKE-DIVE-003/` |
 | Delivery and privacy | 043–048 | outbox, i18n, privacy review | `evidence/` + dated review |
 | Catalog HTTP and center-scoped dashboard catalog | 049–057 | catalog API tests in the implementation PR | implementation PR |
+| Public create-booking closures | ADR-DIVE-010 Draft; no new SPEC IDs yet | none until ADR approved | none |
+| Public create-booking closures | ADR-DIVE-010 Draft; no new SPEC IDs yet | none until ADR approved | none |
 
 `DIVE-BOOK-REQ-003` is the capacity invariant. `DIVE-BOOK-REQ-029` states that capacity lives on the slot.
 
@@ -74,7 +77,7 @@ Deferred. Not required to start the booking MVP.
 Not copied as requirement text. Owners:
 
 | Channel | Owner |
-|---|---|---|
+|---|---|
 | Cache, files, search | SPEC/spike that introduces the channel (ID not invented) |
 | Export, deletion | Future rights/privacy SPEC; until opened, security/privacy baseline + product-profile privacy gate |
 | Restore | Future recovery SPEC; until opened, operations-quality-recovery baseline |
