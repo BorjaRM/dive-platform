@@ -3,6 +3,20 @@ import type { IamDenialReason } from '@dive-center/contracts';
 export const IDENTITY_PROVIDER = Symbol('IDENTITY_PROVIDER');
 export const IDENTITY_WEBHOOK_VERIFIER = Symbol('IDENTITY_WEBHOOK_VERIFIER');
 
+export class InvalidIdentityCredentialsError extends Error {
+  constructor() {
+    super('Unauthenticated');
+    this.name = 'InvalidIdentityCredentialsError';
+  }
+}
+
+export class IdentityProviderUnavailableError extends Error {
+  constructor() {
+    super('Identity provider unavailable');
+    this.name = 'IdentityProviderUnavailableError';
+  }
+}
+
 declare const authenticatedPrincipal: unique symbol;
 
 export type IdentityAssurance = Readonly<{

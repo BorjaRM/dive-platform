@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import {
   type IamAccessContext,
   IamAccessDeniedError,
@@ -13,6 +12,7 @@ import {
   type AuthenticatedPrincipal,
   authorizeIamMembership,
 } from '@dive-center/identity';
+import { correlationIdForCurrentContext } from '@dive-center/observability';
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import type { Pool } from 'pg';
@@ -125,7 +125,7 @@ export class CatalogAccessService {
       ...input,
       tenantId: context.tenantId,
       actorIdentityId: context.identityId,
-      correlationId: randomUUID(),
+      correlationId: correlationIdForCurrentContext(),
     });
   }
 

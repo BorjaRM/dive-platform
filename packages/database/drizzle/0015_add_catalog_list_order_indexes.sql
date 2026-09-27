@@ -1,0 +1,2 @@
+CREATE INDEX "activities_center_created_id_idx" ON "booking_app"."activities" USING btree ("tenant_id","center_id","created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "slots_activity_starts_id_idx" ON "booking_app"."slots" USING btree ("tenant_id","center_id","activity_id","starts_at","id");

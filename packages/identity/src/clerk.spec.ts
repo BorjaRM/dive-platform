@@ -28,6 +28,7 @@ const config = {
   webhookSigningSecret: 'whsec_not-a-real-secret',
   issuer: 'https://clerk.example.test',
   authorizedParties: ['https://dashboard.example.test'],
+  requestTimeoutMillis: 100,
 };
 
 const dependencies: ClerkIdentityAdapterDependencies = {
@@ -104,12 +105,22 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
         verifiedAt: new Date((1_800_000_000 - 120) * 1_000).toISOString(),
       },
     });
-    expect(clerk.verifyToken).toHaveBeenCalledWith('session-token', {
-      authorizedParties: config.authorizedParties,
-      secretKey: config.secretKey,
-    });
-    expect(clerk.getSession).toHaveBeenCalledWith('sess_123');
-    expect(clerk.getUser).toHaveBeenCalledWith('user_123');
+    expect(clerk.verifyToken).toHaveBeenCalledWith(
+      'session-token',
+      {
+        authorizedParties: config.authorizedParties,
+        secretKey: config.secretKey,
+      },
+      expect.any(AbortSignal),
+    );
+    expect(clerk.getSession).toHaveBeenCalledWith(
+      'sess_123',
+      expect.any(AbortSignal),
+    );
+    expect(clerk.getUser).toHaveBeenCalledWith(
+      'user_123',
+      expect.any(AbortSignal),
+    );
   });
 
   it('uses the default Clerk SDK wiring for authentication', async () => {
@@ -251,7 +262,10 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
   it.each([
     [
       'invalid or expired token',
-      () => clerk.verifyToken.mockRejectedValue(new Error('invalid')),
+      () =>
+        clerk.verifyToken.mockRejectedValue(
+          Object.assign(new Error('invalid'), { status: 401 }),
+        ),
     ],
     [
       'ended session',
@@ -285,14 +299,6 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
         ),
     ],
     [
-      'provider outage',
-      () => clerk.getSession.mockRejectedValue(new Error('unavailable')),
-    ],
-    [
-      'user lookup outage',
-      () => clerk.getUser.mockRejectedValue(new Error('unavailable')),
-    ],
-    [
       'banned user',
       () => clerk.getUser.mockResolvedValue(activeUser({ banned: true })),
     ],
@@ -305,6 +311,62 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
     await expect(createAdapter().authenticate('session-token')).rejects.toThrow(
       'Unauthenticated',
     );
+  });
+
+  it('classifies provider outages separately from invalid credentials', async () => {
+    clerk.getSession.mockRejectedValue(new Error('unavailable'));
+
+    await expect(createAdapter().authenticate('session-token')).rejects.toThrow(
+      'Identity provider unavailable',
+    );
+  });
+
+  it('passes the deadline signal to provider operations', async () => {
+    let receivedSignal: AbortSignal | undefined;
+    const dependencies: ClerkIdentityAdapterDependencies = {
+      ...({
+        verifyToken: clerk.verifyToken,
+        getSession: clerk.getSession,
+        getUser: clerk.getUser,
+        verifyWebhook: clerk.verifyWebhook,
+      } satisfies ClerkIdentityAdapterDependencies),
+      getSession: async (_sessionId, signal) => {
+        receivedSignal = signal;
+        return activeSession();
+      },
+    };
+
+    const signaledAdapter = new ClerkIdentityAdapter(config, dependencies);
+    await signaledAdapter.authenticate('session-token');
+    expect(receivedSignal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('bounds a provider operation that never resolves', async () => {
+    let aborted = false;
+    const dependencies: ClerkIdentityAdapterDependencies = {
+      verifyToken: async (_token, _options, signal) =>
+        new Promise((_resolve, reject) => {
+          signal?.addEventListener(
+            'abort',
+            () => {
+              aborted = true;
+              reject(new Error('aborted'));
+            },
+            { once: true },
+          );
+        }),
+      getSession: clerk.getSession,
+      getUser: clerk.getUser,
+      verifyWebhook: clerk.verifyWebhook,
+    };
+
+    await expect(
+      new ClerkIdentityAdapter(
+        { ...config, requestTimeoutMillis: 10 },
+        dependencies,
+      ).authenticate('session-token'),
+    ).rejects.toThrow('Identity provider unavailable');
+    expect(aborted).toBe(true);
   });
 
   it('revalidates the token, session, and user on every call', async () => {

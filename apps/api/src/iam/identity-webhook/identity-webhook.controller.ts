@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import {
   applyIdentityWebhook,
   sessionIdHashForWebhook,
@@ -8,6 +7,7 @@ import {
   type IdentityWebhookEvent,
   type IdentityWebhookVerifierPort,
 } from '@dive-center/identity';
+import { correlationIdForCurrentContext } from '@dive-center/observability';
 import {
   BadRequestException,
   Controller,
@@ -67,7 +67,7 @@ export class IdentityWebhookController {
     @Headers()
     headers: Readonly<Record<string, string | readonly string[] | undefined>>,
   ) {
-    const correlationId = randomUUID();
+    const correlationId = correlationIdForCurrentContext();
     let event: IdentityWebhookEvent;
     try {
       if (!rawBody?.length) throw new Error('Missing raw body');

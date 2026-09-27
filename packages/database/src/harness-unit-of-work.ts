@@ -1,6 +1,7 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Pool, PoolClient } from 'pg';
 import * as schema from './harness-schema.js';
+import { rollbackAndReleaseClient } from './transaction-lifecycle.js';
 
 export type HarnessTenantUnitOfWork = {
   client: PoolClient;
@@ -8,7 +9,7 @@ export type HarnessTenantUnitOfWork = {
 };
 
 export async function withTenant<T>(
-  pool: Pool,
+  pool: Pick<Pool, 'connect'>,
   tenantId: string,
   fn: (uow: HarnessTenantUnitOfWork) => Promise<T>,
 ): Promise<T> {
@@ -22,15 +23,10 @@ export async function withTenant<T>(
     const db = drizzle(client, { schema });
     const result = await fn({ client, db });
     await client.query('COMMIT');
+    client.release();
     return result;
   } catch (error) {
-    try {
-      await client.query('ROLLBACK');
-    } catch {
-      // Connection may already be aborted.
-    }
+    await rollbackAndReleaseClient(client);
     throw error;
-  } finally {
-    client.release();
   }
 }

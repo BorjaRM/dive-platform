@@ -9,6 +9,7 @@ const config = {
   webhookSigningSecret: signingSecret,
   issuer: 'https://clerk.example.test',
   authorizedParties: ['https://dashboard.example.test'],
+  requestTimeoutMillis: 100,
 };
 
 function signedHeaders(

@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { clerkIdentityConfigFromEnvironment } from './clerk.config.js';
 
 const validEnvironment = {
+  NODE_ENV: 'test',
   CLERK_SECRET_KEY: 'sk_test_not-a-real-secret',
   CLERK_WEBHOOK_SIGNING_SECRET: 'whsec_not-a-real-secret',
   CLERK_ISSUER: 'https://clerk.example.test',
   CLERK_AUTHORIZED_PARTIES:
     'https://dashboard.example.test, https://admin.example.test',
+  CLERK_REQUEST_TIMEOUT_MS: '100',
 };
 
 describe('Clerk production configuration', () => {
@@ -29,6 +31,7 @@ describe('Clerk production configuration', () => {
     ['CLERK_WEBHOOK_SIGNING_SECRET', '   '],
     ['CLERK_ISSUER', ''],
     ['CLERK_AUTHORIZED_PARTIES', ''],
+    ['CLERK_REQUEST_TIMEOUT_MS', ''],
   ])('rejects missing %s', (name, value) => {
     expect(() =>
       clerkIdentityConfigFromEnvironment({

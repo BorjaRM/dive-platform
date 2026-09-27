@@ -45,17 +45,18 @@ Re-verify. Do not treat this table as frozen:
 |---|---|
 | Yes | `.github/workflows/spec-governance.yml` |
 | Yes | `scripts/validate-spec-governance.mjs` |
-| Yes | `.github/workflows/ci.yml` (`pnpm check:fix` on same-repo PRs, then `pnpm check`, `pnpm test`) |
+| Yes | `.github/workflows/ci.yml` (`contents: read`; build, check, and test; no auto-commit or push) |
 | Yes | `pnpm check`, `pnpm check:fix`, `pnpm test`, `pnpm typecheck` |
 | Yes | `infra/docker/postgres/docker-compose.yml` (PostgreSQL 18, local) |
 | Yes | `ci.yml` `integration` job (`pnpm test:integration`) |
-| Do not assume | e2e in CI, deploy, dependency-audit |
+| Yes | `.github/workflows/security.yml` (dependency review when repository support exists, Gitleaks, SBOM on `v*` tags; CodeQL and dependency review are deferred for the current private-repository plan) |
+| Do not assume | deploy, release publication, production credentials |
 
 ## You do
 
 - Keep `ci.yml` and `spec-governance.yml` separate. Extend each only after reading it.
 - `ci.yml` should keep using existing root scripts, `.nvmrc`, and `packageManager`. Do not pin a different Node/pnpm unless the repo files change.
-- Same-repo PRs: run `pnpm check:fix` and commit if dirty, then `pnpm check` / `pnpm test` **in the same job**. Agents often skip local Biome. Do not add a second format-only workflow (`GITHUB_TOKEN` pushes do not retrigger Actions).
+- CI is read-only: run `pnpm check` / `pnpm test` in the workflow and let the author run `pnpm check:fix` locally before pushing. Never commit or push from validation jobs. Do not add a second format-only workflow.
 - Next increment only when the task asks and is tied to a requirement, risk, or evidence: a PostgreSQL integration job or the first local Compose recipe. Use the smallest harness (GitHub Actions service container is enough for CI).
 - Fail closed on empty `Validation` only if the check can be implemented without inventing process.
 
@@ -64,7 +65,7 @@ Re-verify. Do not treat this table as frozen:
 - Auto-fix typecheck or test failures.
 - Add Docker, deploy, or e2e by default. Do not wait for a harness that does not exist if the task explicitly asks for the first one.
 - Name files, commands, or numeric budgets that are not in the repo.
-- Claim secret scanning or performance budgets as an existing program.
+- Claim performance budgets or security coverage beyond `.github/workflows/security.yml` as existing without verifying the workflow and its required secrets.
 - Require an ADR for a routine workflow that only runs existing scripts. Do require an ADR or explicit approval for deploy architecture, new CI products, or extra test runners.
 - Fold spec-governance into `ci.yml`.
 - Invoke other agents as subagents. After you finish, offer a VS Code handoff to Implementation PR Reviewer and print `Handoff:` in the output.

@@ -30,6 +30,7 @@ import { TENANT_CONTEXT_CRYPTO } from './tenant-context/tenant-context.tokens.js
       provide: SECURITY_LOGGER,
       useValue: {
         warn: (entry: unknown) => console.warn(JSON.stringify(entry)),
+        operational: (entry: unknown) => console.error(JSON.stringify(entry)),
       },
     },
     {

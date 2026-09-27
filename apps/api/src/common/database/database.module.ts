@@ -1,4 +1,7 @@
-import { appDatabaseUrl } from '@dive-center/database';
+import {
+  appDatabasePoolConfig,
+  assertRuntimeDatabaseRole,
+} from '@dive-center/database';
 import {
   Global,
   Inject,
@@ -23,7 +26,16 @@ class DatabasePoolLifecycle implements OnApplicationShutdown {
   providers: [
     {
       provide: DATABASE_POOL,
-      useFactory: () => new Pool({ connectionString: appDatabaseUrl() }),
+      useFactory: async () => {
+        const pool = new Pool(appDatabasePoolConfig());
+        try {
+          await assertRuntimeDatabaseRole(pool);
+          return pool;
+        } catch (error) {
+          await pool.end().catch(() => undefined);
+          throw error;
+        }
+      },
     },
     DatabasePoolLifecycle,
   ],

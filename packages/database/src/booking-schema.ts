@@ -74,6 +74,12 @@ export const bookingActivities = bookingApp.table(
       table.createdAt.desc(),
       table.id.desc(),
     ),
+    index('activities_center_created_id_idx').on(
+      table.tenantId,
+      table.centerId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
   ],
 );
 
@@ -119,6 +125,13 @@ export const bookingSlots = bookingApp.table(
       table.centerId,
       table.activityId,
       table.status,
+      table.startsAt,
+      table.id,
+    ),
+    index('slots_activity_starts_id_idx').on(
+      table.tenantId,
+      table.centerId,
+      table.activityId,
       table.startsAt,
       table.id,
     ),

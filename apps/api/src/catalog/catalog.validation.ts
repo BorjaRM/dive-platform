@@ -53,7 +53,15 @@ export function pagination(query: CatalogListQueryInput) {
       'Invalid pagination bounds',
     );
   }
-  return { page, pageSize, offset: (page - 1) * pageSize };
+  const offset = (page - 1) * pageSize;
+  if (!Number.isSafeInteger(offset)) {
+    throw new CatalogProblemException(
+      422,
+      'validation_error',
+      'Pagination offset is outside the safe integer range',
+    );
+  }
+  return { page, pageSize, offset };
 }
 
 export function localized(

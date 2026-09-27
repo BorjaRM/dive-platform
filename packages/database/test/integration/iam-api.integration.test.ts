@@ -198,6 +198,89 @@ describe('IAM/API persistence controls', () => {
     });
   });
 
+  it('constrains the non-forced tenant-context table through privileged commands (DATA-01, MT-REQ-004)', async () => {
+    const secondIdentity = 'b2222222-2222-2222-2222-222222222222';
+    const sessionHashA = 'a'.repeat(64);
+    const sessionHashB = 'b'.repeat(64);
+    const handleHashA = 'c'.repeat(64);
+    const handleHashB = 'd'.repeat(64);
+
+    await adminPool.query(
+      `INSERT INTO iam_app.tenants(id,name) VALUES ($1,'A'),($2,'B')`,
+      [tenantA, tenantB],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.identities(id) VALUES ($1),($2)`,
+      [identity, secondIdentity],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.external_identities(identity_id,issuer,subject)
+       VALUES ($1,'test','identity-a'),($2,'test','identity-b')`,
+      [identity, secondIdentity],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.memberships(id,tenant_id,identity_id,status,roles)
+       VALUES
+         ('aaaaaaaa-1111-1111-1111-111111111111',$1,$3,'active',ARRAY['tenant_owner']),
+         ('bbbbbbbb-2222-2222-2222-222222222222',$2,$4,'active',ARRAY['tenant_owner'])`,
+      [tenantA, tenantB, identity, secondIdentity],
+    );
+
+    const issueForTenantA = await appPool.query<{ outcome: object }>(
+      `SELECT iam_app.issue_tenant_context_command(
+        'test', 'identity-a', $1, $2::uuid, $3
+      ) AS outcome`,
+      [sessionHashA, tenantA, handleHashA],
+    );
+    expect(issueForTenantA.rows[0]?.outcome).toMatchObject({
+      tenantId: tenantA,
+    });
+
+    const unauthorizedIssue = await appPool.query<{ outcome: object }>(
+      `SELECT iam_app.issue_tenant_context_command(
+        'test', 'identity-a', $1, $2::uuid, $3
+      ) AS outcome`,
+      [sessionHashA, tenantB, handleHashB],
+    );
+    expect(unauthorizedIssue.rows[0]?.outcome).toEqual({
+      deniedReason: 'membership_missing_or_inactive',
+    });
+
+    const issueForTenantB = await appPool.query<{ outcome: object }>(
+      `SELECT iam_app.issue_tenant_context_command(
+        'test', 'identity-b', $1, $2::uuid, $3
+      ) AS outcome`,
+      [sessionHashB, tenantB, handleHashB],
+    );
+    expect(issueForTenantB.rows[0]?.outcome).toMatchObject({
+      tenantId: tenantB,
+    });
+
+    await expect(
+      appPool.query('SELECT tenant_id FROM iam_app.tenant_contexts'),
+    ).rejects.toThrow();
+
+    const crossTenantResolution = await appPool.query<{
+      context: object | null;
+    }>(
+      `SELECT iam_app.resolve_tenant_context_command(
+        'test', 'identity-b', $1, $2
+      ) AS context`,
+      [sessionHashA, handleHashA],
+    );
+    expect(crossTenantResolution.rows[0]?.context).toBeNull();
+
+    const storedContexts = await adminPool.query<{ tenant_id: string }>(
+      `SELECT tenant_id
+       FROM iam_app.tenant_contexts
+       ORDER BY tenant_id`,
+    );
+    expect(storedContexts.rows).toEqual([
+      { tenant_id: tenantA },
+      { tenant_id: tenantB },
+    ]);
+  });
+
   it('resolves independent memberships for one global identity and clears pooled context (DIVE-IAM-REQ-001, DIVE-IAM-REQ-002, DIVE-IAM-REQ-005, MT-REQ-005)', async () => {
     await adminPool.query(
       `INSERT INTO iam_app.tenants(id,name) VALUES ($1,'A'),($2,'B')`,

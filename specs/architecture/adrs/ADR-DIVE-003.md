@@ -1,7 +1,7 @@
 # ADR-DIVE-003 — Monorepo workspace layout and TypeScript tooling
 
 - **Status:** Ready to start
-- **Version:** 0.1
+- **Version:** 0.2
 - **Decision date:** 2026-09-26
 
 ## Context
@@ -17,10 +17,16 @@ Workspace packages still need their own `package.json` and a thin `tsconfig.json
 - **Per-package `package.json`:** required for pnpm/Turbo. Scope every app and library as `@dive-center/<name>`.
 - **Library emit:** internal packages compile to `dist/` so Nest can import them with NodeNext. Do not add `workspace:*` edges until a package actually imports another.
 - **Turbo tasks:** `build`, `dev`, `typecheck`, `test`. `build` caches `dist/**` and `.next/**`. Biome runs at the repository root (`pnpm lint`, `pnpm format`, `pnpm check:fix`), not as a per-package Turbo task.
-- **TypeScript version:** `7.0.2` via pnpm catalog and `pnpm.overrides`.
+- **TypeScript version:** `6.0.3` via the pnpm catalog.
 - **Empty packages:** keep the current `@dive-center/*` shells as reserved boundaries. Do not add more empty packages. Do not collapse domain/application/contracts/database. Identity, email, i18n, observability, config, testing, and ui stay stubs until they have a real port or consumer.
 - **UI kit:** `@dive-center/ui` is a stub. Starter demo components are removed. Recreate shared UI when dashboard and widget actually share components.
 - **Lint/format:** Biome only. No ESLint/Prettier config packages.
+
+## Version provenance
+
+- **Documented:** `6.0.3` is the effective TypeScript version in the pnpm
+	catalog and lockfile. This ADR now reflects the existing workspace
+	configuration; no additional compiler policy or override is introduced.
 
 ## Consequences
 

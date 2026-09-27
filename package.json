@@ -16,6 +16,7 @@
     "format": "biome format --write .",
     "check": "biome check . && turbo run typecheck",
     "check:fix": "biome check --write .",
+    "test:spec-governance": "node --test scripts/validate-spec-governance.test.mjs",
     "test:integration": "pnpm --filter @dive-center/database test:integration && pnpm --filter @dive-center/api test:e2e",
     "db:bootstrap": "pnpm --filter @dive-center/database db:bootstrap",
     "db:migrate": "pnpm --filter @dive-center/database db:migrate",
