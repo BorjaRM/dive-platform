@@ -5,10 +5,10 @@ import {
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { describe, expect, it, vi } from 'vitest';
-import { AuthAction, ClerkAuthGuard } from './common/auth.guard.js';
+import { AuthAction, ClerkAuthGuard } from '../common/auth.guard.js';
+import { TenantContextCrypto } from '../common/tenant-context.crypto.js';
 import { IamController } from './iam.controller.js';
 import { IamService } from './iam.service.js';
-import { TenantContextCrypto } from './tenant-context.crypto.js';
 
 const principalProvider: IdentityProviderPort = {
   authenticate: async () => ({

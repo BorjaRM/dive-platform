@@ -6,12 +6,12 @@ import { Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
 import { describe, expect, it, vi } from 'vitest';
-import { DATABASE_POOL, TENANT_CONTEXT_CRYPTO } from './common/tokens.js';
-import { IamController } from './iam.controller.js';
-import { IamService } from './iam.service.js';
-import { SECURITY_LOGGER } from './iam.tokens.js';
-import { IdentityWebhookController } from './identity-webhook.controller.js';
-import { TenantContextCrypto } from './tenant-context.crypto.js';
+import { SECURITY_LOGGER } from '../common/security.tokens.js';
+import { TenantContextCrypto } from '../common/tenant-context.crypto.js';
+import { DATABASE_POOL, TENANT_CONTEXT_CRYPTO } from '../common/tokens.js';
+import { IamController } from '../iam/iam.controller.js';
+import { IamService } from '../iam/iam.service.js';
+import { IdentityWebhookController } from '../identity-webhook/identity-webhook.controller.js';
 
 describe('OpenAPI document generation', () => {
   it('includes the IAM and webhook routes with a bearer security scheme', async () => {

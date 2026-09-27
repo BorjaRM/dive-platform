@@ -11,9 +11,9 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Pool } from 'pg';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
+import { AppModule } from '../src/app/app.module.js';
+import { SECURITY_LOGGER } from '../src/common/security.tokens.js';
 import { DATABASE_POOL } from '../src/common/tokens.js';
-import { SECURITY_LOGGER } from '../src/iam.tokens.js';
 import { legacyDashboardCenterPath } from './legacy-dashboard-routes.js';
 
 function testDatabaseUrl(

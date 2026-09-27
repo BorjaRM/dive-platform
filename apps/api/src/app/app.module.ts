@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { createObserveModule } from '@nestjs/observe';
+import { CatalogProblemFilter } from '../catalog/catalog.errors.js';
+import { CatalogModule } from '../catalog/catalog.module.js';
+import { CoreModule } from '../common/core.module.js';
+import { DatabaseModule } from '../common/database.module.js';
+import { IamModule } from '../iam/iam.module.js';
+import { IdentityWebhookModule } from '../identity-webhook/identity-webhook.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
-import { CatalogProblemFilter } from './catalog.errors.js';
-import { CatalogModule } from './catalog.module.js';
-import { CoreModule } from './common/core.module.js';
-import { DatabaseModule } from './common/database.module.js';
-import { IamModule } from './iam.module.js';
-import { IdentityWebhookModule } from './identity-webhook.module.js';
 
 const observe = createObserveModule();
 const observeAppKey = process.env.OBSERVE_APP_KEY;

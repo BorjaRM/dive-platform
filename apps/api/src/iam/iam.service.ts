@@ -22,14 +22,14 @@ import {
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import type { Pool } from 'pg';
-import { DATABASE_POOL, TENANT_CONTEXT_CRYPTO } from './common/tokens.js';
 import {
   IAM_ACTIONS,
   type IamAction,
   SECURITY_LOGGER,
   type SecurityLoggerPort,
-} from './iam.tokens.js';
-import type { TenantContextCrypto } from './tenant-context.crypto.js';
+} from '../common/security.tokens.js';
+import type { TenantContextCrypto } from '../common/tenant-context.crypto.js';
+import { DATABASE_POOL, TENANT_CONTEXT_CRYPTO } from '../common/tokens.js';
 
 function denied(): never {
   throw new ForbiddenException('Access denied');

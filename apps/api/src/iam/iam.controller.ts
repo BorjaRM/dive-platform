@@ -26,7 +26,13 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { AuthAction, ClerkAuthGuard, Principal } from './common/auth.guard.js';
+import { AuthAction, ClerkAuthGuard, Principal } from '../common/auth.guard.js';
+import {
+  IAM_ACTIONS,
+  type IamAction,
+  SECURITY_LOGGER,
+  type SecurityLoggerPort,
+} from '../common/security.tokens.js';
 import type { IssueTenantContextDto } from './iam.dto.js';
 import {
   CenterDto,
@@ -35,12 +41,6 @@ import {
   TenantContextDto,
 } from './iam.dto.js';
 import { IamService } from './iam.service.js';
-import {
-  IAM_ACTIONS,
-  type IamAction,
-  SECURITY_LOGGER,
-  type SecurityLoggerPort,
-} from './iam.tokens.js';
 
 @ApiTags('IAM')
 @ApiBearerAuth()

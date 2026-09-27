@@ -19,6 +19,8 @@ import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, asc, desc, eq, gte, lt } from 'drizzle-orm';
 import type { Pool } from 'pg';
+import type { TenantContextCrypto } from '../common/tenant-context.crypto.js';
+import { DATABASE_POOL, TENANT_CONTEXT_CRYPTO } from '../common/tokens.js';
 import type {
   CatalogActivityInput,
   CatalogListQueryInput,
@@ -38,8 +40,6 @@ import {
   statusFilter,
   uuid,
 } from './catalog.validation.js';
-import { DATABASE_POOL, TENANT_CONTEXT_CRYPTO } from './common/tokens.js';
-import type { TenantContextCrypto } from './tenant-context.crypto.js';
 
 const CATALOG_EVENT_TYPES = {
   activityCreated: 'booking.activity.created.v1',

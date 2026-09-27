@@ -24,6 +24,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { ClerkAuthGuard, Principal } from '../common/auth.guard.js';
 import {
   ActivityDto,
   ActivityListDto,
@@ -40,7 +41,6 @@ import {
   CatalogListQueryPipe,
   CatalogSlotInputPipe,
 } from './catalog.validation.pipe.js';
-import { ClerkAuthGuard, Principal } from './common/auth.guard.js';
 
 @ApiTags('Catalog')
 @ApiBearerAuth()
