@@ -2,7 +2,13 @@ import { eq } from 'drizzle-orm';
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { recordBookingCatalogMutation } from '../../src/booking-catalog-commands.js';
-import { bookingActivities, bookingSlots } from '../../src/booking-schema.js';
+import {
+  bookingActivities,
+  bookingBookings,
+  bookingCapabilityVerifiers,
+  bookingChannels,
+  bookingSlots,
+} from '../../src/booking-schema.js';
 import { bootstrapRoles } from '../../src/bootstrap-roles.js';
 import { migrateProduct } from '../../src/migrate.js';
 import { withTenant } from '../../src/unit-of-work.js';
@@ -19,6 +25,12 @@ const activityA = 'aaaaaaaa-1001-4001-8001-000000000001';
 const activityB = 'bbbbbbbb-2002-4002-8002-000000000001';
 const slotA = 'aaaaaaaa-1001-4001-8001-000000000011';
 const slotB = 'bbbbbbbb-2002-4002-8002-000000000011';
+const channelA = 'aaaaaaaa-1001-4001-8001-000000000041';
+const channelB = 'bbbbbbbb-2002-4002-8002-000000000041';
+const bookingA = 'aaaaaaaa-1001-4001-8001-000000000051';
+const bookingB = 'bbbbbbbb-2002-4002-8002-000000000051';
+const verifierA = 'aaaaaaaa-1001-4001-8001-000000000061';
+const verifierB = 'bbbbbbbb-2002-4002-8002-000000000061';
 const rollbackActivity = 'aaaaaaaa-1001-4001-8001-000000000021';
 const rollbackActor = 'aaaaaaaa-1001-4001-8001-000000000031';
 const rollbackMembership = 'aaaaaaaa-1001-4001-8001-000000000032';
@@ -38,7 +50,9 @@ describe('booking catalog persistence controls', () => {
   });
 
   beforeEach(async () => {
-    await adminPool.query('TRUNCATE booking_app.slots, booking_app.activities');
+    await adminPool.query(
+      'TRUNCATE booking_app.capability_verifiers, booking_app.bookings, booking_app.channels, booking_app.slots, booking_app.activities',
+    );
     await adminPool.query(
       `INSERT INTO iam_app.tenants(id, name) VALUES ($1, 'A'), ($2, 'B')
        ON CONFLICT (id) DO NOTHING`,
@@ -257,6 +271,105 @@ describe('booking catalog persistence controls', () => {
       `SELECT current_setting('app.tenant_id', true) AS tenant_id`,
     );
     expect(setting.rows[0]?.tenant_id).toBe('');
+  });
+
+  it('keeps public booking tables isolated and fails closed without context (MT-REQ-001, MT-REQ-004, MT-REQ-005, MT-REQ-006, MT-REQ-010)', async () => {
+    await adminPool.query(
+      `INSERT INTO booking_app.channels
+       (id, tenant_id, center_id, public_id, type, activity_id, status, confirmation_mode, allowed_origins)
+       VALUES
+         ($1, $2, $3, 'channel-a', 'single_activity', $4, 'Published', 'immediate', ARRAY['https://a.example.test']),
+         ($5, $6, $7, 'channel-b', 'single_activity', $8, 'Published', 'immediate', ARRAY['https://b.example.test'])`,
+      [
+        channelA,
+        tenantA,
+        centerA1,
+        activityA,
+        channelB,
+        tenantB,
+        centerB1,
+        activityB,
+      ],
+    );
+    await adminPool.query(
+      `INSERT INTO booking_app.bookings
+       (id, tenant_id, center_id, channel_id, slot_id, booking_channel, idempotency_key, request_hash, status, seats, locale, booker_first_name, booker_last_name, booker_email)
+       VALUES
+         ($1, $2, $3, $4, $5, 'public_hosted', 'tenant-a-key', 'hash-a', 'Confirmed', 1, 'es', 'Ana', 'A', 'ana@example.test'),
+         ($6, $7, $8, $9, $10, 'public_hosted', 'tenant-b-key', 'hash-b', 'Confirmed', 1, 'en', 'Ben', 'B', 'ben@example.test')`,
+      [
+        bookingA,
+        tenantA,
+        centerA1,
+        channelA,
+        slotA,
+        bookingB,
+        tenantB,
+        centerB1,
+        channelB,
+        slotB,
+      ],
+    );
+    await adminPool.query(
+      `INSERT INTO booking_app.capability_verifiers
+       (id, tenant_id, booking_id, purpose, version, verifier_hash, expires_at)
+       VALUES
+         ($1, $2, $3, 'booking_cancel', 1, 'hash-a', now() + interval '1 hour'),
+         ($4, $5, $6, 'booking_cancel', 1, 'hash-b', now() + interval '1 hour')`,
+      [verifierA, tenantA, bookingA, verifierB, tenantB, bookingB],
+    );
+
+    const tenantARows = await withTenant(appPool, tenantA, ({ db }) =>
+      Promise.all([
+        db.select({ id: bookingChannels.id }).from(bookingChannels),
+        db.select({ id: bookingBookings.id }).from(bookingBookings),
+        db
+          .select({ id: bookingCapabilityVerifiers.id })
+          .from(bookingCapabilityVerifiers),
+      ]),
+    );
+    expect(tenantARows).toEqual([
+      [{ id: channelA }],
+      [{ id: bookingA }],
+      [{ id: verifierA }],
+    ]);
+
+    const crossTenantRows = await withTenant(appPool, tenantA, ({ db }) =>
+      Promise.all([
+        db
+          .select({ id: bookingChannels.id })
+          .from(bookingChannels)
+          .where(eq(bookingChannels.id, channelB)),
+        db
+          .select({ id: bookingBookings.id })
+          .from(bookingBookings)
+          .where(eq(bookingBookings.id, bookingB)),
+        db
+          .select({ id: bookingCapabilityVerifiers.id })
+          .from(bookingCapabilityVerifiers)
+          .where(eq(bookingCapabilityVerifiers.id, verifierB)),
+      ]),
+    );
+    expect(crossTenantRows).toEqual([[], [], []]);
+
+    const withoutContext = await appPool.query<{ channel_count: string }>(
+      `SELECT count(*)::text AS channel_count FROM booking_app.channels`,
+    );
+    expect(withoutContext.rows[0]?.channel_count).toBe('0');
+
+    const malformedContextClient = await appPool.connect();
+    try {
+      await malformedContextClient.query('BEGIN');
+      await malformedContextClient.query(
+        `SELECT set_config('app.tenant_id', 'not-a-uuid', true)`,
+      );
+      await expect(
+        malformedContextClient.query('SELECT id FROM booking_app.channels'),
+      ).rejects.toThrow();
+      await malformedContextClient.query('ROLLBACK');
+    } finally {
+      malformedContextClient.release();
+    }
   });
 
   it('rolls back catalog domain, audit, and outbox changes together (DIVE-BOOK-REQ-045, MT-REQ-007)', async () => {

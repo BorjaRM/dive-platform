@@ -1,0 +1,23 @@
+import { Module } from '@nestjs/common';
+import { PublicBookingController } from './public-booking.controller.js';
+import {
+  PUBLIC_BOOKING_CAPABILITY_CRYPTO,
+  PublicBookingCapabilityCrypto,
+  publicBookingCapabilitySecretFromEnvironment,
+} from './public-booking.crypto.js';
+import { PublicBookingService } from './public-booking.service.js';
+
+@Module({
+  controllers: [PublicBookingController],
+  providers: [
+    PublicBookingService,
+    {
+      provide: PUBLIC_BOOKING_CAPABILITY_CRYPTO,
+      useFactory: () =>
+        new PublicBookingCapabilityCrypto(
+          publicBookingCapabilitySecretFromEnvironment(process.env),
+        ),
+    },
+  ],
+})
+export class PublicBookingModule {}

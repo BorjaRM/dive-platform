@@ -199,7 +199,7 @@ export const iamAuditRecords = iamApp.table(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => iamTenants.id),
-    actorIdentityId: uuid('actor_identity_id').notNull(),
+    actorIdentityId: uuid('actor_identity_id'),
     action: text('action').notNull(),
     resourceType: text('resource_type').notNull(),
     resourceId: uuid('resource_id').notNull(),

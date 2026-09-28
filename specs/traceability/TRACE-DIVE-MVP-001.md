@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.35
+- **Version:** 0.36
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -38,7 +38,7 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` are Ready to start
 | SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.35 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.36 |
 
 Notion indexes must show this map’s version. They must not invent an independent version sequence.
 
@@ -155,6 +155,7 @@ The first IAM/API vertical is partially implemented in `apps/api`, `packages/ide
 | Official raw-body webhook verification plus database tenant resolution, idempotency, no grants, no authorization mutation, audit, and safe outbox signals | `DIVE-IAM-REQ-021` | `packages/identity/src/clerk-webhook.spec.ts`, `packages/database/test/integration/iam-identity-webhooks.integration.test.ts` |
 | Dashboard tenant-context contract and frontend consumer boundary | `DIVE-IAM-REQ-029..031` | `ADR-DIVE-008` tenant-context contract; `ADR-DIVE-009` frontend state boundary; server authorization proof: `apps/api/test/iam.e2e-spec.ts`, `packages/database/test/integration/iam-api.integration.test.ts`, `packages/database/test/integration/migrations.integration.test.ts`; web consumer proof: `apps/web/src/features/dashboard/tenant-context.test.ts`, `apps/web/src/features/dashboard/dashboard-tenant-context.test.tsx` |
 | Center-scoped catalog lifecycle, pagination, time filters, and DTO/error contract | `DIVE-BOOK-REQ-049..057` | `apps/api/test/iam.e2e-spec.ts`, `apps/api/src/catalog.time.spec.ts`, `packages/database/test/integration/migrations.integration.test.ts`, `apps/web/src/features/dashboard/catalog-api.test.ts`, `apps/web/src/features/dashboard/catalog-panel.test.tsx` |
+| Public-booking capability primitives, exact hosted-origin middleware, and tenant-isolated booking persistence | `DIVE-IAM-REQ-007..008`, `026`; `MT-REQ-001`, `004..006`, `009..010` | `apps/api/src/booking/public-booking.crypto.spec.ts`, `apps/api/src/booking/public-booking.cors.spec.ts`, `apps/api/src/booking/public-booking.validation.pipe.spec.ts`, `packages/database/test/integration/booking-catalog.integration.test.ts` |
 
 ### Partial or not yet demonstrated
 
@@ -162,7 +163,7 @@ Clerk authentication and session revocation (`DIVE-IAM-REQ-004`, `DIVE-IAM-REQ-0
 
 Non-disclosure and complete sensitive-operation audit coverage (`DIVE-IAM-REQ-024`, `DIVE-IAM-REQ-025`) remain partial beyond the exposed center-read, membership-disable, and invitation persistence paths. Purpose-limited customer-contact access and booking-operation audit belong to later approved slices and are not demonstrated here.
 
-Public capabilities and token limits (`DIVE-IAM-REQ-007..009`, `DIVE-IAM-REQ-026`) and support access plus expiry evidence (`DIVE-IAM-REQ-020`, `DIVE-IAM-REQ-028`) remain follow-ups. Provider-neutral assurance is demonstrated for current dashboard authentication, while the exact Clerk step-up contract remains open for Phase 4. See `docs/architecture/iam-vertical-follow-ups.md`. `DIVE-IAM-REQ-027` remains governed by deferred `SPEC-DIVE-OPS-001` scope. `MT-COND-IAM-001` and `MT-COND-WORKER-001` remain activation gates; Option B channels remain deferred. Do not treat this map as additional verification.
+Public capability coverage is now partial for purpose-separated token primitives and tenant-isolated verifier persistence (`DIVE-IAM-REQ-007..008`, `DIVE-IAM-REQ-026`); full HTTP contract, one-time consumption, token limits, and expiry evidence remain follow-ups. Support access plus expiry evidence (`DIVE-IAM-REQ-020`, `DIVE-IAM-REQ-028`) also remain follow-ups. Provider-neutral assurance is demonstrated for current dashboard authentication, while the exact Clerk step-up contract remains open for Phase 4. See `docs/architecture/iam-vertical-follow-ups.md`. `DIVE-IAM-REQ-027` remains governed by deferred `SPEC-DIVE-OPS-001` scope. `MT-COND-IAM-001` and `MT-COND-WORKER-001` remain activation gates; Option B channels remain deferred. Do not treat this map as additional verification.
 
 Invitation application-boundary hardening is a Draft follow-up in `SPEC-DIVE-IAM-001`, with no implementation coverage before invitation HTTP exposure. Related requirements: `DIVE-IAM-REQ-006`, `DIVE-IAM-REQ-017`, `DIVE-IAM-REQ-024`, `DIVE-IAM-REQ-025`, `DIVE-IAM-REQ-028`, and `DIVE-IAM-REQ-030`.
 

@@ -1,4 +1,5 @@
 import { type MiddlewareConsumer, Module } from '@nestjs/common';
+import { PublicBookingModule } from '../booking/public-booking.module.js';
 import { CatalogModule } from '../catalog/catalog.module.js';
 import { CoreModule } from '../common/core.module.js';
 import { DatabaseModule } from '../common/database/database.module.js';
@@ -8,7 +9,13 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 
 @Module({
-  imports: [DatabaseModule, CoreModule, IamModule, CatalogModule],
+  imports: [
+    DatabaseModule,
+    CoreModule,
+    IamModule,
+    CatalogModule,
+    PublicBookingModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
