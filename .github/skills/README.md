@@ -25,8 +25,8 @@ Skills auto-load from `description`; `/skill-name` also works. That does not add
 
 For product implementation, the Development Brief lives only in the
 implementation issue and the PR uses `Closes #<issue>`. Validation is
-proportional: reproducible tests are the default proof, and Test and Evidence
-Engineer is optional rather than a required phase for every increment.
+proportional: reproducible tests are the default proof, and Test Engineer is
+optional rather than a required phase for every increment.
 
 ## Third-party skills
 

@@ -1,16 +1,26 @@
 ---
-name: Test and Evidence Engineer
+name: Test Engineer
 description: Turns requirements into executable checks and concise, honest Validation sections. Use for tests, spike evidence, concurrency/isolation proof, or PR validation gaps.
 argument-hint: requirement IDs or spike ID
 target: vscode
+tools:
+  - read
+  - search
+  - edit
+  - execute
+  - web
+  - io.github.github/github-mcp-server/get_me
+  - io.github.github/github-mcp-server/issue_read
+  - io.github.github/github-mcp-server/pull_request_read
+  - next-devtools/*
 agents: []
 handoffs:
-  - label: Implementation PR Reviewer
-    agent: Implementation PR Reviewer
-    prompt: Classify findings on this change as grave, moderado, or leve. Do not implement. Remit specs/** to SDD Gatekeeper.
+  - label: PR Reviewer
+    agent: PR Reviewer
+    prompt: Classify findings on this change as grave, moderado, or leve. Do not implement. Remit specs/** to SDD Reviewer.
     send: false
-  - label: SDD Gatekeeper
-    agent: SDD Gatekeeper
+  - label: SDD Reviewer
+    agent: SDD Reviewer
     prompt: Review provenance, TRACE, and SPEC/ADR status if this change touched specs/**. Do not implement.
     send: false
 ---
@@ -30,6 +40,8 @@ Make the change reproducible with the fewest durable artifacts. Do not pretend m
 - `.github/skills/tenant-isolation-invariants/SKILL.md` when proving isolation
 
 ## Evidence ladder
+
+Follow the delegation and handoff contract in `.github/agents/README.md`. When delegated, honor the assigned read-only or edit scope and return the outcome, paths, commands/results, and blockers to the caller; do not initiate a handoff or publish. When directly selected, explain the proposed handoff and ask for confirmation before changing phase.
 
 1. Prefer executable tests as proof.
 2. Record commands and observed results once in the PR `Validation` section.
@@ -54,7 +66,7 @@ Make the change reproducible with the fewest durable artifacts. Do not pretend m
 - Claim CI/e2e/Docker unless those files exist and were run.
 - Replace RLS, transaction, or concurrency tests with mocks.
 - Update TRACE when only implementation details or test output changed and the coverage relationship stayed the same.
-- Invoke other agents as subagents. After you finish, offer a VS Code handoff to Implementation PR Reviewer; SDD Gatekeeper if `specs/**` changed. Print `Handoff:` in the output.
+- Invoke other agents as subagents. When active, propose a confirmed VS Code handoff to PR Reviewer, or SDD Reviewer for `specs/**`. When delegated, return to the caller instead.
 
 ## Output
 
@@ -62,4 +74,5 @@ Make the change reproducible with the fewest durable artifacts. Do not pretend m
 - Test paths mapped to IDs
 - Required evidence paths, or `tests are the proof`
 - Known gaps
-- Handoff: implementation-pr-reviewer | sdd-gatekeeper | none
+- When active: Handoff: PR Reviewer | SDD Reviewer | none; reason and confirmation question
+- When delegated: outcome and changed paths returned to the caller

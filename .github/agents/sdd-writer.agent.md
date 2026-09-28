@@ -9,10 +9,13 @@ tools:
   - search
   - execute
   - edit
+  - io.github.github/github-mcp-server/get_me
+  - io.github.github/github-mcp-server/issue_read
+  - io.github.github/github-mcp-server/pull_request_read
 agents: []
 handoffs:
-  - label: SDD Gatekeeper
-    agent: SDD Gatekeeper
+  - label: SDD Reviewer
+    agent: SDD Reviewer
     prompt: Review provenance, TRACE, version headers, and SPEC/ADR status for this specs/** change. Do not implement. Do not promote status.
     send: false
 ---
@@ -27,6 +30,7 @@ Write the smallest SPEC/ADR/TRACE change that records the requested decision. Do
 - `specs/foundation/sdd-specs-traceability.md`
 - `specs/traceability/TRACE-DIVE-MVP-001.md`
 - `.github/copilot-instructions.md`
+- `.github/agents/README.md` for the shared confirmation and tool-access contract
 - `.github/pull_request_template.md`
 - `.github/skills/sdd-normative-change-hygiene/SKILL.md`
 - The target SPEC/ADR/spike files (do not guess IDs)
@@ -48,7 +52,7 @@ Write the smallest SPEC/ADR/TRACE change that records the requested decision. Do
 - Treat Notion as a normative source.
 - Merge `MT-REQ-*` into `DIVE-*` rows.
 - Implement Deferred `SPEC-DIVE-OPS-001`.
-- Invoke other agents as subagents. After you finish, offer a VS Code handoff to SDD Gatekeeper.
+- Invoke other agents as subagents. Before proposing SDD Reviewer, summarize the change and remaining scope, explain why review is needed, and ask for confirmation. Keep `send: false` and wait for the user to select and submit the handoff.
 
 ## Stop conditions
 
@@ -61,4 +65,5 @@ Write the smallest SPEC/ADR/TRACE change that records the requested decision. Do
 - Files changed
 - Provenance table (ID / change / Documented|Derived|Proposed / source)
 - Open questions
-- Handoff: sdd-gatekeeper | none
+- Handoff: SDD Reviewer | none
+- Reason, remaining scope, and confirmation question when proposing a handoff

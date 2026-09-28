@@ -18,7 +18,19 @@ Required reading before product or architecture work:
 
 ## Custom agents (VS Code)
 
-Workspace custom agents live in `.github/agents/`. Choose using `.github/agents/README.md`. Draft SPEC/ADR/TRACE with SDD Writer; review those artifacts with SDD Gatekeeper. IAM and outbox/worker still apply without a dedicated agent.
+Workspace custom agents live in `.github/agents/`. Choose using `.github/agents/README.md`. Draft SPEC/ADR/TRACE with SDD Writer; review those artifacts with SDD Reviewer. IAM and outbox/worker still apply without a dedicated agent.
+
+### Supervised coordination
+
+Documented: the user-approved configuration is VS Code only, with confirmation before handoffs and bounded same-phase delegation.
+
+- Follow the coordination and delegation contract in `.github/agents/README.md`.
+- Before any handoff, summarize the result, name the next agent, explain the reason and remaining scope, and ask whether to continue. Keep `send: false` and wait for the user to select and submit the handoff; a printed `Handoff:` is a recommendation, not execution or consent.
+- Only Backend and Frontend may delegate, directly to Tenancy or Test Engineer within the authorized slice. Announce the task, reason, and read-only or edit scope before invoking a specialist. Routine in-scope delegation does not require another confirmation. Never use a subagent to bypass a phase-change confirmation.
+- A subagent returns its findings, changes, checks, and blockers to its caller. It cannot delegate again, initiate a handoff, or publish remotely. Keep one writer active in the shared worktree.
+- Missing or contradictory product decisions require a pause and a concrete question. Failing tests and defects with an established contract should be repaired within scope; do not escalate every repair as a new product decision. Declaring a difference from the brief does not authorize a scope expansion.
+- Do not create a branch, commit, push, open a PR, publish comments, or merge unless the user explicitly authorizes that operation. An implementation issue is not blanket publication permission. When publication is not authorized, report validation in chat without creating a duplicate brief or evidence file.
+- Reviewer terminal access is for inspection and existing checks only, never file rewrites, auto-fix, commits, or shell-based workarounds for denied actions. Tool lists are not a filesystem sandbox; command approvals remain necessary.
 
 ## Provenance
 
