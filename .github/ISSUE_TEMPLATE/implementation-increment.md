@@ -38,6 +38,15 @@ As a [role], I want [observable capability], so that [business value].
 - **UI/API/worker/database:** [expected paths or components]
 - **Authority remains in:** [server/domain/PostgreSQL/external provider as documented]
 
+### Recommended execution
+
+<!-- Select project agents from `.github/agents/README.md`. This guidance is non-normative and does not replace the contract references, agent required reading, or stop conditions. -->
+
+- **Primary agent:** [one project agent responsible for this implementation slice]
+- **Specialist handoff:** None | [allowed specialist agent and the condition that triggers the handoff]
+- **Optional validation handoff:** None | Test and Evidence Engineer — [specific test, Validation, or special-evidence gap]
+- **Review handoff:** Implementation PR Reviewer | SDD Gatekeeper for `specs/**` only
+
 ### Verification plan
 
 - **Tests:** [stable test paths or planned focused checks]
@@ -52,5 +61,6 @@ As a [role], I want [observable capability], so that [business value].
 - [ ] Every implemented behavior maps to Ready-to-start requirement IDs.
 - [ ] The flow adds no silent state, permission, invariant, default, limit, API/event contract, error rule, or acceptance criterion.
 - [ ] In/out scope is small enough for one coherent PR.
+- [ ] The primary implementation agent and any conditional specialist handoffs were identified from `.github/agents/README.md`.
 - [ ] Applicable IAM, tenant-isolation, outbox/idempotency, privacy, and concurrency stop conditions were identified.
 - [ ] No blocking open question remains.
