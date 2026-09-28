@@ -1,12 +1,12 @@
 # SPEC-DIVE-ONBOARDING-001 — Controlled self bootstrap and guided first-center onboarding
 
 - **Status:** Draft
-- **Version:** 0.2
-- **Last reviewed:** 2026-09-27
-- **Approved by:** Borja (product owner) for Draft review
-- **Approval reference:** PR #36 product-owner revision record
+- **Version:** 0.3
+- **Last reviewed:** 2026-09-28
+- **Approved by:** Product owner for Draft review
+- **Approval reference:** PR #36 plus product confirmation 2026-09-28
 - **Owner:** Product / Security / Frontend Architecture
-- **IDs:** `DIVE-ONB-REQ-001` … `DIVE-ONB-REQ-036`
+- **IDs:** `DIVE-ONB-REQ-001` … `DIVE-ONB-REQ-050`
 
 ## Normative authority
 
@@ -20,22 +20,26 @@ The product owner narrowed US-19 to self bootstrap only. Assisted provisioning b
 
 | Requirement IDs | Provenance | Exact source | Decision status |
 |---|---|---|---|
-| `DIVE-ONB-REQ-001` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for Draft review; pending merge |
-| `DIVE-ONB-REQ-003` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for Draft review; pending merge |
-| `DIVE-ONB-REQ-005..DIVE-ONB-REQ-020` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for Draft review; pending merge |
-| `DIVE-ONB-REQ-022..DIVE-ONB-REQ-028` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for Draft review; pending merge |
-| `DIVE-ONB-REQ-031..DIVE-ONB-REQ-035` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for Draft review; pending merge |
-| `DIVE-ONB-REQ-002` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-001..006`; PR #36 product-owner revision record | Approved for Draft review; pending merge |
-| `DIVE-ONB-REQ-004` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-002..006`; `ADR-DIVE-008` § Authorization path | Approved for Draft review; pending merge |
-| `DIVE-ONB-REQ-021` | `Proposed` | PR #32 SDD Gatekeeper remediation: NFC normalization + Unicode code-point counting | Proposed closure; pending product-owner confirmation |
-| `DIVE-ONB-REQ-029..DIVE-ONB-REQ-030` | `Proposed` | PR #32 SDD Gatekeeper remediation: stable storage key + version metadata | Proposed closure; pending product-owner confirmation |
+| `DIVE-ONB-REQ-001` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Merged in PR #36; remains Draft |
+| `DIVE-ONB-REQ-003` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Merged in PR #36; remains Draft |
+| `DIVE-ONB-REQ-005..DIVE-ONB-REQ-020` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Merged in PR #36; remains Draft |
+| `DIVE-ONB-REQ-022..DIVE-ONB-REQ-028` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Merged in PR #36; remains Draft |
+| `DIVE-ONB-REQ-031..DIVE-ONB-REQ-035` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Merged in PR #36; remains Draft |
+| `DIVE-ONB-REQ-002` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-001..006`; PR #36 product-owner revision record | Merged in PR #36; remains Draft |
+| `DIVE-ONB-REQ-004` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-002..006`; `ADR-DIVE-008` § Authorization path | Merged in PR #36; remains Draft |
+| `DIVE-ONB-REQ-021` | `Proposed` | PR #32 SDD Gatekeeper remediation; product confirmation 2026-09-28 | Approved for Draft review; no implementation authority |
+| `DIVE-ONB-REQ-029..DIVE-ONB-REQ-030` | `Proposed` | PR #32 SDD Gatekeeper remediation; product confirmation 2026-09-28 | Approved for Draft review; no implementation authority |
 | `DIVE-ONB-REQ-036` | `Derived` | `specs/foundation/sdd-specs-traceability.md` § Spec lifecycle / Definition of Ready / Definition of Done | Lifecycle rule documented; scenario completeness pending review |
+| `DIVE-ONB-REQ-037..DIVE-ONB-REQ-047` | `Proposed` | Product confirmation 2026-09-28; `ADR-DIVE-013` v0.3 Draft | Approved for Draft review; no implementation authority |
+| `DIVE-ONB-REQ-048` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-022`, `030..031`; product confirmation 2026-09-28 | Approved derivation for Draft review; no implementation authority |
+| `DIVE-ONB-REQ-049..DIVE-ONB-REQ-050` | `Proposed` | Product confirmation 2026-09-28; `ADR-DIVE-013` v0.3 Draft | Approved for Draft review; no implementation authority |
 
 ### Derivations
 
 - **DIVE-ONB-REQ-002:** Clerk authenticates while PostgreSQL owns memberships and authorization; bootstrap cannot move tenant authority into Clerk.
 - **DIVE-ONB-REQ-004:** existing multi-tenant authorization rules prohibit browser-provided tenant, center, role, or permission values from becoming authority.
 - **DIVE-ONB-REQ-036:** Ready to start requires verifiable scenarios and closed critical decisions; executed evidence is required later for Review/Accepted and pilot gates.
+- **DIVE-ONB-REQ-048:** tenant-context handles are selectors, not authorization; current membership state, roles, permissions, and center scope remain server-authoritative on every protected request.
 
 ## Goal
 
@@ -91,7 +95,7 @@ Let an explicitly invited future Owner create its own operator tenant and first 
 - **DIVE-ONB-REQ-018:** The bootstrap invitation MUST be the idempotency key: retrying the same normalized payload MUST return the same result, while a different payload for the consumed invitation MUST fail as a conflict.
 - **DIVE-ONB-REQ-019:** Concurrent redemption attempts MUST use a database uniqueness constraint and transactional serialization so they cannot create duplicate tenants, centers, memberships, audits, or outbox records.
 - **DIVE-ONB-REQ-020:** The initial form MUST require an operator display name and a first-center display name.
-- **DIVE-ONB-REQ-021:** Operator and center display names MUST normalize to Unicode NFC, trim outer whitespace, contain at least one Unicode code point, allow at most 120 Unicode code points, and MUST NOT be globally unique or act as authorization identifiers. This closure remains Proposed pending product-owner confirmation.
+- **DIVE-ONB-REQ-021:** Operator and center display names MUST normalize to Unicode NFC, trim outer whitespace, contain at least one Unicode code point, allow at most 120 Unicode code points, and MUST NOT be globally unique or act as authorization identifiers. This closure was confirmed by the product owner on 2026-09-28.
 - **DIVE-ONB-REQ-022:** The first center's IANA time zone MUST be required; the browser MAY suggest it, but the user MUST confirm it before submission.
 - **DIVE-ONB-REQ-023:** The interface language MUST support `es` and `en`, MAY be suggested from browser or profile, MUST remain editable, and MUST be stored as an identity/user preference rather than tenant or center authority.
 - **DIVE-ONB-REQ-024:** The form MUST implement self-Owner bootstrap only and MUST NOT offer an assisted-provisioning mode.
@@ -99,14 +103,28 @@ Let an explicitly invited future Owner create its own operator tenant and first 
 - **DIVE-ONB-REQ-026:** The bootstrap form MUST NOT collect billing, plan, payment, tax, fiscal-address, public-contact, custom-domain, or additional-center data.
 - **DIVE-ONB-REQ-027:** The functional bootstrap flow MUST work without Driver.js; guidance MUST remain optional, dismissible, manually restartable, and unable to complete or authorize a domain operation.
 - **DIVE-ONB-REQ-028:** Driver.js MUST be isolated behind an internal guidance-renderer interface; product flows, forms, navigation decisions, server mutations, progress authority, and completion rules MUST NOT import or depend on Driver.js APIs.
-- **DIVE-ONB-REQ-029:** Initial guidance state MAY use `localStorage` only under a stable identity-and-guide-scoped key whose value contains a storage `schemaVersion`, `status` (`dismissed` or `completed`), and `lastSeenGuideVersion`; it MUST NOT store tokens, tenant context, authorization state, form contents, or functional progress. This closure remains Proposed pending product-owner confirmation.
-- **DIVE-ONB-REQ-030:** Dismissing or completing a guide MUST suppress automatic replay on that browser regardless of `lastSeenGuideVersion`; a new guide version MUST update metadata only when the user manually replays it and MUST NOT create a new auto-show key; `Help → Repeat guide` MUST allow manual replay. This closure remains Proposed pending product-owner confirmation.
+- **DIVE-ONB-REQ-029:** Initial guidance state MAY use `localStorage` only under `dive:guide:<opaqueIdentityRef>:<guideId>`, where the opaque identity reference is neither personal data nor authorization authority, and whose value contains a storage `schemaVersion`, `status` (`dismissed` or `completed`), and `lastSeenGuideVersion`; it MUST NOT store tokens, tenant context, authorization state, form contents, or functional progress. This closure was confirmed by the product owner on 2026-09-28.
+- **DIVE-ONB-REQ-030:** Dismissing or completing a guide MUST suppress automatic replay on that browser regardless of `lastSeenGuideVersion`; a new guide version MUST update metadata only when the user manually replays it and MUST NOT create a new auto-show key; `Help → Repeat guide` MUST allow manual replay. This closure was confirmed by the product owner on 2026-09-28.
 - **DIVE-ONB-REQ-031:** Guide copy MUST ship in versioned `es` / `en` catalogs behind an internal content interface so a future CMS can replace the source without changing product flows or renderer contracts.
 - **DIVE-ONB-REQ-032:** The MVP MUST expose a typed analytics port for `started`, `dismissed`, `completed`, and `restarted`; its initial implementation MUST be no-op and MUST NOT send data to an external provider.
 - **DIVE-ONB-REQ-033:** The guided experience MUST satisfy WCAG 2.2 AA before pilot, including keyboard access, focus placement and restoration, Escape behavior, assistive-technology semantics, contrast, reduced motion, mobile layouts, and non-blocking behavior when a target is absent.
 - **DIVE-ONB-REQ-034:** Self-bootstrap provisioning and visual guidance MUST have independent rollout controls so either capability can be disabled without disabling the other or existing dashboard access.
 - **DIVE-ONB-REQ-035:** US-19 MUST end at the new tenant dashboard with the first center selected only after approved `centerKey` allocation and host/origin readiness; activity creation belongs to a subsequent flow.
-- **DIVE-ONB-REQ-036:** Ready-to-start review MUST confirm that all acceptance scenarios are unambiguous and testable and that the open `centerKey`/host-entry decision is closed; executed evidence MUST cover every applicable scenario before Review, Accepted, or pilot gates claim conformance.
+- **DIVE-ONB-REQ-036:** Ready-to-start review MUST confirm that all acceptance scenarios are unambiguous and testable and that the approved `centerKey`/host-entry contract is represented without ambiguity; executed evidence MUST cover every applicable scenario before Review, Accepted, or pilot gates claim conformance.
+- **DIVE-ONB-REQ-037:** The public authentication screen MUST expose ordinary login only and MUST NOT expose public signup, bootstrap-invitation discovery, manual invitation-code entry, or operator creation.
+- **DIVE-ONB-REQ-038:** A bootstrap link MUST carry its opaque credential in the URL fragment of the canonical authentication host. The credential MUST be submitted only in an HTTPS request body after Clerk authentication or identity creation and MUST NOT appear in routes, query strings, referrers, logs, audit, analytics, traces, or event payloads. Opening the link MUST NOT consume it.
+- **DIVE-ONB-REQ-039:** Platform invitation administration MUST use PostgreSQL-authoritative capabilities `bootstrap_invitation.read`, `bootstrap_invitation.issue`, `bootstrap_invitation.reissue`, and `bootstrap_invitation.revoke`, independent of tenant memberships and read-only support. Issue, reissue, and revoke MUST require MFA, a recorded reason, and audit.
+- **DIVE-ONB-REQ-040:** The internal HTTP contract MUST expose `POST /v1/platform/bootstrap-invitations`, `GET /v1/platform/bootstrap-invitations/:invitationId`, `POST /v1/platform/bootstrap-invitations/:invitationId/reissue`, and `POST /v1/platform/bootstrap-invitations/:invitationId/revoke`. The read response MUST expose safe operational state only and MUST NOT return a credential or reconstruct an invitation link.
+- **DIVE-ONB-REQ-041:** The invited authenticated identity MUST complete bootstrap through `POST /v1/me/tenant-bootstrap` with the opaque credential, operator display name, center display name, confirmed IANA time zone, and `es` or `en` locale. Successful completion MUST consume the invitation in the bootstrap transaction; subsequent application access MUST use ordinary login.
+- **DIVE-ONB-REQ-042:** The server MUST allocate a unique, immutable, non-reserved `centerKey` from a readable normalized candidate plus a stable collision suffix when required. In the bootstrap transaction it MUST persist a trusted `centerKey -> tenantId + centerId` mapping. MVP readiness MUST rely on the approved wildcard platform DNS/TLS boundary; mapping failure MUST roll back every bootstrap write and MUST NOT consume the invitation. Custom domains remain out of scope.
+- **DIVE-ONB-REQ-043:** Physical persistence MUST use `tenant_bootstrap_invitations` for invitation authority and `tenant_bootstrap_delivery_envelopes` for temporary delivery material. Invitation states MUST be `issued`, `consumed`, `revoked`, `expired`, or `superseded`; the record MUST retain the normalized destination email, secret hash, timestamps, issuer, reason, bound `issuer + subject`, normalized request fingerprint, supersession link, and result references required by this SPEC.
+- **DIVE-ONB-REQ-044:** Reliable email delivery MUST persist only the long-lived secret hash plus a separately encrypted temporary delivery envelope with key-version metadata. The outbox MUST reference the envelope rather than carry the raw secret. The worker MUST delete the envelope after successful delivery, revocation, or expiry. A permanent delivery failure MUST be visible as safe operational state and MUST require reissue rather than credential recovery.
+- **DIVE-ONB-REQ-045:** Reissue MUST atomically supersede the previous invitation, create a new secret and delivery envelope, and make the previous credential unusable. No interface MUST redisplay or recover an issued raw credential.
+- **DIVE-ONB-REQ-046:** Terminal invitation records MUST be retained for 90 days, after which their operational record MAY be deleted. Encrypted delivery envelopes MUST follow the shorter lifecycle in `DIVE-ONB-REQ-044`; audit retention remains governed by the platform security retention policy and MUST NOT depend on invitation deletion.
+- **DIVE-ONB-REQ-047:** Audit actions MUST use `tenant_bootstrap_invitation.issued`, `.reissued`, `.revoked`, `.delivery_failed`, `tenant_bootstrap.completed`, and `tenant_bootstrap.denied`. Successful completion MUST emit `tenant.bootstrap.completed.v1` containing only tenant, center, membership, invitation, occurrence, and correlation references; it MUST NOT contain email, raw credentials, Clerk tokens, or tenant-context handles.
+- **DIVE-ONB-REQ-048:** Every protected request MUST revalidate the handle binding, active membership, current roles, permissions, and center scope in PostgreSQL. Disabling a membership MUST revoke or invalidate all handles for that membership, MUST prevent handle renewal, and MUST NOT disable other active memberships of the same global identity.
+- **DIVE-ONB-REQ-049:** An authenticated identity with no active membership MUST receive no tenant context and MUST see a neutral no-active-access state that reveals no tenant, center, membership, or resource data and offers no operator-creation recovery path.
+- **DIVE-ONB-REQ-050:** Invalid Clerk authentication MUST return the generic `401` authentication failure contract; an absent, inactive, unrelated, or insufficient membership/handle MUST return one generic `403` authorization-denied contract. The response MUST NOT disclose whether another tenant, center, membership, invitation, or resource exists.
 
 ## States and invariants
 
@@ -126,7 +144,8 @@ Invariants:
 - Platform staff do not create customer tenants or become members through US-19.
 - Guide state never substitutes domain state.
 - Tenant context is never issued from browser-provided tenant selection.
-- Final dashboard entry waits for approved `centerKey` allocation and host/origin readiness.
+- Final dashboard entry waits for the transactional `centerKey` mapping and wildcard host/origin readiness defined by `DIVE-ONB-REQ-042`.
+- Authentication never substitutes for an active membership, and revocation cannot be bypassed with a previously issued handle.
 
 ## Edge cases and acceptance scenarios
 
@@ -145,19 +164,30 @@ The mandatory acceptance matrix is:
 11. Self-bootstrap provisioning and guidance rollout controls operate independently.
 12. Tokens, tenant context, form contents, and unnecessary personal data do not appear in browser persistence, logs, audit, outbox payloads, or analytics.
 13. Completion requires active Owner membership and successful entry to the first-center application through the approved `centerKey`/host contract; activity creation is not included.
+14. The public login contains no signup or invitation discovery; the fragment credential is absent from server access logs, referrers, audit, traces, analytics, and events.
+15. Internal issue, read, reissue, and revoke enforce platform capabilities, MFA for mutations, recorded reason, safe state, and no raw-credential recovery.
+16. Delivery retries use the encrypted envelope; successful delivery deletes it; permanent failure requires reissue; the previous credential fails after reissue.
+17. A membership disabled after context issuance cannot use or renew its handles, while another active membership for the same identity remains usable.
+18. An authenticated identity without an active membership receives the neutral no-access state and no tenant or resource disclosure.
 
 ## API, events, and data
 
-Conceptual application commands:
+Application commands and HTTP contract:
 
-- `IssueTenantBootstrapInvitation`
-- `ReissueTenantBootstrapInvitation`
-- `RevokeTenantBootstrapInvitation`
-- `CompleteOwnTenantBootstrap`
+| Command | HTTP |
+|---|---|
+| `IssueTenantBootstrapInvitation` | `POST /v1/platform/bootstrap-invitations` |
+| read safe operational state | `GET /v1/platform/bootstrap-invitations/:invitationId` |
+| `ReissueTenantBootstrapInvitation` | `POST /v1/platform/bootstrap-invitations/:invitationId/reissue` |
+| `RevokeTenantBootstrapInvitation` | `POST /v1/platform/bootstrap-invitations/:invitationId/revoke` |
+| `CompleteOwnTenantBootstrap` | `POST /v1/me/tenant-bootstrap` |
 
-No assisted-provisioning command belongs to US-19. HTTP paths and physical table/index names remain implementation details for a later contract/implementation PR and MUST preserve the requirements above.
+No assisted-provisioning command belongs to US-19. Platform routes enforce `DIVE-ONB-REQ-039`; the self-bootstrap route enforces Clerk authentication plus the invitation credential and never accepts browser authority for tenant, center, role, or permission selection.
 
-Minimum persisted concepts:
+Physical persistence and minimum concepts:
+
+- `tenant_bootstrap_invitations` owns invitation authority and terminal results;
+- `tenant_bootstrap_delivery_envelopes` owns encrypted, temporary delivery material;
 
 - bootstrap invitation identifier and secret hash;
 - intended email and expiry/revocation/consumption timestamps;
@@ -165,12 +195,12 @@ Minimum persisted concepts:
 - normalized request fingerprint and resulting tenant/center/membership references;
 - existing tenant, center, active Owner membership, audit, and outbox data.
 
-The semantic outbox intent is self bootstrap committed for the invited Owner. Exact event names, versions, and payload schemas remain implementation-contract work. Raw invitation secrets, Clerk tokens, and tenant-context handles MUST NOT enter event payloads.
+The completion event is `tenant.bootstrap.completed.v1` with tenant, center, membership, invitation, occurrence, and correlation references only. Delivery outbox work references the encrypted envelope and never embeds the raw secret. Raw invitation secrets, destination email, Clerk tokens, and tenant-context handles MUST NOT enter the completion event.
 
 ## Security, privacy, isolation, and operations
 
 - Bootstrap is authenticated and pre-tenant; it does not weaken RLS or use a migration role as an application role.
-- Invitation-management capability is separate from tenant roles and read-only platform support.
+- Invitation-management capabilities are the four stable keys in `DIVE-ONB-REQ-039`, separate from tenant roles and read-only platform support; mutations require MFA and a reason.
 - Email is used only for delivery and initial verified matching; stable identity binding remains `issuer + subject`.
 - Issue, reissue, revoke, consume, create, and activate actions are audited with safe identifiers.
 - Logs, traces, analytics, audit, and outbox redact raw tokens, invitation secrets, Clerk bearer values, and tenant-context handles.
@@ -187,6 +217,8 @@ No latency, bundle, or throughput budget is introduced. Implementation evidence 
 - Transaction failure exposes no partial success.
 - Database uniqueness and transaction serialization are authoritative for concurrent consumption.
 - Browser state and Driver.js callbacks are never idempotency authority.
+- Invitation consumption uses row locking plus database uniqueness so concurrent completions have one authoritative result.
+- Authentication failure and authorization denial remain separate generic contracts without cross-tenant disclosure.
 
 ## Migration, rollout, and rollback
 
@@ -206,10 +238,7 @@ No latency, bundle, or throughput budget is introduced. Implementation evidence 
 
 ## Open questions
 
-- Confirm NFC normalization and Unicode-code-point counting.
-- Confirm the stable-key `localStorage` representation and replay semantics.
-- Decide `centerKey` allocation and the host/origin preparation required before dashboard entry.
-- Define implementation-specific HTTP paths, physical names, audit actions, event schemas, invitation retention, and operational ownership.
+No blocking product decision remains in this Draft revision. Readiness review still must verify that the approved contracts are internally consistent, operationally reviewable, and testable. Selecting concrete Clerk, email, encryption-key, DNS/TLS, and deployment adapters is implementation work only when the selection preserves the approved ports and contracts above.
 
 ## Traceability
 
