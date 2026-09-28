@@ -17,7 +17,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { CatalogProblemFilter } from '../catalog/catalog.errors.js';
+import { ApiProblemFilter } from '../common/http/problem-details.js';
 import {
   type PublicBookingInput,
   PublicBookingInputDto,
@@ -27,7 +27,7 @@ import { PublicBookingService } from './public-booking.service.js';
 import { PublicBookingInputPipe } from './public-booking.validation.pipe.js';
 
 @ApiTags('Public booking')
-@UseFilters(CatalogProblemFilter)
+@UseFilters(ApiProblemFilter)
 @Controller('v1/public/channels')
 export class PublicBookingController {
   constructor(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CatalogProblemException } from '../catalog/catalog.errors.js';
+import { ApiProblemException } from '../common/http/problem-details.js';
 import { parsePublicBookingInput } from './public-booking.validation.pipe.js';
 
 describe('public booking input validation', () => {
@@ -38,7 +38,7 @@ describe('public booking input validation', () => {
           email: 'ana@example.com',
         },
       }),
-    ).toThrow(CatalogProblemException);
+    ).toThrow(ApiProblemException);
   });
 
   it('rejects malformed contact and seat values', () => {
@@ -53,6 +53,6 @@ describe('public booking input validation', () => {
           email: 'not-an-email',
         },
       }),
-    ).toThrow(CatalogProblemException);
+    ).toThrow(ApiProblemException);
   });
 });

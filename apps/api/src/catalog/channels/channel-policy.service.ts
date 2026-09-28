@@ -28,7 +28,7 @@ export class ChannelPolicyService {
       handle,
       centerId,
       'channel.manage',
-      async (context, _center, unitOfWork) => {
+      async ({ context, unitOfWork, recordMutation }) => {
         const [channel] = await unitOfWork.db
           .select({
             id: bookingChannels.id,
@@ -58,7 +58,7 @@ export class ChannelPolicyService {
               eq(bookingChannels.id, channelId),
             ),
           );
-        await this.access.recordMutation(unitOfWork, context, {
+        await recordMutation({
           action: 'booking.update',
           eventType: 'booking.channel.policy_updated.v1',
           resourceType: 'channel',

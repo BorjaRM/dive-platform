@@ -31,6 +31,22 @@ export type CatalogPermission =
   | 'availability.manage'
   | 'channel.manage';
 
+type CatalogMutationInput = Readonly<{
+  action: 'booking.create' | 'booking.update';
+  eventType: string;
+  resourceType: 'activity' | 'slot' | 'channel';
+  resourceId: string;
+  payload: Record<string, unknown>;
+  idempotencyKey: string;
+}>;
+
+type CatalogAuthorizedScope = Readonly<{
+  context: IamAccessContext;
+  center: Readonly<{ timeZone: string | null }>;
+  unitOfWork: TenantUnitOfWork;
+  recordMutation(input: CatalogMutationInput): Promise<void>;
+}>;
+
 @Injectable()
 export class CatalogAccessService {
   constructor(
@@ -62,11 +78,7 @@ export class CatalogAccessService {
     handle: string | undefined,
     centerId: string,
     permission: CatalogPermission,
-    action: (
-      context: IamAccessContext,
-      center: { timeZone: string | null },
-      unitOfWork: TenantUnitOfWork,
-    ) => Promise<T>,
+    action: (scope: CatalogAuthorizedScope) => Promise<T>,
   ): Promise<T> {
     uuid(centerId, 'centerId');
     const context = await this.context(principal, handle);
@@ -79,7 +91,7 @@ export class CatalogAccessService {
           .from(iamCenters)
           .where(
             and(
-              eq(iamCenters.tenantId, context.tenantId),
+              eq(iamCenters.tenantId, current.tenantId),
               eq(iamCenters.id, centerId),
             ),
           )
@@ -105,22 +117,23 @@ export class CatalogAccessService {
           }
           throw new CatalogProblemException(404, 'resource_not_found');
         }
-        return action(context, center[0], unitOfWork);
+        return action(
+          Object.freeze({
+            context: current,
+            center: Object.freeze({ timeZone: center[0].timeZone }),
+            unitOfWork,
+            recordMutation: (input: CatalogMutationInput) =>
+              this.recordMutation(unitOfWork, current, input),
+          }),
+        );
       },
     );
   }
 
-  async recordMutation(
+  private async recordMutation(
     unitOfWork: TenantUnitOfWork,
     context: IamAccessContext,
-    input: Readonly<{
-      action: 'booking.create' | 'booking.update';
-      eventType: string;
-      resourceType: 'activity' | 'slot' | 'channel';
-      resourceId: string;
-      payload: Record<string, unknown>;
-      idempotencyKey: string;
-    }>,
+    input: CatalogMutationInput,
   ): Promise<void> {
     await recordBookingCatalogMutation(unitOfWork.client, {
       ...input,
