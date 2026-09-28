@@ -8,7 +8,7 @@ Do not restate requirement text. Reference exact files and IDs (`DIVE-*`, `MT-RE
 
 Do not create parallel summaries, copied test logs, placeholder evidence, or TRACE churn. Tests are the default evidence; the PR `Validation` section records commands and observed results. Follow `docs/sdd/how-we-work.md` for proportional documentation.
 
-For each implementation issue or PR, use `docs/sdd/development-brief-template.md` to describe the short end-to-end increment. Copy the brief headings into the issue/PR; do not create a new SPEC or standalone brief file when existing requirement IDs already authorize the behavior.
+Product implementation follows one flow: Ready-to-start SPEC/ADR → implementation issue created from `.github/ISSUE_TEMPLATE/implementation-increment.md` → implementation PR with `Closes #<issue>`. The Development Brief lives only in the issue. The PR must not copy it. Follow `docs/sdd/development-brief-template.md`.
 
 Required reading before product or architecture work:
 
@@ -64,6 +64,6 @@ Docker Compose + integration PostgreSQL exist for MT-SPIKE-001 (`infra/docker/po
 
 ## Pull requests
 
-Follow `.github/pull_request_template.md`. Every PR needs a concise `Validation` section. Draft PRs must state what is incomplete and are not merge approval.
+Follow `.github/pull_request_template.md`. Every product implementation PR links and closes its implementation issue. Every PR needs a concise `Validation` section. Draft PRs must state what is incomplete and are not merge approval.
 
 Before pushing code, run `pnpm check:fix` then `pnpm check`. CI is read-only; typecheck and test failures are not auto-fixed.

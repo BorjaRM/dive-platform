@@ -1,55 +1,48 @@
-# Development brief — implementation increment
+# Implementation increment workflow
 
-Use this brief in a GitHub issue or pull request when implementing an already approved slice. It explains the end-to-end flow without creating a second SPEC.
+This is the single workflow for product implementation work.
 
-Do not create a separate copy of this file for every task. Copy only the template headings into the issue or PR and replace the guidance. Link the owning requirement IDs and decisions instead of repeating their technical criteria.
+## Required flow
 
-## When to use
-
-Use this brief when:
-
-- the behavior is already authorized by a Ready-to-start SPEC/ADR;
-- one issue or PR implements a coherent, testable increment;
-- another agent needs enough flow context to implement or review the slice.
-
-Do not use it to introduce a new state, permission, invariant, default, limit, API contract, event contract, error rule, or acceptance criterion. Record that gap as an open question and hand it to SDD Writer.
-
-## Template
-
-```md
-## Development brief
-
-### User story
-As a [role], I want [observable capability], so that [business value].
-
-### Flow
-1. [Entry condition and actor context.]
-2. [Main user/system action.]
-3. [Authoritative server-side decision or write.]
-4. [Observable successful result.]
-5. [Relevant failure/denial outcome, by reference if already specified.]
-
-### Contract references
-- Implements: `DIVE-...`
-- Decisions: `ADR-...`
-- Source: `SPEC-...`
-- Cross-cutting: `MT-REQ-...` or `None`
-
-### Scope
-- In: [smallest coherent behavior delivered by this increment]
-- Out: [adjacent behavior deliberately excluded]
-
-### Surfaces and ownership
-- UI/API/worker/database: [paths or components expected to change]
-- Authority remains in: [server/domain/PostgreSQL/external provider as documented]
-
-### Verification
-- Tests: [stable test paths or planned focused checks]
-- Separate evidence required: `No — tests are the proof` | [reason and target evidence path]
-
-### Open questions
-- None | [missing or contradictory decision that blocks implementation]
+```text
+Ready-to-start SPEC/ADR
+  → implementation issue with one Development Brief
+  → implementation branch
+  → pull request that links and closes the issue
+  → tests and concise Validation in the PR
+  → merge
+  → update TRACE or Notion only when their visible relationships/status changed
 ```
+
+## One owner for each kind of information
+
+| Information | Owner |
+|---|---|
+| Product behavior and technical contract | SPEC / ADR |
+| Short end-to-end implementation flow and slice boundaries | Implementation issue |
+| Code changes, tests run, observed results, risk, and rollback | Pull request |
+| Coverage relationships | TRACE, only when they change |
+| Visible navigation and status | Notion, only when they change |
+
+The Development Brief lives **exactly once**, in the implementation issue created from `.github/ISSUE_TEMPLATE/implementation-increment.md`.
+
+The pull request must use `Closes #<issue>` and must not copy the brief. It records implementation differences only. If implementation discovers a missing or contradictory decision, stop, record the open question in the issue, and use SDD Writer for the smallest SPEC/ADR change.
+
+Documentation-only, normative-only, spike/evidence-only, and maintenance changes do not use an implementation issue unless they also deliver product behavior.
+
+## Development Brief fields
+
+The implementation issue contains:
+
+- user story;
+- short end-to-end flow;
+- requirement, SPEC, ADR, and cross-cutting references;
+- included and excluded scope;
+- expected surfaces and authority boundary;
+- planned tests and whether separate evidence is required;
+- open questions.
+
+It links existing technical criteria instead of repeating them.
 
 ## Example — US-08 catalog increment
 
@@ -80,7 +73,7 @@ As an authorized center manager, I want to configure activities and schedule slo
 - UI/API/worker/database: `apps/api/**`, `packages/database/**`; no product UI in this increment.
 - Authority remains in: API/domain/PostgreSQL authorization and tenant-scoped persistence.
 
-### Verification
+### Verification plan
 - Tests: catalog HTTP contract, time validation, migration/integration, and cross-tenant/center negative paths.
 - Separate evidence required: No — tests are the proof. `SPIKE-DIVE-001` remains separate evidence for last-seat concurrency.
 

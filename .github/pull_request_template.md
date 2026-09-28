@@ -10,39 +10,15 @@
 - [ ] Spike or evidence
 - [ ] Refactor / maintenance with no intended behavior change
 
-## Development brief
+## Implementation issue
 
-<!-- Complete for an implementation increment using docs/sdd/development-brief-template.md. Delete this section for documentation-only, normative-only, spike/evidence-only, or maintenance PRs. Link IDs instead of copying technical criteria. -->
+<!-- Required for product implementation PRs. Use `Closes #<issue>`. The Development Brief lives only in that issue; do not copy it here. Delete this section for other PR types. -->
 
-### User story
+Closes #
 
-### Flow
-
-1.
-
-### Contract references
-
-- **Implements:**
-- **Decisions:**
-- **Source:**
-- **Cross-cutting:**
-
-### Scope
-
-- **In:**
-- **Out:**
-
-### Surfaces and ownership
-
-- **UI/API/worker/database:**
-- **Authority remains in:**
-
-### Verification
-
-- **Tests:**
-- **Separate evidence required:**
-
-### Open questions
+- **Implemented IDs:**
+- **Differences from the issue brief:** None |
+- **New open questions:** None |
 
 ## Normative changes and provenance
 
