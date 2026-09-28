@@ -1,7 +1,7 @@
 # ADR-DIVE-013 — Controlled self bootstrap and replaceable guided onboarding
 
-- **Status:** Ready to start
-- **Version:** 0.4
+- **Status:** Draft
+- **Version:** 0.5
 - **Date:** 2026-09-28
 - **Deciders:** Product / Security / Frontend Architecture
 - **Affected IDs:** `DIVE-ONB-REQ-001..050`; `DIVE-IAM-REQ-001..006`, `017`, `020`, `024`, `025`, `029..032`
@@ -16,8 +16,8 @@
 | US-19 is self bootstrap by an invited future Owner; assisted provisioning is outside the MVP story | `Proposed` | PR #36 product-owner revision record | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | Controlled invitation, atomic creation, idempotency, fields, limits, rollout, and acceptance matrix | `Proposed` | PR #36 product-owner revision record; `SPEC-DIVE-ONBOARDING-001` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | Driver.js behind a replaceable renderer, local visual state, versioned content port, and no-op analytics port | `Proposed` | PR #36 product-owner revision record; `SPEC-DIVE-ONBOARDING-001` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
-| Login-only public entry, single-use fragment credential, internal platform capabilities and routes | `Proposed` | Product confirmation 2026-09-28; `SPEC-DIVE-ONBOARDING-001` v0.3 Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
-| Transactional `centerKey` mapping, encrypted delivery envelope, physical persistence, retention, audit, and event contract | `Proposed` | Product confirmation 2026-09-28; `SPEC-DIVE-ONBOARDING-001` v0.3 Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| Clerk Application Invitations own identity ticket/email; PostgreSQL owns the bootstrap grant; Clerk Organizations and metadata authority remain excluded | `Proposed` | [Clerk invitations](https://clerk.com/docs/guides/users/inviting); [custom flow](https://clerk.com/docs/guides/development/custom-flows/authentication/application-invitations); product confirmation 2026-09-28 selecting option B | Approved for Draft review; provider-behavior evidence pending |
+| Transactional `centerKey`, pre-tenant outbox, Clerk worker adapter, provider-reference persistence, retention, audit, and completion event | `Proposed` | [Clerk createInvitation](https://clerk.com/docs/reference/backend/invitations/create-invitation); `SPEC-DIVE-ONBOARDING-001` v0.5 Draft; product confirmation 2026-09-28 | Approved for Draft review; worker/security review pending |
 | Active-membership revalidation and handle invalidation | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-022`, `030..031`; product confirmation 2026-09-28 | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 
 ## Context
@@ -30,10 +30,10 @@ The MVP decision is intentionally narrower than an assisted-provisioning model: 
 
 ### Pre-tenant authority
 
-- The public authentication screen exposes ordinary login only: no public operator signup, bootstrap-invitation discovery, manual code entry, or operator creation.
+- The Clerk application uses invite-only access mode. The public authentication screen exposes ordinary login only: no public operator signup, bootstrap-invitation discovery, manual code entry, or operator creation.
 - Platform identities use the PostgreSQL-authoritative `bootstrap_invitation.read|issue|reissue|revoke` capabilities, independent of tenant memberships and read-only support. Mutations require MFA, a reason, and audit.
 - Platform staff do not create the tenant or center, designate an Owner, confirm customer data, or receive a tenant membership through this flow.
-- A redemption is authenticated by Clerk, initially matched through the invited verified email, and then bound by `issuer + subject`. The fragment credential authorizes bootstrap only, never authentication; opening the link does not consume it.
+- Clerk Application Invitations own identity enrollment, provider ticket, email delivery, seven-day expiry, revocation, and redirect to the exact authentication-host acceptance route. PostgreSQL owns a separate bootstrap grant and remains the sole authority for tenant, center, Owner, and completion. The application issues no second bearer and uses no Clerk Organization or Clerk metadata as business authority.
 - Existing memberships and tenant roles neither grant nor deny this pre-tenant capability.
 
 ### Self-bootstrap use case
@@ -49,7 +49,7 @@ Invitation management remains separate:
 - `ReissueTenantBootstrapInvitation` — `POST /v1/platform/bootstrap-invitations/:invitationId/reissue`
 - `RevokeTenantBootstrapInvitation` — `POST /v1/platform/bootstrap-invitations/:invitationId/revoke`
 
-The invited identity completes through `POST /v1/me/tenant-bootstrap`. The email link uses the canonical authentication host with its opaque credential in the URL fragment; the browser submits it only in the HTTPS body after Clerk authentication or identity creation. The credential never enters routes, query strings, referrers, logs, audit, traces, analytics, or events.
+The invited identity accepts Clerk’s Application Invitation through the Clerk signup/sign-in flow, then completes through `POST /v1/me/tenant-bootstrap` without a provider ticket or application bearer in the request body. The server resolves one pending grant from the authenticated `issuer + subject` and verified normalized email. Clerk’s `__clerk_ticket` is confined to the provider custom flow and is removed from application-visible history and excluded from referrers, logs, audit, traces, analytics, errors, and events.
 
 The invited authenticated identity becomes the initial active Tenant Owner. Assisted provisioning is deferred and requires a separate story, SPEC/ADR decision, explicit approval, and stronger controls before it can enter scope.
 
@@ -61,7 +61,7 @@ Operability is derived from the active Tenant Owner membership; no duplicate ten
 
 The server allocates an immutable, non-reserved `centerKey` from a readable normalized candidate plus a stable collision suffix when required. The bootstrap transaction persists the trusted `centerKey -> tenantId + centerId` mapping. MVP host readiness relies on wildcard platform DNS/TLS; mapping failure rolls back the entire bootstrap and leaves the invitation unconsumed. Custom domains remain out of scope.
 
-`tenant_bootstrap_invitations` owns invitation authority and terminal results. `tenant_bootstrap_delivery_envelopes` holds the separately encrypted temporary secret needed by the outbox worker. Delivery success, revocation, or expiry deletes the envelope; permanent failure requires reissue. Reissue atomically supersedes the prior invitation and credential. Terminal invitation records are retained for 90 days; audit follows the platform security retention policy.
+`tenant_bootstrap_grants` owns bootstrap authority and terminal results. A dedicated `tenant_bootstrap_outbox_events` boundary carries pre-tenant create/revoke/reissue commands because the tenant-scoped outbox cannot represent an invitation before a tenant exists. After commit, the worker calls Clerk and stores only the provider invitation reference plus safe status; it never receives product authority or tenant membership. No Clerk ticket, application bearer, encrypted delivery envelope, or email body is persisted. Reissue supersedes the PostgreSQL grant immediately, then asynchronously revokes the prior Clerk invitation and creates another. Terminal grants and safe provider references are retained for 90 days; audit follows the platform security retention policy.
 
 Audit uses the stable actions `tenant_bootstrap_invitation.issued`, `.reissued`, `.revoked`, `.delivery_failed`, `tenant_bootstrap.completed`, and `tenant_bootstrap.denied`. Successful completion emits `tenant.bootstrap.completed.v1` with tenant, center, membership, invitation, occurrence, and correlation references only.
 
@@ -110,17 +110,17 @@ Provisioning and visual guidance use independent rollout controls. Provisioning 
 - Product behavior remains independent of Driver.js and can adopt another renderer later.
 - The same functional forms work guided or unguided.
 - Pre-tenant authority does not leak into tenant roles or read-only support.
-- Atomic persistence and outbox prevent orphaned tenants and pre-commit emails.
+- Atomic grant persistence plus the pre-tenant outbox prevent provider calls before commit; completion atomicity prevents orphaned tenants.
 - The customer Owner confirms the data and becomes active in the same bootstrap transaction.
 
 ### Costs and risks
 
 - A pre-tenant invitation store, capability, transaction path, and audit surface must be implemented.
-- Verified-email matching is an additional bootstrap-only assurance beyond ordinary dashboard authentication.
+- Clerk invite-only enrollment and verified-email matching are additional bootstrap-only assurances beyond ordinary dashboard authentication.
 - `localStorage` preference does not follow the user across devices.
 - Driver.js accessibility claims do not replace product-level WCAG validation.
 - The wildcard DNS/TLS boundary and transactional mapping reduce per-center provisioning, but their deployment configuration remains operationally critical.
-- Encrypted delivery envelopes require key rotation and deletion controls.
+- Clerk becomes an external dependency for invitation delivery; rate limits, redirect handling, existing-identity behavior, revocation lag, and provider outages require explicit tests and safe retry/reconciliation.
 
 ## Alternatives considered
 
@@ -136,6 +136,10 @@ Rejected. It would create a second implementation of validation, mutations, and 
 
 Deferred. `localStorage` is sufficient for non-authoritative MVP visual state; cross-device consistency is not required.
 
+### Application-owned bearer and email delivery
+
+Superseded by option B. A second application bearer, secret hash, encrypted delivery envelope, and separate email-provider integration duplicate Clerk Application Invitation behavior and increase secret handling. PostgreSQL retains the grant and domain authority, not another emailed credential.
+
 ### Clerk Organization
 
 Not selected. PostgreSQL remains authoritative for tenant membership and authorization.
@@ -146,14 +150,14 @@ Rejected for this scope. Bootstrap requires a platform-issued invitation.
 
 ## Acceptance criteria / evidence
 
-The implementation must satisfy `SPEC-DIVE-ONBOARDING-001` `DIVE-ONB-REQ-001..050` and its acceptance matrix through domain/API, component, Playwright, isolation, security, and manual accessibility evidence.
+The implementation must satisfy `SPEC-DIVE-ONBOARDING-001` `DIVE-ONB-REQ-001..050` and its acceptance matrix through domain/API, component, Playwright, isolation, security, Clerk Development, and manual accessibility evidence.
 
-This Ready-to-start decision record authorizes reversible implementation with synthetic data but provides no implementation, migration, test, or pilot evidence.
+This Draft revision changes the provider boundary and provides no implementation, migration, test, or pilot evidence.
 
 ## Open questions
 
-No blocking product decision remains in this Draft revision. Readiness review must still verify internal consistency, operational ownership, and testability. Concrete provider and deployment adapter selection remains implementation work only when it preserves this decision.
+Blocking provider questions remain: validate new-identity and existing-identity invitation acceptance, including `ignoreExisting`; invite-only behavior for existing sign-in; exact redirect and `__clerk_ticket` cleanup/referrer behavior; revoke/reissue ordering; and `429`/`Retry-After` handling. Clerk Development evidence must close these questions before a new Ready-to-start promotion.
 
 ## Implementation authority
 
-Ready to start: reversible implementation with synthetic data is authorized. Review, Accepted, real personal data, and pilot gates still require their own evidence and explicit approval.
+None while Draft. The previously Ready-to-start application-owned bearer contract is superseded by option B. Implementation issues must wait for provider evidence, review, and a new explicit Ready-to-start promotion.

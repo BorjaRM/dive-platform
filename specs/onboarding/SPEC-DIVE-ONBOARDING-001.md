@@ -1,10 +1,10 @@
 # SPEC-DIVE-ONBOARDING-001 — Controlled self bootstrap and guided first-center onboarding
 
-- **Status:** Ready to start
-- **Version:** 0.4
+- **Status:** Draft
+- **Version:** 0.5
 - **Last reviewed:** 2026-09-28
-- **Approved by:** Product owner for implementation
-- **Approval reference:** Product owner confirmation 2026-09-28 after merged PR #62
+- **Approved by:** Product owner for Draft review
+- **Approval reference:** Product confirmation 2026-09-28 selecting Clerk Application Invitations option B
 - **Owner:** Product / Security / Frontend Architecture
 - **IDs:** `DIVE-ONB-REQ-001` … `DIVE-ONB-REQ-050`
 
@@ -14,7 +14,7 @@ This SPEC governs invited self-service creation of an operator tenant, its first
 
 `SPEC-DIVE-IAM-001` remains authoritative for identities, memberships, tenant roles, permissions, tenant context, and ordinary tenant invitations. `ADR-DIVE-002` remains authoritative for the transactional outbox. `ADR-DIVE-013` owns the architecture choices introduced by this flow.
 
-The product owner narrowed US-19 to self bootstrap only. Assisted provisioning by platform staff is outside this story. This artifact is Ready to start for reversible implementation with synthetic data. It does not authorize a real-data pilot.
+The product owner narrowed US-19 to self bootstrap only. Assisted provisioning by platform staff is outside this story. This revision replaces the approved application-owned bearer and delivery design with Clerk Application Invitations. It remains Draft pending provider-behavior evidence and a new explicit readiness promotion.
 
 ## Requirement provenance
 
@@ -30,7 +30,11 @@ The product owner narrowed US-19 to self bootstrap only. Assisted provisioning b
 | `DIVE-ONB-REQ-021` | `Proposed` | PR #32 SDD Gatekeeper remediation; product confirmation 2026-09-28 | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-029..DIVE-ONB-REQ-030` | `Proposed` | PR #32 SDD Gatekeeper remediation; product confirmation 2026-09-28 | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-036` | `Derived` | `specs/foundation/sdd-specs-traceability.md` § Spec lifecycle / Definition of Ready / Definition of Done | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
-| `DIVE-ONB-REQ-037..DIVE-ONB-REQ-047` | `Proposed` | Product confirmation 2026-09-28; `ADR-DIVE-013` v0.3 Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| `DIVE-ONB-REQ-037..DIVE-ONB-REQ-038` | `Proposed` | [Clerk application invitations](https://clerk.com/docs/guides/users/inviting); [invite-only access](https://clerk.com/docs/guides/secure/restricting-access); product confirmation 2026-09-28 selecting option B | Approved for Draft review; provider-behavior evidence and readiness promotion pending |
+| `DIVE-ONB-REQ-039..DIVE-ONB-REQ-040` | `Proposed` | Product confirmation 2026-09-28; `ADR-DIVE-013` v0.3 Draft | Previously approved; unchanged by option B |
+| `DIVE-ONB-REQ-041` | `Proposed` | [Clerk custom application-invitation flow](https://clerk.com/docs/guides/development/custom-flows/authentication/application-invitations); product confirmation 2026-09-28 selecting option B | Approved for Draft review; existing-identity evidence pending |
+| `DIVE-ONB-REQ-042` | `Proposed` | Product confirmation 2026-09-28; `ADR-DIVE-013` v0.3 Draft | Previously approved; unchanged by option B |
+| `DIVE-ONB-REQ-043..DIVE-ONB-REQ-047` | `Proposed` | [Clerk createInvitation](https://clerk.com/docs/reference/backend/invitations/create-invitation); product confirmation 2026-09-28 selecting option B | Approved for Draft review; worker/provider review pending |
 | `DIVE-ONB-REQ-048` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-022`, `030..031`; product confirmation 2026-09-28 | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-049..DIVE-ONB-REQ-050` | `Proposed` | Product confirmation 2026-09-28; `ADR-DIVE-013` v0.3 Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 
@@ -111,17 +115,17 @@ Let an explicitly invited future Owner create its own operator tenant and first 
 - **DIVE-ONB-REQ-034:** Self-bootstrap provisioning and visual guidance MUST have independent rollout controls so either capability can be disabled without disabling the other or existing dashboard access.
 - **DIVE-ONB-REQ-035:** US-19 MUST end at the new tenant dashboard with the first center selected only after approved `centerKey` allocation and host/origin readiness; activity creation belongs to a subsequent flow.
 - **DIVE-ONB-REQ-036:** Ready-to-start review MUST confirm that all acceptance scenarios are unambiguous and testable and that the approved `centerKey`/host-entry contract is represented without ambiguity; executed evidence MUST cover every applicable scenario before Review, Accepted, or pilot gates claim conformance.
-- **DIVE-ONB-REQ-037:** The public authentication screen MUST expose ordinary login only and MUST NOT expose public signup, bootstrap-invitation discovery, manual invitation-code entry, or operator creation.
-- **DIVE-ONB-REQ-038:** A bootstrap link MUST carry its opaque credential in the URL fragment of the canonical authentication host. The credential MUST be submitted only in an HTTPS request body after Clerk authentication or identity creation and MUST NOT appear in routes, query strings, referrers, logs, audit, analytics, traces, or event payloads. Opening the link MUST NOT consume it.
+- **DIVE-ONB-REQ-037:** The Clerk application MUST use invite-only access mode. The public authentication screen MUST expose ordinary login only and MUST NOT expose public signup, bootstrap-invitation discovery, manual invitation-code entry, or operator creation. Existing authenticated identities MAY continue to sign in, but authentication alone MUST NOT create or authorize a bootstrap grant.
+- **DIVE-ONB-REQ-038:** Identity enrollment for bootstrap MUST use a Clerk Application Invitation and MUST NOT use Clerk Organizations. Clerk MUST own the provider ticket and invitation email. The adapter MUST set `expiresInDays: 7`, `notify: true`, and an exact allowlisted `redirectUrl` on the canonical authentication host. The provider `__clerk_ticket` MAY appear only in the Clerk custom-flow query parameter and MUST be handled by the Clerk SDK without being persisted or copied into application routes, referrers, logs, audit, analytics, traces, error reports, browser history beyond the provider flow, or event payloads. The application MUST NOT issue a second bootstrap bearer.
 - **DIVE-ONB-REQ-039:** Platform invitation administration MUST use PostgreSQL-authoritative capabilities `bootstrap_invitation.read`, `bootstrap_invitation.issue`, `bootstrap_invitation.reissue`, and `bootstrap_invitation.revoke`, independent of tenant memberships and read-only support. Issue, reissue, and revoke MUST require MFA, a recorded reason, and audit.
 - **DIVE-ONB-REQ-040:** The internal HTTP contract MUST expose `POST /v1/platform/bootstrap-invitations`, `GET /v1/platform/bootstrap-invitations/:invitationId`, `POST /v1/platform/bootstrap-invitations/:invitationId/reissue`, and `POST /v1/platform/bootstrap-invitations/:invitationId/revoke`. The read response MUST expose safe operational state only and MUST NOT return a credential or reconstruct an invitation link.
-- **DIVE-ONB-REQ-041:** The invited authenticated identity MUST complete bootstrap through `POST /v1/me/tenant-bootstrap` with the opaque credential, operator display name, center display name, confirmed IANA time zone, and `es` or `en` locale. Successful completion MUST consume the invitation in the bootstrap transaction; subsequent application access MUST use ordinary login.
-- **DIVE-ONB-REQ-042:** The server MUST allocate a unique, immutable, non-reserved `centerKey` from a readable normalized candidate plus a stable collision suffix when required. In the bootstrap transaction it MUST persist a trusted `centerKey -> tenantId + centerId` mapping. MVP readiness MUST rely on the approved wildcard platform DNS/TLS boundary; mapping failure MUST roll back every bootstrap write and MUST NOT consume the invitation. Custom domains remain out of scope.
-- **DIVE-ONB-REQ-043:** Physical persistence MUST use `tenant_bootstrap_invitations` for invitation authority and `tenant_bootstrap_delivery_envelopes` for temporary delivery material. Invitation states MUST be `issued`, `consumed`, `revoked`, `expired`, or `superseded`; the record MUST retain the normalized destination email, secret hash, timestamps, issuer, reason, bound `issuer + subject`, normalized request fingerprint, supersession link, and result references required by this SPEC.
-- **DIVE-ONB-REQ-044:** Reliable email delivery MUST persist only the long-lived secret hash plus a separately encrypted temporary delivery envelope with key-version metadata. The outbox MUST reference the envelope rather than carry the raw secret. The worker MUST delete the envelope after successful delivery, revocation, or expiry. A permanent delivery failure MUST be visible as safe operational state and MUST require reissue rather than credential recovery.
-- **DIVE-ONB-REQ-045:** Reissue MUST atomically supersede the previous invitation, create a new secret and delivery envelope, and make the previous credential unusable. No interface MUST redisplay or recover an issued raw credential.
-- **DIVE-ONB-REQ-046:** Terminal invitation records MUST be retained for 90 days, after which their operational record MAY be deleted. Encrypted delivery envelopes MUST follow the shorter lifecycle in `DIVE-ONB-REQ-044`; audit retention remains governed by the platform security retention policy and MUST NOT depend on invitation deletion.
-- **DIVE-ONB-REQ-047:** Audit actions MUST use `tenant_bootstrap_invitation.issued`, `.reissued`, `.revoked`, `.delivery_failed`, `tenant_bootstrap.completed`, and `tenant_bootstrap.denied`. Successful completion MUST emit `tenant.bootstrap.completed.v1` containing only tenant, center, membership, invitation, occurrence, and correlation references; it MUST NOT contain email, raw credentials, Clerk tokens, or tenant-context handles.
+- **DIVE-ONB-REQ-041:** After Clerk Application Invitation acceptance, the invited authenticated identity MUST complete bootstrap through `POST /v1/me/tenant-bootstrap` with operator display name, center display name, confirmed IANA time zone, and `es` or `en` locale only. The server MUST resolve exactly one pending bootstrap grant from the authenticated `issuer + subject` and matching verified normalized email; zero, multiple, expired, revoked, superseded, or provider-mismatched grants MUST fail without disclosure. Successful completion MUST consume the grant in the bootstrap transaction; subsequent application access MUST use ordinary login.
+- **DIVE-ONB-REQ-042:** The server MUST allocate a unique, immutable, non-reserved `centerKey` from a readable normalized candidate plus a stable collision suffix when required. In the bootstrap transaction it MUST persist a trusted `centerKey -> tenantId + centerId` mapping. MVP readiness MUST rely on the approved wildcard platform DNS/TLS boundary; mapping failure MUST roll back every bootstrap write and MUST NOT consume the grant. Custom domains remain out of scope.
+- **DIVE-ONB-REQ-043:** Physical persistence MUST use `tenant_bootstrap_grants` for bootstrap authority and `tenant_bootstrap_outbox_events` for pre-tenant provider commands. Grant states MUST be `issued`, `consumed`, `revoked`, `expired`, or `superseded`; provider-delivery state MUST be tracked separately. The grant MUST retain normalized destination email, timestamps, platform issuer and reason, Clerk invitation reference and safe provider status, bound `issuer + subject`, normalized request fingerprint, supersession link, and result references. It MUST NOT persist the Clerk ticket, a second bearer, tenant roles, or center authority in Clerk metadata.
+- **DIVE-ONB-REQ-044:** After the grant transaction commits, the worker MUST consume a dedicated pre-tenant outbox command and call Clerk `createInvitation()` with the approved email, seven-day expiry, notification, and exact redirect. It MUST store only the provider invitation reference and safe delivery status, MUST honor provider rate limits and `Retry-After`, and MUST retry without creating duplicate grants or provider invitations. The worker MUST use a restricted pre-tenant capability and MUST NOT use a migration role, create tenant data, authorize bootstrap, or receive tenant membership.
+- **DIVE-ONB-REQ-045:** Reissue MUST immediately supersede the previous PostgreSQL grant and enqueue provider revocation followed by creation of a new Clerk Application Invitation. Provider calls are post-commit and cannot make the domain transition atomic; therefore the superseded grant MUST remain unusable even while provider revocation is pending. No interface MUST display, persist, recover, or proxy the Clerk ticket.
+- **DIVE-ONB-REQ-046:** Terminal bootstrap grants and their safe Clerk invitation references/statuses MUST be retained for 90 days, after which their operational record MAY be deleted. No provider ticket or email body is retained. Audit retention remains governed by the platform security retention policy and MUST NOT depend on grant deletion.
+- **DIVE-ONB-REQ-047:** Audit actions MUST use `tenant_bootstrap_invitation.issued`, `.reissued`, `.revoked`, `.delivery_failed`, `tenant_bootstrap.completed`, and `tenant_bootstrap.denied`. Successful completion MUST emit `tenant.bootstrap.completed.v1` containing only tenant, center, membership, grant, occurrence, and correlation references; it MUST NOT contain email, Clerk invitation tickets, Clerk bearer tokens, user metadata, or tenant-context handles.
 - **DIVE-ONB-REQ-048:** Every protected request MUST revalidate the handle binding, active membership, current roles, permissions, and center scope in PostgreSQL. Disabling a membership MUST revoke or invalidate all handles for that membership, MUST prevent handle renewal, and MUST NOT disable other active memberships of the same global identity.
 - **DIVE-ONB-REQ-049:** An authenticated identity with no active membership MUST receive no tenant context and MUST see a neutral no-active-access state that reveals no tenant, center, membership, or resource data and offers no operator-creation recovery path.
 - **DIVE-ONB-REQ-050:** Invalid Clerk authentication MUST return the generic `401` authentication failure contract; an absent, inactive, unrelated, or insufficient membership/handle MUST return one generic `403` authorization-denied contract. The response MUST NOT disclose whether another tenant, center, membership, invitation, or resource exists.
@@ -164,9 +168,9 @@ The mandatory acceptance matrix is:
 11. Self-bootstrap provisioning and guidance rollout controls operate independently.
 12. Tokens, tenant context, form contents, and unnecessary personal data do not appear in browser persistence, logs, audit, outbox payloads, or analytics.
 13. Completion requires active Owner membership and successful entry to the first-center application through the approved `centerKey`/host contract; activity creation is not included.
-14. The public login contains no signup or invitation discovery; the fragment credential is absent from server access logs, referrers, audit, traces, analytics, and events.
+14. Clerk is configured invite-only; the public login contains no signup or invitation discovery; `__clerk_ticket` is confined to the Clerk custom flow and absent from application logs, referrers, browser history after completion, audit, traces, analytics, errors, and events.
 15. Internal issue, read, reissue, and revoke enforce platform capabilities, MFA for mutations, recorded reason, safe state, and no raw-credential recovery.
-16. Delivery retries use the encrypted envelope; successful delivery deletes it; permanent failure requires reissue; the previous credential fails after reissue.
+16. The worker creates the Clerk Application Invitation only after commit, respects provider rate limits and `Retry-After`, records safe provider state, and does not duplicate grants or provider invitations; reissue makes the old grant unusable before asynchronous Clerk revocation completes.
 17. A membership disabled after context issuance cannot use or renew its handles, while another active membership for the same identity remains usable.
 18. An authenticated identity without an active membership receives the neutral no-access state and no tenant or resource disclosure.
 
@@ -180,22 +184,18 @@ Application commands and HTTP contract:
 | read safe operational state | `GET /v1/platform/bootstrap-invitations/:invitationId` |
 | `ReissueTenantBootstrapInvitation` | `POST /v1/platform/bootstrap-invitations/:invitationId/reissue` |
 | `RevokeTenantBootstrapInvitation` | `POST /v1/platform/bootstrap-invitations/:invitationId/revoke` |
-| `CompleteOwnTenantBootstrap` | `POST /v1/me/tenant-bootstrap` |
+| `CompleteOwnTenantBootstrap` | `POST /v1/me/tenant-bootstrap` after Clerk invitation acceptance; no application bearer |
 
-No assisted-provisioning command belongs to US-19. Platform routes enforce `DIVE-ONB-REQ-039`; the self-bootstrap route enforces Clerk authentication plus the invitation credential and never accepts browser authority for tenant, center, role, or permission selection.
+No assisted-provisioning command belongs to US-19. Platform routes enforce `DIVE-ONB-REQ-039`; the self-bootstrap route enforces Clerk authentication, verified-email matching, and one pending PostgreSQL grant and never accepts browser authority for tenant, center, role, permission, or provider-ticket selection.
 
 Physical persistence and minimum concepts:
 
-- `tenant_bootstrap_invitations` owns invitation authority and terminal results;
-- `tenant_bootstrap_delivery_envelopes` owns encrypted, temporary delivery material;
+- `tenant_bootstrap_grants` owns pre-tenant authority and terminal results;
+- `tenant_bootstrap_outbox_events` owns provider create, revoke, and reissue commands before a tenant exists;
+- the grant stores normalized intended email, expiry/revocation/consumption timestamps, platform issuer/reason, safe Clerk invitation reference/status, bound `issuer + subject`, normalized request fingerprint, supersession link, and resulting tenant/center/membership references;
+- no application bearer, provider ticket, email body, role, center scope, or business authority is stored in Clerk metadata.
 
-- bootstrap invitation identifier and secret hash;
-- intended email and expiry/revocation/consumption timestamps;
-- bound `issuer + subject` after successful redemption;
-- normalized request fingerprint and resulting tenant/center/membership references;
-- existing tenant, center, active Owner membership, audit, and outbox data.
-
-The completion event is `tenant.bootstrap.completed.v1` with tenant, center, membership, invitation, occurrence, and correlation references only. Delivery outbox work references the encrypted envelope and never embeds the raw secret. Raw invitation secrets, destination email, Clerk tokens, and tenant-context handles MUST NOT enter the completion event.
+The completion event is `tenant.bootstrap.completed.v1` with tenant, center, membership, grant, occurrence, and correlation references only. Provider commands reference the grant and never embed the Clerk ticket. Destination email remains restricted to the provider-command boundary and MUST NOT enter the completion event.
 
 ## Security, privacy, isolation, and operations
 
@@ -203,7 +203,8 @@ The completion event is `tenant.bootstrap.completed.v1` with tenant, center, mem
 - Invitation-management capabilities are the four stable keys in `DIVE-ONB-REQ-039`, separate from tenant roles and read-only platform support; mutations require MFA and a reason.
 - Email is used only for delivery and initial verified matching; stable identity binding remains `issuer + subject`.
 - Issue, reissue, revoke, consume, create, and activate actions are audited with safe identifiers.
-- Logs, traces, analytics, audit, and outbox redact raw tokens, invitation secrets, Clerk bearer values, and tenant-context handles.
+- Logs, traces, analytics, audit, error reports, browser cleanup, and event payloads redact `__clerk_ticket`, Clerk bearer values, destination email outside the provider boundary, and tenant-context handles. Redirect URLs are exact allowlisted authentication-host routes; arbitrary redirect destinations are rejected.
+- Clerk `publicMetadata`, session claims, and Application Invitation metadata MUST NOT be used as authority for tenant, center, role, membership, or platform capabilities.
 - `MT-REQ-*` isolation evidence remains separate from `DIVE-ONB-*` product evidence.
 
 ## Performance and observability
@@ -222,23 +223,23 @@ No latency, bundle, or throughput budget is introduced. Implementation evidence 
 
 ## Migration, rollout, and rollback
 
-- Roll out self bootstrap and guidance behind independent controls, initially limited to explicitly invited identities.
+- Roll out self bootstrap and guidance behind independent controls, initially limited to Clerk invite-only identities with a matching PostgreSQL grant. Provider invitation issuance uses a separate rollout control from grant persistence and bootstrap completion.
 - Rolling back guidance disables the renderer without disabling the functional form.
 - Rolling back provisioning disables new invitation issue/redemption without removing existing tenant access.
-- Database migrations, HTTP contracts, and center-entry orchestration require a later implementation PR with reversible migration or explicit rollback.
+- Database migrations, HTTP contracts, provider adapter, worker, Clerk invite-only configuration, exact redirect allowlist, and center-entry orchestration require a later implementation PR with reversible migration or explicit rollback. The immutable `0000_baseline.sql` MUST NOT be edited; add a new migration.
 
 ## Tests and expected evidence
 
-- Domain/API tests for invitation authority, verified-email binding, atomicity, rollback, outbox, Owner activation, idempotency, concurrency, non-disclosure, rate limit, and cross-tenant isolation.
+- Domain/API tests for grant authority, verified-email binding, atomicity, rollback, pre-tenant outbox, Owner activation, idempotency, concurrency, non-disclosure, provider failure, and cross-tenant isolation.
 - Negative tests proving there is no assisted-provisioning path and invitation managers receive no tenant membership.
 - Component tests for renderer/content/analytics ports, guide state, target absence, and accessibility behavior.
-- Minimal Playwright coverage for invited-Owner self bootstrap, first-center entry, guide dismissal/replay, and Driver.js-disabled completion.
+- Minimal Playwright coverage for Clerk invite-only signup/sign-in, invited-Owner self bootstrap, first-center entry, guide dismissal/replay, and Driver.js-disabled completion.
 - Manual WCAG 2.2 AA validation before pilot.
-- No implementation or execution evidence is claimed by this Draft documentation PR.
+- Clerk Development evidence is required for new identity, existing identity, expiration, revocation, reissue, exact redirect behavior, invite-only signup restriction, and ticket redaction. No implementation or execution evidence is claimed by this Draft documentation PR.
 
 ## Open questions
 
-No blocking product decision remains in this Draft revision. Readiness review still must verify that the approved contracts are internally consistent, operationally reviewable, and testable. Selecting concrete Clerk, email, encryption-key, DNS/TLS, and deployment adapters is implementation work only when the selection preserves the approved ports and contracts above.
+Blocking provider questions remain before a new Ready-to-start promotion: verify Clerk Development behavior for an email that already has an application identity (including whether and how `ignoreExisting` preserves the invited sign-in path); verify invite-only mode does not block existing-user sign-in; verify redirect/query handling removes `__clerk_ticket` from browser history and prevents referrer/log leakage; and verify revoke/reissue plus rate-limit behavior. Results must update this SPEC/ADR rather than being selected silently during implementation.
 
 ## Traceability
 
