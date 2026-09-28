@@ -10,6 +10,40 @@
 - [ ] Spike or evidence
 - [ ] Refactor / maintenance with no intended behavior change
 
+## Development brief
+
+<!-- Complete for an implementation increment using docs/sdd/development-brief-template.md. Delete this section for documentation-only, normative-only, spike/evidence-only, or maintenance PRs. Link IDs instead of copying technical criteria. -->
+
+### User story
+
+### Flow
+
+1.
+
+### Contract references
+
+- **Implements:**
+- **Decisions:**
+- **Source:**
+- **Cross-cutting:**
+
+### Scope
+
+- **In:**
+- **Out:**
+
+### Surfaces and ownership
+
+- **UI/API/worker/database:**
+- **Authority remains in:**
+
+### Verification
+
+- **Tests:**
+- **Separate evidence required:**
+
+### Open questions
+
 ## Normative changes and provenance
 
 <!-- Complete only when adding or changing a requirement, default, state, transition, invariant, permission, limit, interface, or acceptance criterion. Otherwise write "Not applicable" and delete the checklist/table. -->

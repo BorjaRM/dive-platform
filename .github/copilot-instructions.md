@@ -8,6 +8,8 @@ Do not restate requirement text. Reference exact files and IDs (`DIVE-*`, `MT-RE
 
 Do not create parallel summaries, copied test logs, placeholder evidence, or TRACE churn. Tests are the default evidence; the PR `Validation` section records commands and observed results. Follow `docs/sdd/how-we-work.md` for proportional documentation.
 
+For each implementation issue or PR, use `docs/sdd/development-brief-template.md` to describe the short end-to-end increment. Copy the brief headings into the issue/PR; do not create a new SPEC or standalone brief file when existing requirement IDs already authorize the behavior.
+
 Required reading before product or architecture work:
 
 - `docs/sdd/how-we-work.md`
