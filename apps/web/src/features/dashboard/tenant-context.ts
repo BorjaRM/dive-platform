@@ -186,36 +186,35 @@ export function createDashboardApi({
     if (options.body !== undefined)
       requestInit.body = JSON.stringify(options.body);
 
-    let response: Response;
     try {
-      response = await bounded(
+      const response = await bounded(
         fetch(`${baseUrl.replace(/\/$/, '')}${path}`, {
           ...requestInit,
           signal,
         }),
       );
+
+      if (!response.ok) {
+        const kind =
+          response.status === 401
+            ? 'session-expired'
+            : response.status === 403
+              ? 'forbidden'
+              : response.status >= 500
+                ? 'unavailable'
+                : 'unknown';
+        throw new DashboardApiError(
+          response.status,
+          kind,
+          await bounded(readDashboardProblemDetails(response)),
+        );
+      }
+
+      if (response.status === 204) return undefined as T;
+      return (await bounded(response.json())) as T;
     } finally {
       cleanup();
     }
-
-    if (!response.ok) {
-      const kind =
-        response.status === 401
-          ? 'session-expired'
-          : response.status === 403
-            ? 'forbidden'
-            : response.status >= 500
-              ? 'unavailable'
-              : 'unknown';
-      throw new DashboardApiError(
-        response.status,
-        kind,
-        await readDashboardProblemDetails(response),
-      );
-    }
-
-    if (response.status === 204) return undefined as T;
-    return (await response.json()) as T;
   }
 
   return {
