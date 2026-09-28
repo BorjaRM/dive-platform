@@ -2,9 +2,11 @@
 
 ## Source of truth
 
-Requirements, ADRs, spikes, and TRACE live in `specs/`. Implementation lives in code. Proof lives in tests and `evidence/`. Notion is navigation and status only.
+Requirements, ADRs, spikes, and TRACE live in `specs/`. Implementation lives in code. Reproducible proof lives in tests. Use `evidence/` only for executed spikes, measurements, external-provider behavior, manual/regulatory review, or other time-bound proof that tests cannot preserve. Notion is navigation and status only.
 
 Do not restate requirement text. Reference exact files and IDs (`DIVE-*`, `MT-REQ-*`, `MT-SPIKE-001`, `SPIKE-DIVE-001`, `SPIKE-DIVE-*-REQ-*`). Never write `SPIKE-001` in this repo; that ID is another product. If GitHub and Notion disagree, GitHub wins.
+
+Do not create parallel summaries, copied test logs, placeholder evidence, or TRACE churn. Tests are the default evidence; the PR `Validation` section records commands and observed results. Follow `docs/sdd/how-we-work.md` for proportional documentation.
 
 Required reading before product or architecture work:
 
@@ -35,11 +37,11 @@ Inspect the repository before claiming CI, Docker, e2e, or integration infrastru
 Verify before use (do not treat this list as frozen):
 
 - Spec CI: `.github/workflows/spec-governance.yml` and `scripts/validate-spec-governance.mjs`
-- App CI: `.github/workflows/ci.yml` (same-repo PRs apply `pnpm check:fix`, then `pnpm check` and `pnpm test`; separate `integration` job with PostgreSQL 18)
+- App CI: `.github/workflows/ci.yml` (read-only validation with build, check, test, artifact checks, and a separate PostgreSQL 18 integration job)
 - Root scripts in `package.json`: `pnpm check`, `pnpm check:fix`, `pnpm test`, `pnpm typecheck`
-- Apps: `apps/web`, `apps/api`, `apps/worker` (starters; topology is not fully provisioned)
+- Apps: `apps/web`, `apps/api`, `apps/worker`
 
-Docker Compose + integration PostgreSQL exist for MT-SPIKE-001 (`infra/docker/postgres`, `pnpm test:integration`). Do not claim e2e or product migrations unless those files exist.
+Docker Compose + integration PostgreSQL exist for MT-SPIKE-001 (`infra/docker/postgres`, `pnpm test:integration`). Do not claim product e2e, deploy, or release infrastructure unless those files exist and the relevant checks were run.
 
 ## Cross-cutting constraints
 
@@ -60,6 +62,6 @@ Docker Compose + integration PostgreSQL exist for MT-SPIKE-001 (`infra/docker/po
 
 ## Pull requests
 
-Follow `.github/pull_request_template.md`. Every PR needs a `Validation` section. Draft PRs must state what is incomplete and are not merge approval.
+Follow `.github/pull_request_template.md`. Every PR needs a concise `Validation` section. Draft PRs must state what is incomplete and are not merge approval.
 
-Before pushing code, run `pnpm check:fix` then `pnpm check`. Same-repo PRs also get Biome applied by CI; typecheck and test failures are not auto-fixed.
+Before pushing code, run `pnpm check:fix` then `pnpm check`. CI is read-only; typecheck and test failures are not auto-fixed.
