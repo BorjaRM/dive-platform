@@ -8,20 +8,6 @@
       "when": 1790612878630,
       "tag": "0000_baseline",
       "breakpoints": true
-    },
-    {
-      "idx": 17,
-      "version": "7",
-      "when": 1790601600001,
-      "tag": "0017_add_public_booking_audit_command",
-      "breakpoints": true
-    },
-    {
-      "idx": 17,
-      "version": "7",
-      "when": 1790601600001,
-      "tag": "0017_add_public_booking_audit_command",
-      "breakpoints": true
     }
   ]
 }
