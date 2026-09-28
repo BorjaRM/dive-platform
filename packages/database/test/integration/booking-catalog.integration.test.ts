@@ -107,7 +107,7 @@ describe('booking catalog persistence controls', () => {
     await adminPool?.end();
   });
 
-  it('keeps booking rows isolated and clears pooled tenant context (MT-REQ-005, MT-REQ-006, MT-REQ-009, MT-REQ-010)', async () => {
+  it('keeps booking rows isolated (MT-REQ-006, MT-REQ-009, MT-REQ-010)', async () => {
     await expect(
       appPool.query('SELECT id FROM booking_app.activities'),
     ).rejects.toThrow();
@@ -266,11 +266,6 @@ describe('booking catalog persistence controls', () => {
       [tenantB],
     );
     expect(afterSlotSpoof.rows[0]?.count).toBe('0');
-
-    const setting = await appPool.query<{ tenant_id: string | null }>(
-      `SELECT current_setting('app.tenant_id', true) AS tenant_id`,
-    );
-    expect(setting.rows[0]?.tenant_id).toBe('');
   });
 
   it('keeps public booking tables isolated and fails closed without context (MT-REQ-001, MT-REQ-004, MT-REQ-005, MT-REQ-006, MT-REQ-010)', async () => {

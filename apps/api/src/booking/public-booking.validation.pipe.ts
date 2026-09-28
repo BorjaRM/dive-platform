@@ -1,10 +1,10 @@
 import { Injectable, type PipeTransform } from '@nestjs/common';
-import { CatalogProblemException } from '../catalog/catalog.errors.js';
+import { ApiProblemException } from '../common/http/problem-details.js';
 import {
   positiveInteger,
   rejectUnknownFields,
   uuid,
-} from '../catalog/catalog.validation.js';
+} from '../common/validation/request-validation.js';
 import type { PublicBookingInput } from './public-booking.dto.js';
 
 function text(value: unknown, field: string, maximumLength: number): string {
@@ -13,7 +13,7 @@ function text(value: unknown, field: string, maximumLength: number): string {
     value.trim() === '' ||
     value.length > maximumLength
   ) {
-    throw new CatalogProblemException(
+    throw new ApiProblemException(
       422,
       'validation_error',
       `${field} must be a non-empty string`,
@@ -27,7 +27,7 @@ function parseBooker(value: unknown): PublicBookingInput['booker'] {
   const input = value as Record<string, unknown>;
   const email = text(input.email, 'booker.email', 254).toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new CatalogProblemException(
+    throw new ApiProblemException(
       422,
       'validation_error',
       'booker.email must be a valid email address',
@@ -48,14 +48,14 @@ export function parsePublicBookingInput(value: unknown): PublicBookingInput {
   const input = value as Record<string, unknown>;
   const locale = input.locale;
   if (locale !== 'es' && locale !== 'en') {
-    throw new CatalogProblemException(
+    throw new ApiProblemException(
       422,
       'validation_error',
       'locale must be es or en',
     );
   }
   if (input.booker === undefined) {
-    throw new CatalogProblemException(
+    throw new ApiProblemException(
       422,
       'validation_error',
       'booker is required',

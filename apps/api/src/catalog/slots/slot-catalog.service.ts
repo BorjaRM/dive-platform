@@ -57,7 +57,7 @@ export class SlotCatalogService {
       handle,
       centerId,
       'availability.read',
-      async (context, center, unitOfWork) => {
+      async ({ context, center, unitOfWork }) => {
         uuid(activityId, 'activityId');
         const activity = await unitOfWork.db
           .select({ id: bookingActivities.id })
@@ -154,7 +154,7 @@ export class SlotCatalogService {
       handle,
       centerId,
       'availability.manage',
-      async (context, center, unitOfWork) => {
+      async ({ context, center, unitOfWork, recordMutation }) => {
         rejectUnknownFields(input, ['startsAt', 'durationMinutes', 'capacity']);
         uuid(activityId, 'activityId');
         const activity = await unitOfWork.db
@@ -202,7 +202,7 @@ export class SlotCatalogService {
           })
           .returning();
         if (!row) throw new Error('Slot insert returned no row');
-        await this.access.recordMutation(unitOfWork, context, {
+        await recordMutation({
           action: 'booking.create',
           eventType: SLOT_EVENT_TYPES.created,
           resourceType: 'slot',
@@ -227,7 +227,7 @@ export class SlotCatalogService {
       handle,
       centerId,
       'availability.manage',
-      async (context, _center, unitOfWork) => {
+      async ({ context, unitOfWork, recordMutation }) => {
         uuid(slotId, 'slotId');
         const [slot] = await unitOfWork.db
           .select()
@@ -260,7 +260,7 @@ export class SlotCatalogService {
               eq(bookingSlots.id, slotId),
             ),
           );
-        await this.access.recordMutation(unitOfWork, context, {
+        await recordMutation({
           action: 'booking.update',
           eventType: SLOT_EVENT_TYPES.statusChanged,
           resourceType: 'slot',

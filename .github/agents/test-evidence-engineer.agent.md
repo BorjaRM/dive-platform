@@ -55,6 +55,7 @@ Follow the delegation and handoff contract in `.github/agents/README.md`. When d
 - Put executed spike proof under `evidence/spikes/<SPIKE-ID>/`.
 - Treat performance evidence as system-level: DB, contention, worker/outbox, API, web/widget.
 - Isolation proof must be executable against public data-access behavior (same-tenant, cross-tenant, missing context, pool reset). Keep `MT-REQ-*` separate from `DIVE-*`.
+- Distinguish shared database contracts from feature behavior. Product-level suites own the complete tenant-column and RLS/policy inventory, hardening of runtime-executable privileged functions, tenant-command mismatch checks, and tenant unit-of-work lifecycle. Feature suites retain authorization, resource relationships, atomic domain effects, and public behavior. Do not accept a representative harness table or a single feature as proof for a new product relation, command, function, or unit-of-work primitive.
 - List known gaps explicitly and concisely.
 - Update an existing evidence artifact before creating a parallel summary.
 

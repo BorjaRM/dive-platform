@@ -103,8 +103,11 @@ product behavior.
 - Keep NestJS controllers and adapters thin: translate transport concerns and delegate business behavior to application/domain code. A controller may remain a transport facade only while it contains no business decisions or transaction orchestration.
 - Keep domain code independent of NestJS, persistence, and vendor SDKs; place integrations behind ports only when there is a real consumer.
 - Make tenant authorization, RLS/query scoping, transaction, idempotency, audit, and outbox boundaries explicit at the use-case level. Preserve those boundaries when extracting or moving behavior; do not hide them in generic helpers.
+- Once a server-resolved authorization or scope object exists, pass it intact through use-case and persistence boundaries. Do not also accept `tenantId`, actor identity, or another security-sensitive identifier already contained in that scope as an independent argument; derive those values from the trusted object so contradictory combinations are not representable. The exception is a resolver or validator whose purpose is to compare a requested selector with trusted identity or context: name that value `requested*`, reject mismatches there, and return one resolved scope. Keep RLS and SQL context checks as defense in depth, not as compensation for an unsafe API.
+- A low-level SQL contract may accept an explicit tenant identifier solely to compare it with transaction-local tenant context. Keep that fail-closed comparison inside the same database function and add an integration test proving that mismatched context is rejected.
 - Reuse established modules and injection tokens. Add repositories, factories, or strategies only for a demonstrated boundary or variation.
 - Tenant-owned persistence must use established tenant-scoped primitives. Do not add ad-hoc queries that omit `tenant_id` or assume RLS will be added later.
+- Keep shared database guarantees in product-level contract suites. A new tenant-owned relation must update the tenant-column and RLS/policy inventory; a new runtime-executable privileged function must update the function hardening contract; a new explicit-tenant SQL command must update the shared mismatch contract; and a new tenant unit-of-work primitive must prove commit, rollback, SQL-error, and pooled-reuse cleanup. Keep feature tests for feature authorization, relationships, atomic effects, and public behavior rather than making one feature the sole proof of a global invariant.
 - Keep tests colocated with the provider, controller, or module behavior they verify. Test use-case behavior through public entry points, including failure, authorization, and operational-error paths; avoid assertions on private method calls or pure delegation.
 - Keep the Development Brief in the issue. In the output and product PR, state only differences from the brief, list implemented IDs, record new open questions, and include the validation commands and observed results.
 
@@ -132,7 +135,9 @@ Do not invoke Frontend, SDD Writer, SDD Reviewer, or PR Reviewer as subagents. B
 Missing tests or implementation defects block completion, not in-scope repair. Write the required tests, fix established-contract defects, and rerun the focused check. Pause for an unresolved product decision, unavailable required validation, or work outside the authorized scope; never claim the slice is verified while a blocker remains.
 
 - Possible cross-tenant access or IAM matrix ambiguity (`SPEC-DIVE-IAM-001`).
+- A use-case or persistence API accepts a trusted authorization/scope object and a separate duplicate tenant, actor, or scope identifier, allowing callers to construct contradictory context. For an intentional low-level SQL comparison, the mismatch check or its integration test is missing.
 - Persistence, query, repository, or RLS change without same-tenant, cross-tenant, missing-context, and pooled-connection tests (`tenant-isolation-invariants`, `MT-REQ-010`).
+- A tenant-owned product relation, RLS policy, runtime-executable privileged function, explicit-tenant SQL command, or tenant unit-of-work primitive changed without updating its product-level contract suite.
 - Capacity / last-seat paths without an explicit contention test or SPIKE-DIVE-001 evidence.
 - Missing outbox/idempotency decision for a side effect.
 - Any silent default, TTL, or state.

@@ -57,7 +57,7 @@ export class ActivityCatalogService {
       handle,
       centerId,
       'booking_service.read',
-      async (context, _center, unitOfWork) => {
+      async ({ context, unitOfWork }) => {
         const { page, pageSize, offset } = pagination(query);
         const status = statusFilter(query.status, [
           'Draft',
@@ -102,7 +102,7 @@ export class ActivityCatalogService {
       handle,
       centerId,
       'booking_service.create',
-      async (context, _center, unitOfWork) => {
+      async ({ context, unitOfWork, recordMutation }) => {
         rejectUnknownFields(input, ['name', 'description', 'defaultCapacity']);
         const name = localized(input?.name, 'name', true);
         const description = localized(input?.description, 'description', false);
@@ -123,7 +123,7 @@ export class ActivityCatalogService {
           })
           .returning();
         if (!row) throw new Error('Activity insert returned no row');
-        await this.access.recordMutation(unitOfWork, context, {
+        await recordMutation({
           action: 'booking.create',
           eventType: ACTIVITY_EVENT_TYPES.created,
           resourceType: 'activity',
@@ -148,7 +148,7 @@ export class ActivityCatalogService {
       handle,
       centerId,
       'booking_service.publish',
-      async (context, _center, unitOfWork) => {
+      async ({ context, unitOfWork, recordMutation }) => {
         uuid(activityId, 'activityId');
         const [activity] = await unitOfWork.db
           .select()
@@ -189,7 +189,7 @@ export class ActivityCatalogService {
               eq(bookingActivities.id, activityId),
             ),
           );
-        await this.access.recordMutation(unitOfWork, context, {
+        await recordMutation({
           action: 'booking.update',
           eventType: ACTIVITY_EVENT_TYPES.statusChanged,
           resourceType: 'activity',

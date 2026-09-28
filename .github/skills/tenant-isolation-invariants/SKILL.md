@@ -33,12 +33,15 @@ A change is in scope if it touches any of: SQL, Drizzle schema, repositories, `t
    - denied cross-tenant access
    - missing / empty / malformed context fails closed
    - pooled-connection context reset
+   Put guarantees owned by shared database primitives in product-level contract suites, not only in the feature that first needs them. Keep a complete product inventory for tenant columns, protected RLS relations, policies, and runtime-executable privileged functions. Test the product unit of work across commit, rollback, SQL failure, and pooled tenant alternation. Test every low-level command that deliberately compares an explicit tenant with transaction-local context through a shared mismatch contract. Feature suites still prove their own authorization, relationships, atomic domain effects, and public behavior.
+   When adding a tenant-owned table, RLS policy, runtime-executable database function, tenant-scoped unit-of-work primitive, or explicit-tenant SQL command, update the applicable product-level contract in the same change. A representative harness table or another feature's test is not proof for a new product relation or command.
 6. Extend the existing tests and tenant-scoped primitives within the authorized scope. If the tests cannot be written or no established primitive supports the path, pause the affected slice and state the gap. Backend/Frontend may delegate a bounded investigation to Tenancy under `.github/agents/README.md`; a change of active agent requires a reason and confirmed handoff. A delegated specialist returns the blocker to its caller, without nested delegation or a handoff.
 7. Never grant `BYPASSRLS`, use the migration role as the app role, or disable RLS temporarily (`MT-REQ-004`).
 
 ## Exit criteria
 
 - In-scope persistence/query changes include the tests in step 5, or the slice was not implemented
+- Shared product invariants are covered by product-level contract suites; feature tests do not carry global guarantees alone
 - `MT-REQ-*` IDs listed separately from `DIVE-*`
 - Residual isolation risks recorded; no silent bypass
 

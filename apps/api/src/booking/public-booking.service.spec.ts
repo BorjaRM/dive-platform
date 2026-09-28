@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
 import type { PublicBookingCapabilityCrypto } from './public-booking.crypto.js';
+import { PublicBookingPersistence } from './public-booking.persistence.js';
 import { PublicBookingService } from './public-booking.service.js';
 
 describe('PublicBookingService transaction lifecycle', () => {
@@ -17,7 +18,11 @@ describe('PublicBookingService transaction lifecycle', () => {
       connect: vi.fn().mockResolvedValue(client),
     } as unknown as Pool;
     const capabilities = {} as PublicBookingCapabilityCrypto;
-    const service = new PublicBookingService(pool, capabilities);
+    const service = new PublicBookingService(
+      pool,
+      new PublicBookingPersistence(),
+      capabilities,
+    );
 
     await expect(
       service.create('hosted-a', 'https://a.example.test', 'request-1', {
@@ -62,6 +67,7 @@ describe('PublicBookingService transaction lifecycle', () => {
     } as unknown as Pool;
     const service = new PublicBookingService(
       pool,
+      new PublicBookingPersistence(),
       {} as PublicBookingCapabilityCrypto,
     );
 
