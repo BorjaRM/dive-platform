@@ -41,9 +41,12 @@ export {
 } from './iam-tenant-context-commands.js';
 export { migrateProduct } from './migrate.js';
 export * from './product-schema.js';
+export type { PublicBookingCreated } from './public-booking-commands.js';
+export { recordPublicBookingCreated } from './public-booking-commands.js';
 export type { RuntimeDatabaseRoleSnapshot } from './runtime-role.js';
 export {
   assertRuntimeDatabaseRole,
   validateRuntimeDatabaseRole,
 } from './runtime-role.js';
+export { rollbackAndReleaseClient } from './transaction-lifecycle.js';
 export type { TenantUnitOfWork } from './unit-of-work.js';

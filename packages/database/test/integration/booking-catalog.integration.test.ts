@@ -372,6 +372,44 @@ describe('booking catalog persistence controls', () => {
     }
   });
 
+  it('exposes public booking side effects only through a tenant-scoped command (DIVE-BOOK-REQ-045, MT-REQ-004, MT-REQ-007)', async () => {
+    const command = await adminPool.query<{
+      app_can_execute: boolean;
+      owner: string;
+      proconfig: string[] | null;
+      prosecdef: boolean;
+      public_can_execute: boolean;
+    }>(
+      `SELECT
+         owner.rolname AS owner,
+         routine.prosecdef,
+         routine.proconfig,
+         has_function_privilege('dive_app', routine.oid, 'EXECUTE') AS app_can_execute,
+         has_function_privilege('public', routine.oid, 'EXECUTE') AS public_can_execute
+       FROM pg_proc routine
+       JOIN pg_namespace namespace ON namespace.oid = routine.pronamespace
+       JOIN pg_roles owner ON owner.oid = routine.proowner
+       WHERE namespace.nspname = 'iam_app'
+         AND routine.proname = 'record_public_booking_created'`,
+    );
+    expect(command.rows).toEqual([
+      {
+        app_can_execute: true,
+        owner: 'dive_migration',
+        proconfig: ['search_path=iam_app, booking_app, pg_temp'],
+        prosecdef: true,
+        public_can_execute: false,
+      },
+    ]);
+
+    await expect(
+      appPool.query(
+        'SELECT iam_app.record_public_booking_created($1::uuid, $2::uuid, $3::uuid)',
+        [tenantA, bookingA, rollbackCorrelation],
+      ),
+    ).rejects.toThrow();
+  });
+
   it('rolls back catalog domain, audit, and outbox changes together (DIVE-BOOK-REQ-045, MT-REQ-007)', async () => {
     await adminPool.query(
       `DELETE FROM iam_app.audit_records WHERE tenant_id=$1 AND resource_id=$2`,
