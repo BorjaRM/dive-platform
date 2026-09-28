@@ -1,7 +1,11 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  DashboardContextProvider,
+  type DashboardSessionState,
+} from './dashboard-context';
 import {
   createBrowserTenantContextStorage,
   createDashboardApi,
@@ -22,14 +26,8 @@ type DashboardTenantContextProps = {
   requestTimeoutMillis?: number | undefined;
   session?: SessionTokenSource | undefined;
   storage?: TenantContextStorage | undefined;
+  children?: React.ReactNode;
 };
-
-type SessionState =
-  | 'checking'
-  | 'available'
-  | 'expired'
-  | 'unavailable'
-  | 'logged-out';
 
 type RecoveryState = 'forbidden' | null;
 type ActionNotice = 'revocation-failed' | 'logout-failed' | null;
@@ -39,18 +37,24 @@ export function DashboardTenantContext({
   requestTimeoutMillis,
   session = unavailableSession,
   storage,
+  children,
 }: DashboardTenantContextProps) {
   const queryClient = useQueryClient();
   const [contextStorage, setContextStorage] =
     useState<TenantContextStorage | null>(storage ?? null);
-  const api = createDashboardApi({
-    baseUrl: apiBaseUrl ?? '',
-    session,
-    requestTimeoutMillis,
-  });
+  const api = useMemo(
+    () =>
+      createDashboardApi({
+        baseUrl: apiBaseUrl ?? '',
+        session,
+        requestTimeoutMillis,
+      }),
+    [apiBaseUrl, requestTimeoutMillis, session],
+  );
   const [tenantContext, setTenantContext] = useState<string | null>(null);
   const [storageReady, setStorageReady] = useState(false);
-  const [sessionState, setSessionState] = useState<SessionState>('checking');
+  const [sessionState, setSessionState] =
+    useState<DashboardSessionState>('checking');
   const [recovery, setRecovery] = useState<RecoveryState>(null);
   const [actionNotice, setActionNotice] = useState<ActionNotice>(null);
   const [sessionCheck, setSessionCheck] = useState(0);
@@ -61,8 +65,7 @@ export function DashboardTenantContext({
   const browserStorageRef = useRef<TenantContextStorage | null>(null);
 
   const clearDashboardCache = useCallback(() => {
-    queryClient.removeQueries({ queryKey: DASHBOARD_QUERY_KEYS.operators });
-    queryClient.removeQueries({ queryKey: DASHBOARD_QUERY_KEYS.centers });
+    queryClient.removeQueries({ queryKey: DASHBOARD_QUERY_KEYS.root });
   }, [queryClient]);
 
   const clearContext = useCallback(
@@ -298,41 +301,60 @@ export function DashboardTenantContext({
     }
   };
 
+  const dashboardContextValue = {
+    api,
+    apiBaseUrl: apiBaseUrl ?? '',
+    session,
+    tenantContext,
+    authorizedCenters: centersQuery.data ?? [],
+    sessionState,
+    isReady:
+      storageReady && sessionState === 'available' && tenantContext !== null,
+    invalidateDashboardCache: clearDashboardCache,
+    handleSessionExpired: expireSession,
+    clearTenantContext: () => clearContext(),
+  };
+  const renderWithDashboardContext = (content: React.ReactNode) => (
+    <DashboardContextProvider value={dashboardContextValue}>
+      {content}
+    </DashboardContextProvider>
+  );
+
   if (!apiBaseUrl) {
-    return (
+    return renderWithDashboardContext(
       <DashboardShell eyebrow="Dashboard" title="Authentication seam required">
         <StatusPanel
           title="Dashboard API is not configured"
           message="Set NEXT_PUBLIC_DASHBOARD_API_URL and connect an authenticated session token source before using the dashboard."
         />
-      </DashboardShell>
+      </DashboardShell>,
     );
   }
 
   if (sessionState === 'unavailable') {
-    return (
+    return renderWithDashboardContext(
       <DashboardShell eyebrow="Dashboard" title="Authentication seam required">
         <StatusPanel
           title="Sign-in is managed by the host application"
           message="This starter keeps the identity-provider boundary provider-neutral. Configure the web authentication provider before using the dashboard."
         />
-      </DashboardShell>
+      </DashboardShell>,
     );
   }
 
   if (sessionState === 'checking') {
-    return (
+    return renderWithDashboardContext(
       <DashboardShell eyebrow="Dashboard" title="Opening your workspace">
         <StatusPanel
           title="Checking your session"
           message="Preparing a secure dashboard request boundary."
         />
-      </DashboardShell>
+      </DashboardShell>,
     );
   }
 
   if (sessionState === 'expired') {
-    return (
+    return renderWithDashboardContext(
       <DashboardShell eyebrow="Dashboard" title="Session expired">
         <StatusPanel
           title="Your session is no longer available"
@@ -343,12 +365,12 @@ export function DashboardTenantContext({
             </button>
           }
         />
-      </DashboardShell>
+      </DashboardShell>,
     );
   }
 
   if (sessionState === 'logged-out') {
-    return (
+    return renderWithDashboardContext(
       <DashboardShell eyebrow="Dashboard" title="Dashboard context cleared">
         <StatusPanel
           title={
@@ -362,12 +384,12 @@ export function DashboardTenantContext({
               : 'The tenant context was removed from this browser session. Sign in through the host application to return.'
           }
         />
-      </DashboardShell>
+      </DashboardShell>,
     );
   }
 
   if (recovery === 'forbidden') {
-    return (
+    return renderWithDashboardContext(
       <DashboardShell eyebrow="Dashboard" title="Choose a workspace again">
         <StatusPanel
           title="Access to this workspace was denied"
@@ -378,12 +400,12 @@ export function DashboardTenantContext({
             </button>
           }
         />
-      </DashboardShell>
+      </DashboardShell>,
     );
   }
 
   if (tenantContext === null) {
-    return (
+    return renderWithDashboardContext(
       <DashboardShell eyebrow="Dashboard" title="Choose your workspace">
         <OperatorSelection
           isLoading={operatorsQuery.isPending || issueContextMutation.isPending}
@@ -394,70 +416,76 @@ export function DashboardTenantContext({
             issueContextMutation.mutate(operator.operatorRef)
           }
         />
-      </DashboardShell>
+      </DashboardShell>,
     );
   }
 
-  return (
-    <DashboardShell
-      eyebrow="Authenticated dashboard"
-      title="Your dive operation"
-      action={
-        <div className="dashboard-actions">
-          <button type="button" onClick={() => void changeWorkspace()}>
-            Change workspace
-          </button>
-          <button type="button" onClick={() => void logout()}>
-            Log out
-          </button>
-        </div>
-      }
-    >
-      <section className="dashboard-section" aria-labelledby="centers-heading">
-        <div className="section-heading">
-          <div>
-            <p className="section-kicker">Tenant-scoped data</p>
-            <h2 id="centers-heading">Centers</h2>
+  return renderWithDashboardContext(
+    <>
+      <DashboardShell
+        eyebrow="Authenticated dashboard"
+        title="Your dive operation"
+        action={
+          <div className="dashboard-actions">
+            <button type="button" onClick={() => void changeWorkspace()}>
+              Change workspace
+            </button>
+            <button type="button" onClick={() => void logout()}>
+              Log out
+            </button>
           </div>
-          <span className="context-badge">Context active</span>
-        </div>
-        {centersQuery.isPending && (
-          <StatusPanel
-            title="Loading centers"
-            message="Reading current access from the server."
-          />
-        )}
-        {centersQuery.error && !centersQuery.isPending && (
-          <StatusPanel
-            title="Centers could not be loaded"
-            message="The dashboard request was denied or unavailable."
-          />
-        )}
-        {!centersQuery.error &&
-          centersQuery.data &&
-          centersQuery.data.length === 0 && (
+        }
+      >
+        <section
+          className="dashboard-section"
+          aria-labelledby="centers-heading"
+        >
+          <div className="section-heading">
+            <div>
+              <p className="section-kicker">Tenant-scoped data</p>
+              <h2 id="centers-heading">Centers</h2>
+            </div>
+            <span className="context-badge">Context active</span>
+          </div>
+          {centersQuery.isPending && (
             <StatusPanel
-              title="No centers available"
-              message="Your active operator has no readable centers in this context."
+              title="Loading centers"
+              message="Reading current access from the server."
             />
           )}
-        {!centersQuery.error &&
-          centersQuery.data &&
-          centersQuery.data.length > 0 && (
-            <ul className="center-list">
-              {centersQuery.data.map((center) => (
-                <li key={center.id} className="center-row">
-                  <span className="center-mark" aria-hidden="true" />
-                  <span>
-                    <strong>{center.name}</strong>
-                    <small>Current server-authorized center</small>
-                  </span>
-                </li>
-              ))}
-            </ul>
+          {centersQuery.error && !centersQuery.isPending && (
+            <StatusPanel
+              title="Centers could not be loaded"
+              message="The dashboard request was denied or unavailable."
+            />
           )}
-      </section>
-    </DashboardShell>
+          {!centersQuery.error &&
+            centersQuery.data &&
+            centersQuery.data.length === 0 && (
+              <StatusPanel
+                title="No centers available"
+                message="Your active operator has no readable centers in this context."
+              />
+            )}
+          {!centersQuery.error &&
+            centersQuery.data &&
+            centersQuery.data.length > 0 && (
+              <ul className="center-list">
+                {centersQuery.data.map((center) => (
+                  <li key={center.id} className="center-row">
+                    <span className="center-mark" aria-hidden="true" />
+                    <span>
+                      <strong>{center.name}</strong>
+                      <small>Current server-authorized center</small>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+        </section>
+      </DashboardShell>
+      {children}
+    </>,
   );
 }
 

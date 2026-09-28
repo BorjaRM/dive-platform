@@ -29,7 +29,7 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` are Ready to start
 | ADR-DIVE-011 | `specs/architecture/adrs/ADR-DIVE-011.md` | Draft | 0.3 |
 | ADR-DIVE-012 | `specs/architecture/adrs/ADR-DIVE-012.md` | Draft | 0.1 |
 | ADR-DIVE-013 | `specs/architecture/adrs/ADR-DIVE-013.md` | Draft | 0.2 |
-| ADR-DIVE-014 | `specs/architecture/adrs/ADR-DIVE-014.md` | Draft | 0.3 |
+| ADR-DIVE-014 | `specs/architecture/adrs/ADR-DIVE-014.md` | Draft | 0.4 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 1.3 |
 | SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.14 |
 | SPEC-DIVE-ONBOARDING-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md` | Draft | 0.2 |
@@ -154,7 +154,7 @@ The first IAM/API vertical is partially implemented in `apps/api`, `packages/ide
 | Provider-neutral assurance and ordinary authentication without a verified address | `DIVE-IAM-REQ-005`, `019` | `packages/identity/src/clerk.spec.ts`, `apps/api/src/iam.identity.spec.ts`, `apps/api/test/iam.e2e-spec.ts` |
 | Official raw-body webhook verification plus database tenant resolution, idempotency, no grants, no authorization mutation, audit, and safe outbox signals | `DIVE-IAM-REQ-021` | `packages/identity/src/clerk-webhook.spec.ts`, `packages/database/test/integration/iam-identity-webhooks.integration.test.ts` |
 | Dashboard tenant-context contract and frontend consumer boundary | `DIVE-IAM-REQ-029..031` | `ADR-DIVE-008` tenant-context contract; `ADR-DIVE-009` frontend state boundary; server authorization proof: `apps/api/test/iam.e2e-spec.ts`, `packages/database/test/integration/iam-api.integration.test.ts`, `packages/database/test/integration/migrations.integration.test.ts`; web consumer proof: `apps/web/src/features/dashboard/tenant-context.test.ts`, `apps/web/src/features/dashboard/dashboard-tenant-context.test.tsx` |
-| Center-scoped catalog lifecycle, pagination, time filters, and DTO/error contract | `DIVE-BOOK-REQ-049..057` | `apps/api/test/iam.e2e-spec.ts`, `apps/api/src/catalog.time.spec.ts`, `packages/database/test/integration/migrations.integration.test.ts` |
+| Center-scoped catalog lifecycle, pagination, time filters, and DTO/error contract | `DIVE-BOOK-REQ-049..057` | `apps/api/test/iam.e2e-spec.ts`, `apps/api/src/catalog.time.spec.ts`, `packages/database/test/integration/migrations.integration.test.ts`, `apps/web/src/features/dashboard/catalog-api.test.ts`, `apps/web/src/features/dashboard/catalog-panel.test.tsx` |
 
 ### Partial or not yet demonstrated
 

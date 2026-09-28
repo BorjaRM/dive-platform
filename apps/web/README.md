@@ -12,6 +12,31 @@ The dashboard accepts an explicit `NEXT_PUBLIC_DASHBOARD_API_URL` and keeps the 
 
 The opaque tenant context is read and written through `sessionStorage` only. The API boundary sends it as `X-Tenant-Context` alongside the provider session bearer token. TanStack Query owns interactive server state, while query keys do not contain either credential. The dashboard removes its affected query cache when context changes, a context is denied, or the user logs out.
 
+## Frontend state conventions
+
+These conventions are proposed implementation guidance and do not replace the
+state ownership boundaries in `ADR-DIVE-009`.
+
+### React Hook Form - Form state
+
+**[Proposed]** Use React Hook Form to manage form inputs, real-time
+validation, and dirty state (whether the user has modified a field). Always
+combine it with Zod to define the validation schema.
+
+### Zustand - Complex flow state
+
+**[Proposed]** Use Zustand for multi-step business flows that need to persist
+state between screens. The clearest example is the Returns Wizard:
+
+1. Item selection
+2. Reason
+3. Shipping method
+
+The store lives inside the feature at
+`features/[feature]/stores/use[Feature]Store.ts`. The store must remain
+encapsulated within that feature: if the feature is deleted, its store is
+deleted with it.
+
 ## Getting Started
 
 First, run the development server:

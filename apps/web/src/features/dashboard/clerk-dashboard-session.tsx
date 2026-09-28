@@ -8,9 +8,11 @@ import type { SessionTokenSource } from './tenant-context';
 export function ClerkDashboardSession({
   apiBaseUrl,
   requestTimeoutMillis,
+  children,
 }: {
   apiBaseUrl: string;
   requestTimeoutMillis?: number;
+  children?: React.ReactNode;
 }) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
   const { signOut } = useClerk();
@@ -46,6 +48,8 @@ export function ClerkDashboardSession({
       apiBaseUrl={apiBaseUrl}
       requestTimeoutMillis={requestTimeoutMillis}
       session={session}
-    />
+    >
+      {children}
+    </DashboardTenantContext>
   );
 }
