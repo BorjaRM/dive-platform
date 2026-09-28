@@ -5,19 +5,29 @@ description: Fill the pull request Validation section from commands actually run
 
 # Fill PR Validation
 
-Use `.github/pull_request_template.md`.
+Use `.github/pull_request_template.md` and the proportionality rules in `docs/sdd/how-we-work.md`.
 
 ## Procedure
 
 1. Inspect what can actually run: `package.json` scripts and `.github/workflows/`.
-2. Run the relevant commands. Typical existing root scripts: `pnpm check`, `pnpm test`, `pnpm typecheck`. Spec changes also need `node scripts/validate-spec-governance.mjs`.
-3. Write **Automated checks** with command + observed result. Do not claim GitHub Actions passed unless they did. After merge, PRs should get `.github/workflows/ci.yml` (`check`/`test`) and spec PRs also `spec-governance.yml`.
-4. Write **Focused tests** with the file or command that exercises the change.
-5. Write **Manual validation** only for uncovered paths (setup, steps, expected, observed).
-6. Link **Evidence** for spikes, isolation, performance, or security. If the spike is not executed, say so.
-7. List **Known gaps** (no e2e, no Docker, no integration DB, skipped checks).
+2. Run only the checks relevant to the changed paths and risk. Typical root scripts are `pnpm check`, `pnpm test`, and `pnpm typecheck`. Spec changes also need `node scripts/validate-spec-governance.mjs`.
+3. Write **Automated checks** as one concise line per command: command + observed PASS/FAIL/not run. Do not paste logs or claim GitHub Actions passed unless they did.
+4. Write **Focused tests** as a stable test path or focused command. If the automated command already identifies the proof, say so instead of repeating it.
+5. Write **Manual validation** only for an uncovered user-visible or operational path. Otherwise write `Not applicable`.
+6. Link **Evidence** only for executed spikes, measurements, external-provider behavior, security/manual/regulatory review, or other time-bound proof that tests cannot preserve. Ordinary test output does not need an `evidence/` file.
+7. List **Known gaps** directly. Use `not executed` instead of creating placeholder evidence.
+8. Delete unused template comments and non-applicable boilerplate before review.
+
+## Do not create
+
+- copied CI logs or terminal transcripts;
+- screenshots of passing tests;
+- generated reports already retained by CI;
+- evidence files that only say a command was not run;
+- TRACE updates when the coverage relationship did not change.
 
 ## Exit criteria
 
-- Validation can be reproduced from the PR text
-- No claimed infrastructure that is absent from the repo
+- Validation is concise and reproducible from the PR text.
+- Stable test/evidence paths support the claims.
+- No claimed infrastructure is absent from the repository.
