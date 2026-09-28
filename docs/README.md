@@ -14,5 +14,4 @@ Project-level documentation: onboarding, architecture overviews, and working agr
 - `docs/architecture/overview.md`
 - `docs/architecture/iam-conformance-plan.md`
 - `docs/architecture/iam-phase-0-recommendations.md`
-- `docs/architecture/iam-vertical-follow-ups.md`
 - `docs/sdd/how-we-work.md`
