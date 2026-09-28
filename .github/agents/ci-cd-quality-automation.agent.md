@@ -1,5 +1,5 @@
 ---
-name: CI/CD + Quality Automation
+name: CI Engineer
 description: Adds CI incrementally from tooling that already exists. Use when introducing or extending GitHub Actions, spec-governance checks, or PR quality gates. Inspect package.json and .github/workflows first.
 argument-hint: workflow to add or extend
 target: vscode
@@ -9,10 +9,13 @@ tools:
   - search
   - execute
   - edit
+  - io.github.github/github-mcp-server/get_me
+  - io.github.github/github-mcp-server/issue_read
+  - io.github.github/github-mcp-server/pull_request_read
 agents: []
 handoffs:
-  - label: Implementation PR Reviewer
-    agent: Implementation PR Reviewer
+  - label: PR Reviewer
+    agent: PR Reviewer
     prompt: Classify findings on this CI/workflow change as grave, moderado, or leve. Do not implement. Do not invent missing CI/e2e/Docker.
     send: false
 ---
@@ -26,6 +29,7 @@ Keep this agent. Spec governance and a general `pnpm check` / `pnpm test` workfl
 ## Required reading
 
 - `.github/copilot-instructions.md`
+- `.github/agents/README.md` for the shared confirmation and tool-access contract
 - `docs/sdd/how-we-work.md`
 - `.github/pull_request_template.md`
 
@@ -57,7 +61,7 @@ Re-verify. Do not treat this table as frozen:
 - Keep `ci.yml` and `spec-governance.yml` separate. Extend each only after reading it.
 - `ci.yml` should keep using existing root scripts, `.nvmrc`, and `packageManager`. Do not pin a different Node/pnpm unless the repo files change.
 - CI is read-only: run `pnpm check` / `pnpm test` in the workflow and let the author run `pnpm check:fix` locally before pushing. Never commit or push from validation jobs. Do not add a second format-only workflow.
-- Next increment only when the task asks and is tied to a requirement, risk, or evidence: a PostgreSQL integration job or the first local Compose recipe. Use the smallest harness (GitHub Actions service container is enough for CI).
+- Add or extend a harness only when the task requires it and the inspected tooling leaves a demonstrated gap. Do not propose the existing PostgreSQL integration job or local Compose recipe as new infrastructure.
 - Fail closed on empty `Validation` only if the check can be implemented without inventing process.
 
 ## You do not
@@ -68,7 +72,7 @@ Re-verify. Do not treat this table as frozen:
 - Claim performance budgets or security coverage beyond `.github/workflows/security.yml` as existing without verifying the workflow and its required secrets.
 - Require an ADR for a routine workflow that only runs existing scripts. Do require an ADR or explicit approval for deploy architecture, new CI products, or extra test runners.
 - Fold spec-governance into `ci.yml`.
-- Invoke other agents as subagents. After you finish, offer a VS Code handoff to Implementation PR Reviewer and print `Handoff:` in the output.
+- Invoke other agents as subagents. Before proposing PR Reviewer, summarize the change and remaining scope, explain why review is needed, and ask for confirmation. Keep `send: false` and wait for the user to select and submit the handoff.
 
 ## Stop conditions
 
@@ -82,4 +86,5 @@ Re-verify. Do not treat this table as frozen:
 - What already existed vs what was added
 - How to run the same checks locally
 - Known gaps (e2e, deploy)
-- Handoff: implementation-pr-reviewer | none
+- Handoff: PR Reviewer | none
+- Reason, remaining scope, and confirmation question when proposing a handoff

@@ -1,20 +1,20 @@
 ---
 name: tenant-isolation-invariants
-description: Enforce tenant isolation (tenant_id, RLS, cross-tenant tests) without inventing MT rules. Use when implementing or reviewing apps/api, packages/db, SQL, repositories, RLS, tenant_id, outbox on tenant-owned data, apps/web tenant/center resolution, or any change that could leak data across operators.
+description: Enforce tenant isolation (tenant_id, RLS, cross-tenant tests) without inventing MT rules. Use when implementing or reviewing apps/api, packages/database, SQL, repositories, RLS, tenant_id, outbox on tenant-owned data, apps/web tenant/center resolution, or any change that could leak data across operators.
 ---
 
 # Tenant isolation invariants
 
-Do not invent isolation rules, TTLs, RLS policy text, or new `MT-REQ-*` IDs. Read the sources. If a control is missing, stop and record an open question.
+Do not invent isolation rules, TTLs, RLS policy text, or new `MT-REQ-*` IDs. Read the sources. A missing decision blocks implementation; a missing control with an established contract is an in-scope repair, not permission to ship without it. In a read-only review, report the defect without editing.
 
-This skill does not merge Backend/API Implementer with Tenancy and Data Isolation Engineer. Implementers apply it; Tenancy remains the specialist for leaks, RLS design, and `MT-REQ-*`.
+This skill does not merge Backend with Tenancy. Implementers apply it; Tenancy remains the specialist for leaks, RLS design, and `MT-REQ-*`.
 
 ## Sources (read, do not paraphrase)
 
 - `specs/architecture/adrs/ADR-DIVE-001.md`
 - `specs/foundation/multitenancy-architecture.md`
 - `specs/multitenancy/MT-SPIKE-001-requirements.md`
-- Existing harness: `tests/integration/multitenancy/**`, `tests/integration/rls/**`, `pnpm test:integration`
+- Existing executable harness: `packages/database/test/integration/`, `pnpm test:integration`. The directories `tests/integration/multitenancy/` and `tests/integration/rls/` are TRACE pointers, not additional test suites.
 
 Keep `MT-REQ-*` results separate from `DIVE-*`.
 
@@ -33,7 +33,7 @@ A change is in scope if it touches any of: SQL, Drizzle schema, repositories, `t
    - denied cross-tenant access
    - missing / empty / malformed context fails closed
    - pooled-connection context reset
-6. If those tests cannot be written, or the path has no established tenant-scoped primitive, **stop**. Do not implement the persistence/query slice. Offer a VS Code handoff to Tenancy and Data Isolation Engineer.
+6. Extend the existing tests and tenant-scoped primitives within the authorized scope. If the tests cannot be written or no established primitive supports the path, pause the affected slice and state the gap. Backend/Frontend may delegate a bounded investigation to Tenancy under `.github/agents/README.md`; a change of active agent requires a reason and confirmed handoff. A delegated specialist returns the blocker to its caller, without nested delegation or a handoff.
 7. Never grant `BYPASSRLS`, use the migration role as the app role, or disable RLS temporarily (`MT-REQ-004`).
 
 ## Exit criteria
@@ -43,6 +43,8 @@ A change is in scope if it touches any of: SQL, Drizzle schema, repositories, `t
 - Residual isolation risks recorded; no silent bypass
 
 ## Stop
+
+The following block declaring the slice complete. Repair them only within an authorized implementation task against existing requirements, or report them in a review. Missing decisions require a concrete question; missing proof remains an explicit gap.
 
 - Possible cross-tenant leak or pool-context leak
 - Query, repository, or table change without `tenant_id` / RLS / the tests in step 5
