@@ -184,6 +184,64 @@ describe('IAM/API vertical (e2e)', () => {
     return handle;
   }
 
+  async function seedImmediatePublicSlot(input: {
+    capacity: number;
+    publicId: string;
+  }) {
+    const activityId = randomUUID();
+    const slotId = randomUUID();
+    const channelId = randomUUID();
+    await admin.query(
+      `INSERT INTO booking_app.activities
+       (id, tenant_id, center_id, name, status)
+       VALUES ($1, $2, $3, '{"es":"Buceo","en":"Diving"}'::jsonb, 'Published')`,
+      [activityId, tenantA, centerA1],
+    );
+    await admin.query(
+      `INSERT INTO booking_app.slots
+       (id, tenant_id, center_id, activity_id, starts_at, duration_minutes, capacity, status)
+       VALUES ($1, $2, $3, $4, '2030-10-01T10:00:00Z', 60, $5, 'Available')`,
+      [slotId, tenantA, centerA1, activityId, input.capacity],
+    );
+    await admin.query(
+      `INSERT INTO booking_app.channels
+       (id, tenant_id, center_id, public_id, type, activity_id, status, confirmation_mode, allowed_origins)
+       VALUES ($1, $2, $3, $4, 'single_activity', $5, 'Published', 'immediate', ARRAY['https://a.example.test'])`,
+      [channelId, tenantA, centerA1, input.publicId, activityId],
+    );
+    return { channelId, slotId };
+  }
+
+  async function waitForBlockedBackends(
+    blockerPid: number,
+    expectedCount: number,
+  ): Promise<void> {
+    const deadline = Date.now() + 5_000;
+    while (Date.now() < deadline) {
+      const blocked = await admin.query<{ count: number }>(
+        `WITH RECURSIVE blocked(pid) AS (
+           SELECT activity.pid
+           FROM pg_stat_activity AS activity
+           WHERE activity.datname = current_database()
+             AND $1 = ANY(pg_blocking_pids(activity.pid))
+           UNION
+           SELECT activity.pid
+           FROM pg_stat_activity AS activity
+           JOIN blocked AS blocker
+             ON blocker.pid = ANY(pg_blocking_pids(activity.pid))
+           WHERE activity.datname = current_database()
+         )
+         SELECT count(*)::int AS count FROM blocked`,
+        [blockerPid],
+      );
+      if ((blocked.rows[0]?.count ?? 0) >= expectedCount) return;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    throw new Error(
+      `Expected ${expectedCount} backends to be blocked by PID ${blockerPid}`,
+    );
+  }
+
   beforeAll(async () => {
     await bootstrapRoles(admin);
     await migrateProduct();
@@ -921,7 +979,7 @@ describe('IAM/API vertical (e2e)', () => {
     expect(state.rows[0]?.revoked_at).not.toBeNull();
   });
 
-  it('creates a public booking atomically and rejects cross-tenant scope (DIVE-BOOK-REQ-001, DIVE-BOOK-REQ-028, DIVE-BOOK-REQ-045, DIVE-BOOK-REQ-058..065, MT-REQ-004, MT-REQ-007, MT-REQ-010)', async () => {
+  it('creates a public booking atomically and rejects cross-tenant scope (DIVE-BOOK-REQ-001, DIVE-BOOK-REQ-028, DIVE-BOOK-REQ-045, DIVE-BOOK-REQ-058, DIVE-BOOK-REQ-062, DIVE-BOOK-REQ-063, DIVE-BOOK-REQ-065, MT-REQ-004, MT-REQ-007, MT-REQ-010)', async () => {
     const activityA = randomUUID();
     const slotA = randomUUID();
     const channelA = randomUUID();
@@ -1088,6 +1146,198 @@ describe('IAM/API vertical (e2e)', () => {
       verifier_count: 2,
     });
   });
+
+  it('serializes distinct public requests contending for the last seat (DIVE-BOOK-REQ-025, DIVE-BOOK-REQ-064)', async () => {
+    const { slotId } = await seedImmediatePublicSlot({
+      capacity: 1,
+      publicId: 'last-seat-channel',
+    });
+    const blocker = await admin.connect();
+    let blockerActive = false;
+    let pendingRequests: Promise<unknown>[] = [];
+    try {
+      await blocker.query('BEGIN');
+      blockerActive = true;
+      const blockerPid = await blocker.query<{ pid: number }>(
+        'SELECT pg_backend_pid()::int AS pid',
+      );
+      await blocker.query(
+        'SELECT id FROM booking_app.slots WHERE id=$1 FOR UPDATE',
+        [slotId],
+      );
+
+      const body = {
+        slotId,
+        seats: 1,
+        locale: 'es',
+        booker: {
+          firstName: 'Ana',
+          lastName: 'Buceadora',
+          email: 'ana@example.test',
+        },
+      };
+      const firstRequest = request(app.getHttpServer())
+        .post('/v1/public/channels/last-seat-channel/bookings')
+        .set('origin', 'https://a.example.test')
+        .set('idempotency-key', 'last-seat-first')
+        .send(body)
+        .then((response) => response);
+      const secondRequest = request(app.getHttpServer())
+        .post('/v1/public/channels/last-seat-channel/bookings')
+        .set('origin', 'https://a.example.test')
+        .set('idempotency-key', 'last-seat-second')
+        .send({
+          ...body,
+          booker: { ...body.booker, email: 'berta@example.test' },
+        })
+        .then((response) => response);
+      pendingRequests = [firstRequest, secondRequest];
+
+      await waitForBlockedBackends(blockerPid.rows[0]?.pid ?? 0, 2);
+      await blocker.query('COMMIT');
+      blockerActive = false;
+
+      const responses = await Promise.all([firstRequest, secondRequest]);
+      expect(responses.map(({ status }) => status).sort()).toEqual([201, 409]);
+      const rejected = responses.find(({ status }) => status === 409);
+      expect(rejected?.headers['content-type']).toMatch(
+        /^application\/problem\+json/,
+      );
+      expect(rejected?.body.code).toBe('slot_unavailable');
+
+      const persisted = await admin.query<{
+        audit_count: number;
+        booking_count: number;
+        outbox_count: number;
+        slot_status: string;
+        tenant_audit_count: number;
+        tenant_outbox_count: number;
+        verifier_count: number;
+      }>(
+        `SELECT
+           (SELECT count(*)::int FROM booking_app.bookings WHERE tenant_id=$1 AND slot_id=$2) booking_count,
+           (SELECT count(*)::int FROM booking_app.capability_verifiers WHERE tenant_id=$1 AND booking_id IN (
+             SELECT id FROM booking_app.bookings WHERE tenant_id=$1 AND slot_id=$2
+           )) verifier_count,
+           (SELECT count(*)::int FROM iam_app.audit_records WHERE tenant_id=$1 AND resource_id IN (
+             SELECT id FROM booking_app.bookings WHERE tenant_id=$1 AND slot_id=$2
+           )) audit_count,
+           (SELECT count(*)::int FROM iam_app.outbox_events WHERE tenant_id=$1 AND payload->>'bookingId' IN (
+             SELECT id::text FROM booking_app.bookings WHERE tenant_id=$1 AND slot_id=$2
+           )) outbox_count,
+           (SELECT count(*)::int FROM iam_app.audit_records WHERE tenant_id=$1 AND action='booking.create') tenant_audit_count,
+           (SELECT count(*)::int FROM iam_app.outbox_events WHERE tenant_id=$1 AND event_type='booking.public_created.v1') tenant_outbox_count,
+           (SELECT status FROM booking_app.slots WHERE tenant_id=$1 AND id=$2) slot_status`,
+        [tenantA, slotId],
+      );
+      expect(persisted.rows[0]).toEqual({
+        audit_count: 1,
+        booking_count: 1,
+        outbox_count: 1,
+        slot_status: 'Full',
+        tenant_audit_count: 1,
+        tenant_outbox_count: 1,
+        verifier_count: 2,
+      });
+    } finally {
+      if (blockerActive) await blocker.query('ROLLBACK');
+      await Promise.allSettled(pendingRequests);
+      blocker.release();
+    }
+  }, 10_000);
+
+  it('serializes concurrent same-key public retries without duplicate effects (DIVE-BOOK-REQ-028, DIVE-BOOK-REQ-062)', async () => {
+    const { channelId, slotId } = await seedImmediatePublicSlot({
+      capacity: 1,
+      publicId: 'same-key-channel',
+    });
+    const idempotencyKey = 'same-key-retry';
+    const blocker = await admin.connect();
+    let blockerActive = false;
+    let pendingRequests: Promise<unknown>[] = [];
+    try {
+      await blocker.query('BEGIN');
+      blockerActive = true;
+      const blockerPid = await blocker.query<{ pid: number }>(
+        'SELECT pg_backend_pid()::int AS pid',
+      );
+      await blocker.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+        [`${tenantA}:${channelId}:${idempotencyKey}`],
+      );
+
+      const body = {
+        slotId,
+        seats: 1,
+        locale: 'en',
+        booker: {
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          email: 'ada@example.test',
+        },
+      };
+      const firstRequest = request(app.getHttpServer())
+        .post('/v1/public/channels/same-key-channel/bookings')
+        .set('origin', 'https://a.example.test')
+        .set('idempotency-key', idempotencyKey)
+        .send(body)
+        .then((response) => response);
+      const secondRequest = request(app.getHttpServer())
+        .post('/v1/public/channels/same-key-channel/bookings')
+        .set('origin', 'https://a.example.test')
+        .set('idempotency-key', idempotencyKey)
+        .send(body)
+        .then((response) => response);
+      pendingRequests = [firstRequest, secondRequest];
+
+      await waitForBlockedBackends(blockerPid.rows[0]?.pid ?? 0, 2);
+      await blocker.query('COMMIT');
+      blockerActive = false;
+
+      const responses = await Promise.all([firstRequest, secondRequest]);
+      expect(responses.map(({ status }) => status).sort()).toEqual([200, 201]);
+      expect(responses[0]?.body).toEqual(responses[1]?.body);
+
+      const persisted = await admin.query<{
+        audit_count: number;
+        booking_count: number;
+        outbox_count: number;
+        slot_status: string;
+        tenant_audit_count: number;
+        tenant_outbox_count: number;
+        verifier_count: number;
+      }>(
+        `SELECT
+           (SELECT count(*)::int FROM booking_app.bookings WHERE tenant_id=$1 AND channel_id=$2 AND idempotency_key=$3) booking_count,
+           (SELECT count(*)::int FROM booking_app.capability_verifiers WHERE tenant_id=$1 AND booking_id IN (
+             SELECT id FROM booking_app.bookings WHERE tenant_id=$1 AND channel_id=$2 AND idempotency_key=$3
+           )) verifier_count,
+           (SELECT count(*)::int FROM iam_app.audit_records WHERE tenant_id=$1 AND resource_id IN (
+             SELECT id FROM booking_app.bookings WHERE tenant_id=$1 AND channel_id=$2 AND idempotency_key=$3
+           )) audit_count,
+           (SELECT count(*)::int FROM iam_app.outbox_events WHERE tenant_id=$1 AND payload->>'bookingId' IN (
+             SELECT id::text FROM booking_app.bookings WHERE tenant_id=$1 AND channel_id=$2 AND idempotency_key=$3
+           )) outbox_count,
+           (SELECT count(*)::int FROM iam_app.audit_records WHERE tenant_id=$1 AND action='booking.create') tenant_audit_count,
+           (SELECT count(*)::int FROM iam_app.outbox_events WHERE tenant_id=$1 AND event_type='booking.public_created.v1') tenant_outbox_count,
+           (SELECT status FROM booking_app.slots WHERE tenant_id=$1 AND id=$4) slot_status`,
+        [tenantA, channelId, idempotencyKey, slotId],
+      );
+      expect(persisted.rows[0]).toEqual({
+        audit_count: 1,
+        booking_count: 1,
+        outbox_count: 1,
+        slot_status: 'Full',
+        tenant_audit_count: 1,
+        tenant_outbox_count: 1,
+        verifier_count: 2,
+      });
+    } finally {
+      if (blockerActive) await blocker.query('ROLLBACK');
+      await Promise.allSettled(pendingRequests);
+      blocker.release();
+    }
+  }, 10_000);
 
   it('implements the center-scoped catalog lifecycle and instant filters (DIVE-BOOK-REQ-049..057)', async () => {
     const authorization = 'Bearer owner-a-token';

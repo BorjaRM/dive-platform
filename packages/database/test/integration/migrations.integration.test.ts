@@ -1,4 +1,10 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getTableConfig } from 'drizzle-orm/pg-core';
@@ -123,6 +129,81 @@ describe('product migrations', () => {
     }>(`SELECT count(*)::text AS count FROM drizzle.__drizzle_migrations`);
     expect(after.rows[0]?.count).toBe(before.rows[0]?.count);
     expect(Number(after.rows[0]?.count)).toBe(1);
+  });
+
+  it('restores row_security before a later migration reads a forced-RLS table', async () => {
+    const followupDatabaseName = 'dive_migrate_followup';
+    const tempFolder = mkdtempSync(join(tmpdir(), 'dive-migrate-followup-'));
+    const metaDir = join(tempFolder, 'meta');
+    mkdirSync(metaDir, { recursive: true });
+    const journal = JSON.parse(
+      readFileSync(join(productMigrationsFolder, 'meta/_journal.json'), 'utf8'),
+    ) as {
+      version: string;
+      dialect: string;
+      entries: Array<{
+        idx: number;
+        version: string;
+        when: number;
+        tag: string;
+        breakpoints: boolean;
+      }>;
+    };
+    const followupTag = `${String(journal.entries.length).padStart(4, '0')}_row_security_probe`;
+    const lastWhen = journal.entries.at(-1)?.when ?? 0;
+    journal.entries = [
+      ...journal.entries,
+      {
+        idx: journal.entries.length,
+        version: journal.entries[0]?.version ?? '7',
+        when: lastWhen + 1,
+        tag: followupTag,
+        breakpoints: true,
+      },
+    ];
+    writeFileSync(
+      join(metaDir, '_journal.json'),
+      `${JSON.stringify(journal, null, 2)}\n`,
+    );
+    for (const entry of journal.entries.slice(0, -1)) {
+      writeFileSync(
+        join(tempFolder, `${entry.tag}.sql`),
+        readFileSync(join(productMigrationsFolder, `${entry.tag}.sql`), 'utf8'),
+      );
+    }
+    writeFileSync(
+      join(tempFolder, `${followupTag}.sql`),
+      `SELECT set_config('app.tenant_id', '11111111-1111-1111-1111-111111111111', true);
+--> statement-breakpoint
+SELECT id FROM iam_app.tenants;
+`,
+    );
+
+    const maintenance = new Pool({
+      connectionString: spikeAdminDatabaseUrl(),
+      max: 1,
+    });
+    try {
+      await maintenance.query(
+        `DROP DATABASE IF EXISTS ${followupDatabaseName}`,
+      );
+      await maintenance.query(`CREATE DATABASE ${followupDatabaseName}`);
+      await maintenance.query(
+        `GRANT CONNECT, CREATE ON DATABASE ${followupDatabaseName} TO dive_migration`,
+      );
+      await expect(
+        migrateProduct(
+          tempFolder,
+          urlForDatabase(migrationDatabaseUrl(), followupDatabaseName),
+        ),
+      ).resolves.toBeUndefined();
+    } finally {
+      await maintenance.query(
+        `DROP DATABASE IF EXISTS ${followupDatabaseName}`,
+      );
+      await maintenance.end();
+      rmSync(tempFolder, { recursive: true, force: true });
+    }
   });
 
   it('keeps Drizzle product columns aligned with PostgreSQL', async () => {

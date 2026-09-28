@@ -94,7 +94,10 @@ export type DashboardRequest = <Value>(
   options?: DashboardRequestOptions,
 ) => Promise<Value>;
 
-async function readDashboardProblemDetails(response: Response) {
+async function readDashboardProblemDetails(
+  response: Response,
+  signal: AbortSignal,
+) {
   if (
     !response.headers
       .get('content-type')
@@ -114,6 +117,7 @@ async function readDashboardProblemDetails(response: Response) {
       ...(typeof problem.detail === 'string' ? { detail: problem.detail } : {}),
     } satisfies DashboardProblemDetails;
   } catch {
+    if (signal.aborted) throw signal.reason;
     return undefined;
   }
 }
@@ -144,8 +148,9 @@ export function createDashboardApi({
         ? undefined
         : new Promise<never>((_, reject) => {
             timeout = setTimeout(() => {
-              reject(new DashboardApiError(0, 'unavailable'));
-              controller.abort();
+              const error = new DashboardApiError(0, 'unavailable');
+              reject(error);
+              controller.abort(error);
             }, requestTimeoutMillis);
           });
     const signal = controller.signal;
@@ -206,7 +211,7 @@ export function createDashboardApi({
         throw new DashboardApiError(
           response.status,
           kind,
-          await bounded(readDashboardProblemDetails(response)),
+          await bounded(readDashboardProblemDetails(response, signal)),
         );
       }
 

@@ -14,7 +14,10 @@ Normative decisions:
 - **Worker**: outbox + async tasks
 - **Database**: PostgreSQL shared DB/schema, RLS as defense in depth
 
-This topology is not fully provisioned. The repo currently has starters and empty domain/database packages.
+This topology is partially implemented. The API and database provide the walking
+skeleton for IAM, the center catalog, and public booking. The web app provides the
+authenticated dashboard shell and tenant-context flows. The worker remains a
+starter, and external outbox delivery is not implemented.
 
 ## Principles
 
@@ -28,4 +31,6 @@ This topology is not fully provisioned. The repo currently has starters and empt
 - Apps (`@dive-center/web`, `@dive-center/api`, `@dive-center/worker`) are the deployable processes.
 - Libraries live under `packages/` with the `@dive-center/*` scope. Each has its own `package.json` and a thin `tsconfig.json` that extends `@dive-center/typescript-config`.
 - Domain must not import Next.js, NestJS, Clerk, or other vendor SDKs. That rule is independent of package count.
-- Most libraries are empty shells today. Do not treat them as implemented adapters.
+- Library maturity varies. Database, identity, and observability contain
+    implemented adapters and runtime operations, while some other packages remain
+    placeholders. Inspect each package before treating it as an implemented boundary.
