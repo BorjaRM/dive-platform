@@ -1,3 +1,4 @@
+import { CatalogPanel } from '@/features/dashboard/catalog-panel';
 import { ClerkDashboardSession } from '@/features/dashboard/clerk-dashboard-session';
 import { DashboardTenantContext } from '@/features/dashboard/dashboard-tenant-context';
 import { dashboardRequestTimeoutFromEnvironment } from '@/features/dashboard/tenant-context';
@@ -13,7 +14,9 @@ export default function DashboardPage() {
       <ClerkDashboardSession
         apiBaseUrl={apiBaseUrl}
         requestTimeoutMillis={requestTimeoutMillis}
-      />
+      >
+        <CatalogPanel />
+      </ClerkDashboardSession>
     );
   }
 
@@ -21,6 +24,8 @@ export default function DashboardPage() {
     <DashboardTenantContext
       apiBaseUrl={apiBaseUrl}
       requestTimeoutMillis={requestTimeoutMillis}
-    />
+    >
+      <CatalogPanel />
+    </DashboardTenantContext>
   );
 }

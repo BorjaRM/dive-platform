@@ -1,6 +1,9 @@
+import { createCatalogApi } from './catalog-api';
+
 export const TENANT_CONTEXT_STORAGE_KEY = 'dive.dashboard.tenant-context';
 
 export const DASHBOARD_QUERY_KEYS = {
+  root: ['dashboard'] as const,
   operators: ['dashboard', 'operators'] as const,
   centers: ['dashboard', 'centers'] as const,
 };
@@ -47,10 +50,16 @@ export type DashboardApiErrorKind =
   | 'unavailable'
   | 'unknown';
 
+export type DashboardProblemDetails = Readonly<{
+  code?: string;
+  detail?: string;
+}>;
+
 export class DashboardApiError extends Error {
   constructor(
     readonly status: number,
     readonly kind: DashboardApiErrorKind,
+    readonly problem?: DashboardProblemDetails,
   ) {
     super('Dashboard request failed');
     this.name = 'DashboardApiError';
@@ -73,12 +82,41 @@ export function dashboardRequestTimeoutFromEnvironment(
   return timeout;
 }
 
-type RequestOptions = {
-  method?: 'GET' | 'POST' | 'DELETE';
+export type DashboardRequestOptions = {
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   context?: string;
   body?: unknown;
   signal?: AbortSignal | undefined;
 };
+
+export type DashboardRequest = <Value>(
+  path: string,
+  options?: DashboardRequestOptions,
+) => Promise<Value>;
+
+async function readDashboardProblemDetails(response: Response) {
+  if (
+    !response.headers
+      .get('content-type')
+      ?.toLowerCase()
+      .includes('application/problem+json')
+  ) {
+    return undefined;
+  }
+  try {
+    const body: unknown = await response.clone().json();
+    if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+      return undefined;
+    }
+    const problem = body as Record<string, unknown>;
+    return {
+      ...(typeof problem.code === 'string' ? { code: problem.code } : {}),
+      ...(typeof problem.detail === 'string' ? { detail: problem.detail } : {}),
+    } satisfies DashboardProblemDetails;
+  } catch {
+    return undefined;
+  }
+}
 
 export function createDashboardApi({
   baseUrl,
@@ -92,7 +130,10 @@ export function createDashboardApi({
     throw new Error('Invalid dashboard request timeout');
   }
 
-  async function request<T>(path: string, options: RequestOptions = {}) {
+  async function request<T>(
+    path: string,
+    options: DashboardRequestOptions = {},
+  ) {
     const controller = new AbortController();
     const abortFromCaller = () => controller.abort(options.signal?.reason);
     options.signal?.addEventListener('abort', abortFromCaller, { once: true });
@@ -122,6 +163,7 @@ export function createDashboardApi({
     } catch (error) {
       cleanup();
       if (error instanceof DashboardApiError) throw error;
+      if (options.signal?.aborted) throw error;
       throw new DashboardApiError(401, 'session-expired');
     }
     if (!token) {
@@ -165,7 +207,11 @@ export function createDashboardApi({
             : response.status >= 500
               ? 'unavailable'
               : 'unknown';
-      throw new DashboardApiError(response.status, kind);
+      throw new DashboardApiError(
+        response.status,
+        kind,
+        await readDashboardProblemDetails(response),
+      );
     }
 
     if (response.status === 204) return undefined as T;
@@ -187,5 +233,8 @@ export function createDashboardApi({
       }),
     listCenters: (context: string, signal?: AbortSignal) =>
       request<Center[]>('/v1/centers', { context, signal }),
+    ...createCatalogApi({ request }),
   };
 }
+
+export type DashboardApi = ReturnType<typeof createDashboardApi>;

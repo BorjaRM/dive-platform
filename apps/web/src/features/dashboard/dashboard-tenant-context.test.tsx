@@ -7,6 +7,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useDashboardContext } from './dashboard-context';
 import { DashboardTenantContext } from './dashboard-tenant-context';
 import {
   createTenantContextStorage,
@@ -64,6 +65,34 @@ function renderDashboardWithoutInjectedStorage(session: SessionTokenSource) {
     </QueryClientProvider>,
   );
   return queryClient;
+}
+
+function DashboardContextProbe() {
+  const {
+    apiBaseUrl,
+    authorizedCenters,
+    invalidateDashboardCache,
+    isReady,
+    sessionState,
+    tenantContext,
+  } = useDashboardContext();
+
+  return (
+    <div>
+      <output data-testid="dashboard-context-value">
+        {JSON.stringify({
+          apiBaseUrl,
+          authorizedCenters,
+          isReady,
+          sessionState,
+          tenantContext,
+        })}
+      </output>
+      <button type="button" onClick={invalidateDashboardCache}>
+        Invalidate dashboard cache
+      </button>
+    </div>
+  );
 }
 
 describe('authenticated dashboard tenant-context flow', () => {
@@ -189,11 +218,17 @@ describe('authenticated dashboard tenant-context flow', () => {
     queryClient.setQueryData(DASHBOARD_QUERY_KEYS.centers, [
       { id: 'old-center', name: 'Old Tenant Data' },
     ]);
+    queryClient.setQueryData(['dashboard', 'catalog', 'activities'], {
+      items: [{ id: 'old-activity' }],
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Change workspace' }));
     expect(await screen.findByText('Beta Divers')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Beta Divers/i }));
     expect(await screen.findByText('Beta Base')).toBeInTheDocument();
     expect(screen.queryByText('Old Tenant Data')).not.toBeInTheDocument();
+    expect(
+      queryClient.getQueryData(['dashboard', 'catalog', 'activities']),
+    ).toBeUndefined();
     expect(rawStorage.getItem('dive.dashboard.tenant-context')).toBe(
       'ctx_beta',
     );
@@ -732,6 +767,56 @@ describe('authenticated dashboard tenant-context flow', () => {
       window.sessionStorage.getItem('dive.dashboard.tenant-context'),
     ).toBeNull();
     expect(fetchMock).toHaveBeenCalled();
+    fetchMock.mockRestore();
+  });
+
+  it('exposes the authenticated boundary to descendant screens and clears all dashboard cache', async () => {
+    const rawStorage = memoryStorage();
+    rawStorage.setItem('dive.dashboard.tenant-context', 'ctx_alpha');
+    const storage = createTenantContextStorage(rawStorage);
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        jsonResponse([{ id: 'center-alpha', name: 'Harbor Base' }]),
+      );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DashboardTenantContext
+          apiBaseUrl="https://api.example.test"
+          session={{ configured: true, getToken: async () => 'session-alpha' }}
+          storage={storage}
+        >
+          <DashboardContextProbe />
+        </DashboardTenantContext>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('Harbor Base')).toBeInTheDocument();
+    expect(screen.getByTestId('dashboard-context-value')).toHaveTextContent(
+      JSON.stringify({
+        apiBaseUrl: 'https://api.example.test',
+        authorizedCenters: [{ id: 'center-alpha', name: 'Harbor Base' }],
+        isReady: true,
+        sessionState: 'available',
+        tenantContext: 'ctx_alpha',
+      }),
+    );
+    queryClient.setQueryData(['dashboard', 'catalog', 'activities'], {
+      items: [{ id: 'activity-alpha' }],
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Invalidate dashboard cache' }),
+    );
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryData(['dashboard', 'catalog', 'activities']),
+      ).toBeUndefined();
+    });
+
     fetchMock.mockRestore();
   });
 });
