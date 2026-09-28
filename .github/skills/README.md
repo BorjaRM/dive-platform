@@ -14,7 +14,7 @@ Skills auto-load from `description`; `/skill-name` also works. That does not add
 
 | Directory | Use when |
 |---|---|
-| `traceability-first-implementation` | Implementing requirement IDs |
+| `traceability-first-implementation` | Implementing requirement IDs from an implementation issue |
 | `tenant-isolation-invariants` | Persistence, queries, RLS, `tenant_id`, or tenant/center resolution |
 | `sdd-normative-change-hygiene` | Changing SPEC/ADR/TRACE |
 | `fill-pr-validation` | Writing or reviewing the PR Validation section |
@@ -22,6 +22,11 @@ Skills auto-load from `description`; `/skill-name` also works. That does not add
 | `vercel-react-best-practices` | Writing, reviewing, or refactoring React/Next.js code in `apps/web` |
 | `vercel-composition-patterns` | Designing or refactoring reusable React component APIs in `apps/web` |
 | `web-design-guidelines` | Reviewing UI, accessibility, design, or UX in `apps/web` |
+
+For product implementation, the Development Brief lives only in the
+implementation issue and the PR uses `Closes #<issue>`. Validation is
+proportional: reproducible tests are the default proof, and Test and Evidence
+Engineer is optional rather than a required phase for every increment.
 
 ## Third-party skills
 
