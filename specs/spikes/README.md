@@ -14,6 +14,7 @@ Never abbreviate to `SPIKE-001` in this repository. That ID belongs to another p
 | `SPIKE-DIVE-001` | Last-seat booking concurrency | `specs/spikes/SPIKE-DIVE-001/` |
 | `SPIKE-DIVE-002` | Eligibility and emergency data (deferred) | `specs/spikes/SPIKE-DIVE-002/` |
 | `SPIKE-DIVE-003` | Widget integration and security | `specs/spikes/SPIKE-DIVE-003/` |
+| `SPIKE-DIVE-004` | Clerk Application Invitation acceptance | `specs/spikes/SPIKE-DIVE-004/` |
 
 Do not merge `MT-REQ-*` results with `SPIKE-DIVE-001-REQ-*` or `DIVE-BOOK-REQ-*`. Sharing fixtures does not merge evidence.
 
@@ -23,6 +24,7 @@ Do not merge `MT-REQ-*` results with `SPIKE-DIVE-001-REQ-*` or `DIVE-BOOK-REQ-*`
 - `SPIKE-DIVE-001/` — last-seat concurrency, capacity, idempotency, audit, and outbox
 - `SPIKE-DIVE-002/` — deferred eligibility and emergency-data discovery
 - `SPIKE-DIVE-003/` — widget integration, security, accessibility, and fallback
+- `SPIKE-DIVE-004/` — Clerk Application Invitation creation, existing-identity acceptance, session states, and ticket cleanup
 
 Each package contains specification, requirements, execution checkpoints, traceability, and results.
 
