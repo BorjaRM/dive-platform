@@ -1,10 +1,10 @@
 # SPEC-DIVE-ONBOARDING-001 — Controlled self bootstrap and guided first-center onboarding
 
-- **Status:** Draft
-- **Version:** 0.3
+- **Status:** Ready to start
+- **Version:** 0.4
 - **Last reviewed:** 2026-09-28
-- **Approved by:** Product owner for Draft review
-- **Approval reference:** PR #36 plus product confirmation 2026-09-28
+- **Approved by:** Product owner for implementation
+- **Approval reference:** Product owner confirmation 2026-09-28 after merged PR #62
 - **Owner:** Product / Security / Frontend Architecture
 - **IDs:** `DIVE-ONB-REQ-001` … `DIVE-ONB-REQ-050`
 
@@ -14,25 +14,25 @@ This SPEC governs invited self-service creation of an operator tenant, its first
 
 `SPEC-DIVE-IAM-001` remains authoritative for identities, memberships, tenant roles, permissions, tenant context, and ordinary tenant invitations. `ADR-DIVE-002` remains authoritative for the transactional outbox. `ADR-DIVE-013` owns the architecture choices introduced by this flow.
 
-The product owner narrowed US-19 to self bootstrap only. Assisted provisioning by platform staff is outside this story. This artifact remains Draft and does not authorize implementation.
+The product owner narrowed US-19 to self bootstrap only. Assisted provisioning by platform staff is outside this story. This artifact is Ready to start for reversible implementation with synthetic data. It does not authorize a real-data pilot.
 
 ## Requirement provenance
 
 | Requirement IDs | Provenance | Exact source | Decision status |
 |---|---|---|---|
-| `DIVE-ONB-REQ-001` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Merged in PR #36; remains Draft |
-| `DIVE-ONB-REQ-003` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Merged in PR #36; remains Draft |
-| `DIVE-ONB-REQ-005..DIVE-ONB-REQ-020` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Merged in PR #36; remains Draft |
-| `DIVE-ONB-REQ-022..DIVE-ONB-REQ-028` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Merged in PR #36; remains Draft |
-| `DIVE-ONB-REQ-031..DIVE-ONB-REQ-035` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Merged in PR #36; remains Draft |
-| `DIVE-ONB-REQ-002` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-001..006`; PR #36 product-owner revision record | Merged in PR #36; remains Draft |
-| `DIVE-ONB-REQ-004` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-002..006`; `ADR-DIVE-008` § Authorization path | Merged in PR #36; remains Draft |
-| `DIVE-ONB-REQ-021` | `Proposed` | PR #32 SDD Gatekeeper remediation; product confirmation 2026-09-28 | Approved for Draft review; no implementation authority |
-| `DIVE-ONB-REQ-029..DIVE-ONB-REQ-030` | `Proposed` | PR #32 SDD Gatekeeper remediation; product confirmation 2026-09-28 | Approved for Draft review; no implementation authority |
-| `DIVE-ONB-REQ-036` | `Derived` | `specs/foundation/sdd-specs-traceability.md` § Spec lifecycle / Definition of Ready / Definition of Done | Lifecycle rule documented; scenario completeness pending review |
-| `DIVE-ONB-REQ-037..DIVE-ONB-REQ-047` | `Proposed` | Product confirmation 2026-09-28; `ADR-DIVE-013` v0.3 Draft | Approved for Draft review; no implementation authority |
-| `DIVE-ONB-REQ-048` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-022`, `030..031`; product confirmation 2026-09-28 | Approved derivation for Draft review; no implementation authority |
-| `DIVE-ONB-REQ-049..DIVE-ONB-REQ-050` | `Proposed` | Product confirmation 2026-09-28; `ADR-DIVE-013` v0.3 Draft | Approved for Draft review; no implementation authority |
+| `DIVE-ONB-REQ-001` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| `DIVE-ONB-REQ-003` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| `DIVE-ONB-REQ-005..DIVE-ONB-REQ-020` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| `DIVE-ONB-REQ-022..DIVE-ONB-REQ-028` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| `DIVE-ONB-REQ-031..DIVE-ONB-REQ-035` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| `DIVE-ONB-REQ-002` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-001..006`; PR #36 product-owner revision record | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| `DIVE-ONB-REQ-004` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-002..006`; `ADR-DIVE-008` § Authorization path | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| `DIVE-ONB-REQ-021` | `Proposed` | PR #32 SDD Gatekeeper remediation; product confirmation 2026-09-28 | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| `DIVE-ONB-REQ-029..DIVE-ONB-REQ-030` | `Proposed` | PR #32 SDD Gatekeeper remediation; product confirmation 2026-09-28 | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| `DIVE-ONB-REQ-036` | `Derived` | `specs/foundation/sdd-specs-traceability.md` § Spec lifecycle / Definition of Ready / Definition of Done | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| `DIVE-ONB-REQ-037..DIVE-ONB-REQ-047` | `Proposed` | Product confirmation 2026-09-28; `ADR-DIVE-013` v0.3 Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| `DIVE-ONB-REQ-048` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-022`, `030..031`; product confirmation 2026-09-28 | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| `DIVE-ONB-REQ-049..DIVE-ONB-REQ-050` | `Proposed` | Product confirmation 2026-09-28; `ADR-DIVE-013` v0.3 Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 
 ### Derivations
 

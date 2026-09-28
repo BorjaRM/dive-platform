@@ -1,7 +1,7 @@
 # ADR-DIVE-013 — Controlled self bootstrap and replaceable guided onboarding
 
-- **Status:** Draft
-- **Version:** 0.3
+- **Status:** Ready to start
+- **Version:** 0.4
 - **Date:** 2026-09-28
 - **Deciders:** Product / Security / Frontend Architecture
 - **Affected IDs:** `DIVE-ONB-REQ-001..050`; `DIVE-IAM-REQ-001..006`, `017`, `020`, `024`, `025`, `029..032`
@@ -13,12 +13,12 @@
 | Clerk authenticates; PostgreSQL owns memberships and authorization | `Documented` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-001..006`; `ADR-DIVE-008` § Responsibility split | Existing normative constraint |
 | Tenant creation and first-center creation are the first walking-skeleton increment | `Documented` | `specs/product/dive-mvp-profile.md` §6 | Existing product direction; no onboarding contract existed |
 | Reliable side effects use the transactional outbox | `Documented` | `ADR-DIVE-002` § Decision | Existing normative constraint |
-| US-19 is self bootstrap by an invited future Owner; assisted provisioning is outside the MVP story | `Proposed` | PR #36 product-owner revision record | Merged in PR #36; remains Draft |
-| Controlled invitation, atomic creation, idempotency, fields, limits, rollout, and acceptance matrix | `Proposed` | PR #36 product-owner revision record; `SPEC-DIVE-ONBOARDING-001` Draft | Merged in PR #36; remains Draft |
-| Driver.js behind a replaceable renderer, local visual state, versioned content port, and no-op analytics port | `Proposed` | PR #36 product-owner revision record; `SPEC-DIVE-ONBOARDING-001` Draft | Merged in PR #36; remains Draft |
-| Login-only public entry, single-use fragment credential, internal platform capabilities and routes | `Proposed` | Product confirmation 2026-09-28; `SPEC-DIVE-ONBOARDING-001` v0.3 Draft | Approved for Draft review; no implementation authority |
-| Transactional `centerKey` mapping, encrypted delivery envelope, physical persistence, retention, audit, and event contract | `Proposed` | Product confirmation 2026-09-28; `SPEC-DIVE-ONBOARDING-001` v0.3 Draft | Approved for Draft review; no implementation authority |
-| Active-membership revalidation and handle invalidation | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-022`, `030..031`; product confirmation 2026-09-28 | Approved derivation for Draft review; no implementation authority |
+| US-19 is self bootstrap by an invited future Owner; assisted provisioning is outside the MVP story | `Proposed` | PR #36 product-owner revision record | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| Controlled invitation, atomic creation, idempotency, fields, limits, rollout, and acceptance matrix | `Proposed` | PR #36 product-owner revision record; `SPEC-DIVE-ONBOARDING-001` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| Driver.js behind a replaceable renderer, local visual state, versioned content port, and no-op analytics port | `Proposed` | PR #36 product-owner revision record; `SPEC-DIVE-ONBOARDING-001` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| Login-only public entry, single-use fragment credential, internal platform capabilities and routes | `Proposed` | Product confirmation 2026-09-28; `SPEC-DIVE-ONBOARDING-001` v0.3 Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| Transactional `centerKey` mapping, encrypted delivery envelope, physical persistence, retention, audit, and event contract | `Proposed` | Product confirmation 2026-09-28; `SPEC-DIVE-ONBOARDING-001` v0.3 Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| Active-membership revalidation and handle invalidation | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-022`, `030..031`; product confirmation 2026-09-28 | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 
 ## Context
 
@@ -148,7 +148,7 @@ Rejected for this scope. Bootstrap requires a platform-issued invitation.
 
 The implementation must satisfy `SPEC-DIVE-ONBOARDING-001` `DIVE-ONB-REQ-001..050` and its acceptance matrix through domain/API, component, Playwright, isolation, security, and manual accessibility evidence.
 
-This Draft PR changes documentation only. It provides no implementation, migration, test, or pilot evidence.
+This Ready-to-start decision record authorizes reversible implementation with synthetic data but provides no implementation, migration, test, or pilot evidence.
 
 ## Open questions
 
@@ -156,4 +156,4 @@ No blocking product decision remains in this Draft revision. Readiness review mu
 
 ## Implementation authority
 
-None while Draft. Merge records the reviewed proposal but does not promote this ADR to Ready to start, Review, or Accepted without a separate explicit product-owner status decision.
+Ready to start: reversible implementation with synthetic data is authorized. Review, Accepted, real personal data, and pilot gates still require their own evidence and explicit approval.

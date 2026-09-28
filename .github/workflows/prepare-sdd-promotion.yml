@@ -1,0 +1,105 @@
+name: Prepare SDD promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      spec_path:
+        description: SPEC path under specs/
+        required: true
+        type: string
+      adr_path:
+        description: ADR path under specs/architecture/adrs/
+        required: true
+        type: string
+      trace_path:
+        description: TRACE path under specs/traceability/
+        required: true
+        default: specs/traceability/TRACE-DIVE-MVP-001.md
+        type: string
+      approval_reference:
+        description: Exact human approval reference recorded in the artifacts
+        required: true
+        type: string
+      spec_version:
+        description: New SPEC version
+        required: true
+        type: string
+      adr_version:
+        description: New ADR version
+        required: true
+        type: string
+      trace_version:
+        description: New TRACE version
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare-promotion-pr:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Prepare deterministic promotion
+        env:
+          SPEC_PATH: ${{ inputs.spec_path }}
+          ADR_PATH: ${{ inputs.adr_path }}
+          TRACE_PATH: ${{ inputs.trace_path }}
+          APPROVAL_REFERENCE: ${{ inputs.approval_reference }}
+          SPEC_VERSION: ${{ inputs.spec_version }}
+          ADR_VERSION: ${{ inputs.adr_version }}
+          TRACE_VERSION: ${{ inputs.trace_version }}
+        run: >-
+          node scripts/prepare-sdd-promotion.mjs
+          --spec "$SPEC_PATH"
+          --adr "$ADR_PATH"
+          --trace "$TRACE_PATH"
+          --approval-reference "$APPROVAL_REFERENCE"
+          --spec-version "$SPEC_VERSION"
+          --adr-version "$ADR_VERSION"
+          --trace-version "$TRACE_VERSION"
+          --pr-body /tmp/sdd-promotion-pr-body.md
+
+      - name: Validate specifications
+        run: node scripts/validate-spec-governance.mjs --all
+
+      - name: Test governance automation
+        run: node --test scripts/validate-spec-governance.test.mjs scripts/prepare-sdd-promotion.test.mjs
+
+      - name: Create promotion branch
+        id: branch
+        run: |
+          branch="sdd/promotion-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "name=$branch" >> "$GITHUB_OUTPUT"
+          git switch -c "$branch"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${{ inputs.spec_path }}" "${{ inputs.adr_path }}" "${{ inputs.trace_path }}"
+          git commit -m "docs(sdd): promote artifacts to Ready to start"
+          git push --set-upstream origin "$branch"
+
+      - name: Open Draft promotion PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.branch.outputs.name }}
+        run: >-
+          gh pr create
+          --draft
+          --base main
+          --head "$BRANCH"
+          --title "docs(sdd): promote approved artifacts to Ready to start"
+          --body-file /tmp/sdd-promotion-pr-body.md
