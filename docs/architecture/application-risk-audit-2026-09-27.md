@@ -263,8 +263,8 @@ refactorización de `DashboardTenantContext`: el componente es temporal y será
 sustituido. Extraer ahora sus responsabilidades crearía arquitectura
 transitoria y duplicaría el trabajo de migración. Esta decisión difiere la
 corrección, no declara resuelto el riesgo; el diseño y el momento del
-reemplazo quedan abiertos. La decisión está registrada en
-[evidence/architecture/ARCH-01.md](../../evidence/architecture/ARCH-01.md).
+reemplazo quedan abiertos. Esta decisión permanece como nota `Proposed` de
+este informe hasta que el reemplazo tenga su propio diseño aprobado.
 
 ### DOC-01 — Versión de TypeScript divergente
 
@@ -360,15 +360,16 @@ condiciona el arranque a credenciales de un proveedor concreto. El middleware
 HTTP valida o genera `X-Correlation-ID`, lo devuelve en la respuesta y lo
 propaga mediante `AsyncLocalStorage` a los logs de seguridad, IAM, webhooks y
 mutaciones de catálogo que alimentan audit/outbox. Los UUID de recursos siguen
-siendo independientes. La evidencia ejecutable está en
-[evidence/operations/OBS-01.md](../../evidence/operations/OBS-01.md).
+siendo independientes. La prueba ejecutable está en
+[index.spec.ts](../../packages/observability/src/index.spec.ts) y
+[correlation-id.middleware.spec.ts](../../apps/api/src/common/observability/correlation-id.middleware.spec.ts).
 
 ## Corrección aplicada: SEC-01
 
 El workflow de CI declara `contents: read` tanto a nivel global como por job,
 no ejecuta autofix, commit ni push, y la guía del agente de CI ya no ordena
-publicar cambios desde una validación. La evidencia ejecutable está en
-[evidence/operations/SEC-01.md](../../evidence/operations/SEC-01.md).
+publicar cambios desde una validación. La fuente ejecutable es
+[ci.yml](../../.github/workflows/ci.yml).
 
 ## Corrección aplicada: SEC-02
 
@@ -376,9 +377,9 @@ El bootstrap del API aplica `helmet`, mantiene CORS con orígenes exactos y
 solo registra Swagger cuando `API_SWAGGER_ENABLED` lo habilita explícitamente;
 producción rechaza esa activación. Staging, preview y producción fallan si no
 reciben `API_RATE_LIMIT_WINDOW_MS` y `API_RATE_LIMIT_MAX`, y el límite IP
-configurado se prueba con una respuesta 429. La evidencia está en
-[evidence/operations/SEC-02.md](../../evidence/operations/SEC-02.md). La
-limitación por identidad y tenant permanece como decisión normativa abierta:
+configurado se prueba con una respuesta 429. La prueba está en
+[http-hardening.spec.ts](../../apps/api/src/common/security/http-hardening.spec.ts).
+La limitación por identidad y tenant permanece como decisión normativa abierta:
 no se usa un header controlado por el cliente como clave de autorización.
 
 ## Corrección aplicada: SEC-03
@@ -386,16 +387,16 @@ no se usa un header controlado por el cliente como clave de autorización.
 El nuevo workflow de seguridad versiona dependency review para PRs, Gitleaks
 para secretos, `pnpm audit --prod` como señal auxiliar y un SBOM CycloneDX como
 artefacto de los tags `v*`. CodeQL queda desactivado porque el repositorio
-privado no tiene disponible code scanning bajo el plan actual; la evidencia
-mantiene este gap explícito en [evidence/operations/SEC-03.md](../../evidence/operations/SEC-03.md).
+privado no tiene disponible code scanning bajo el plan actual; el workflow
+fuente es [security.yml](../../.github/workflows/security.yml).
 
 ## Corrección aplicada: DOC-01
 
 ADR-DIVE-003 versión 0.2 y el README ahora documentan TypeScript `6.0.3`, que
 es la versión efectiva del catálogo pnpm, lockfile e instalación. También se
 eliminó la afirmación de un `pnpm.overrides` inexistente. No se cambiaron
-dependencias ni lockfile. La evidencia está en
-[evidence/architecture/DOC-01.md](../../evidence/architecture/DOC-01.md).
+dependencias ni lockfile. La fuente normativa es
+[ADR-DIVE-003.md](../../specs/architecture/adrs/ADR-DIVE-003.md).
 
 ## Corrección aplicada: DATA-01
 
@@ -414,8 +415,8 @@ y en `packages/database/test/integration/iam-api.integration.test.ts`.
 La configuración de producción ahora falla cerrada ante orígenes no HTTPS o
 sintéticos, secretos HMAC débiles o sintéticos y emisores Clerk inválidos. La
 prueba focalizada cubre esas combinaciones y la no divulgación de valores
-sensibles. La evidencia está en
-[evidence/operations/SEC-04.md](../../evidence/operations/SEC-04.md).
+sensibles en [environment.spec.ts](../../apps/api/src/common/config/environment.spec.ts)
+y [tenant-context.crypto.spec.ts](../../apps/api/src/common/tenant-context/tenant-context.crypto.spec.ts).
 
 ## Validación de correcciones
 

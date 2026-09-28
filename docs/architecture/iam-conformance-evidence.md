@@ -52,7 +52,7 @@ Use the existing repository ownership boundaries:
 - Requirement relationships: `specs/traceability/TRACE-DIVE-MVP-001.md`.
 - Approved Phase 0 decisions: `specs/architecture/adrs/ADR-DIVE-004.md` through `ADR-DIVE-007.md`.
 - Non-normative implementation follow-ups: `docs/architecture/iam-vertical-follow-ups.md`.
-- Phase 2 synthetic revocation contract measurement: `evidence/releases/iam-phase-2-revocation.md`.
+- Phase 2 Clerk provider-session revocation evidence: `evidence/releases/iam-phase-2-revocation.md`.
 
 Do not mark a row Demonstrated from a source-file reference alone. The row needs a passing executable check or a dated evidence artifact that proves the observable behavior.
 
