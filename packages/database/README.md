@@ -34,6 +34,9 @@ direct access to global identity bindings, and reaches sensitive mutations throu
 reviewed command functions. A separate webhook login is a future hardening option,
 not the current runtime contract.
 
+Production credential separation, break-glass access, network controls, and
+audit gates are tracked in `docs/operations/production-database-access.md`.
+
 ## Commands
 
 ```bash
@@ -42,29 +45,16 @@ pnpm db:migrate     # dive_migration: apply drizzle/
 pnpm db:generate    # Drizzle Kit schema diff → new SQL under drizzle/
 ```
 
-Do not run `db:generate` to rewrite applied migrations. Append a new file instead.
+`drizzle/0000_baseline.sql` is the immutable pre-release baseline. It combines
+the Drizzle-generated product schema with reviewed PostgreSQL-specific RLS,
+grants, triggers, and `SECURITY DEFINER` functions. The previous disposable
+history has no supported upgrade path; recreate any pre-baseline local database.
 
-The API must not apply migrations or bootstrap roles at startup.
-
-## Phase 1 migration deployment
-
-This pre-pilot, synthetic-data migration is maintenance-only because it replaces direct runtime DML with command functions.
-
-1. Stop the API and worker and prevent new `dive_app` sessions.
-2. Apply all pending migrations as `dive_migration` before deploying application code that calls the new commands.
-3. Verify the command functions are owned by `dive_migration`, are `SECURITY DEFINER` with the fixed `search_path`, are executable by `dive_app` but not `PUBLIC`, and that `dive_app` has no direct membership, invitation, audit, or outbox mutation grants.
-4. Run the focused migration, invitation, and runtime-role integration probes before restoring traffic.
-5. Deploy the matching API artifact, then restore traffic.
-
-If a migration fails, keep traffic stopped. PostgreSQL rolls the failed migration transaction back; correct it with a new append-only migration and rerun the probes. If a migration committed but the application artifact is incompatible, roll forward the application or add a corrective migration. Do not recover by restoring direct table DML, using the migration role at runtime, disabling RLS, or granting `BYPASSRLS`.
-
-## Phase 2 identity webhook migrations
-
-Migrations `0005_add_identity_webhook_inbox.sql` and `0006_harden_identity_webhook_tenant_resolution.sql` are an ordered pair. Apply both before deploying the Clerk webhook route. The first adds the inbox and narrow runtime command. The second adds historical identity-to-tenant bindings, restores forced RLS after migration-time validation, and resolves associated tenants without relying on current membership visibility.
-
-The runtime role can execute `apply_identity_webhook_command` but cannot read or mutate the inbox, identity bindings, external identities, audit, outbox, or memberships directly. A resolved `user.deleted` is recorded once and emits one audited `iam.identity.provider_deletion_recorded.v1` signal per associated tenant. The command never mutates external identities or memberships, never grants authorization, and does not have a last-owner-specific outcome; last-owner protection remains enforced by the membership mutation command required by `DIVE-IAM-REQ-018`.
-
-These migrations are additive for pre-pilot synthetic data. Rollback is operational: stop API/worker traffic, restore the pre-migration database backup if the pair has not received useful events, or roll forward with a corrective migration if it has. Do not drop inbox/history rows or invent a retention TTL; retention remains an approved-policy gap.
+For subsequent structural changes, update `src/product-schema.ts`, run
+`pnpm db:generate`, and review the generated SQL and metadata. Add PostgreSQL
+controls that Drizzle cannot express to that new migration. Do not rewrite an
+applied migration. The API must not apply migrations or bootstrap roles at
+startup.
 
 ## Provenance
 

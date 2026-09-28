@@ -40,6 +40,12 @@ describe('MT-SPIKE-001 runtime role', () => {
     await expect(assertRuntimeDatabaseRole(appPool)).resolves.toBeUndefined();
   });
 
+  it('rejects the live administrative connection as an API runtime role', async () => {
+    await expect(assertRuntimeDatabaseRole(adminPool)).rejects.toThrow(
+      /Unsafe runtime database role .*: .*SUPERUSER/,
+    );
+  });
+
   it.each([
     ['migration role', 'isMigrationRole'],
     ['SUPERUSER', 'roleIsSuperuser'],

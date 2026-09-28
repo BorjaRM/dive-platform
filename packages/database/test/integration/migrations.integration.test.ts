@@ -27,6 +27,9 @@ const iamTables = [
 const bookingTables = [
   bookingSchema.bookingActivities,
   bookingSchema.bookingSlots,
+  bookingSchema.bookingChannels,
+  bookingSchema.bookingBookings,
+  bookingSchema.bookingCapabilityVerifiers,
 ];
 
 const emptyDatabaseName = 'dive_migrate_empty';
@@ -119,7 +122,7 @@ describe('product migrations', () => {
       count: string;
     }>(`SELECT count(*)::text AS count FROM drizzle.__drizzle_migrations`);
     expect(after.rows[0]?.count).toBe(before.rows[0]?.count);
-    expect(Number(after.rows[0]?.count)).toBeGreaterThan(0);
+    expect(Number(after.rows[0]?.count)).toBe(1);
   });
 
   it('keeps Drizzle product columns aligned with PostgreSQL', async () => {
@@ -164,6 +167,19 @@ describe('product migrations', () => {
         qualifiedName,
       ).toEqual(definition.checks.map(({ name }) => name).sort());
     }
+  });
+
+  it('keeps structural defaults aligned with PostgreSQL', async () => {
+    const confirmationMode = await requireEmptyAdminPool(emptyAdminPool).query<{
+      column_default: string | null;
+    }>(
+      `SELECT column_default
+       FROM information_schema.columns
+       WHERE table_schema = 'booking_app'
+         AND table_name = 'channels'
+         AND column_name = 'confirmation_mode'`,
+    );
+    expect(confirmationMode.rows[0]?.column_default).toBe("'immediate'::text");
   });
 
   it('keeps booking foreign keys and query indexes aligned with the catalog contract', async () => {
