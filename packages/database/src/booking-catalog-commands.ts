@@ -4,7 +4,7 @@ export type BookingCatalogMutation = Readonly<{
   tenantId: string;
   actorIdentityId: string;
   action: 'booking.create' | 'booking.update';
-  resourceType: 'activity' | 'slot';
+  resourceType: 'activity' | 'slot' | 'channel';
   resourceId: string;
   eventType: string;
   payload: Record<string, unknown>;

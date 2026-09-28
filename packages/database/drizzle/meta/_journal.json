@@ -113,6 +113,13 @@
       "when": 1790520391005,
       "tag": "0015_add_catalog_list_order_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790601600000,
+      "tag": "0016_add_public_booking_create",
+      "breakpoints": true
     }
   ]
 }

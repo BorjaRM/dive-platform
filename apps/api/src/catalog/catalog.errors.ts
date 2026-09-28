@@ -32,8 +32,10 @@ export class CatalogProblemFilter
       .getRequest<{ originalUrl?: string; url?: string }>();
     const path = request.originalUrl ?? request.url ?? '';
     const isCatalogPath =
-      /^\/v1\/centers\/[^/]+\/(activities|slots)(\/|$)/.test(path);
-    if (!isCatalogPath) {
+      /^\/v1\/centers\/[^/]+\/(activities|slots|channels)(\/|$)/.test(path);
+    const isPublicBookingPath =
+      /^\/v1\/public\/channels\/[^/]+\/bookings(\/|$)/.test(path);
+    if (!isCatalogPath && !isPublicBookingPath) {
       if (exception instanceof HttpException) {
         response.status(exception.getStatus()).send(exception.getResponse());
       } else {

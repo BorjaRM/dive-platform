@@ -41,6 +41,12 @@ import {
   CatalogListQueryPipe,
   CatalogSlotInputPipe,
 } from './catalog.validation.pipe.js';
+import {
+  type ChannelPolicyInput,
+  ChannelPolicyInputDto,
+} from './channels/channel-policy.dto.js';
+import { ChannelPolicyService } from './channels/channel-policy.service.js';
+import { ChannelPolicyInputPipe } from './channels/channel-policy.validation.pipe.js';
 import { SlotCatalogService } from './slots/slot-catalog.service.js';
 
 @ApiTags('Catalog')
@@ -57,6 +63,8 @@ export class CatalogController {
   constructor(
     @Inject(ActivityCatalogService)
     private readonly activities: ActivityCatalogService,
+    @Inject(ChannelPolicyService)
+    private readonly channels: ChannelPolicyService,
     @Inject(SlotCatalogService)
     private readonly slots: SlotCatalogService,
   ) {}
@@ -136,6 +144,23 @@ export class CatalogController {
         activityId,
         'Disabled',
       ),
+    );
+  }
+
+  @Patch('channels/:channelId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBody({ type: ChannelPolicyInputDto })
+  @ApiNoContentResponse()
+  @ApiOperation({ summary: 'Update a hosted booking channel policy' })
+  updateChannelPolicy(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Headers('x-tenant-context') handle: string | undefined,
+    @Param('centerId') centerId: string,
+    @Param('channelId') channelId: string,
+    @Body(ChannelPolicyInputPipe) input: ChannelPolicyInput,
+  ) {
+    return this.execute(principal, (principal) =>
+      this.channels.updatePolicy(principal, handle, centerId, channelId, input),
     );
   }
 

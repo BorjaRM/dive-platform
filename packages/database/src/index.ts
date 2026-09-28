@@ -1,5 +1,6 @@
 export type { BookingCatalogMutation } from './booking-catalog-commands.js';
 export { recordBookingCatalogMutation } from './booking-catalog-commands.js';
+export { bookingChannels } from './booking-schema.js';
 export { bootstrapRoles } from './bootstrap-roles.js';
 export {
   appDatabasePoolConfig,

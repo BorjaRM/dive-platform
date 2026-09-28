@@ -28,7 +28,8 @@ export type CatalogPermission =
   | 'booking_service.read'
   | 'booking_service.publish'
   | 'availability.read'
-  | 'availability.manage';
+  | 'availability.manage'
+  | 'channel.manage';
 
 @Injectable()
 export class CatalogAccessService {
@@ -115,7 +116,7 @@ export class CatalogAccessService {
     input: Readonly<{
       action: 'booking.create' | 'booking.update';
       eventType: string;
-      resourceType: 'activity' | 'slot';
+      resourceType: 'activity' | 'slot' | 'channel';
       resourceId: string;
       payload: Record<string, unknown>;
       idempotencyKey: string;
