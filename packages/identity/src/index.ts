@@ -348,14 +348,21 @@ export function authorizeIamMembership(
     return { allowed: false, reason: 'resource_missing_or_inaccessible' };
   }
   const permission = input.permission as IamPermission;
-  if (!permissionsForRoles(input.roles).has(permission)) {
+  const hasPermission = permissionsForRoles(input.roles).has(permission);
+  const hasTenantScope = hasPermission
+    ? hasTenantWideScopeForPermission(input.roles, permission)
+    : hasTenantWideScope(input.roles);
+  if (
+    input.requestedCenterId &&
+    !hasTenantScope &&
+    !input.centerIds?.includes(input.requestedCenterId)
+  ) {
+    return { allowed: false, reason: 'scope_mismatch' };
+  }
+  if (!hasPermission) {
     return { allowed: false, reason: 'permission_missing' };
   }
-  if (
-    !hasTenantWideScopeForPermission(input.roles, permission) &&
-    (!input.requestedCenterId ||
-      !input.centerIds?.includes(input.requestedCenterId))
-  ) {
+  if (!hasTenantScope && !input.requestedCenterId) {
     return { allowed: false, reason: 'scope_mismatch' };
   }
   if (!input.resourceExists) {

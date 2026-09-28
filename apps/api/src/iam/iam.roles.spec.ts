@@ -210,6 +210,46 @@ describe('IAM role permissions (DIVE-IAM-REQ-003, DIVE-IAM-REQ-010..014, DIVE-IA
     ).toEqual({ allowed: false, reason: 'permission_missing' });
   });
 
+  it('checks center scope before reporting a missing permission', () => {
+    const membership = {
+      membershipStatus: 'active',
+      roles: [IAM_ROLES.centerManager],
+      centerIds: ['center-a'],
+      permission: 'membership.disable',
+      tenantMatches: true,
+      resourceExists: true,
+      resourceStateAllows: true,
+    } as const;
+
+    expect(
+      authorizeIamMembership({
+        ...membership,
+        requestedCenterId: 'center-b',
+      }),
+    ).toEqual({ allowed: false, reason: 'scope_mismatch' });
+    expect(
+      authorizeIamMembership({
+        ...membership,
+        requestedCenterId: 'center-a',
+      }),
+    ).toEqual({ allowed: false, reason: 'permission_missing' });
+  });
+
+  it('reports a missing permission for a tenant-wide role', () => {
+    expect(
+      authorizeIamMembership({
+        membershipStatus: 'active',
+        roles: [IAM_ROLES.auditorCompliance],
+        centerIds: null,
+        permission: 'booking_service.update',
+        requestedCenterId: 'center-a',
+        tenantMatches: true,
+        resourceExists: true,
+        resourceStateAllows: true,
+      }),
+    ).toEqual({ allowed: false, reason: 'permission_missing' });
+  });
+
   it.each([
     {
       name: 'assigned center',

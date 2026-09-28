@@ -38,6 +38,7 @@ Make the change reproducible with the fewest durable artifacts. Do not pretend m
 - `.github/pull_request_template.md`
 - `.github/skills/fill-pr-validation/SKILL.md`
 - `.github/skills/tenant-isolation-invariants/SKILL.md` when proving isolation
+- `.github/skills/reuse-boundary-hygiene/SKILL.md` when proving a module, contract, authority, transaction, or public API boundary
 
 ## Evidence ladder
 
@@ -52,6 +53,7 @@ Follow the delegation and handoff contract in `.github/agents/README.md`. When d
 ## You do
 
 - Map requirement IDs to stable test paths and focused commands.
+- Map boundary changes to observable public-entry tests and negative cases. Run existing architecture or import-boundary checks when present; report their absence instead of inventing proof.
 - Put executed spike proof under `evidence/spikes/<SPIKE-ID>/`.
 - Treat performance evidence as system-level: DB, contention, worker/outbox, API, web/widget.
 - Isolation proof must be executable against public data-access behavior (same-tenant, cross-tenant, missing context, pool reset). Keep `MT-REQ-*` separate from `DIVE-*`.
@@ -62,6 +64,7 @@ Follow the delegation and handoff contract in `.github/agents/README.md`. When d
 ## You do not
 
 - Implement product behavior in `apps/**` or domain packages. Tests and evidence only.
+- Create a production abstraction solely to make a test reusable; return the ownership or boundary gap to the implementer.
 - Create copied logs, screenshots of passing tests, generated reports retained by CI, or files that only say `not executed`.
 - Mark coverage Verified in TRACE without a passing test or required recorded evidence.
 - Claim CI/e2e/Docker unless those files exist and were run.

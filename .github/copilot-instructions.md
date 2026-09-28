@@ -60,6 +60,7 @@ Docker Compose + integration PostgreSQL exist for MT-SPIKE-001 (`infra/docker/po
 ## Cross-cutting constraints
 
 - Tenant isolation is mandatory. No temporary RLS bypass. Use `.github/skills/tenant-isolation-invariants/SKILL.md` when changing persistence, queries, RLS, or tenant/center resolution.
+- Reuse inspection and boundary protection are mandatory when adding or moving modules, services, repositories, helpers, contracts, adapters, public exports, shared UI, or cross-feature imports. Use `.github/skills/reuse-boundary-hygiene/SKILL.md`. Force the search and justification, not extraction; boundary violations block completion.
 - Keep `MT-REQ-*` separate from `DIVE-*` results.
 - IAM (`specs/iam/SPEC-DIVE-IAM-001.md`) and outbox/worker (`ADR-DIVE-002`) apply even without a dedicated agent.
 - `SPEC-DIVE-OPS-001` is Deferred; do not implement it in the walking skeleton.
@@ -70,6 +71,7 @@ Docker Compose + integration PostgreSQL exist for MT-SPIKE-001 (`infra/docker/po
 - Use domain language in names. Keep functions and modules focused on one coherent responsibility.
 - Preserve dependency direction: domain code must not import frameworks or vendor SDKs.
 - Prefer composition and existing repository APIs. Introduce a pattern or abstraction only when it removes demonstrated duplication, isolates a real external dependency, or supports known variation.
+- Before adding a shared abstraction or public export, identify the behavior owner and existing consumers. Record whether the change reused an owner, stayed local, or extracted shared behavior and why.
 - Preserve public contracts unless an approved requirement explicitly changes them.
 - Test observable behavior and boundaries, not private implementation details. Scale coverage with the change's risk and blast radius.
 - Refactor only the area needed to deliver the requested behavior; keep unrelated cleanup out of the change.

@@ -28,8 +28,8 @@ export class ChannelPolicyService {
       handle,
       centerId,
       'channel.manage',
-      async ({ context, unitOfWork, recordMutation }) => {
-        const [channel] = await unitOfWork.db
+      async ({ context, db, recordMutation }) => {
+        const [channel] = await db
           .select({
             id: bookingChannels.id,
             confirmationMode: bookingChannels.confirmationMode,
@@ -48,7 +48,7 @@ export class ChannelPolicyService {
           throw new CatalogProblemException(404, 'resource_not_found');
         }
         if (channel.confirmationMode === input.confirmationMode) return;
-        await unitOfWork.db
+        await db
           .update(bookingChannels)
           .set({ confirmationMode: input.confirmationMode })
           .where(

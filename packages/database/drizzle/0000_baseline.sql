@@ -2487,6 +2487,10 @@ GRANT SELECT ON TABLE iam_app.centers TO dive_app;
 GRANT SELECT ON TABLE iam_app.tenants TO dive_app;
 
 
+-- Restore the session default for later migrations on the same connection.
+SET row_security = on;
+
+
 --
 -- PostgreSQL database dump complete
 --

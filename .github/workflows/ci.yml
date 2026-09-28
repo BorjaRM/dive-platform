@@ -47,6 +47,15 @@ jobs:
           NEXT_PUBLIC_DASHBOARD_REQUEST_TIMEOUT_MS: 15000
         run: pnpm build
 
+      - name: Verify Drizzle schema metadata
+        run: |
+          pnpm db:generate
+          generated_changes="$(git status --porcelain -- packages/database/drizzle)"
+          if [[ -n "$generated_changes" ]]; then
+            printf '%s\n' "$generated_changes"
+            exit 1
+          fi
+
       - name: Check
         run: pnpm check
 

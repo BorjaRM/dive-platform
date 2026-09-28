@@ -43,7 +43,7 @@ type CatalogMutationInput = Readonly<{
 type CatalogAuthorizedScope = Readonly<{
   context: IamAccessContext;
   center: Readonly<{ timeZone: string | null }>;
-  unitOfWork: TenantUnitOfWork;
+  db: TenantUnitOfWork['db'];
   recordMutation(input: CatalogMutationInput): Promise<void>;
 }>;
 
@@ -80,7 +80,7 @@ export class CatalogAccessService {
     permission: CatalogPermission,
     action: (scope: CatalogAuthorizedScope) => Promise<T>,
   ): Promise<T> {
-    uuid(centerId, 'centerId');
+    const normalizedCenterId = uuid(centerId, 'centerId');
     const context = await this.context(principal, handle);
     return withIamAuthorizedTenant(
       this.pool,
@@ -92,7 +92,7 @@ export class CatalogAccessService {
           .where(
             and(
               eq(iamCenters.tenantId, current.tenantId),
-              eq(iamCenters.id, centerId),
+              eq(iamCenters.id, normalizedCenterId),
             ),
           )
           .limit(1);
@@ -103,7 +103,7 @@ export class CatalogAccessService {
           roles: current.roles,
           centerIds: current.centerIds,
           permission,
-          requestedCenterId: centerId,
+          requestedCenterId: normalizedCenterId,
           tenantMatches: current.tenantId === context.tenantId,
           resourceExists: true,
           resourceStateAllows: true,
@@ -121,7 +121,7 @@ export class CatalogAccessService {
           Object.freeze({
             context: current,
             center: Object.freeze({ timeZone: center[0].timeZone }),
-            unitOfWork,
+            db: unitOfWork.db,
             recordMutation: (input: CatalogMutationInput) =>
               this.recordMutation(unitOfWork, current, input),
           }),

@@ -69,6 +69,7 @@ product behavior.
 - Target SPEC(s) named by the task. Do not guess IDs. Booking slices use `specs/booking/SPEC-DIVE-BOOKING-001.md`.
 - `.github/skills/traceability-first-implementation/SKILL.md`
 - `.github/skills/tenant-isolation-invariants/SKILL.md`
+- `.github/skills/reuse-boundary-hygiene/SKILL.md`
 
 ## Next.js MCP
 
@@ -84,6 +85,7 @@ product behavior.
 - Implement API endpoints/services in `apps/api` and outbox consumers in `apps/worker` only for requirements cleared by that readiness check and within the issue brief.
 - Add focused tests mapped to requirement IDs.
 - Apply `tenant-isolation-invariants` before writing SQL, schema, repositories, or query filters. Isolation is part of the slice, not a later review-only concern.
+- Apply `reuse-boundary-hygiene` when adding or moving modules, services, repositories, helpers, contracts, adapters, public exports, or cross-feature imports. Record the reuse decision; do not extract without demonstrated duplication, a real external dependency, or known variation.
 - Keep tenant context server-authorized; never trust client-supplied tenant/center/activity as authorization.
 - Treat outbox/worker side effects as part of the use case when the SPEC/ADR requires reliable delivery (ADR-DIVE-002), including the consumer in `apps/worker`.
 
@@ -142,6 +144,8 @@ Missing tests or implementation defects block completion, not in-scope repair. W
 - Capacity / last-seat paths without an explicit contention test or SPIKE-DIVE-001 evidence.
 - Missing outbox/idempotency decision for a side effect.
 - An optional or commercially enabled capability is requested without an approved SPEC/ADR defining its entitlement lifecycle and enforcement boundary; remit the decision to SDD Writer instead of inventing a table, role convention, middleware default, or plugin system.
+- A change bypasses an owning public provider or contract, imports another feature's internal implementation, duplicates trusted and untrusted authority inputs, or hides authorization, tenant scope, transaction, idempotency, audit, or outbox ownership in a generic helper.
+- A new shared abstraction or public export has no demonstrated duplication, external dependency, known variation, or concrete consumer.
 - Any silent default, TTL, or state.
 - Missing implementation issue.
 - Missing Development Brief in the issue.
@@ -157,5 +161,6 @@ Missing tests or implementation defects block completion, not in-scope repair. W
 - New open questions
 - Tests, validation commands, and observed results
 - IAM / tenancy / outbox notes (`MT-REQ-*` listed separately from `DIVE-*`)
+- Reuse decision and boundary checks from `reuse-boundary-hygiene`
 - Handoff: Tenancy | Test Engineer | PR Reviewer | SDD Writer | SDD Reviewer | Frontend | none
 - Reason, remaining scope, and confirmation question when proposing a handoff

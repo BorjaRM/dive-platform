@@ -10,9 +10,11 @@ Persistence for the walking skeleton.
 | `mt_spike`, `src/mt-spike-schema.ts`, `src/harness-schema.ts` + `sql/0001_mt_spike_harness.sql` | MT-SPIKE-001 **harness** only. It is test infrastructure, not a product migration. |
 | Runtime `APP_DATABASE_URL` | `dive_app`: DML only, no DDL, no `BYPASSRLS`. |
 
-`iam_app` is product data. The public `@dive-center/database` entry point exports only
-the product schema and product runtime operations, including the complete IAM table
-aggregator (`iamIdentityWebhookInbox` and `iamIdentityTenants`). `mt_spike` is the
+`iam_app` and `booking_app` contain product data. The public
+`@dive-center/database` entry point exports the product schema, runtime operations,
+and the privileged bootstrap and migration functions used by operational tooling
+and tests. It includes the complete IAM table aggregator
+(`iamIdentityWebhookInbox` and `iamIdentityTenants`). `mt_spike` is the
 MT-SPIKE-001 harness: it is not exported by the product surface and is not used by
 API or worker runtime code. Spike tests may import `harness-schema.ts`,
 `harness-unit-of-work.ts`, and the other harness helpers from their dedicated
@@ -23,11 +25,11 @@ internal source paths.
 The API runtime reads `APP_DATABASE_URL`, verifies the effective PostgreSQL role,
 and creates the shared `dive_app` pool in `apps/api/src/common/database/database.module.ts`.
 Startup fails closed if the connection is the migration role, a superuser,
-`BYPASSRLS`, an owner, or has database/schema DDL privileges. That pool is injected into both `IamService` for
-dashboard IAM operations and `IdentityWebhookController` for the verified Clerk
-webhook command. The integration harness uses the equivalent `dive_app` login from
-`SPIKE_APP_DATABASE_URL`; `dive_migration` is reserved for migrations and role
-bootstrap. No separate webhook database role exists yet.
+`BYPASSRLS`, an owner, or has database/schema DDL privileges. The API uses that
+pool for dashboard IAM, the verified Clerk webhook command, center catalog
+operations, and public booking. The integration harness uses the equivalent
+`dive_app` login from `SPIKE_APP_DATABASE_URL`; `dive_migration` is reserved for
+migrations and role bootstrap. No separate webhook database role exists yet.
 
 The shared role is intentionally restricted: it has no `BYPASSRLS`, no DDL, no
 direct access to global identity bindings, and reaches sensitive mutations through

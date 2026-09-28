@@ -5,6 +5,8 @@ import {
   parseCatalogActivityInput,
   parseCatalogListQueryInput,
   parseCatalogSlotInput,
+  positiveInteger,
+  uuid,
 } from './catalog.validation.js';
 
 describe('catalog runtime validation', () => {
@@ -65,5 +67,19 @@ describe('catalog runtime validation', () => {
         }),
       ),
     ).toThrow(CatalogProblemException);
+  });
+
+  it('canonicalizes UUID resource selectors', () => {
+    expect(uuid('AAAAAAAA-1001-4001-8001-000000000001', 'activityId')).toBe(
+      'aaaaaaaa-1001-4001-8001-000000000001',
+    );
+  });
+
+  it('accepts only positive integers representable by PostgreSQL int4', () => {
+    expect(positiveInteger(1, 'capacity')).toBe(1);
+    expect(positiveInteger(2_147_483_647, 'capacity')).toBe(2_147_483_647);
+    expect(() => positiveInteger(2_147_483_648, 'capacity')).toThrow(
+      CatalogProblemException,
+    );
   });
 });

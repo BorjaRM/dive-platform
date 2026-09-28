@@ -1,5 +1,7 @@
 import { ApiProblemException } from '../http/problem-details.js';
 
+const POSTGRES_INTEGER_MAX = 2_147_483_647;
+
 export function uuid(value: string, field: string): string {
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -12,11 +14,16 @@ export function uuid(value: string, field: string): string {
       `${field} must be a UUID`,
     );
   }
-  return value;
+  return value.toLowerCase();
 }
 
 export function positiveInteger(value: unknown, field: string): number {
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
+  if (
+    typeof value !== 'number' ||
+    !Number.isSafeInteger(value) ||
+    value <= 0 ||
+    value > POSTGRES_INTEGER_MAX
+  ) {
     throw new ApiProblemException(
       422,
       'validation_error',

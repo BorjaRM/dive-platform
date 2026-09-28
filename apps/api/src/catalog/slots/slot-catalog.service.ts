@@ -1,9 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { bookingActivities, bookingSlots } from '@dive-center/database';
+import {
+  bookingActivities,
+  bookingBookings,
+  bookingCapabilityVerifiers,
+  bookingSlots,
+} from '@dive-center/database';
 import type { AuthenticatedPrincipal } from '@dive-center/identity';
 import { Inject, Injectable } from '@nestjs/common';
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, asc, eq, gte, lt } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNull, lt } from 'drizzle-orm';
 import type {
   CatalogListQueryInput,
   CatalogSlotInput,
@@ -57,9 +62,9 @@ export class SlotCatalogService {
       handle,
       centerId,
       'availability.read',
-      async ({ context, center, unitOfWork }) => {
+      async ({ context, center, db }) => {
         uuid(activityId, 'activityId');
-        const activity = await unitOfWork.db
+        const activity = await db
           .select({ id: bookingActivities.id })
           .from(bookingActivities)
           .where(
@@ -104,7 +109,7 @@ export class SlotCatalogService {
             'validation_error',
             'from must be before to',
           );
-        const rows = await unitOfWork.db
+        const rows = await db
           .select()
           .from(bookingSlots)
           .where(
@@ -154,10 +159,10 @@ export class SlotCatalogService {
       handle,
       centerId,
       'availability.manage',
-      async ({ context, center, unitOfWork, recordMutation }) => {
+      async ({ context, center, db, recordMutation }) => {
         rejectUnknownFields(input, ['startsAt', 'durationMinutes', 'capacity']);
         uuid(activityId, 'activityId');
-        const activity = await unitOfWork.db
+        const activity = await db
           .select({ status: bookingActivities.status })
           .from(bookingActivities)
           .where(
@@ -188,7 +193,7 @@ export class SlotCatalogService {
           'durationMinutes',
         );
         const capacity = positiveInteger(input?.capacity, 'capacity');
-        const [row] = await unitOfWork.db
+        const [row] = await db
           .insert(bookingSlots)
           .values({
             id: randomUUID(),
@@ -227,9 +232,9 @@ export class SlotCatalogService {
       handle,
       centerId,
       'availability.manage',
-      async ({ context, unitOfWork, recordMutation }) => {
+      async ({ context, db, recordMutation }) => {
         uuid(slotId, 'slotId');
-        const [slot] = await unitOfWork.db
+        const [slot] = await db
           .select()
           .from(bookingSlots)
           .where(
@@ -250,7 +255,48 @@ export class SlotCatalogService {
           !['Available', 'Full', 'Closed'].includes(slot.status)
         )
           throw new CatalogProblemException(409, 'resource_state_conflict');
-        await unitOfWork.db
+        if (target === 'Cancelled') {
+          const activeBookings = await db
+            .select({ id: bookingBookings.id })
+            .from(bookingBookings)
+            .where(
+              and(
+                eq(bookingBookings.tenantId, context.tenantId),
+                eq(bookingBookings.centerId, centerId),
+                eq(bookingBookings.slotId, slotId),
+                inArray(bookingBookings.status, ['Pending', 'Confirmed']),
+              ),
+            )
+            .orderBy(asc(bookingBookings.id))
+            .for('update');
+          const bookingIds = activeBookings.map((booking) => booking.id);
+          if (bookingIds.length > 0) {
+            await db
+              .update(bookingBookings)
+              .set({ status: 'Cancelled' })
+              .where(
+                and(
+                  eq(bookingBookings.tenantId, context.tenantId),
+                  eq(bookingBookings.centerId, centerId),
+                  eq(bookingBookings.slotId, slotId),
+                  inArray(bookingBookings.id, bookingIds),
+                  inArray(bookingBookings.status, ['Pending', 'Confirmed']),
+                ),
+              );
+            await db
+              .update(bookingCapabilityVerifiers)
+              .set({ revokedAt: new Date() })
+              .where(
+                and(
+                  eq(bookingCapabilityVerifiers.tenantId, context.tenantId),
+                  inArray(bookingCapabilityVerifiers.bookingId, bookingIds),
+                  eq(bookingCapabilityVerifiers.purpose, 'booking_cancel'),
+                  isNull(bookingCapabilityVerifiers.revokedAt),
+                ),
+              );
+          }
+        }
+        await db
           .update(bookingSlots)
           .set({ status: target })
           .where(

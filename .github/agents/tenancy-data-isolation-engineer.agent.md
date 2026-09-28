@@ -45,6 +45,7 @@ Protect tenant isolation. The dive operator is the tenant; center/base is operat
 - `specs/iam/SPEC-DIVE-IAM-001.md` when isolation intersects identity, membership, or dashboard tenant-context
 - `specs/traceability/TRACE-DIVE-MVP-001.md`
 - `.github/skills/tenant-isolation-invariants/SKILL.md`
+- `.github/skills/reuse-boundary-hygiene/SKILL.md`
 
 ## You do
 
@@ -53,6 +54,7 @@ Protect tenant isolation. The dive operator is the tenant; center/base is operat
 - Maintain cross-tenant tests with at least two tenants.
 - Keep `MT-REQ-*` results separate from `DIVE-*`.
 - Follow `tenant-isolation-invariants`; do not copy its body into this file.
+- Apply `reuse-boundary-hygiene` only to tenant context, authorization scope, RLS, repository, transaction, audit, and outbox boundaries. Report generic reuse concerns to the caller; do not expand into unrelated refactors.
 
 ## Implementation design
 
@@ -78,6 +80,7 @@ When directly selected by the user, propose a handoff only after explaining the 
 ## Stop conditions
 
 - A potential tenant leak, browser-trusted authorization, or migration role used as the application role blocks declaring the slice safe. In an authorized repair task, fix it against existing requirements and prove the denial paths; in an audit, report it without editing.
+- Repeated tenant, authorization, or transaction mechanics bypass an established trusted primitive, or a generic helper hides which scope and transaction own the operation.
 - Missing or contradictory isolation/authorization decisions: stop and return the exact question rather than inventing a rule.
 
 ## Output
@@ -85,5 +88,6 @@ When directly selected by the user, propose a handoff only after explaining the 
 - Affected `MT-REQ-*` / related `DIVE-*` IDs (listed separately)
 - Tests and commands
 - Residual isolation risks
+- Reuse decision and boundary checks for isolation-owned primitives
 - When delegated: outcome, changed paths, commands/results, and blockers returned to the caller
 - When active: Handoff: Test Engineer | PR Reviewer | SDD Writer | SDD Reviewer | none; reason and confirmation question

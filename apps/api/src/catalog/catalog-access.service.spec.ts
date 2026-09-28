@@ -3,9 +3,13 @@ import {
   IamAccessDeniedError,
   type TenantUnitOfWork,
 } from '@dive-center/database';
-import type { AuthenticatedPrincipal } from '@dive-center/identity';
+import {
+  authenticateIdentity,
+  DeterministicIdentityProvider,
+} from '@dive-center/identity';
 import type { Pool } from 'pg';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { TenantContextCrypto } from '../common/tenant-context/tenant-context.crypto.js';
 
 const databaseMocks = vi.hoisted(() => ({
   recordBookingCatalogMutation: vi.fn(),
@@ -42,15 +46,22 @@ vi.mock('@dive-center/observability', async (importOriginal) => {
 import { CatalogAccessService } from './catalog-access.service.js';
 
 describe('CatalogAccessService', () => {
-  const principal = {
-    issuer: 'test',
-    subject: 'owner-a',
-    sessionId: 'session-a',
-  } as AuthenticatedPrincipal;
-  const contextCrypto = {
-    handleHash: vi.fn().mockReturnValue('handle-hash'),
-    sessionIdHash: vi.fn().mockReturnValue('session-hash'),
-  } as unknown as ConstructorParameters<typeof CatalogAccessService>[1];
+  const principalProvider = new DeterministicIdentityProvider(
+    new Map([
+      [
+        'token',
+        {
+          issuer: 'test',
+          subject: 'owner-a',
+          sessionId: 'session-a',
+          verifiedAddresses: [],
+        },
+      ],
+    ]),
+  );
+  const principal = () => authenticateIdentity(principalProvider, 'token');
+  const contextCrypto = new TenantContextCrypto('t'.repeat(32));
+  const centerId = '11111111-1111-4111-8111-111111111112';
 
   beforeEach(() => {
     vi.resetAllMocks();
@@ -67,18 +78,15 @@ describe('CatalogAccessService', () => {
     databaseMocks.resolveIamAccess.mockRejectedValue(operationalError);
     const service = new CatalogAccessService({} as Pool, contextCrypto);
 
-    const resolveContext = (
-      service as unknown as {
-        context(
-          currentPrincipal: AuthenticatedPrincipal,
-          handle: string,
-        ): Promise<unknown>;
-      }
-    ).context.bind(service);
-
-    await expect(resolveContext(principal, 'ctx_test')).rejects.toBe(
-      operationalError,
-    );
+    await expect(
+      service.authorized(
+        await principal(),
+        'ctx_test',
+        centerId,
+        'booking_service.read',
+        async () => undefined,
+      ),
+    ).rejects.toBe(operationalError);
   });
 
   it('maps IAM denials to unauthenticated access', async () => {
@@ -87,24 +95,19 @@ describe('CatalogAccessService', () => {
     );
     const service = new CatalogAccessService({} as Pool, contextCrypto);
 
-    const resolveContext = (
-      service as unknown as {
-        context(
-          currentPrincipal: AuthenticatedPrincipal,
-          handle: string,
-        ): Promise<unknown>;
-      }
-    ).context.bind(service);
-
-    await expect(resolveContext(principal, 'ctx_test')).rejects.toMatchObject({
-      message: 'Unauthenticated',
-      status: 401,
-    });
+    await expect(
+      service.authorized(
+        await principal(),
+        'ctx_test',
+        centerId,
+        'booking_service.read',
+        async () => undefined,
+      ),
+    ).rejects.toMatchObject({ message: 'Unauthenticated', status: 401 });
   });
 
   it('binds catalog mutations to the revalidated transaction context', async () => {
     const tenantId = '11111111-1111-1111-1111-111111111111';
-    const centerId = '11111111-1111-4111-8111-111111111112';
     const initial = Object.freeze({
       issuer: 'test',
       subject: 'owner-a',
@@ -151,7 +154,7 @@ describe('CatalogAccessService', () => {
 
     await expect(
       service.authorized(
-        principal,
+        await principal(),
         'ctx_test',
         centerId,
         'booking_service.create',
