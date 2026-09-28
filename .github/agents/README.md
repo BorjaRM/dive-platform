@@ -12,7 +12,7 @@ Two mechanisms:
 
 | Mechanism | Who decides | Use for |
 |---|---|---|
-| **Handoff** (`send: false`) | You click the button | Phase change: write SPEC → gate → implement → evidence → review |
+| **Handoff** (`send: false`) | You click the button | Phase change: write SPEC → gate → implement → validation when needed → review |
 | **Subagent** (`agent` tool) | The active agent may invoke a **whitelisted** specialist | Same-phase specialist: isolation or tests/evidence |
 
 Do **not** build a free mesh. Reviewers and writers must not implement. Implementers must not silently draft or promote SPECs.
@@ -33,6 +33,8 @@ Everyone else: `agents: []` and no `agent` tool. SDD Writer, SDD Gatekeeper, Imp
 - **IAM and outbox** are stop conditions for implementers, not missing agents.
 - **Tenant isolation is cross-cutting:** load `tenant-isolation-invariants`. Do not merge Backend/API Implementer with Tenancy and Data Isolation Engineer.
 - **Performance is cross-cutting:** DB, concurrency, API, worker/outbox, web/widget.
+- **Implementation entry:** product work requires an implementation issue with the single Development Brief, the applicable SPEC/ADR(s), and requirement IDs that are Ready to start.
+- **Validation is proportional:** tests are the default proof; Test and Evidence Engineer is an optional specialist when tests, Validation, or special evidence are missing.
 - **Stop** on missing or contradictory inputs; record an open question.
 
 ## Required reading for all agents
@@ -53,11 +55,13 @@ SPEC change
                               ↘ handoff → SDD Writer (fix provenance)
 
 Ready-to-start implementation
-  you → Backend or Frontend
-          ↳ may subagent Tenancy (isolation) and Test Evidence (proof)
-          ↳ handoff → Implementation PR Reviewer
+  you → implementation issue + Development Brief
+      → Backend or Frontend
+          ↳ may subagent Tenancy (if isolation surface)
+          ↳ direct handoff → Implementation PR Reviewer when validation is sufficient
+          ↳ optional handoff → Test and Evidence when tests, Validation, or special evidence are missing
+                              → Implementation PR Reviewer
                           ↳ handoff → Backend / Frontend / Tenancy (fix findings)
-                          ↳ handoff → Test Evidence (missing proof)
                           ↳ handoff → SDD Gatekeeper (specs/** only)
                           ↳ then you hand off back to Reviewer
 ```
@@ -85,6 +89,6 @@ Typical flow:
 
 1. **SDD Writer** → SDD Gatekeeper
 2. **SDD Gatekeeper** → SDD Writer (fix provenance). If the change set is implementation-only, stop and use Implementation PR Reviewer.
-3. **Implementers** → Tenancy (if isolation surface) → Test and Evidence → Implementation PR Reviewer; SDD Writer if a spec gap blocked coding; SDD Gatekeeper if `specs/**` changed
-4. **Implementation PR Reviewer** → SDD Gatekeeper (specs), Test and Evidence (proof gaps), or the matching implementer (**Backend**, **Frontend**, **Tenancy**) to fix classified findings. Those are handoffs you click, not subagents: the Reviewer still does not implement.
+3. **Implementers** → Implementation PR Reviewer when validation is sufficient; optionally → Test and Evidence for missing tests, Validation, or special evidence; SDD Writer if a spec gap blocked coding; SDD Gatekeeper if `specs/**` changed
+4. **Implementation PR Reviewer** → SDD Gatekeeper (specs), optionally Test and Evidence (real proof/Validation gaps), or the matching implementer (**Backend**, **Frontend**, **Tenancy**) to fix classified findings. Those are handoffs you click, not subagents: the Reviewer still does not implement.
 5. **CI/CD + Quality Automation** → Implementation PR Reviewer
