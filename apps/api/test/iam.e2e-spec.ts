@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { bootstrapRoles, migrateProduct } from '@dive-center/database';
 import {
   ClerkIdentityAdapter,
@@ -919,6 +919,174 @@ describe('IAM/API vertical (e2e)', () => {
       expect.objectContaining({ processing_result: 'applied' }),
     ]);
     expect(state.rows[0]?.revoked_at).not.toBeNull();
+  });
+
+  it('creates a public booking atomically and rejects cross-tenant scope (DIVE-BOOK-REQ-001, DIVE-BOOK-REQ-028, DIVE-BOOK-REQ-045, DIVE-BOOK-REQ-058..065, MT-REQ-004, MT-REQ-007, MT-REQ-010)', async () => {
+    const activityA = randomUUID();
+    const slotA = randomUUID();
+    const channelA = randomUUID();
+    const activityB = randomUUID();
+    const slotB = randomUUID();
+    const channelB = randomUUID();
+    await admin.query(
+      `INSERT INTO booking_app.activities
+       (id, tenant_id, center_id, name, status)
+       VALUES
+         ($1, $2, $3, '{"es":"Buceo","en":"Diving"}'::jsonb, 'Published'),
+         ($4, $5, $6, '{"es":"Buceo B","en":"Diving B"}'::jsonb, 'Published')`,
+      [activityA, tenantA, centerA1, activityB, tenantB, centerB1],
+    );
+    await admin.query(
+      `INSERT INTO booking_app.slots
+       (id, tenant_id, center_id, activity_id, starts_at, duration_minutes, capacity, status)
+       VALUES
+         ($1, $2, $3, $4, '2026-10-01T10:00:00Z', 60, 4, 'Available'),
+         ($5, $6, $7, $8, '2026-10-01T11:00:00Z', 60, 4, 'Available')`,
+      [
+        slotA,
+        tenantA,
+        centerA1,
+        activityA,
+        slotB,
+        tenantB,
+        centerB1,
+        activityB,
+      ],
+    );
+    await admin.query(
+      `INSERT INTO booking_app.channels
+       (id, tenant_id, center_id, public_id, type, activity_id, status, confirmation_mode, allowed_origins)
+       VALUES
+         ($1, $2, $3, 'hosted-a', 'single_activity', $4, 'Published', 'immediate', ARRAY['https://a.example.test']),
+         ($5, $6, $7, 'hosted-b', 'single_activity', $8, 'Published', 'immediate', ARRAY['https://b.example.test'])`,
+      [
+        channelA,
+        tenantA,
+        centerA1,
+        activityA,
+        channelB,
+        tenantB,
+        centerB1,
+        activityB,
+      ],
+    );
+
+    const body = {
+      slotId: slotA,
+      seats: 2,
+      locale: 'es',
+      booker: {
+        firstName: 'Ana',
+        lastName: 'Buceadora',
+        email: 'ana@example.test',
+      },
+    };
+    const first = await request(app.getHttpServer())
+      .post('/v1/public/channels/hosted-a/bookings')
+      .set('origin', 'https://a.example.test')
+      .set('idempotency-key', 'public-booking-e2e')
+      .send(body)
+      .expect(201);
+    expect(first.body).toMatchObject({
+      status: 'Confirmed',
+      seats: 2,
+      locale: 'es',
+    });
+    expect(first.body.confirmationReadToken).toEqual(expect.any(String));
+    expect(first.body.cancelToken).toEqual(expect.any(String));
+
+    const replay = await request(app.getHttpServer())
+      .post('/v1/public/channels/hosted-a/bookings')
+      .set('origin', 'https://a.example.test')
+      .set('idempotency-key', 'public-booking-e2e')
+      .send(body)
+      .expect(200);
+    expect(replay.body).toEqual(first.body);
+
+    await request(app.getHttpServer())
+      .post('/v1/public/channels/hosted-a/bookings')
+      .set('origin', 'https://a.example.test')
+      .set('idempotency-key', 'public-booking-e2e')
+      .send({ ...body, seats: 1 })
+      .expect(409)
+      .expect(({ body: problem }) => {
+        expect(problem.code).toBe('idempotency_conflict');
+      });
+
+    await request(app.getHttpServer())
+      .post('/v1/public/channels/hosted-b/bookings')
+      .set('origin', 'https://b.example.test')
+      .set('idempotency-key', 'cross-tenant-slot')
+      .send({ ...body, slotId: slotA })
+      .expect(404)
+      .expect(({ body: problem }) => {
+        expect(problem.code).toBe('resource_not_found');
+      });
+
+    await admin.query(`
+      CREATE OR REPLACE FUNCTION iam_app.test_fail_public_booking_outbox()
+      RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW.event_type = 'booking.public_created.v1' THEN
+          RAISE EXCEPTION 'forced public booking outbox failure';
+        END IF;
+        RETURN NEW;
+      END $$;
+      CREATE TRIGGER test_fail_public_booking_outbox
+      BEFORE INSERT ON iam_app.outbox_events
+      FOR EACH ROW EXECUTE FUNCTION iam_app.test_fail_public_booking_outbox();
+    `);
+    try {
+      await request(app.getHttpServer())
+        .post('/v1/public/channels/hosted-a/bookings')
+        .set('origin', 'https://a.example.test')
+        .set('idempotency-key', 'public-booking-rollback')
+        .send({ ...body, seats: 1 })
+        .expect(500);
+    } finally {
+      await admin.query(`
+        DROP TRIGGER IF EXISTS test_fail_public_booking_outbox ON iam_app.outbox_events;
+        DROP FUNCTION IF EXISTS iam_app.test_fail_public_booking_outbox();
+      `);
+    }
+
+    const persisted = await admin.query<{
+      audit_correlation: string;
+      audit_count: number;
+      booking_count: number;
+      outbox_correlation: string;
+      outbox_count: number;
+      tenant_audit_count: number;
+      tenant_booking_count: number;
+      tenant_outbox_count: number;
+      tenant_verifier_count: number;
+      verifier_count: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::int FROM booking_app.bookings WHERE tenant_id=$1 AND id=$2) booking_count,
+         (SELECT count(*)::int FROM booking_app.capability_verifiers WHERE tenant_id=$1 AND booking_id=$2) verifier_count,
+         (SELECT count(*)::int FROM iam_app.audit_records WHERE tenant_id=$1 AND resource_id=$2) audit_count,
+         (SELECT count(*)::int FROM iam_app.outbox_events WHERE tenant_id=$1 AND payload->>'bookingId'=$2::text) outbox_count,
+         (SELECT count(*)::int FROM booking_app.bookings WHERE tenant_id=$1) tenant_booking_count,
+         (SELECT count(*)::int FROM booking_app.capability_verifiers WHERE tenant_id=$1) tenant_verifier_count,
+         (SELECT count(*)::int FROM iam_app.audit_records WHERE tenant_id=$1 AND action='booking.create') tenant_audit_count,
+         (SELECT count(*)::int FROM iam_app.outbox_events WHERE tenant_id=$1 AND event_type='booking.public_created.v1') tenant_outbox_count,
+         (SELECT correlation_id::text FROM iam_app.audit_records WHERE tenant_id=$1 AND resource_id=$2) audit_correlation,
+         (SELECT correlation_id::text FROM iam_app.outbox_events WHERE tenant_id=$1 AND payload->>'bookingId'=$2::text) outbox_correlation`,
+      [tenantA, first.body.bookingId],
+    );
+    expect(persisted.rows[0]).toEqual({
+      audit_correlation: persisted.rows[0]?.outbox_correlation,
+      audit_count: 1,
+      booking_count: 1,
+      outbox_correlation: persisted.rows[0]?.audit_correlation,
+      outbox_count: 1,
+      tenant_audit_count: 1,
+      tenant_booking_count: 1,
+      tenant_outbox_count: 1,
+      tenant_verifier_count: 2,
+      verifier_count: 2,
+    });
   });
 
   it('implements the center-scoped catalog lifecycle and instant filters (DIVE-BOOK-REQ-049..057)', async () => {

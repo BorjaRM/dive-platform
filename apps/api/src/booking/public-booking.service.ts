@@ -1,4 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
+import {
+  recordPublicBookingCreated,
+  rollbackAndReleaseClient,
+} from '@dive-center/database';
 import { correlationIdForCurrentContext } from '@dive-center/observability';
 import {
   Inject,
@@ -167,38 +171,11 @@ export class PublicBookingService {
       }
 
       const correlationId = correlationIdForCurrentContext();
-      await client.query(
-        `INSERT INTO iam_app.audit_records (
-          id, tenant_id, actor_identity_id, action, resource_type, resource_id,
-          result, purpose, source_metadata, correlation_id
-        ) VALUES ($1, $2, NULL, 'booking.create', 'booking', $3, 'success', $4, $5::jsonb, $6)`,
-        [
-          randomUUID(),
-          channel.tenantId,
-          bookingId,
-          BOOKING_CHANNEL,
-          JSON.stringify({ channelId: channel.channelId }),
-          correlationId,
-        ],
-      );
-      await client.query(
-        `INSERT INTO iam_app.outbox_events (
-          id, tenant_id, event_type, payload, correlation_id, idempotency_key
-        ) VALUES ($1, $2, 'booking.public_created.v1', $3::jsonb, $4, $5)`,
-        [
-          randomUUID(),
-          channel.tenantId,
-          JSON.stringify({
-            bookingId,
-            email: input.booker.email,
-            locale: input.locale,
-            status,
-            purpose: CONFIRMATION_PURPOSE,
-          }),
-          correlationId,
-          `booking.public-created.email:${bookingId}`,
-        ],
-      );
+      await recordPublicBookingCreated(client, {
+        tenantId: channel.tenantId,
+        bookingId,
+        correlationId,
+      });
 
       const response = this.bookingResponse({
         id: bookingId,
@@ -211,11 +188,7 @@ export class PublicBookingService {
       client.release();
       return { response, replayed: false };
     } catch (error) {
-      try {
-        await client.query('ROLLBACK');
-      } finally {
-        client.release();
-      }
+      await rollbackAndReleaseClient(client);
       throw error;
     }
   }
@@ -228,15 +201,11 @@ export class PublicBookingService {
     try {
       await client.query('BEGIN');
       const channel = await this.resolveChannel(client, channelPublicId);
-      await client.query('ROLLBACK');
+      await client.query('COMMIT');
       client.release();
       return channel?.allowedOrigins.includes(origin) ?? false;
     } catch (error) {
-      try {
-        await client.query('ROLLBACK');
-      } finally {
-        client.release();
-      }
+      await rollbackAndReleaseClient(client);
       throw error;
     }
   }
