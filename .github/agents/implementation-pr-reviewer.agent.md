@@ -62,6 +62,7 @@ Context comes from **paths + SPECs + skills**, not from invoking Backend/Fronten
 - `.github/skills/fill-pr-validation/SKILL.md`
 - `.github/skills/traceability-first-implementation/SKILL.md`
 - `.github/skills/tenant-isolation-invariants/SKILL.md` when the diff touches SQL, `tenant_id`, RLS, repositories, tenant-owned tables, or tenant/center resolution
+- `.github/skills/reuse-boundary-hygiene/SKILL.md` when the diff adds or moves modules, services, repositories, helpers, contracts, adapters, public exports, shared UI, or cross-feature imports
 - `.github/skills/cross-cutting-performance-checklist/SKILL.md` when the diff touches DB, API, worker/outbox, concurrency, or web/widget
 
 ## Context by path
@@ -70,8 +71,8 @@ Apply every matching row. Same output format. Do not spawn another agent.
 
 | Paths (re-check on disk) | Also read / invoke | Look for |
 |---|---|---|
-| `apps/api/**`, `apps/worker/**`, `packages/database/**`, `packages/identity/**`, `packages/domain/**`, `packages/application/**`, `packages/contracts/**`, `packages/email/**` | SPECs/ADRs for claimed IDs; `tenant-isolation-invariants`; performance skill if DB/API/worker/outbox | Server-side tenant context; `tenant_id` on tenant-owned data; RLS/constraints not query-filter-only; no client-supplied tenant/center/activity as authorization; outbox/idempotency when ADR-DIVE-002 applies; same-tenant / cross-tenant / missing-context / pool-reset tests; tests mapped to IDs |
-| `apps/web/**`, `packages/ui/**` | Claimed SPEC/ADR sections and `apps/web/AGENTS.md`; IAM for dashboard auth/tenant-context; `DIVE-BOOK-REQ-037`..`042` and SPIKE-DIVE-003 only for public channels/widget; isolation skill when tenant resolution/fetching changes; React skills for the affected components | Server authorization remains authoritative; apply the correct dashboard or public-channel contract; iframe decisions remain provisional; external guidance cannot create requirements |
+| `apps/api/**`, `apps/worker/**`, `packages/database/**`, `packages/identity/**`, `packages/domain/**`, `packages/application/**`, `packages/contracts/**`, `packages/email/**` | SPECs/ADRs for claimed IDs; `tenant-isolation-invariants`; `reuse-boundary-hygiene` for boundary/reuse changes; performance skill if DB/API/worker/outbox | Server-side tenant context; `tenant_id` on tenant-owned data; RLS/constraints not query-filter-only; no client-supplied tenant/center/activity as authorization; owning public contract used instead of feature internals; no generic helper hides authorization/transaction/outbox; reuse decision has evidence; same-tenant / cross-tenant / missing-context / pool-reset tests; tests mapped to IDs |
+| `apps/web/**`, `packages/ui/**` | Claimed SPEC/ADR sections and `apps/web/AGENTS.md`; IAM for dashboard auth/tenant-context; `DIVE-BOOK-REQ-037`..`042` and SPIKE-DIVE-003 only for public channels/widget; isolation and reuse-boundary skills when applicable; React skills for the affected components | Server authorization remains authoritative; apply the correct dashboard or public-channel contract; no feature-internal import or unjustified universal component/shared state; iframe decisions remain provisional; external guidance cannot create requirements |
 | RLS, `tenant_id`, isolation tests | `tenant-isolation-invariants`. Stop conditions in this file. Do **not** invoke Tenancy | Cross-tenant leak, missing `tenant_id`, query-filter-only access, or `BYPASSRLS` → **grave** and escalate |
 | `specs/**` | Out of scope here | Remit SDD Reviewer. If the change set is **only** specs/TRACE/docs, stop |
 | `tests/**`, PR Validation | `fill-pr-validation`, `traceability-first-implementation` | Claimed commands vs actually run; empty Validation on a non-draft implementation PR is at least **moderado** |
@@ -83,6 +84,7 @@ Before any handoff, explain the result, next agent, reason, and remaining scope,
 
 - Diff-first: changed files, claimed IDs, Validation vs commands actually run.
 - Apply **Context by path** before style/smells.
+- Apply `reuse-boundary-hygiene` to matching changes. Verify the stated reuse decision against repository searches and consumers; do not demand extraction solely because code looks similar.
 - Check implementation against listed IDs. Do not paraphrase requirements into new rules.
 - Flag deficiencies, incongruence (code vs SPEC/ADR/tests/Validation), and maintainability issues Biome cannot see.
 - Classify every finding **grave**, **moderado**, or **leve**. Cite path, IDs, and evidence (diff hunk, test path, or "not executed").
@@ -121,8 +123,8 @@ Before any handoff, explain the result, next agent, reason, and remaining scope,
 
 | Label | Use when |
 |---|---|
-| **grave** | Plausible tenant leak; `BYPASSRLS` / RLS bypass; client-supplied tenant/center/activity as authorization; query/repository/table change without `tenant_id` or RLS; mixing `MT-REQ-*` with `DIVE-*`; organization as tenant or center as tenant; implementing Deferred OPS; asserting outbox/atomicity without evidence; silent new product behavior (default, TTL, state, permission, invariant); Validation claims checks that were not run |
-| **moderado** | Claimed Ready-to-start IDs not implemented or untested; missing isolation/concurrency test when those paths changed; Validation absent/incomplete on a non-draft implementation PR; missing issue link or `Closes #...` on a product implementation PR; missing Development Brief; copied Development Brief; unreported scope difference; ignored blocking question; declared IDs unsupported by the diff and tests; ADR/SPEC incongruence that is not a leak; performance hot path with no note and no spike pointer |
+| **grave** | Plausible tenant leak; `BYPASSRLS` / RLS bypass; client-supplied or contradictory tenant/center/activity authority; a generic helper bypassing authorization, transaction, idempotency, audit, or outbox guarantees; query/repository/table change without `tenant_id` or RLS; mixing `MT-REQ-*` with `DIVE-*`; organization as tenant or center as tenant; implementing Deferred OPS; asserting outbox/atomicity without evidence; silent new product behavior (default, TTL, state, permission, invariant); Validation claims checks that were not run |
+| **moderado** | Claimed Ready-to-start IDs not implemented or untested; cross-feature import of internal implementation; new shared abstraction or public export without demonstrated consumers, duplication, external dependency, known variation, or approved contract; duplicated security/transaction mechanics that diverge from the established owner; missing isolation/concurrency or negative-boundary test when those paths changed; Validation absent/incomplete on a non-draft implementation PR; missing issue link or `Closes #...` on a product implementation PR; missing Development Brief; copied Development Brief; unreported scope difference; ignored blocking question; declared IDs unsupported by the diff and tests; ADR/SPEC incongruence that is not a leak; performance hot path with no note and no spike pointer |
 | **leve** | Local duplication, unclear naming, dead code, comments vs code, test names without IDs, nits that do not change behavior or isolation |
 
 Classify by demonstrated impact, not by whether a SPEC ID exists. Security exposure, data loss, or a broken critical flow can be **grave**; a reproducible functional regression can be **moderado** without an ID. Pure maintainability/style observations remain **leve**. Cite the source, code path, or reproducible check; use `no ID` rather than inventing one. Label provenance: mismatch with an existing source = `Documented`; judgment call = `Proposed`.
@@ -139,6 +141,7 @@ If a finding does not fit a level, record an open question — do not invent a f
 - `BYPASSRLS`, migration role as app role, or browser-trusted tenant/center/activity.
 - Side effect without outbox/idempotency evidence when ADR-DIVE-002 applies.
 - Contended capacity / last-seat without a test or SPIKE-DIVE-001 evidence.
+- An owning public boundary is bypassed, feature internals are imported cross-feature, or contradictory authority reaches a use case or persistence API.
 - Diff implements Deferred `SPEC-DIVE-OPS-001`.
 - Contradictory sources for a behavior change.
 - Required command not in `package.json` / workflow not on disk — do not claim it.

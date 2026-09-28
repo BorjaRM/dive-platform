@@ -57,14 +57,14 @@ export class ActivityCatalogService {
       handle,
       centerId,
       'booking_service.read',
-      async ({ context, unitOfWork }) => {
+      async ({ context, db }) => {
         const { page, pageSize, offset } = pagination(query);
         const status = statusFilter(query.status, [
           'Draft',
           'Published',
           'Disabled',
         ]);
-        const rows = await unitOfWork.db
+        const rows = await db
           .select()
           .from(bookingActivities)
           .where(
@@ -102,7 +102,7 @@ export class ActivityCatalogService {
       handle,
       centerId,
       'booking_service.create',
-      async ({ context, unitOfWork, recordMutation }) => {
+      async ({ context, db, recordMutation }) => {
         rejectUnknownFields(input, ['name', 'description', 'defaultCapacity']);
         const name = localized(input?.name, 'name', true);
         const description = localized(input?.description, 'description', false);
@@ -110,7 +110,7 @@ export class ActivityCatalogService {
           input?.defaultCapacity === undefined
             ? undefined
             : positiveInteger(input.defaultCapacity, 'defaultCapacity');
-        const [row] = await unitOfWork.db
+        const [row] = await db
           .insert(bookingActivities)
           .values({
             id: randomUUID(),
@@ -148,9 +148,9 @@ export class ActivityCatalogService {
       handle,
       centerId,
       'booking_service.publish',
-      async ({ context, unitOfWork, recordMutation }) => {
+      async ({ context, db, recordMutation }) => {
         uuid(activityId, 'activityId');
-        const [activity] = await unitOfWork.db
+        const [activity] = await db
           .select()
           .from(bookingActivities)
           .where(
@@ -179,7 +179,7 @@ export class ActivityCatalogService {
           throw new CatalogProblemException(409, 'resource_state_conflict');
         if (target === 'Disabled' && activity.status !== 'Published')
           throw new CatalogProblemException(409, 'resource_state_conflict');
-        await unitOfWork.db
+        await db
           .update(bookingActivities)
           .set({ status: target })
           .where(

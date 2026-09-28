@@ -41,6 +41,12 @@ vi.mock('next/navigation', async () => {
 
 function createApi() {
   return {
+    listOperators: vi.fn().mockResolvedValue({ operators: [] }),
+    issueTenantContext: vi.fn().mockResolvedValue({
+      tenantContext: 'ctx_alpha',
+    }),
+    revokeTenantContext: vi.fn().mockResolvedValue(undefined),
+    listCenters: vi.fn().mockResolvedValue([]),
     listActivities: vi.fn().mockResolvedValue({
       items: [
         {
@@ -76,7 +82,7 @@ function createApi() {
     createSlot: vi.fn().mockResolvedValue({}),
     closeSlot: vi.fn().mockResolvedValue(undefined),
     cancelSlot: vi.fn().mockResolvedValue(undefined),
-  } as unknown as DashboardApi;
+  } satisfies DashboardApi;
 }
 
 function renderCatalog(api: DashboardApi, handleSessionExpired = vi.fn()) {

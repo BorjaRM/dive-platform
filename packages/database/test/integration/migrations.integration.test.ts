@@ -38,6 +38,14 @@ const bookingTables = [
   bookingSchema.bookingCapabilityVerifiers,
 ];
 
+const onDeleteCodes: Record<string, string> = {
+  cascade: 'c',
+  'no action': 'a',
+  restrict: 'r',
+  'set default': 'd',
+  'set null': 'n',
+};
+
 const emptyDatabaseName = 'dive_migrate_empty';
 
 function urlForDatabase(sourceUrl: string, databaseName: string): string {
@@ -207,10 +215,14 @@ SELECT id FROM iam_app.tenants;
   });
 
   it('keeps Drizzle product columns aligned with PostgreSQL', async () => {
+    const migratedPool = requireEmptyAdminPool(emptyAdminPool);
     for (const table of [...iamTables, ...bookingTables]) {
       const definition = getTableConfig(table);
       const qualifiedName = `${definition.schema}.${definition.name}`;
-      const actual = await adminPool.query<{ name: string; not_null: boolean }>(
+      const actual = await migratedPool.query<{
+        name: string;
+        not_null: boolean;
+      }>(
         `SELECT attname AS name, attnotnull AS not_null
          FROM pg_attribute
          WHERE attrelid = $1::regclass
@@ -263,22 +275,123 @@ SELECT id FROM iam_app.tenants;
     expect(confirmationMode.rows[0]?.column_default).toBe("'immediate'::text");
   });
 
-  it('keeps booking foreign keys and query indexes aligned with the catalog contract', async () => {
+  it('keeps booking foreign keys and indexes aligned with Drizzle', async () => {
     const migratedPool = requireEmptyAdminPool(emptyAdminPool);
-    const constraints = await migratedPool.query<{ name: string }>(
-      `SELECT conname AS name
-       FROM pg_constraint
-       WHERE conrelid IN ('booking_app.activities'::regclass, 'booking_app.slots'::regclass)
-         AND contype = 'f'
-       ORDER BY conname`,
-    );
-    expect(constraints.rows.map(({ name }) => name)).toEqual([
-      'activities_tenant_id_center_id_centers_tenant_id_id_fk',
-      'activities_tenant_id_tenants_id_fk',
-      'slots_tenant_id_center_id_activity_id_activities_tenant_id_cent',
-      'slots_tenant_id_center_id_centers_tenant_id_id_fk',
-      'slots_tenant_id_tenants_id_fk',
-    ]);
+    for (const table of bookingTables) {
+      const definition = getTableConfig(table);
+      const qualifiedName = `${definition.schema}.${definition.name}`;
+      const constraints = await migratedPool.query<{
+        columns: string[];
+        foreign_columns: string[];
+        on_delete: string;
+        target_schema: string;
+        target_table: string;
+      }>(
+        `SELECT
+           target_namespace.nspname AS target_schema,
+           target_relation.relname AS target_table,
+           constraint_definition.confdeltype AS on_delete,
+           ARRAY(
+             SELECT attribute.attname::text
+             FROM unnest(constraint_definition.conkey) WITH ORDINALITY AS keys(attnum, position)
+             JOIN pg_attribute attribute
+               ON attribute.attrelid = constraint_definition.conrelid
+              AND attribute.attnum = keys.attnum
+             ORDER BY keys.position
+           ) AS columns,
+           ARRAY(
+             SELECT attribute.attname::text
+             FROM unnest(constraint_definition.confkey) WITH ORDINALITY AS keys(attnum, position)
+             JOIN pg_attribute attribute
+               ON attribute.attrelid = constraint_definition.confrelid
+              AND attribute.attnum = keys.attnum
+             ORDER BY keys.position
+           ) AS foreign_columns
+         FROM pg_constraint constraint_definition
+         JOIN pg_class target_relation
+           ON target_relation.oid = constraint_definition.confrelid
+         JOIN pg_namespace target_namespace
+           ON target_namespace.oid = target_relation.relnamespace
+         WHERE constraint_definition.conrelid = $1::regclass
+           AND constraint_definition.contype = 'f'`,
+        [qualifiedName],
+      );
+      expect(constraints.rowCount, qualifiedName).toBe(
+        definition.foreignKeys.length,
+      );
+      for (const foreignKey of definition.foreignKeys) {
+        const reference = foreignKey.reference();
+        const target = getTableConfig(reference.foreignTable);
+        const expected = {
+          columns: reference.columns.map((column) => column.name),
+          foreign_columns: reference.foreignColumns.map(
+            (column) => column.name,
+          ),
+          on_delete: onDeleteCodes[foreignKey.onDelete ?? 'no action'] ?? 'a',
+          target_schema: target.schema,
+          target_table: target.name,
+        };
+        expect(
+          constraints.rows.some(
+            (constraint) =>
+              constraint.target_schema === expected.target_schema &&
+              constraint.target_table === expected.target_table &&
+              constraint.on_delete === expected.on_delete &&
+              constraint.columns.join(',') === expected.columns.join(',') &&
+              constraint.foreign_columns.join(',') ===
+                expected.foreign_columns.join(','),
+          ),
+          `${qualifiedName} missing ${JSON.stringify(expected)}`,
+        ).toBe(true);
+      }
+
+      const indexes = await migratedPool.query<{
+        columns: string[];
+        name: string;
+      }>(
+        `SELECT index_relation.relname AS name,
+                ARRAY(
+                  SELECT attribute.attname::text
+                  FROM unnest(index_definition.indkey) WITH ORDINALITY AS keys(attnum, position)
+                  JOIN pg_attribute attribute
+                    ON attribute.attrelid = index_definition.indrelid
+                   AND attribute.attnum = keys.attnum
+                  ORDER BY keys.position
+                ) AS columns
+         FROM pg_index index_definition
+         JOIN pg_class index_relation
+           ON index_relation.oid = index_definition.indexrelid
+         WHERE index_definition.indrelid = $1::regclass
+           AND NOT index_definition.indisprimary
+           AND NOT EXISTS (
+             SELECT 1
+             FROM pg_constraint constraint_definition
+             WHERE constraint_definition.conindid = index_definition.indexrelid
+           )
+         ORDER BY index_relation.relname`,
+        [qualifiedName],
+      );
+      const expectedIndexes = definition.indexes
+        .map((index) => {
+          const name = index.config.name;
+          if (!name) {
+            throw new Error(`${qualifiedName} has an unnamed index`);
+          }
+          return {
+            name,
+            columns: index.config.columns.map((column) => {
+              if (!('name' in column)) {
+                throw new Error(
+                  `${qualifiedName}.${name} uses an unsupported index expression`,
+                );
+              }
+              return column.name;
+            }),
+          };
+        })
+        .sort((left, right) => left.name.localeCompare(right.name));
+      expect(indexes.rows, qualifiedName).toEqual(expectedIndexes);
+    }
 
     const indexes = await migratedPool.query<{
       name: string;
@@ -288,19 +401,11 @@ SELECT id FROM iam_app.tenants;
        FROM pg_indexes
        WHERE schemaname = 'booking_app'
          AND indexname IN (
-           'activities_center_status_created_id_idx',
            'activities_center_created_id_idx',
-           'slots_activity_status_starts_id_idx',
            'slots_activity_starts_id_idx'
          )
        ORDER BY indexname`,
     );
-    expect(indexes.rows.map(({ name }) => name)).toEqual([
-      'activities_center_created_id_idx',
-      'activities_center_status_created_id_idx',
-      'slots_activity_starts_id_idx',
-      'slots_activity_status_starts_id_idx',
-    ]);
     expect(
       indexes.rows.find(
         ({ name }) => name === 'activities_center_created_id_idx',

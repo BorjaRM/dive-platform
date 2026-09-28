@@ -39,7 +39,7 @@ export function hashPublicBookingRequest(
   return createHash('sha256')
     .update(
       JSON.stringify({
-        slotId: input.slotId,
+        slotId: input.slotId.toLowerCase(),
         seats: input.seats,
         locale: input.locale,
         booker: input.booker,

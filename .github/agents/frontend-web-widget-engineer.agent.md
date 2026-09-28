@@ -66,6 +66,7 @@ provisional until SPIKE-DIVE-003 evidence exists.
 - `specs/architecture/adrs/ADR-DIVE-002.md`
 - `specs/traceability/TRACE-DIVE-MVP-001.md`
 - `.github/skills/tenant-isolation-invariants/SKILL.md`
+- `.github/skills/reuse-boundary-hygiene/SKILL.md`
 - `.github/skills/traceability-first-implementation/SKILL.md` for product implementation
 - `.github/skills/vercel-react-best-practices/SKILL.md`
 - `.github/skills/vercel-composition-patterns/SKILL.md` when designing or refactoring reusable component APIs
@@ -86,6 +87,7 @@ provisional until SPIKE-DIVE-003 evidence exists.
 - Implement dashboard, hosted public pages, and widget UI in `apps/web` within the issue brief.
 - For public channels, resolve tenant/center/activity according to `SPIKE-DIVE-003-REQ-002` and `DIVE-BOOK-REQ-004`; for dashboard work, read the applicable IAM tenant-context contract. Do not apply public-channel rules to unrelated dashboard flows or make the browser the authorization authority.
 - Apply `tenant-isolation-invariants` when resolving tenant/center/activity or fetching tenant-owned data.
+- Apply `reuse-boundary-hygiene` when adding or moving components, hooks, data clients, contracts, adapters, public exports, shared UI, or cross-feature imports. Record the reuse decision; do not create a universal component or shared state without demonstrated consumers or variation.
 - When touching embed security, read SPIKE-DIVE-003 IDs instead of inventing rules. Documented spike requirements include iframe+hosted fallback, origin/CSP/CORS/postMessage, WCAG 2.2 AA from 320px, no arbitrary HTML/CSS/JS, locale `es`/`en`, and anti-abuse without enumeration.
 - Inspect available browser/e2e checks before selecting validation. Use manual validation only for uncovered paths and record the gap; do not assume the harness is absent.
 - Keep the Development Brief in the issue. In the output and product PR, state only differences from the brief, list implemented IDs, record new open questions, and include the validation commands and observed results.
@@ -131,6 +133,8 @@ Repair failed tests and established-contract defects within scope, then rerun fo
 - Public-channel configuration cannot be resolved according to the server-owned contract.
 - A customization path would inject host HTML/CSS/JS (`SPIKE-DIVE-003-REQ-005`).
 - Evidence is required for a pilot and `results.md` is still not executed.
+- A change bypasses an owning public component, provider, contract, or server boundary; imports feature internals; duplicates trusted and untrusted scope inputs; or moves authorization or domain decisions into presentation code.
+- A new shared component, hook, state container, data client, or public export has no demonstrated consumers, duplication, or known variation.
 
 ## Output
 
@@ -141,5 +145,6 @@ Repair failed tests and established-contract defects within scope, then rerun fo
 - Manual validation when applicable (viewport, expected/observed; CMS target for embeds)
 - Validation commands and observed results
 - For widget work, which SPIKE-DIVE-003-REQ items are Documented vs still unproven
+- Reuse decision and boundary checks from `reuse-boundary-hygiene`
 - Handoff: Tenancy | Test Engineer | PR Reviewer | SDD Writer | SDD Reviewer | Backend | none
 - Reason, remaining scope, and confirmation question when proposing a handoff

@@ -1,4 +1,8 @@
-import { Injectable, type PipeTransform } from '@nestjs/common';
+import {
+  type ArgumentMetadata,
+  Injectable,
+  type PipeTransform,
+} from '@nestjs/common';
 import type {
   CatalogActivityInput,
   CatalogListQueryInput,
@@ -8,7 +12,15 @@ import {
   parseCatalogActivityInput,
   parseCatalogListQueryInput,
   parseCatalogSlotInput,
+  uuid,
 } from './catalog.validation.js';
+
+@Injectable()
+export class CatalogUuidPipe implements PipeTransform<string, string> {
+  transform(value: string, metadata: ArgumentMetadata): string {
+    return uuid(value, metadata.data ?? 'id');
+  }
+}
 
 @Injectable()
 export class CatalogActivityInputPipe

@@ -40,6 +40,7 @@ import {
   CatalogActivityInputPipe,
   CatalogListQueryPipe,
   CatalogSlotInputPipe,
+  CatalogUuidPipe,
 } from './catalog.validation.pipe.js';
 import {
   type ChannelPolicyInput,
@@ -82,7 +83,7 @@ export class CatalogController {
   listActivities(
     @Principal() principal: AuthenticatedPrincipal,
     @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId') centerId: string,
+    @Param('centerId', CatalogUuidPipe) centerId: string,
     @Query(CatalogListQueryPipe) query: CatalogListQueryDto,
   ) {
     return this.execute(principal, (principal) =>
@@ -97,7 +98,7 @@ export class CatalogController {
   createActivity(
     @Principal() principal: AuthenticatedPrincipal,
     @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId') centerId: string,
+    @Param('centerId', CatalogUuidPipe) centerId: string,
     @Body(CatalogActivityInputPipe) input: CatalogActivityInputDto,
   ) {
     return this.execute(principal, (principal) =>
@@ -112,8 +113,8 @@ export class CatalogController {
   publishActivity(
     @Principal() principal: AuthenticatedPrincipal,
     @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId') centerId: string,
-    @Param('activityId') activityId: string,
+    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @Param('activityId', CatalogUuidPipe) activityId: string,
   ) {
     return this.execute(principal, (principal) =>
       this.activities.setActivityStatus(
@@ -133,8 +134,8 @@ export class CatalogController {
   disableActivity(
     @Principal() principal: AuthenticatedPrincipal,
     @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId') centerId: string,
-    @Param('activityId') activityId: string,
+    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @Param('activityId', CatalogUuidPipe) activityId: string,
   ) {
     return this.execute(principal, (principal) =>
       this.activities.setActivityStatus(
@@ -155,8 +156,8 @@ export class CatalogController {
   updateChannelPolicy(
     @Principal() principal: AuthenticatedPrincipal,
     @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId') centerId: string,
-    @Param('channelId') channelId: string,
+    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @Param('channelId', CatalogUuidPipe) channelId: string,
     @Body(ChannelPolicyInputPipe) input: ChannelPolicyInput,
   ) {
     return this.execute(principal, (principal) =>
@@ -170,8 +171,8 @@ export class CatalogController {
   listSlots(
     @Principal() principal: AuthenticatedPrincipal,
     @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId') centerId: string,
-    @Param('activityId') activityId: string,
+    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @Param('activityId', CatalogUuidPipe) activityId: string,
     @Query(CatalogListQueryPipe) query: CatalogListQueryDto,
   ) {
     return this.execute(principal, (principal) =>
@@ -186,8 +187,8 @@ export class CatalogController {
   createSlot(
     @Principal() principal: AuthenticatedPrincipal,
     @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId') centerId: string,
-    @Param('activityId') activityId: string,
+    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @Param('activityId', CatalogUuidPipe) activityId: string,
     @Body(CatalogSlotInputPipe) input: CatalogSlotInputDto,
   ) {
     return this.execute(principal, (principal) =>
@@ -202,8 +203,8 @@ export class CatalogController {
   closeSlot(
     @Principal() principal: AuthenticatedPrincipal,
     @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId') centerId: string,
-    @Param('slotId') slotId: string,
+    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @Param('slotId', CatalogUuidPipe) slotId: string,
   ) {
     return this.execute(principal, (principal) =>
       this.slots.setSlotStatus(principal, handle, centerId, slotId, 'Closed'),
@@ -217,8 +218,8 @@ export class CatalogController {
   cancelSlot(
     @Principal() principal: AuthenticatedPrincipal,
     @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId') centerId: string,
-    @Param('slotId') slotId: string,
+    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @Param('slotId', CatalogUuidPipe) slotId: string,
   ) {
     return this.execute(principal, (principal) =>
       this.slots.setSlotStatus(

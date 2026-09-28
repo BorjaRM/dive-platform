@@ -16,6 +16,7 @@ Skills auto-load from `description`; `/skill-name` also works. That does not add
 |---|---|
 | `traceability-first-implementation` | Implementing requirement IDs from an implementation issue |
 | `tenant-isolation-invariants` | Persistence, queries, RLS, `tenant_id`, or tenant/center resolution |
+| `reuse-boundary-hygiene` | Adding or reviewing modules, helpers, contracts, adapters, public exports, shared UI, or cross-feature imports |
 | `sdd-normative-change-hygiene` | Changing SPEC/ADR/TRACE |
 | `fill-pr-validation` | Writing or reviewing the PR Validation section |
 | `cross-cutting-performance-checklist` | Touching DB, API, worker/outbox, or web/widget |

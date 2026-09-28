@@ -35,6 +35,12 @@ describe('public booking rules', () => {
     expect(hashPublicBookingRequest({ ...request, seats: 2 })).not.toBe(
       hashPublicBookingRequest(request),
     );
+    expect(
+      hashPublicBookingRequest({
+        ...request,
+        slotId: request.slotId.toUpperCase(),
+      }),
+    ).toBe(hashPublicBookingRequest(request));
   });
 
   it('derives confirmation state and pending hold expiry', () => {

@@ -1057,7 +1057,7 @@ describe('IAM/API vertical (e2e)', () => {
       .post('/v1/public/channels/hosted-a/bookings')
       .set('origin', 'https://a.example.test')
       .set('idempotency-key', 'public-booking-e2e')
-      .send(body)
+      .send({ ...body, slotId: body.slotId.toUpperCase() })
       .expect(200);
     expect(replay.body).toEqual(first.body);
 
@@ -1146,6 +1146,172 @@ describe('IAM/API vertical (e2e)', () => {
       verifier_count: 2,
     });
   });
+
+  it('cancels active bookings with their slot atomically (DIVE-BOOK-REQ-020, DIVE-BOOK-REQ-031, DIVE-BOOK-REQ-045)', async () => {
+    const { slotId } = await seedImmediatePublicSlot({
+      capacity: 2,
+      publicId: 'slot-cancellation-channel',
+    });
+    const created = await request(app.getHttpServer())
+      .post('/v1/public/channels/slot-cancellation-channel/bookings')
+      .set('origin', 'https://a.example.test')
+      .set('idempotency-key', 'slot-cancellation-booking')
+      .send({
+        slotId,
+        seats: 1,
+        locale: 'es',
+        booker: {
+          firstName: 'Ana',
+          lastName: 'Buceadora',
+          email: 'ana@example.test',
+        },
+      })
+      .expect(201);
+    const catalogHeaders = {
+      authorization: 'Bearer owner-a-token',
+      'x-tenant-context': await contextFor('owner-a-token'),
+    };
+
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/slots/${slotId}/cancel`)
+      .set(catalogHeaders)
+      .expect(204);
+
+    const state = await admin.query<{
+      booking_status: string;
+      cancellation_revoked_at: string | null;
+      confirmation_revoked_at: string | null;
+      slot_status: string;
+    }>(
+      `SELECT slot.status AS slot_status,
+                booking.status AS booking_status,
+                max(verifier.revoked_at::text) FILTER (
+                  WHERE verifier.purpose='booking_cancel'
+                ) AS cancellation_revoked_at,
+                max(verifier.revoked_at::text) FILTER (
+                  WHERE verifier.purpose='booking_confirmation_read'
+                ) AS confirmation_revoked_at
+         FROM booking_app.slots slot
+         JOIN booking_app.bookings booking
+           ON booking.tenant_id=slot.tenant_id AND booking.slot_id=slot.id
+         JOIN booking_app.capability_verifiers verifier
+           ON verifier.tenant_id=booking.tenant_id AND verifier.booking_id=booking.id
+         WHERE slot.tenant_id=$1 AND slot.id=$2 AND booking.id=$3
+         GROUP BY slot.status, booking.status`,
+      [tenantA, slotId, created.body.bookingId],
+    );
+    expect(state.rows).toEqual([
+      {
+        slot_status: 'Cancelled',
+        booking_status: 'Cancelled',
+        cancellation_revoked_at: expect.any(String),
+        confirmation_revoked_at: null,
+      },
+    ]);
+  });
+
+  it.each([
+    { firstOperation: 'booking', publicId: 'booking-wins-cancellation-race' },
+    {
+      firstOperation: 'cancellation',
+      publicId: 'cancellation-wins-booking-race',
+    },
+  ] as const)(
+    'serializes full slot cancellation when $firstOperation wins (DIVE-BOOK-REQ-031)',
+    async ({ firstOperation, publicId }) => {
+      const { slotId } = await seedImmediatePublicSlot({
+        capacity: 1,
+        publicId,
+      });
+      const catalogHeaders = {
+        authorization: 'Bearer owner-a-token',
+        'x-tenant-context': await contextFor('owner-a-token'),
+      };
+      const blocker = await admin.connect();
+      let blockerActive = false;
+      let pendingRequests: Promise<unknown>[] = [];
+      try {
+        await blocker.query('BEGIN');
+        blockerActive = true;
+        const blockerPid = await blocker.query<{ pid: number }>(
+          'SELECT pg_backend_pid()::int AS pid',
+        );
+        await blocker.query(
+          'SELECT id FROM booking_app.slots WHERE id=$1 FOR UPDATE',
+          [slotId],
+        );
+        const bookingRequest = () =>
+          request(app.getHttpServer())
+            .post(`/v1/public/channels/${publicId}/bookings`)
+            .set('origin', 'https://a.example.test')
+            .set('idempotency-key', `${publicId}-booking`)
+            .send({
+              slotId,
+              seats: 1,
+              locale: 'es',
+              booker: {
+                firstName: 'Ana',
+                lastName: 'Buceadora',
+                email: 'ana@example.test',
+              },
+            })
+            .then((response) => response);
+        const cancellationRequest = () =>
+          request(app.getHttpServer())
+            .patch(`/v1/centers/${centerA1}/slots/${slotId}/cancel`)
+            .set(catalogHeaders)
+            .then((response) => response);
+        const firstRequest =
+          firstOperation === 'booking'
+            ? bookingRequest()
+            : cancellationRequest();
+        pendingRequests = [firstRequest];
+        await waitForBlockedBackends(blockerPid.rows[0]?.pid ?? 0, 1);
+        const secondRequest =
+          firstOperation === 'booking'
+            ? cancellationRequest()
+            : bookingRequest();
+        pendingRequests.push(secondRequest);
+        await waitForBlockedBackends(blockerPid.rows[0]?.pid ?? 0, 2);
+        await blocker.query('COMMIT');
+        blockerActive = false;
+
+        const [firstResponse, secondResponse] = await Promise.all([
+          firstRequest,
+          secondRequest,
+        ]);
+        expect(firstResponse.status).toBe(
+          firstOperation === 'booking' ? 201 : 204,
+        );
+        expect(secondResponse.status).toBe(
+          firstOperation === 'booking' ? 204 : 409,
+        );
+        const state = await admin.query<{
+          active_booking_count: number;
+          slot_status: string;
+        }>(
+          `SELECT slot.status AS slot_status,
+                  count(booking.id) FILTER (
+                    WHERE booking.status IN ('Pending', 'Confirmed')
+                  )::int AS active_booking_count
+           FROM booking_app.slots slot
+           LEFT JOIN booking_app.bookings booking
+             ON booking.tenant_id=slot.tenant_id AND booking.slot_id=slot.id
+           WHERE slot.tenant_id=$1 AND slot.id=$2
+           GROUP BY slot.status`,
+          [tenantA, slotId],
+        );
+        expect(state.rows).toEqual([
+          { slot_status: 'Cancelled', active_booking_count: 0 },
+        ]);
+      } finally {
+        if (blockerActive) await blocker.query('ROLLBACK');
+        await Promise.allSettled(pendingRequests);
+        blocker.release();
+      }
+    },
+    10_000,
+  );
 
   it('serializes distinct public requests contending for the last seat (DIVE-BOOK-REQ-025, DIVE-BOOK-REQ-064)', async () => {
     const { slotId } = await seedImmediatePublicSlot({
@@ -1844,6 +2010,35 @@ describe('IAM/API vertical (e2e)', () => {
       /^application\/problem\+json/,
     );
     expect(foreignCenter.body.code).toBe('resource_not_found');
+
+    await admin.query(
+      `UPDATE iam_app.memberships
+       SET roles=ARRAY['reception_booking_manager']
+       WHERE tenant_id=$1 AND id=$2`,
+      [tenantA, membershipManagerA],
+    );
+    const managerHeaders = {
+      authorization: 'Bearer manager-a-token',
+      'x-tenant-context': await contextFor('manager-a-token'),
+    };
+    const outOfScopeWithoutPermission = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA2}/activities`)
+      .set(managerHeaders)
+      .send({ name: { es: 'Buceo', en: 'Diving' } })
+      .expect(404);
+    expect(outOfScopeWithoutPermission.body.code).toBe('resource_not_found');
+    const inScopeWithoutPermission = await request(app.getHttpServer())
+      .post(`/v1/centers/${centerA1}/activities`)
+      .set(managerHeaders)
+      .send({ name: { es: 'Buceo', en: 'Diving' } })
+      .expect(403);
+    expect(inScopeWithoutPermission.body.code).toBe('permission_denied');
+
+    await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1.toUpperCase()}/activities`)
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .expect(200);
 
     const malformed = await request(app.getHttpServer())
       .post(`/v1/centers/${centerA1}/activities`)

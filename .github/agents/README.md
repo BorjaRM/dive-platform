@@ -51,6 +51,7 @@ Read only relevant source sections and skill rules. Use existing focused checks,
 - **Provenance:** label normative statements `Documented`, `Derived`, or `Proposed`.
 - **IAM and outbox** are stop conditions for implementers, not missing agents.
 - **Tenant isolation is cross-cutting:** load `tenant-isolation-invariants`. Do not merge Backend with Tenancy.
+- **Reuse and boundary hygiene is cross-cutting:** load `reuse-boundary-hygiene` when modules, helpers, contracts, adapters, exports, shared UI, or cross-feature imports change. Require an explicit reuse decision; do not require extraction without evidence. Boundary violations block completion.
 - **Performance is cross-cutting:** DB, concurrency, API, worker/outbox, web/widget.
 - **Implementation entry:** product work requires an implementation issue with the single Development Brief, the applicable SPEC/ADR(s), and requirement IDs that are Ready to start.
 - **Validation is proportional:** tests are the default proof; Test Engineer is an optional specialist when tests, Validation, or special evidence are missing.
