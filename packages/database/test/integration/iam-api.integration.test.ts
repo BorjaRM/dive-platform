@@ -1,6 +1,7 @@
-import type { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { bootstrapRoles } from '../../src/bootstrap-roles.js';
+import { migrationDatabaseUrl } from '../../src/env.js';
 import { resolveIamAccess } from '../../src/iam-authorize.js';
 import { disableIamMembership } from '../../src/iam-membership-commands.js';
 import { cleanupRevokedIamTenantContexts } from '../../src/iam-tenant-context-commands.js';
@@ -11,14 +12,42 @@ const tenantA = '11111111-1111-1111-1111-111111111111';
 const tenantB = '22222222-2222-2222-2222-222222222222';
 const identity = 'a1111111-1111-1111-1111-111111111111';
 
+async function withAdminTenant<T>(
+  pool: Pool,
+  tenantId: string,
+  operation: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT set_config($1, $2, true)', [
+      'app.tenant_id',
+      tenantId,
+    ]);
+    const result = await operation(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 describe('IAM/API persistence controls', () => {
   let adminPool: Pool;
   let appPool: Pool;
+  let migrationPool: Pool;
 
   beforeAll(async () => {
     adminPool = createAdminPool();
     appPool = createAppPool();
     await bootstrapRoles(adminPool);
+    migrationPool = new Pool({
+      connectionString: migrationDatabaseUrl(),
+      max: 2,
+    });
     await migrateProduct();
   });
 
@@ -29,6 +58,7 @@ describe('IAM/API persistence controls', () => {
   });
 
   afterAll(async () => {
+    await migrationPool.end();
     await appPool.end();
     await adminPool.end();
   });
@@ -73,7 +103,7 @@ describe('IAM/API persistence controls', () => {
         'tenants',
       ].map((relname) => ({
         owner: 'dive_migration',
-        relforcerowsecurity: relname !== 'tenant_contexts',
+        relforcerowsecurity: true,
         relname,
         relrowsecurity: true,
       })),
@@ -198,7 +228,7 @@ describe('IAM/API persistence controls', () => {
     });
   });
 
-  it('constrains the non-forced tenant-context table through privileged commands (DATA-01, MT-REQ-004)', async () => {
+  it('forces tenant-context RLS while privileged commands remain tenant-scoped (DATA-01, MT-REQ-004)', async () => {
     const secondIdentity = 'b2222222-2222-2222-2222-222222222222';
     const sessionHashA = 'a'.repeat(64);
     const sessionHashB = 'b'.repeat(64);
@@ -259,6 +289,9 @@ describe('IAM/API persistence controls', () => {
     await expect(
       appPool.query('SELECT tenant_id FROM iam_app.tenant_contexts'),
     ).rejects.toThrow();
+    await expect(
+      migrationPool.query('SELECT tenant_id FROM iam_app.tenant_contexts'),
+    ).rejects.toThrow();
 
     const crossTenantResolution = await appPool.query<{
       context: object | null;
@@ -270,12 +303,19 @@ describe('IAM/API persistence controls', () => {
     );
     expect(crossTenantResolution.rows[0]?.context).toBeNull();
 
-    const storedContexts = await adminPool.query<{ tenant_id: string }>(
-      `SELECT tenant_id
-       FROM iam_app.tenant_contexts
-       ORDER BY tenant_id`,
+    const storedContexts = await Promise.all(
+      [tenantA, tenantB].map((tenantId) =>
+        withAdminTenant(migrationPool, tenantId, async (client) => {
+          const result = await client.query<{ tenant_id: string }>(
+            `SELECT tenant_id
+             FROM iam_app.tenant_contexts
+             ORDER BY tenant_id`,
+          );
+          return result.rows[0];
+        }),
+      ),
     );
-    expect(storedContexts.rows).toEqual([
+    expect(storedContexts).toEqual([
       { tenant_id: tenantA },
       { tenant_id: tenantB },
     ]);
@@ -354,6 +394,51 @@ describe('IAM/API persistence controls', () => {
     }
   });
 
+  it('enforces the context issuance rate across an identity session in multiple tenants (ADR-DIVE-008, MT-REQ-004)', async () => {
+    const sessionHash = 'a'.repeat(64);
+    await adminPool.query(
+      `INSERT INTO iam_app.tenants(id,name) VALUES ($1,'A'),($2,'B')`,
+      [tenantA, tenantB],
+    );
+    await adminPool.query('INSERT INTO iam_app.identities(id) VALUES ($1)', [
+      identity,
+    ]);
+    await adminPool.query(
+      `INSERT INTO iam_app.external_identities(identity_id,issuer,subject)
+       VALUES ($1,'test','shared-person')`,
+      [identity],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.memberships(id,tenant_id,identity_id,status,roles)
+       VALUES
+         ('aaaaaaaa-1111-1111-1111-111111111111',$1,$3,'active',ARRAY['tenant_owner']),
+         ('bbbbbbbb-2222-2222-2222-222222222222',$2,$3,'active',ARRAY['auditor_compliance'])`,
+      [tenantA, tenantB, identity],
+    );
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const tenantId = attempt % 2 === 0 ? tenantA : tenantB;
+      const handleHash = attempt.toString(16).padStart(64, '0');
+      const issued = await appPool.query<{ outcome: object }>(
+        `SELECT iam_app.issue_tenant_context_command(
+          'test', 'shared-person', $1, $2::uuid, $3
+        ) AS outcome`,
+        [sessionHash, tenantId, handleHash],
+      );
+      expect(issued.rows[0]?.outcome).toMatchObject({ tenantId });
+    }
+
+    const denied = await appPool.query<{ outcome: object }>(
+      `SELECT iam_app.issue_tenant_context_command(
+        'test', 'shared-person', $1, $2::uuid, $3
+      ) AS outcome`,
+      [sessionHash, tenantA, 'f'.repeat(64)],
+    );
+    expect(denied.rows[0]?.outcome).toEqual({
+      deniedReason: 'invariant_violation',
+    });
+  });
+
   it('retains active and recent revoked contexts while cleaning older revoked contexts (ADR-DIVE-008)', async () => {
     await adminPool.query(
       `INSERT INTO iam_app.tenants(id,name) VALUES ($1,'A')`,
@@ -363,31 +448,40 @@ describe('IAM/API persistence controls', () => {
       identity,
     ]);
     await adminPool.query(
-      `INSERT INTO iam_app.tenant_contexts(
-         handle_hash, identity_id, tenant_id, session_id_hash, issued_at, revoked_at
-       ) VALUES
-         ($1,$2,$3,$4,clock_timestamp() - interval '31 days',clock_timestamp() - interval '31 days'),
-         ($5,$2,$3,$4,clock_timestamp() - interval '29 days',clock_timestamp() - interval '29 days'),
-         ($6,$2,$3,$4,clock_timestamp(),NULL)`,
-      [
-        'a'.repeat(64),
-        identity,
-        tenantA,
-        'b'.repeat(64),
-        'c'.repeat(64),
-        'd'.repeat(64),
-      ],
+      `INSERT INTO iam_app.memberships(id,tenant_id,identity_id,status,roles)
+       VALUES ('aaaaaaaa-1111-1111-1111-111111111111',$1,$2,'active',ARRAY['tenant_owner'])`,
+      [tenantA, identity],
+    );
+    await withAdminTenant(migrationPool, tenantA, (client) =>
+      client.query(
+        `INSERT INTO iam_app.tenant_contexts(
+           handle_hash, identity_id, tenant_id, session_id_hash, issued_at, revoked_at
+         ) VALUES
+           ($1,$2,$3,$4,clock_timestamp() - interval '31 days',clock_timestamp() - interval '31 days'),
+           ($5,$2,$3,$4,clock_timestamp() - interval '29 days',clock_timestamp() - interval '29 days'),
+           ($6,$2,$3,$4,clock_timestamp(),NULL)`,
+        [
+          'a'.repeat(64),
+          identity,
+          tenantA,
+          'b'.repeat(64),
+          'c'.repeat(64),
+          'd'.repeat(64),
+        ],
+      ),
     );
 
     await expect(cleanupRevokedIamTenantContexts(appPool)).resolves.toEqual({
       deletedCount: 1,
     });
-    const remaining = await adminPool.query<{ handle_hash: string }>(
-      `SELECT handle_hash
-       FROM iam_app.tenant_contexts
-       WHERE identity_id=$1
-       ORDER BY handle_hash`,
-      [identity],
+    const remaining = await withAdminTenant(migrationPool, tenantA, (client) =>
+      client.query<{ handle_hash: string }>(
+        `SELECT handle_hash
+         FROM iam_app.tenant_contexts
+         WHERE tenant_id=$1 AND identity_id=$2
+         ORDER BY handle_hash`,
+        [tenantA, identity],
+      ),
     );
     expect(remaining.rows).toEqual([
       { handle_hash: 'c'.repeat(64) },

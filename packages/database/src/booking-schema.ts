@@ -180,7 +180,7 @@ export const bookingChannels = bookingApp.table(
     type: text('type').notNull(),
     activityId: uuid('activity_id').notNull(),
     status: text('status').notNull(),
-    confirmationMode: text('confirmation_mode').notNull(),
+    confirmationMode: text('confirmation_mode').notNull().default('immediate'),
     allowedOrigins: text('allowed_origins').array().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
