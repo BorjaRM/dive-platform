@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.40
+- **Version:** 0.41
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -38,7 +38,7 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` are Ready to start
 | SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.40 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.41 |
 
 Notion indexes must show this map’s version. They must not invent an independent version sequence.
 
@@ -86,7 +86,7 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` remain Ready to st
 | Center entry, provider delivery, persistence, and retention | 042–047 | `centerKey` mapping/rollback, pre-tenant outbox, Clerk create/revoke/reissue, existing-identity, rate-limit, redirect, retention, audit, and event contract tests | implementation PR plus Clerk Development evidence |
 | Revocation and no-active-membership safety | 048–050 | stale-handle denial, renewal denial, unrelated-membership continuity, neutral UI, and non-disclosure tests | implementation PR |
 
-`SPEC-DIVE-ONBOARDING-001` and `ADR-DIVE-013` are Draft after option B replaced the application-owned bearer/email design with Clerk Application Invitations plus a PostgreSQL bootstrap grant. US-19 remains limited to invited self bootstrap; assisted provisioning and Clerk Organizations remain outside the story. Clerk Development evidence for existing identities, invite-only behavior, redirect/ticket redaction, revoke/reissue, and rate limits blocks a new Ready-to-start promotion. `SPEC-DIVE-IAM-001` v0.14 only clarifies the authority boundary; this TRACE relationship is not implementation coverage or approval to start.
+`SPEC-DIVE-ONBOARDING-001` and `ADR-DIVE-013` are Draft after option B replaced the application-owned bearer/email design with Clerk Application Invitations plus a PostgreSQL bootstrap grant. US-19 remains limited to invited self bootstrap; assisted provisioning and Clerk Organizations remain outside the story. The bootstrap-grant relationship is explicitly separate from ordinary tenant invitations governed by `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-017` and `ADR-DIVE-004`; neither flow can consume or activate the other. Clerk Development evidence for existing identities, invite-only behavior, redirect/ticket redaction, revoke/reissue, and rate limits blocks a new Ready-to-start promotion. `SPEC-DIVE-IAM-001` v0.14 only clarifies the authority boundary; this TRACE relationship is not implementation coverage or approval to start.
 
 ### Multi-tenant — `MT-REQ-001` … `010`
 
