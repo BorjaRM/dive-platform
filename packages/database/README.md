@@ -34,6 +34,9 @@ direct access to global identity bindings, and reaches sensitive mutations throu
 reviewed command functions. A separate webhook login is a future hardening option,
 not the current runtime contract.
 
+Production credential separation, break-glass access, network controls, and
+audit gates are tracked in `docs/operations/production-database-access.md`.
+
 ## Commands
 
 ```bash

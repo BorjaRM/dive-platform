@@ -134,6 +134,9 @@ describe('IAM/API persistence controls', () => {
       appPool.query('SELECT * FROM iam_app.external_identities'),
     ).rejects.toThrow();
     await expect(
+      appPool.query('SELECT * FROM iam_app.identity_tenants'),
+    ).rejects.toThrow();
+    await expect(
       appPool.query(
         'ALTER TABLE iam_app.memberships DISABLE ROW LEVEL SECURITY',
       ),
@@ -198,10 +201,14 @@ describe('IAM/API persistence controls', () => {
 
     const privileges = await adminPool.query<{
       can_delete_membership: boolean;
+      can_delete_identity_tenants: boolean;
       can_insert_audit: boolean;
+      can_insert_identity_tenants: boolean;
       can_insert_invitation: boolean;
       can_insert_membership: boolean;
       can_insert_outbox: boolean;
+      can_select_identity_tenants: boolean;
+      can_update_identity_tenants: boolean;
       can_update_invitation: boolean;
       can_update_membership_roles: boolean;
       can_update_membership_status: boolean;
@@ -214,14 +221,22 @@ describe('IAM/API persistence controls', () => {
          has_table_privilege('dive_app', 'iam_app.invitations', 'INSERT') AS can_insert_invitation,
          has_table_privilege('dive_app', 'iam_app.invitations', 'UPDATE') AS can_update_invitation,
          has_table_privilege('dive_app', 'iam_app.audit_records', 'INSERT') AS can_insert_audit,
-         has_table_privilege('dive_app', 'iam_app.outbox_events', 'INSERT') AS can_insert_outbox`,
+        has_table_privilege('dive_app', 'iam_app.outbox_events', 'INSERT') AS can_insert_outbox,
+        has_table_privilege('dive_app', 'iam_app.identity_tenants', 'SELECT') AS can_select_identity_tenants,
+        has_table_privilege('dive_app', 'iam_app.identity_tenants', 'INSERT') AS can_insert_identity_tenants,
+        has_table_privilege('dive_app', 'iam_app.identity_tenants', 'UPDATE') AS can_update_identity_tenants,
+        has_table_privilege('dive_app', 'iam_app.identity_tenants', 'DELETE') AS can_delete_identity_tenants`,
     );
     expect(privileges.rows[0]).toEqual({
       can_delete_membership: false,
+      can_delete_identity_tenants: false,
       can_insert_audit: false,
+      can_insert_identity_tenants: false,
       can_insert_invitation: false,
       can_insert_membership: false,
       can_insert_outbox: false,
+      can_select_identity_tenants: false,
+      can_update_identity_tenants: false,
       can_update_invitation: false,
       can_update_membership_roles: false,
       can_update_membership_status: false,
