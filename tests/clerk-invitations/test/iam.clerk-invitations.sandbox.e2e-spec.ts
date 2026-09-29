@@ -10,7 +10,7 @@ import {
 import { startClerkInvitationProbe } from './clerk-invitation-probe.js';
 
 const REAL_RUN_FLAG = 'DIVE_REAL_CLERK_INVITATION_E2E';
-const LOCAL_TEST_PUBLISHABLE_KEY =
+const LOCAL_TEST_PUBLISHABLE_KEY = //gitleaks:allow
   'pk_test_bG9jYWwuY2xlcmsuYWNjb3VudHMuZGV2JA==';
 
 type InvitationSandboxConfig = Readonly<{

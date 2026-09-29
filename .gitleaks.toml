@@ -1,0 +1,4 @@
+[allowlist]
+description = "Known synthetic token in the imported NestJS README scaffold"
+paths = ['''^apps/api/README\.md$''']
+regexes = ['''abc123def456''']
