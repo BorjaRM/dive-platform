@@ -100,3 +100,73 @@ remains covered only by the existing local signed-webhook tests until a separate
 delivery harness exists. Local JWT fixtures, HMAC webhook fixtures, mocks, and
 deterministic providers remain contract tests only; they are not real Clerk
 evidence.
+
+## Application invitation acceptance spike
+
+Issue #70 adds a separate opt-in harness for `SPIKE-DIVE-004-REQ-001..010`.
+It reuses the safety and browser-login patterns above but does not boot Nest,
+prepare PostgreSQL fixtures, call a product bootstrap endpoint, or implement
+the product `/bootstrap/accept` route. A test-only loopback server owns the
+acceptance probe for the duration of the command.
+
+Provide these additional values through an untracked local environment or
+secret manager:
+
+```text
+DIVE_REAL_CLERK_INVITATION_E2E=1
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_<sandbox-publishable-key>
+DIVE_CLERK_SANDBOX_NEW_USER_EMAIL=<disposable-technical-email>
+DIVE_CLERK_SANDBOX_NEW_USER_PASSWORD=<disposable-technical-password>
+```
+
+The invitation harness also uses `CLERK_SECRET_KEY`,
+`DIVE_CLERK_SANDBOX_ACCOUNT_PORTAL_URL`, and the two existing technical-user
+ID/password pairs documented above. It does not require database URLs or the
+webhook signing secret.
+
+Before running:
+
+1. Confirm the Clerk instance is Development and uses Invite-only access mode.
+   Clerk Allowlist is not a substitute for Invite-only.
+2. Confirm the two existing users are distinct technical identities and the
+   disposable email has no application user.
+3. Confirm email/password authentication is available and client-trust bypass
+   is limited to the existing technical sandbox users.
+4. Confirm the invitation quota is sufficient for the bounded matrix. Do not
+   induce a real `429` by exhausting the instance quota.
+5. Confirm no value is present in shell history, `.env.example`, git diff, or
+   retained command output.
+
+Store the invitation-specific ignored environment at
+`tests/clerk-invitations/.env.test.local`, then run from the repository root:
+
+```bash
+pnpm test:clerk:invitations:sandbox
+```
+
+The command rejects missing opt-in, non-test keys, a non-Development account
+portal origin, reused disposable users, and a non-Development Backend API
+instance before running the matrix. The probe binds to `127.0.0.1` on an
+operating-system-assigned port, serves an isolated React/Vite fixture using
+Clerk Future hooks, applies a short-lived Clerk Testing Token only to browser
+automation, sets `Referrer-Policy: no-referrer`, and blocks product bootstrap
+endpoints. The invitation URL and `__clerk_ticket` remain in memory only.
+
+The run covers `ignoreExisting` for an existing identity, new and existing
+identities without sessions, matching and different active sessions,
+Invite-only signup rejection with existing-user sign-in, ticket cleanup, and a
+bounded revoke/reissue observation. Browser instrumentation records only safe
+categories and detects the ticket outside the acceptance request, in a
+referrer, or in browser output.
+
+Every invitation left pending by the run is revoked, every session created by
+the run is revoked, and every disposable user is deleted. Existing technical
+users are never deleted. Failed cleanup fails the scenario. Clerk may retain
+terminal invitation records when no deletion operation exists; those records
+are not active invitations.
+
+Natural seven-day expiry, a deliberately induced provider `429`, the canonical
+deployed authentication host, worker retry/reconciliation, and the product
+acceptance route remain explicit gaps. Do not update spike results, evidence,
+or traceability until the real-provider command has completed and cleanup has
+passed.

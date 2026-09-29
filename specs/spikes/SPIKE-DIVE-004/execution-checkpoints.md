@@ -1,6 +1,6 @@
 # SPIKE-DIVE-004 — Execution checkpoints
 
-- **Status:** Draft / not executed
+- **Status:** Executed 2026-09-29; closure criteria met with remaining out-of-scope gaps recorded in `results.md`
 
 1. Reuse the safety model from the existing Clerk sandbox harness: explicit opt-in flag, `sk_test_` key, technical users only, sandbox origins only, no secrets in git or output.
 2. Add a dedicated invitation probe rather than weakening the production `ClerkIdentityAdapter` or existing authentication tests.

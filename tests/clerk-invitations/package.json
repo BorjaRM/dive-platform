@@ -1,0 +1,27 @@
+{
+  "name": "@dive-center/clerk-invitation-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project test/fixtures/clerk-invitation-react/tsconfig.json",
+    "test:local": "vitest run --config ./vitest.config.ts -t 'Clerk invitation acceptance probe'",
+    "test:e2e": "node --env-file=.env.test.local ./node_modules/vitest/vitest.mjs run --config ./vitest.config.ts --disableConsoleIntercept"
+  },
+  "devDependencies": {
+    "@clerk/backend": "3.20.1",
+    "@clerk/react": "6.17.2",
+    "@clerk/shared": "4.36.0",
+    "@clerk/testing": "2.2.39",
+    "@dive-center/typescript-config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "playwright": "^1.63.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "typescript": "catalog:",
+    "vite": "8.3.1",
+    "vitest": "^4.1.2"
+  }
+}

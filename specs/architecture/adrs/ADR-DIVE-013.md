@@ -1,8 +1,8 @@
 # ADR-DIVE-013 — Controlled self bootstrap and replaceable guided onboarding
 
-- **Status:** Draft
-- **Version:** 0.6
-- **Date:** 2026-09-28
+- **Status:** Ready to start
+- **Version:** 0.7
+- **Date:** 2026-09-29
 - **Deciders:** Product / Security / Frontend Architecture
 - **Affected IDs:** `DIVE-ONB-REQ-001..050`; `DIVE-IAM-REQ-001..006`, `017`, `020`, `024`, `025`, `029..032`
 
@@ -14,11 +14,11 @@
 | Tenant creation and first-center creation are the first walking-skeleton increment | `Documented` | `specs/product/dive-mvp-profile.md` §6 | Existing product direction; no onboarding contract existed |
 | Reliable side effects use the transactional outbox | `Documented` | `ADR-DIVE-002` § Decision | Existing normative constraint |
 | US-19 is self bootstrap by an invited future Owner; assisted provisioning is outside the MVP story | `Proposed` | PR #36 product-owner revision record | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
-| Controlled invitation, atomic creation, idempotency, fields, limits, rollout, and acceptance matrix | `Proposed` | PR #36 product-owner revision record; `SPEC-DIVE-ONBOARDING-001` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
-| Driver.js behind a replaceable renderer, local visual state, versioned content port, and no-op analytics port | `Proposed` | PR #36 product-owner revision record; `SPEC-DIVE-ONBOARDING-001` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
-| Clerk Application Invitations own identity ticket/email; dedicated acceptance and setup routes keep signup out of `/dashboard`; PostgreSQL owns the bootstrap grant; Clerk Organizations and metadata authority remain excluded | `Proposed` | [Clerk invitations](https://clerk.com/docs/guides/users/inviting); [custom flow](https://clerk.com/docs/guides/development/custom-flows/authentication/application-invitations); [Next.js sign-up component](https://clerk.com/docs/nextjs/reference/components/authentication/sign-up); product confirmation 2026-09-28 accepting the route/session boundary | Approved for Draft review; provider-behavior evidence pending |
-| Transactional `centerKey`, pre-tenant outbox, Clerk worker adapter, provider-reference persistence, retention, audit, and completion event | `Proposed` | [Clerk createInvitation](https://clerk.com/docs/reference/backend/invitations/create-invitation); `SPEC-DIVE-ONBOARDING-001` v0.6 Draft; product confirmation 2026-09-28 | Approved for Draft review; worker/security review pending |
-| Bootstrap grants and ordinary tenant invitations are separate authority kinds and cannot consume or activate each other | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-017`; `ADR-DIVE-004` §§ Invitation and identity binding / Lifecycle; product confirmation 2026-09-28 | Approved for Draft review; cross-kind negative tests required |
+| Controlled invitation, atomic creation, idempotency, fields, limits, rollout, and acceptance matrix | `Proposed` | PR #36 product-owner revision record; `SPEC-DIVE-ONBOARDING-001` Ready to start | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| Driver.js behind a replaceable renderer, local visual state, versioned content port, and no-op analytics port | `Proposed` | PR #36 product-owner revision record; `SPEC-DIVE-ONBOARDING-001` Ready to start | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| Clerk Application Invitations own identity ticket/email; dedicated acceptance and setup routes keep signup out of `/dashboard`; PostgreSQL owns the bootstrap grant; Clerk Organizations and metadata authority remain excluded | `Proposed` | [Clerk invitations](https://clerk.com/docs/guides/users/inviting); [custom flow](https://clerk.com/docs/guides/development/custom-flows/authentication/application-invitations); [Next.js sign-up component](https://clerk.com/docs/nextjs/reference/components/authentication/sign-up); `specs/spikes/SPIKE-DIVE-004/results.md`; product confirmation 2026-09-29 | Provider behavior demonstrated; approved for Ready-to-start promotion 2026-09-29 |
+| Transactional `centerKey`, pre-tenant outbox, Clerk worker adapter, provider-reference persistence, retention, audit, and completion event | `Proposed` | [Clerk createInvitation](https://clerk.com/docs/reference/backend/invitations/create-invitation); `SPEC-DIVE-ONBOARDING-001` v0.7 Ready to start; `specs/multitenancy/MT-SPIKE-001-specification.md` `MT-COND-WORKER-001`; product confirmation 2026-09-29 | Approved for Ready-to-start promotion; worker retry/backoff/exhaustion and dead-letter policy remains an activation gate before external effects |
+| Bootstrap grants and ordinary tenant invitations are separate authority kinds and cannot consume or activate each other | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-017`; `ADR-DIVE-004` §§ Invitation and identity binding / Lifecycle; product confirmation 2026-09-29 | Approved for Ready-to-start promotion; cross-kind negative tests remain implementation evidence |
 | Active-membership revalidation and handle invalidation | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-022`, `030..031`; product confirmation 2026-09-28 | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 
 ## Context
@@ -173,12 +173,12 @@ Rejected for this scope. Bootstrap requires a platform-issued invitation.
 
 The implementation must satisfy `SPEC-DIVE-ONBOARDING-001` `DIVE-ONB-REQ-001..050` and its acceptance matrix through domain/API, component, Playwright, isolation, security, Clerk Development, and manual accessibility evidence.
 
-This Draft revision changes the provider boundary and provides no implementation, migration, test, or pilot evidence.
+This revision changes the provider boundary. `specs/spikes/SPIKE-DIVE-004/results.md` supplies the bounded Clerk Development evidence required to close the provider-selection questions; implementation, migration, product-route, worker, deployed-host, accessibility, and pilot evidence remain future gates.
 
 ## Open questions
 
-The route split, the prohibition on rendering `<SignUp />` from `/dashboard`, and the separation from ordinary tenant invitations are decided. This ADR does not migrate ordinary invitations to Clerk Application Invitations. Blocking provider questions remain: validate new-identity and existing-identity invitation acceptance, including `ignoreExisting`; matching-session and wrong-session behavior; invite-only behavior for existing sign-in; the exact Clerk prebuilt/custom-flow composition; history-replacement and `Referrer-Policy` protection for `__clerk_ticket`; revoke/reissue ordering; and `429`/`Retry-After` handling. Clerk Development evidence must close these questions before a new Ready-to-start promotion.
+None for Ready to start. **Documented:** `specs/spikes/SPIKE-DIVE-004/results.md` closed new/existing identity acceptance, `ignoreExisting`, matching/different sessions, invite-only sign-in, Future API composition, ticket cleanup, and bounded revoke/reissue behavior. **Derived:** a real provider `429`, natural expiration, canonical deployed-host behavior, product-route integration, cross-kind negative tests, and worker retry/backoff/exhaustion remain implementation or later conformance evidence. `MT-COND-WORKER-001` is implemented and tested with the first real worker and blocks its external effects until its policy and tests are approved.
 
 ## Implementation authority
 
-None while Draft. The previously Ready-to-start application-owned bearer contract is superseded by option B. Implementation issues must wait for provider evidence, review, and a new explicit Ready-to-start promotion.
+The product owner explicitly approved Ready-to-start promotion for option B on 2026-09-29 after reviewing the executed spike. This ADR and the onboarding SPEC are Ready to start. Implementation authority is active for reversible work; `MT-COND-WORKER-001` remains mandatory before external worker effects.

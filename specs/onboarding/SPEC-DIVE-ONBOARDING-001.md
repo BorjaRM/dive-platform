@@ -1,10 +1,10 @@
 # SPEC-DIVE-ONBOARDING-001 — Controlled self bootstrap and guided first-center onboarding
 
-- **Status:** Draft
-- **Version:** 0.6
-- **Last reviewed:** 2026-09-28
-- **Approved by:** Product owner for Draft review
-- **Approval reference:** Product confirmation 2026-09-28 selecting Clerk Application Invitations option B
+- **Status:** Ready to start
+- **Version:** 0.7
+- **Last reviewed:** 2026-09-29
+- **Approved by:** Product owner for Ready-to-start promotion
+- **Approval reference:** Product confirmation 2026-09-29 after executed `SPIKE-DIVE-004`; Ready-to-start status applied 2026-09-29
 - **Owner:** Product / Security / Frontend Architecture
 - **IDs:** `DIVE-ONB-REQ-001` … `DIVE-ONB-REQ-050`
 
@@ -14,7 +14,7 @@ This SPEC governs invited self-service creation of an operator tenant, its first
 
 `SPEC-DIVE-IAM-001` remains authoritative for identities, memberships, tenant roles, permissions, tenant context, and ordinary tenant invitations. `DIVE-IAM-REQ-017` and `ADR-DIVE-004` define an ordinary invitation as an invitation inside an existing tenant that creates and activates one pending membership with predetermined roles and center scopes. US-19 instead uses a pre-tenant bootstrap grant that can create the tenant, first center, and initial Owner. Neither record, command, credential, acceptance path, nor idempotency key can be used as the other. `ADR-DIVE-002` remains authoritative for the transactional outbox. `ADR-DIVE-013` owns the architecture choices introduced by this flow.
 
-The product owner narrowed US-19 to self bootstrap only. Assisted provisioning by platform staff is outside this story. This revision replaces the approved application-owned bearer and delivery design with Clerk Application Invitations. It remains Draft pending provider-behavior evidence and a new explicit readiness promotion.
+The product owner narrowed US-19 to self bootstrap only. Assisted provisioning by platform staff is outside this story. This revision replaces the approved application-owned bearer and delivery design with Clerk Application Invitations. `SPIKE-DIVE-004` resolved the blocking provider-behavior questions, and the product owner explicitly approved Ready-to-start promotion on 2026-09-29. This SPEC is Ready to start; implementation remains subject to its documented activation gates.
 
 ## Requirement provenance
 
@@ -25,17 +25,17 @@ The product owner narrowed US-19 to self bootstrap only. Assisted provisioning b
 | `DIVE-ONB-REQ-005..DIVE-ONB-REQ-020` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-022..DIVE-ONB-REQ-028` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-031..DIVE-ONB-REQ-034` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
-| `DIVE-ONB-REQ-035` | `Proposed` | Product confirmation 2026-09-28 accepting the dedicated acceptance/setup route boundary; `ADR-DIVE-013` v0.6 Draft | Approved for Draft review; route implementation pending |
+| `DIVE-ONB-REQ-035` | `Proposed` | Product confirmation 2026-09-28 accepting the dedicated acceptance/setup route boundary; product confirmation 2026-09-29 approving Ready-to-start promotion; `ADR-DIVE-013` v0.7 Ready to start | Approved for Ready-to-start promotion; route implementation pending |
 | `DIVE-ONB-REQ-002` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-001..006`; PR #36 product-owner revision record | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-004` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-002..006`; `ADR-DIVE-008` § Authorization path | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-021` | `Proposed` | PR #32 SDD Gatekeeper remediation; product confirmation 2026-09-28 | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-029..DIVE-ONB-REQ-030` | `Proposed` | PR #32 SDD Gatekeeper remediation; product confirmation 2026-09-28 | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-036` | `Derived` | `specs/foundation/sdd-specs-traceability.md` § Spec lifecycle / Definition of Ready / Definition of Done | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
-| `DIVE-ONB-REQ-037..DIVE-ONB-REQ-038` | `Proposed` | [Clerk application invitations](https://clerk.com/docs/guides/users/inviting); [invite-only access](https://clerk.com/docs/guides/secure/restricting-access); [custom invitation flow](https://clerk.com/docs/guides/development/custom-flows/authentication/application-invitations); [Next.js sign-up component](https://clerk.com/docs/nextjs/reference/components/authentication/sign-up); product confirmation 2026-09-28 accepting the dedicated acceptance route and protected dashboard boundary | Approved for Draft review; provider-behavior evidence and readiness promotion pending |
+| `DIVE-ONB-REQ-037..DIVE-ONB-REQ-038` | `Proposed` | [Clerk application invitations](https://clerk.com/docs/guides/users/inviting); [invite-only access](https://clerk.com/docs/guides/secure/restricting-access); [custom invitation flow](https://clerk.com/docs/guides/development/custom-flows/authentication/application-invitations); [Next.js sign-up component](https://clerk.com/docs/nextjs/reference/components/authentication/sign-up); `specs/spikes/SPIKE-DIVE-004/results.md`; product confirmation 2026-09-29 | Provider behavior demonstrated; approved for Ready-to-start promotion 2026-09-29 |
 | `DIVE-ONB-REQ-039..DIVE-ONB-REQ-040` | `Proposed` | Product confirmation 2026-09-28; `ADR-DIVE-013` v0.3 Draft | Previously approved; unchanged by option B |
-| `DIVE-ONB-REQ-041` | `Proposed` | [Clerk custom application-invitation flow](https://clerk.com/docs/guides/development/custom-flows/authentication/application-invitations); product confirmation 2026-09-28 accepting the separate authenticated setup route | Approved for Draft review; existing-identity evidence pending |
+| `DIVE-ONB-REQ-041` | `Proposed` | [Clerk custom application-invitation flow](https://clerk.com/docs/guides/development/custom-flows/authentication/application-invitations); `specs/spikes/SPIKE-DIVE-004/results.md`; product confirmation 2026-09-29 | Existing-identity flow demonstrated; approved for Ready-to-start promotion 2026-09-29 |
 | `DIVE-ONB-REQ-042` | `Proposed` | Product confirmation 2026-09-28; `ADR-DIVE-013` v0.3 Draft | Previously approved; unchanged by option B |
-| `DIVE-ONB-REQ-043..DIVE-ONB-REQ-047` | `Proposed` | [Clerk createInvitation](https://clerk.com/docs/reference/backend/invitations/create-invitation); product confirmation 2026-09-28 selecting option B | Approved for Draft review; worker/provider review pending |
+| `DIVE-ONB-REQ-043..DIVE-ONB-REQ-047` | `Proposed` | [Clerk createInvitation](https://clerk.com/docs/reference/backend/invitations/create-invitation); `specs/spikes/SPIKE-DIVE-004/results.md`; `specs/multitenancy/MT-SPIKE-001-specification.md` `MT-COND-WORKER-001`; product confirmation 2026-09-29 | Approved for Ready-to-start promotion; retry/backoff/exhaustion and dead-letter policy remains an activation gate before external worker effects |
 | `DIVE-ONB-REQ-048` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-022`, `030..031`; product confirmation 2026-09-28 | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-049..DIVE-ONB-REQ-050` | `Proposed` | Product confirmation 2026-09-28; `ADR-DIVE-013` v0.3 Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 
@@ -238,11 +238,12 @@ No latency, bundle, or throughput budget is introduced. Implementation evidence 
 - Component tests for renderer/content/analytics ports, guide state, target absence, and accessibility behavior.
 - Minimal Playwright coverage for Clerk invite-only signup/sign-in, invited-Owner self bootstrap, first-center entry, guide dismissal/replay, and Driver.js-disabled completion.
 - Manual WCAG 2.2 AA validation before pilot.
-- Clerk Development evidence is required for new identity, existing identity, expiration, revocation, reissue, exact redirect behavior, invite-only signup restriction, and ticket redaction. No implementation or execution evidence is claimed by this Draft documentation PR.
+- **Documented:** `specs/spikes/SPIKE-DIVE-004/results.md` provides Clerk Development evidence for new and existing identities, matching/different sessions, revocation/reissue, exact loopback redirect behavior, invite-only signup restriction, and ticket redaction.
+- **Derived:** natural expiration, canonical deployed-host behavior, product-route integration, and deterministic worker handling of provider rate limits remain evidence gates for Review, Accepted, or pilot as applicable; they do not reopen a product decision required to begin reversible implementation. `MT-COND-WORKER-001` must be satisfied before the first external worker effect.
 
 ## Open questions
 
-The route boundary is decided: normal login uses `/sign-in/[[...sign-in]]`, invitation acceptance uses `/bootstrap/accept`, authenticated data entry uses `/bootstrap/setup`, and `/dashboard` remains protected without `<SignUp />`. Blocking provider questions remain before a new Ready-to-start promotion: verify Clerk Development behavior for a new identity, an email that already has an application identity (including whether and how `ignoreExisting` preserves the invited sign-in path), a matching active session, and a different active session; verify invite-only mode does not block existing-user sign-in; verify which Clerk prebuilt/custom-flow composition satisfies that matrix; verify redirect/query handling removes `__clerk_ticket` with history replacement and prevents referrer/log leakage; and verify revoke/reissue plus rate-limit behavior. Results must update this SPEC/ADR rather than being selected silently during implementation.
+None for Ready to start. **Documented:** `specs/spikes/SPIKE-DIVE-004/results.md` closed the provider questions for new and existing identities, active-session classification, invite-only behavior, Future API composition, ticket cleanup, and revoke/reissue. **Derived:** a real provider `429`, natural expiration, canonical deployed-host behavior, product-route integration, and worker retry/backoff/exhaustion remain implementation or later conformance evidence; `MT-COND-WORKER-001` is implemented and tested with the first real worker and blocks its external effects until its policy and tests are approved.
 
 ## Traceability
 
