@@ -51,6 +51,15 @@ const identityProvider = new DeterministicIdentityProvider(
         verifiedAddresses: ['owner@example.test'],
       },
     ],
+    [
+      'control-token',
+      {
+        issuer: 'https://identity.example.test',
+        subject: 'control-owner',
+        sessionId: 'control-session',
+        verifiedAddresses: ['control@example.test'],
+      },
+    ],
   ]),
 );
 
@@ -176,6 +185,144 @@ describe('platform bootstrap invitations HTTP (DIVE-ONB-REQ-039..040)', () => {
       .send({ reason: 'Operator request' })
       .expect(200)
       .expect(({ body }) => expect(body.status).toBe('revoked'));
+  });
+
+  async function deliverInvitation(
+    destinationEmail: string,
+    idempotencyKey: string,
+  ): Promise<void> {
+    await request(app.getHttpServer())
+      .post('/v1/platform/bootstrap-invitations')
+      .set('Authorization', 'Bearer platform-token')
+      .set('Idempotency-Key', idempotencyKey)
+      .send({ destinationEmail, reason: 'Self bootstrap' })
+      .expect(201);
+
+    const workerClient = await workerPool.connect();
+    try {
+      await workerClient.query('BEGIN');
+      const event = await claimBootstrapOutboxEvent(workerClient);
+      if (!event) throw new Error('Expected provider create command');
+      await completeBootstrapOutboxEvent(workerClient, {
+        eventId: event.eventId,
+        providerInvitationRef: `clerk_invitation_${idempotencyKey}`,
+        providerStatus: 'pending',
+      });
+      await workerClient.query('COMMIT');
+    } catch (error) {
+      await workerClient.query('ROLLBACK');
+      throw error;
+    } finally {
+      workerClient.release();
+    }
+  }
+
+  it('completes registration for a new or existing invited identity after its session is established (DIVE-ONB-REQ-038, DIVE-ONB-REQ-041)', async () => {
+    await deliverInvitation('owner@example.test', 'registration-matching');
+    const setup = {
+      operatorDisplayName: 'Ocean Blue',
+      centerDisplayName: 'North Shore',
+      timeZone: 'Europe/Madrid',
+      locale: 'en',
+    };
+
+    const completed = await request(app.getHttpServer())
+      .post('/v1/me/tenant-bootstrap')
+      .set('Authorization', 'Bearer bootstrap-token')
+      .send(setup)
+      .expect(201);
+    expect(completed.body).toMatchObject({
+      centerKey: expect.stringMatching(/^north-shore/),
+    });
+    expect(completed.body).not.toHaveProperty('invitationId');
+
+    const persisted = await admin.query<{
+      centers: number;
+      grant_status: string;
+      memberships: number;
+    }>(
+      `SELECT
+        (SELECT count(*)::int FROM iam_app.centers WHERE tenant_id = $1) AS centers,
+        (SELECT count(*)::int FROM iam_app.memberships
+          WHERE tenant_id = $1 AND status = 'active' AND roles = ARRAY['tenant_owner']) AS memberships,
+        (SELECT status FROM onboarding_app.tenant_bootstrap_grants
+          WHERE result_tenant_id = $1) AS grant_status`,
+      [completed.body.tenantId],
+    );
+    expect(persisted.rows[0]).toEqual({
+      centers: 1,
+      grant_status: 'consumed',
+      memberships: 1,
+    });
+  });
+
+  it('rejects registration without a session before any tenant write (DIVE-ONB-REQ-050)', async () => {
+    await deliverInvitation(
+      'owner@example.test',
+      'registration-missing-session',
+    );
+    const before = await admin.query<{ tenants: number }>(
+      `SELECT count(*)::int AS tenants FROM iam_app.tenants`,
+    );
+
+    await request(app.getHttpServer())
+      .post('/v1/me/tenant-bootstrap')
+      .send({
+        operatorDisplayName: 'Ocean Blue',
+        centerDisplayName: 'North Shore',
+        timeZone: 'Europe/Madrid',
+        locale: 'en',
+      })
+      .expect(401)
+      .expect(({ body }) => expect(body.message).toBe('Unauthenticated'));
+
+    const persisted = await admin.query<{
+      grant_status: string;
+      tenants: number;
+    }>(
+      `SELECT
+        (SELECT count(*)::int FROM iam_app.tenants) AS tenants,
+        (SELECT status FROM onboarding_app.tenant_bootstrap_grants) AS grant_status`,
+    );
+    expect(persisted.rows[0]).toEqual({
+      grant_status: 'issued',
+      tenants: before.rows[0]?.tenants,
+    });
+  });
+
+  it('denies registration for a different active identity without disclosure (DIVE-ONB-REQ-041, DIVE-ONB-REQ-050)', async () => {
+    await deliverInvitation(
+      'owner@example.test',
+      'registration-different-session',
+    );
+    const before = await admin.query<{ tenants: number }>(
+      `SELECT count(*)::int AS tenants FROM iam_app.tenants`,
+    );
+
+    await request(app.getHttpServer())
+      .post('/v1/me/tenant-bootstrap')
+      .set('Authorization', 'Bearer control-token')
+      .send({
+        operatorDisplayName: 'Ocean Blue',
+        centerDisplayName: 'North Shore',
+        timeZone: 'Europe/Madrid',
+        locale: 'en',
+      })
+      .expect(403)
+      .expect(({ body }) => expect(body.code).toBe('bootstrap_unavailable'));
+
+    const persisted = await admin.query<{
+      grant_status: string;
+      tenants: number;
+    }>(
+      `SELECT
+        (SELECT count(*)::int FROM iam_app.tenants) AS tenants,
+        (SELECT status FROM onboarding_app.tenant_bootstrap_grants) AS grant_status`,
+    );
+    expect(persisted.rows[0]).toEqual({
+      grant_status: 'issued',
+      tenants: before.rows[0]?.tenants,
+    });
   });
 
   it('completes bootstrap only for the matching authenticated identity and closed setup body (DIVE-ONB-REQ-004, DIVE-ONB-REQ-041)', async () => {

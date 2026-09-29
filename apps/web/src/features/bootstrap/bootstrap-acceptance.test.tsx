@@ -87,7 +87,7 @@ describe('BootstrapAcceptance', () => {
     window.history.replaceState(
       {},
       '',
-      '/bootstrap/accept?__clerk_ticket=secret-ticket',
+      '/bootstrap/accept?__clerk_status=sign_in&__clerk_ticket=secret-ticket',
     );
     clerkMock.signIn.ticket.mockImplementation(async () => {
       clerkMock.signIn.status = 'needs_first_factor';
@@ -114,9 +114,12 @@ describe('BootstrapAcceptance', () => {
     expect(clerkMock.isSignedIn).toBe(false);
     expect(window.location.pathname).toBe('/bootstrap/accept');
     expect(window.location.search).toBe('');
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Existing account' }),
-    );
+    expect(
+      screen.queryByRole('button', { name: 'Existing account' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'New account' }),
+    ).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Password'), {
       target: { value: 'existing-password' },
     });
@@ -138,7 +141,7 @@ describe('BootstrapAcceptance', () => {
     window.history.replaceState(
       {},
       '',
-      '/bootstrap/accept?__clerk_ticket=secret-ticket',
+      '/bootstrap/accept?__clerk_status=sign_in&__clerk_ticket=secret-ticket',
     );
 
     render(<BootstrapAcceptance />);
@@ -162,7 +165,7 @@ describe('BootstrapAcceptance', () => {
     window.history.replaceState(
       {},
       '',
-      '/bootstrap/accept?__clerk_ticket=new-secret-ticket',
+      '/bootstrap/accept?__clerk_status=sign_up&__clerk_ticket=new-secret-ticket',
     );
     clerkMock.signUp.ticket.mockImplementation(async () => {
       clerkMock.signUp.status = 'needs_first_factor';
@@ -182,6 +185,10 @@ describe('BootstrapAcceptance', () => {
     render(<BootstrapAcceptance />);
 
     await screen.findByRole('button', { name: 'Continue' });
+    expect(document.getElementById('clerk-captcha')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'New account' }),
+    ).not.toBeInTheDocument();
     expect(window.location.search).toBe('');
     const fields = await screen.findAllByLabelText(/password/i);
     const [password, passwordConfirmation] = fields;
@@ -211,7 +218,7 @@ describe('BootstrapAcceptance', () => {
     window.history.replaceState(
       {},
       '',
-      '/bootstrap/accept?__clerk_ticket=existing-secret-ticket',
+      '/bootstrap/accept?__clerk_status=sign_in&__clerk_ticket=existing-secret-ticket',
     );
     clerkMock.signIn.ticket.mockImplementation(async () => {
       clerkMock.signIn.status = 'needs_first_factor';
@@ -230,10 +237,11 @@ describe('BootstrapAcceptance', () => {
 
     render(<BootstrapAcceptance />);
 
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Existing account' }),
-    );
-    fireEvent.change(screen.getByLabelText('Password'), {
+    expect(
+      screen.queryByRole('button', { name: 'Existing account' }),
+    ).not.toBeInTheDocument();
+    expect(document.getElementById('clerk-captcha')).not.toBeInTheDocument();
+    fireEvent.change(await screen.findByLabelText('Password'), {
       target: { value: 'existing-password' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -248,5 +256,64 @@ describe('BootstrapAcceptance', () => {
       password: 'existing-password',
     });
     expect(window.location.search).toBe('');
+    expect(routerMock.replace).toHaveBeenCalledWith('/bootstrap/setup');
+    expect(clerkMock.signUp.ticket).not.toHaveBeenCalled();
   });
+
+  it('does not start acceptance when Clerk does not classify the invitation (DIVE-ONB-REQ-038)', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/bootstrap/accept?__clerk_ticket=unclassified-ticket',
+    );
+
+    render(<BootstrapAcceptance />);
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'This invitation cannot be opened',
+      }),
+    ).toBeInTheDocument();
+    expect(clerkMock.signIn.ticket).not.toHaveBeenCalled();
+    expect(clerkMock.signUp.ticket).not.toHaveBeenCalled();
+    expect(document.getElementById('clerk-captcha')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['sign_up', 'signUp'],
+    ['sign_in', 'signIn'],
+  ] as const)(
+    'shows a neutral error when %s invitation acceptance fails (DIVE-ONB-REQ-038)',
+    async (status, flow) => {
+      window.history.replaceState(
+        {},
+        '',
+        `/bootstrap/accept?__clerk_status=${status}&__clerk_ticket=rejected-ticket`,
+      );
+      const resource = flow === 'signUp' ? clerkMock.signUp : clerkMock.signIn;
+      resource.ticket.mockResolvedValue({
+        error: { code: 'private_provider_code' },
+      });
+
+      render(<BootstrapAcceptance />);
+
+      fireEvent.change(await screen.findByLabelText('Password'), {
+        target: { value: 'correct-horse' },
+      });
+      if (status === 'sign_up') {
+        fireEvent.change(screen.getByLabelText('Confirm password'), {
+          target: { value: 'correct-horse' },
+        });
+      }
+      fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'This invitation could not be accepted.',
+      );
+      expect(screen.getByRole('alert')).not.toHaveTextContent(
+        'private_provider_code',
+      );
+      expect(routerMock.replace).not.toHaveBeenCalled();
+    },
+  );
 });

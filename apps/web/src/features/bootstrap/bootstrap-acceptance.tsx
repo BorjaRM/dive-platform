@@ -11,7 +11,14 @@ type AcceptancePhase =
   | 'submitting'
   | 'missing'
   | 'failed';
-type EnrollmentMode = 'new' | 'existing';
+type InvitationFlow = 'sign_in' | 'sign_up';
+
+function invitationFlowFromStatus(
+  status: string | null,
+): InvitationFlow | null {
+  if (status === 'sign_in' || status === 'sign_up') return status;
+  return null;
+}
 
 function removeTicketFromAddressBar() {
   window.history.replaceState(window.history.state, '', '/bootstrap/accept');
@@ -24,18 +31,19 @@ export function BootstrapAcceptance() {
   const { signUp } = useSignUp();
   const { signOut } = useClerk();
   const ticket = useRef<string | null>(null);
+  const flow = useRef<InvitationFlow | null>(null);
   const [phase, setPhase] = useState<AcceptancePhase>('loading');
-  const [mode, setMode] = useState<EnrollmentMode>('new');
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (ticket.current === null) {
-      ticket.current =
-        new URLSearchParams(window.location.search).get('__clerk_ticket') ?? '';
+      const params = new URLSearchParams(window.location.search);
+      ticket.current = params.get('__clerk_ticket') ?? '';
+      flow.current = invitationFlowFromStatus(params.get('__clerk_status'));
       if (ticket.current) removeTicketFromAddressBar();
     }
     if (!userLoaded) return;
-    if (!ticket.current) {
+    if (!ticket.current || !flow.current) {
       setPhase('missing');
       return;
     }
@@ -62,7 +70,8 @@ export function BootstrapAcceptance() {
   async function acceptInvitation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const invitationTicket = ticket.current;
-    if (!invitationTicket || !signIn || !signUp) {
+    const invitationFlow = flow.current;
+    if (!invitationTicket || !invitationFlow || !signIn || !signUp) {
       setPhase('failed');
       return;
     }
@@ -71,14 +80,14 @@ export function BootstrapAcceptance() {
     const passwordConfirmation = String(
       formData.get('passwordConfirmation') ?? '',
     );
-    if (mode === 'new' && password !== passwordConfirmation) {
+    if (invitationFlow === 'sign_up' && password !== passwordConfirmation) {
       setMessage('Passwords do not match.');
       return;
     }
     setMessage(null);
     setPhase('submitting');
     try {
-      if (mode === 'new') {
+      if (invitationFlow === 'sign_up') {
         const ticketResult = await signUp.ticket({ ticket: invitationTicket });
         if (ticketResult.error) throw new Error('invitation_failed');
         if (signUp.status !== 'complete') {
@@ -118,7 +127,7 @@ export function BootstrapAcceptance() {
     setPhase('loading');
     try {
       await signOut(() => {
-        setPhase(ticket.current ? 'ready' : 'missing');
+        setPhase(ticket.current && flow.current ? 'ready' : 'missing');
       });
     } catch {
       setMessage(
@@ -164,47 +173,50 @@ export function BootstrapAcceptance() {
     );
   }
 
+  const invitationFlow = flow.current;
+  if (invitationFlow !== 'sign_in' && invitationFlow !== 'sign_up') {
+    return (
+      <AcceptanceStatus
+        title="This invitation cannot be opened"
+        body="Request a new invitation or contact support."
+      />
+    );
+  }
+
   return (
     <AcceptanceFrame title="Accept your invitation">
-      <fieldset className="bootstrap-segments">
-        <legend>Account type</legend>
-        <button
-          type="button"
-          aria-pressed={mode === 'new'}
-          onClick={() => setMode('new')}
-        >
-          New account
-        </button>
-        <button
-          type="button"
-          aria-pressed={mode === 'existing'}
-          onClick={() => setMode('existing')}
-        >
-          Existing account
-        </button>
-      </fieldset>
+      <p className="bootstrap-form-copy">
+        {invitationFlow === 'sign_up'
+          ? 'Create a password to accept this invitation.'
+          : 'Enter your password to accept this invitation.'}
+      </p>
       <form className="bootstrap-form" onSubmit={acceptInvitation}>
         <label>
           Password
           <input
             name="password"
             type="password"
-            autoComplete={mode === 'new' ? 'new-password' : 'current-password'}
+            autoComplete={
+              invitationFlow === 'sign_up' ? 'new-password' : 'current-password'
+            }
             minLength={8}
             required
           />
         </label>
-        {mode === 'new' ? (
-          <label>
-            Confirm password
-            <input
-              name="passwordConfirmation"
-              type="password"
-              autoComplete="new-password"
-              minLength={8}
-              required
-            />
-          </label>
+        {invitationFlow === 'sign_up' ? (
+          <>
+            <label>
+              Confirm password
+              <input
+                name="passwordConfirmation"
+                type="password"
+                autoComplete="new-password"
+                minLength={8}
+                required
+              />
+            </label>
+            <div id="clerk-captcha" />
+          </>
         ) : null}
         {message ? (
           <p className="bootstrap-feedback" role="alert">

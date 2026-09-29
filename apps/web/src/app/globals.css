@@ -817,15 +817,13 @@ body {
 .bootstrap-form input:focus-visible,
 .bootstrap-primary:focus-visible,
 .bootstrap-secondary:focus-visible,
-.bootstrap-segments button:focus-visible,
 .locale-switcher label:focus-within {
   outline: 3px solid var(--bootstrap-sun);
   outline-offset: 2px;
 }
 
 .bootstrap-primary,
-.bootstrap-secondary,
-.bootstrap-segments button {
+.bootstrap-secondary {
   min-height: 44px;
   border: 1px solid var(--bootstrap-ink);
   border-radius: 3px;
@@ -857,37 +855,6 @@ body {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 25px;
-}
-
-.bootstrap-segments {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-bottom: 24px;
-  border: 0;
-  padding: 0;
-}
-
-.bootstrap-segments legend {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-}
-
-.bootstrap-segments button {
-  border-radius: 0;
-  background: transparent;
-  color: var(--bootstrap-muted);
-}
-
-.bootstrap-segments button + button {
-  border-left: 0;
-}
-
-.bootstrap-segments button[aria-pressed="true"] {
-  background: var(--bootstrap-ink);
-  color: #fff;
 }
 
 .bootstrap-form-copy {
