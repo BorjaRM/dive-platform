@@ -8,10 +8,14 @@ import { ClerkAuthGuard } from './auth/auth.guard.js';
 import { clerkIdentityConfigFromEnvironment } from './auth/clerk.config.js';
 import { SECURITY_LOGGER } from './security/security.tokens.js';
 import {
+  centerAppBaseDomainFromEnvironment,
   dashboardContextHmacSecretFromEnvironment,
   TenantContextCrypto,
 } from './tenant-context/tenant-context.crypto.js';
-import { TENANT_CONTEXT_CRYPTO } from './tenant-context/tenant-context.tokens.js';
+import {
+  CENTER_APP_BASE_DOMAIN,
+  TENANT_CONTEXT_CRYPTO,
+} from './tenant-context/tenant-context.tokens.js';
 
 @Global()
 @Module({
@@ -34,6 +38,10 @@ import { TENANT_CONTEXT_CRYPTO } from './tenant-context/tenant-context.tokens.js
       },
     },
     {
+      provide: CENTER_APP_BASE_DOMAIN,
+      useFactory: () => centerAppBaseDomainFromEnvironment(process.env),
+    },
+    {
       provide: TENANT_CONTEXT_CRYPTO,
       useFactory: () =>
         new TenantContextCrypto(
@@ -47,6 +55,7 @@ import { TENANT_CONTEXT_CRYPTO } from './tenant-context/tenant-context.tokens.js
     IDENTITY_PROVIDER,
     IDENTITY_WEBHOOK_VERIFIER,
     SECURITY_LOGGER,
+    CENTER_APP_BASE_DOMAIN,
     TENANT_CONTEXT_CRYPTO,
   ],
 })

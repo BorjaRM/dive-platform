@@ -15,6 +15,11 @@ export {
   resolveIamAccess,
   withIamAuthorizedTenant,
 } from './iam-authorize.js';
+export type {
+  CenterEntryStatus,
+  CenterEntryStatusCommandResult,
+} from './iam-center-entry-commands.js';
+export { setIamCenterEntryStatus } from './iam-center-entry-commands.js';
 export type { IdentityWebhookCommandResult } from './iam-identity-webhooks.js';
 export { applyIdentityWebhook } from './iam-identity-webhooks.js';
 export type {
@@ -28,6 +33,7 @@ export {
   revokeIamInvitation,
 } from './iam-membership-commands.js';
 export type {
+  CenterEntryResolution,
   IamOperator,
   TenantContextDenied,
   TenantContextIssueResult,
@@ -37,6 +43,7 @@ export {
   cleanupRevokedIamTenantContexts,
   issueIamTenantContext,
   listIamOperators,
+  resolveIamCenterEntry,
   resolveIamTenantContext,
   revokeIamTenantContext,
   sessionIdHashForWebhook,

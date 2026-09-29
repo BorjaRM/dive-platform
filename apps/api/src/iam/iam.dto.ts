@@ -34,7 +34,36 @@ export class IssueTenantContextDto {
   operatorRef?: string;
 }
 
+export class IssueCenterEntryContextDto {
+  @ApiProperty({ description: 'Center key matching the exact request origin' })
+  centerRef: string;
+}
+
+export class UpdateCenterEntryStatusDto {
+  @ApiProperty({ enum: ['active', 'disabled'] })
+  status: 'active' | 'disabled';
+
+  @ApiProperty({ description: 'Administrative purpose for the state change' })
+  purpose: string;
+}
+
+export class CenterEntryStatusDto {
+  @ApiProperty({ description: 'Whether the persisted status changed' })
+  changed: boolean;
+
+  @ApiProperty({ enum: ['active', 'disabled'] })
+  status: 'active' | 'disabled';
+}
+
 export class TenantContextDto {
   @ApiProperty({ description: 'Opaque tenant context handle; shown once' })
   tenantContext: string;
+}
+
+export class CenterEntryContextDto extends TenantContextDto {
+  @ApiProperty({
+    description: 'Center selected by the trusted entry mapping',
+    example: { centerId: 'aaaaaaaa-0001-0001-0001-000000000001' },
+  })
+  center: { centerId: string };
 }

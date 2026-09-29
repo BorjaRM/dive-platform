@@ -6,10 +6,15 @@ import {
   issueIamTenantContext,
   listIamOperators,
   resolveIamAccess,
+  resolveIamCenterEntry,
   resolveIamTenantContext,
   revokeIamTenantContext,
+  rollbackAndReleaseClient,
 } from '@dive-center/database';
-import type { AuthenticatedPrincipal } from '@dive-center/identity';
+import {
+  type AuthenticatedPrincipal,
+  authorizeIamMembership,
+} from '@dive-center/identity';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool } from 'pg';
 import { DATABASE_POOL } from '../../common/database/database.tokens.js';
@@ -19,8 +24,14 @@ import {
   SECURITY_LOGGER,
   type SecurityLoggerPort,
 } from '../../common/security/security.tokens.js';
-import type { TenantContextCrypto } from '../../common/tenant-context/tenant-context.crypto.js';
-import { TENANT_CONTEXT_CRYPTO } from '../../common/tenant-context/tenant-context.tokens.js';
+import {
+  centerKeyFromOrigin,
+  type TenantContextCrypto,
+} from '../../common/tenant-context/tenant-context.crypto.js';
+import {
+  CENTER_APP_BASE_DOMAIN,
+  TENANT_CONTEXT_CRYPTO,
+} from '../../common/tenant-context/tenant-context.tokens.js';
 import { denied } from '../iam-denied.js';
 
 @Injectable()
@@ -30,6 +41,8 @@ export class TenantContextService {
     @Inject(SECURITY_LOGGER) private readonly logger: SecurityLoggerPort,
     @Inject(TENANT_CONTEXT_CRYPTO)
     private readonly contextCrypto: TenantContextCrypto,
+    @Inject(CENTER_APP_BASE_DOMAIN)
+    private readonly centerAppBaseDomain: string,
   ) {}
 
   private securityDenied(
@@ -100,6 +113,107 @@ export class TenantContextService {
       denied();
     }
     return { tenantContext: handle };
+  }
+
+  async isCenterOriginAllowed(origin: string): Promise<boolean> {
+    const centerKey = centerKeyFromOrigin(origin, this.centerAppBaseDomain);
+    if (!centerKey) return false;
+    return (await resolveIamCenterEntry(this.pool, centerKey)) !== null;
+  }
+
+  async issueCenterEntryContext(
+    principal: AuthenticatedPrincipal,
+    origin: string | undefined,
+    input: unknown,
+    correlationId: string,
+  ) {
+    const centerRef =
+      typeof input === 'object' &&
+      input !== null &&
+      !Array.isArray(input) &&
+      Object.keys(input).length === 1 &&
+      typeof (input as { centerRef?: unknown }).centerRef === 'string'
+        ? (input as { centerRef: string }).centerRef
+        : null;
+    const centerKey = centerKeyFromOrigin(origin, this.centerAppBaseDomain);
+    if (!centerKey || centerRef !== centerKey) {
+      this.securityDenied(
+        IAM_ACTIONS.tenantContextIssue,
+        'membership_missing_or_inactive',
+        correlationId,
+      );
+      denied();
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const entry = await resolveIamCenterEntry(client, centerKey);
+      if (!entry) {
+        this.securityDenied(
+          IAM_ACTIONS.tenantContextIssue,
+          'membership_missing_or_inactive',
+          correlationId,
+        );
+        denied();
+      }
+
+      let access: IamAccessContext;
+      try {
+        access = await resolveIamAccess(client, principal, entry.tenantId);
+      } catch (error) {
+        if (!(error instanceof IamAccessDeniedError)) throw error;
+        this.securityDenied(
+          IAM_ACTIONS.tenantContextIssue,
+          error.reason,
+          correlationId,
+        );
+        denied();
+      }
+      const decision = authorizeIamMembership({
+        membershipStatus: 'active',
+        roles: access.roles,
+        centerIds: access.centerIds,
+        permission: 'center.read',
+        requestedCenterId: entry.centerId,
+        tenantMatches: access.tenantId === entry.tenantId,
+        resourceExists: true,
+        resourceStateAllows: true,
+      });
+      if (!decision.allowed) {
+        this.securityDenied(
+          IAM_ACTIONS.tenantContextIssue,
+          decision.reason,
+          correlationId,
+        );
+        denied();
+      }
+
+      const handle = this.contextCrypto.createHandle();
+      const outcome = await issueIamTenantContext(client, principal, {
+        tenantId: access.tenantId,
+        handleHash: this.contextCrypto.handleHash(handle),
+        sessionIdHash: this.contextCrypto.sessionIdHash(principal.sessionId),
+      });
+      if ('deniedReason' in outcome) {
+        this.securityDenied(
+          IAM_ACTIONS.tenantContextIssue,
+          outcome.deniedReason,
+          correlationId,
+        );
+        denied();
+      }
+
+      await client.query('COMMIT');
+      client.release();
+      return {
+        tenantContext: handle,
+        center: { centerId: entry.centerId },
+      };
+    } catch (error) {
+      await rollbackAndReleaseClient(client);
+      throw error;
+    }
   }
 
   async revokeTenantContext(

@@ -9,6 +9,8 @@ describe('IAM audit contracts (DIVE-IAM-REQ-023, DIVE-IAM-REQ-025)', () => {
     expect(IAM_AUDIT_ACTIONS).toEqual([
       'membership.invite',
       'membership.disable',
+      'center_entry.enable',
+      'center_entry.disable',
       'booking.create',
       'booking.read',
       'booking.update',

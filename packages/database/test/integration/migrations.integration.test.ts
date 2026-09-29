@@ -24,6 +24,7 @@ const iamTables = [
   iamSchema.iamExternalIdentities,
   iamSchema.iamIdentityWebhookInbox,
   iamSchema.iamCenters,
+  iamSchema.iamCenterEntries,
   iamSchema.iamMemberships,
   iamSchema.iamIdentityTenants,
   iamSchema.iamTenantContexts,

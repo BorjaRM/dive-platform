@@ -1,6 +1,8 @@
 export const IAM_AUDIT_ACTIONS = [
   'membership.invite',
   'membership.disable',
+  'center_entry.enable',
+  'center_entry.disable',
   'booking.create',
   'booking.read',
   'booking.update',

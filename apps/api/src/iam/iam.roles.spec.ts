@@ -12,6 +12,7 @@ describe('IAM role permissions (DIVE-IAM-REQ-003, DIVE-IAM-REQ-010..014, DIVE-IA
       IAM_ROLES.tenantOwner,
       [
         'center.read',
+        'center_entry.manage',
         'booking_service.create',
         'booking_service.read',
         'booking_service.update',
@@ -36,6 +37,7 @@ describe('IAM role permissions (DIVE-IAM-REQ-003, DIVE-IAM-REQ-010..014, DIVE-IA
       IAM_ROLES.tenantAdmin,
       [
         'center.read',
+        'center_entry.manage',
         'booking_service.create',
         'booking_service.read',
         'booking_service.update',
@@ -151,6 +153,23 @@ describe('IAM role permissions (DIVE-IAM-REQ-003, DIVE-IAM-REQ-010..014, DIVE-IA
     IAM_ROLES.receptionBookingManager,
   ])('grants center.read to %s', (role) => {
     expect(permissionsForRoles([role])).toContain('center.read');
+  });
+
+  it.each([IAM_ROLES.tenantOwner, IAM_ROLES.tenantAdmin])(
+    'grants center_entry.manage only to tenant administrators: %s',
+    (role) => {
+      expect(permissionsForRoles([role])).toContain('center_entry.manage');
+    },
+  );
+
+  it.each([
+    IAM_ROLES.operationsLead,
+    IAM_ROLES.auditorCompliance,
+    IAM_ROLES.centerManager,
+    IAM_ROLES.receptionBookingManager,
+    IAM_ROLES.externalCollaborator,
+  ])('does not grant center_entry.manage to %s', (role) => {
+    expect(permissionsForRoles([role])).not.toContain('center_entry.manage');
   });
 
   it.each(['pending', 'disabled', 'unknown'])(
@@ -339,6 +358,7 @@ describe('IAM role permissions (DIVE-IAM-REQ-003, DIVE-IAM-REQ-010..014, DIVE-IA
   it('publishes the complete stable permission catalog', () => {
     expect(IAM_PERMISSIONS).toEqual([
       'center.read',
+      'center_entry.manage',
       'booking_service.create',
       'booking_service.read',
       'booking_service.update',

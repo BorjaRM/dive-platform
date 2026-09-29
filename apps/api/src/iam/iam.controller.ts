@@ -17,6 +17,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiForbiddenResponse,
   ApiNoContentResponse,
@@ -37,9 +38,15 @@ import {
   SECURITY_LOGGER,
   type SecurityLoggerPort,
 } from '../common/security/security.tokens.js';
-import type { IssueTenantContextDto } from './iam.dto.js';
+import type {
+  IssueCenterEntryContextDto,
+  IssueTenantContextDto,
+  UpdateCenterEntryStatusDto,
+} from './iam.dto.js';
 import {
   CenterDto,
+  CenterEntryContextDto,
+  CenterEntryStatusDto,
   DisableMembershipResultDto,
   OperatorListDto,
   TenantContextDto,
@@ -81,6 +88,29 @@ export class IamController {
       if (error instanceof ForbiddenException) throw error;
       throw error;
     }
+  }
+
+  @ApiOperation({ summary: 'Issue tenant context for an exact center origin' })
+  @ApiOkResponse({ type: CenterEntryContextDto })
+  @ApiForbiddenResponse({ description: 'Center entry is unavailable' })
+  @AuthAction(IAM_ACTIONS.tenantContextIssue)
+  @Post('me/center-entry-contexts')
+  issueCenterEntryContext(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Headers('origin') origin: string | undefined,
+    @Body() input: IssueCenterEntryContextDto,
+  ) {
+    return this.execute(
+      IAM_ACTIONS.tenantContextIssue,
+      principal,
+      (principal, correlationId) =>
+        this.iam.issueCenterEntryContext(
+          principal,
+          origin,
+          input,
+          correlationId,
+        ),
+    );
   }
 
   @ApiOperation({ summary: 'List active operators for the caller' })
@@ -170,6 +200,33 @@ export class IamController {
       principal,
       (principal, correlationId) =>
         this.iam.readCenter(principal, handle, centerId, correlationId),
+    );
+  }
+
+  @ApiOperation({ summary: 'Enable or disable a center entry origin' })
+  @ApiParam({ name: 'centerId', format: 'uuid' })
+  @ApiOkResponse({ type: CenterEntryStatusDto })
+  @ApiBadRequestResponse({ description: 'Invalid lifecycle request' })
+  @ApiForbiddenResponse({ description: 'Center entry management denied' })
+  @AuthAction(IAM_ACTIONS.centerEntryManage)
+  @Patch('centers/:centerId/entry-status')
+  setCenterEntryStatus(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Headers('x-tenant-context') handle: string | undefined,
+    @Param('centerId') centerId: string,
+    @Body() input: UpdateCenterEntryStatusDto,
+  ) {
+    return this.execute(
+      IAM_ACTIONS.centerEntryManage,
+      principal,
+      (principal, correlationId) =>
+        this.iam.setCenterEntryStatus(
+          principal,
+          handle,
+          centerId,
+          input,
+          correlationId,
+        ),
     );
   }
 

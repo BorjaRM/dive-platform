@@ -44,15 +44,85 @@ export function dashboardCorsOriginsFromEnvironment(
   environment: Environment,
 ): readonly string[] {
   const runtimeEnvironment = runtimeEnvironmentFromEnvironment(environment);
-  const origins = required(environment, 'DASHBOARD_CORS_ORIGINS')
+  const centerAppBaseDomain = centerAppBaseDomainFromEnvironment(environment);
+  const configuredOrigins = environment.DASHBOARD_CORS_ORIGINS?.trim() ?? '';
+  const origins = configuredOrigins
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean)
     .map((origin) =>
       exactOrigin(origin, 'DASHBOARD_CORS_ORIGINS', runtimeEnvironment),
     );
-  if (origins.length === 0) throw new Error('Invalid DASHBOARD_CORS_ORIGINS');
-  return Object.freeze([...new Set(origins)]);
+  const authenticationOrigin = exactOrigin(
+    required(environment, 'AUTHENTICATION_ORIGIN'),
+    'AUTHENTICATION_ORIGIN',
+    runtimeEnvironment,
+  );
+  if (centerKeyFromOrigin(authenticationOrigin, centerAppBaseDomain)) {
+    throw new Error('Invalid AUTHENTICATION_ORIGIN');
+  }
+  if (
+    origins.some((origin) => centerKeyFromOrigin(origin, centerAppBaseDomain))
+  ) {
+    throw new Error('Invalid DASHBOARD_CORS_ORIGINS');
+  }
+  return Object.freeze([...new Set([authenticationOrigin, ...origins])]);
+}
+
+export function centerAppBaseDomainFromEnvironment(
+  environment: Environment,
+): string {
+  const runtimeEnvironment = runtimeEnvironmentFromEnvironment(environment);
+  const value = required(environment, 'CENTER_APP_BASE_DOMAIN');
+  if (
+    value !== value.toLowerCase() ||
+    value.includes('*') ||
+    !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(
+      value,
+    )
+  ) {
+    throw new Error('Invalid CENTER_APP_BASE_DOMAIN');
+  }
+  assertNoSyntheticProductionValue(
+    value,
+    'CENTER_APP_BASE_DOMAIN',
+    runtimeEnvironment,
+  );
+  return value;
+}
+
+export function centerKeyFromOrigin(
+  value: string | undefined,
+  baseDomain: string,
+): string | null {
+  if (!value) return null;
+  try {
+    const origin = new URL(value);
+    const suffix = `.${baseDomain}`;
+    if (
+      origin.protocol !== 'https:' ||
+      origin.username ||
+      origin.password ||
+      origin.port ||
+      origin.pathname !== '/' ||
+      origin.search ||
+      origin.hash ||
+      origin.origin !== value ||
+      !origin.hostname.endsWith(suffix)
+    ) {
+      return null;
+    }
+    const centerKey = origin.hostname.slice(0, -suffix.length);
+    if (
+      centerKey.includes('.') ||
+      !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(centerKey)
+    ) {
+      return null;
+    }
+    return centerKey;
+  } catch {
+    return null;
+  }
 }
 
 export function dashboardContextHmacSecretFromEnvironment(

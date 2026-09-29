@@ -54,6 +54,7 @@ describe('IAM error handling', () => {
       pool as never,
       logger,
       contextCrypto,
+      'app.example.test',
     );
     const service = new CentersService(pool as never, logger, tenantContexts);
 
@@ -89,6 +90,7 @@ describe('IAM error handling', () => {
       pool as never,
       logger,
       contextCrypto,
+      'app.example.test',
     );
     const service = new CentersService(pool as never, logger, tenantContexts);
 
@@ -112,6 +114,7 @@ describe('IAM error handling', () => {
       pool as never,
       { warn: vi.fn() },
       contextCrypto,
+      'app.example.test',
     );
     const service = new MembershipsService(
       pool as never,
