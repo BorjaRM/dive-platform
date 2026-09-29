@@ -7,7 +7,12 @@ import {
 } from '@nestjs/common';
 
 export class ApiProblemException extends HttpException {
-  constructor(status: HttpStatus, code: string, detail?: string) {
+  constructor(
+    status: HttpStatus,
+    code: string,
+    detail?: string,
+    readonly headers?: Readonly<Record<string, string>>,
+  ) {
     super(
       {
         type: `https://api.dive-platform.test/problems/${code}`,
@@ -35,7 +40,9 @@ export class ApiProblemFilter
       /^\/v1\/centers\/[^/]+\/(activities|slots|channels)(\/|$)/.test(path);
     const isPublicBookingPath =
       /^\/v1\/public\/channels\/[^/]+\/bookings(\/|$)/.test(path);
-    if (!isCatalogPath && !isPublicBookingPath) {
+    const isBootstrapInvitationPath =
+      /^\/v1\/platform\/bootstrap-invitations(\/|$)/.test(path);
+    if (!isCatalogPath && !isPublicBookingPath && !isBootstrapInvitationPath) {
       if (exception instanceof HttpException) {
         response.status(exception.getStatus()).send(exception.getResponse());
       } else {
@@ -65,6 +72,11 @@ export class ApiProblemFilter
         422: 'validation_error',
       }[status] ??
       'http_error';
+    if (exception instanceof ApiProblemException) {
+      for (const [name, value] of Object.entries(exception.headers ?? {})) {
+        response.setHeader(name, value);
+      }
+    }
     response
       .status(status)
       .type('application/problem+json')

@@ -104,10 +104,18 @@ evidence.
 ## Application invitation acceptance spike
 
 Issue #70 adds a separate opt-in harness for `SPIKE-DIVE-004-REQ-001..010`.
-It reuses the safety and browser-login patterns above but does not boot Nest,
-prepare PostgreSQL fixtures, call a product bootstrap endpoint, or implement
-the product `/bootstrap/accept` route. A test-only loopback server owns the
-acceptance probe for the duration of the command.
+It reuses the safety and browser-login patterns above but intentionally does not
+boot the product API, prepare product PostgreSQL fixtures, call a product
+bootstrap endpoint, or exercise the product routes. A test-only loopback server
+owns the acceptance probe for the duration of the command. The spike remains
+provider evidence and must not be confused with product E2E coverage.
+
+Issue #72 subsequently implemented the product boundaries in
+`apps/web/src/app/bootstrap/accept`, `apps/web/src/app/bootstrap/setup`, and
+`apps/web/src/app/sign-in`, together with the PostgreSQL bootstrap commands and
+the pre-tenant worker. Those paths are validated by local component, API,
+database, and deterministic worker tests, but this isolated spike does not
+exercise them.
 
 Provide these additional values through an untracked local environment or
 secret manager:
@@ -165,8 +173,25 @@ users are never deleted. Failed cleanup fails the scenario. Clerk may retain
 terminal invitation records when no deletion operation exists; those records
 are not active invitations.
 
-Natural seven-day expiry, a deliberately induced provider `429`, the canonical
-deployed authentication host, worker retry/reconciliation, and the product
-acceptance route remain explicit gaps. Do not update spike results, evidence,
-or traceability until the real-provider command has completed and cleanup has
-passed.
+Natural seven-day expiry, a deliberately induced provider `429`, and the
+canonical deployed authentication host remain explicit gaps for this spike.
+Worker retry/reconciliation and product acceptance are implemented outside the
+spike and have deterministic/local coverage, but no product E2E Clerk run has
+yet exercised the deployed web, API, PostgreSQL, and worker together. Do not
+update spike results, evidence, or traceability until the real-provider command
+has completed and cleanup has passed.
+
+## Product E2E Clerk status
+
+The product E2E Clerk run is intentionally postponed until a preview or staging
+deployment exists with an HTTPS canonical authentication host. The current
+implementation requires the exact HTTPS redirect
+`/bootstrap/accept`; weakening that validation for a plain local `pnpm dev`
+run would not provide equivalent evidence.
+
+When the deployed environment is available, add a separate opt-in product
+runner that reuses this harness's preflight, browser instrumentation, resource
+ledger, and cleanup. It must start from a real platform invitation, execute the
+real web/API/worker flow, verify the atomic PostgreSQL result, and keep the
+invitation URL and `__clerk_ticket` in memory only. It must remain excluded from
+normal `pnpm test` and record the run as dated provider/deployment evidence.

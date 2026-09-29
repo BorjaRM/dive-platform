@@ -6,7 +6,7 @@ This is a non-normative execution plan for [issue #70](https://github.com/BorjaR
 
 - **Primary agent:** Test Engineer.
 - **Implementation scope:** tests, test-only fixtures, runner configuration, operational documentation, executed spike results, traceability, and minimal safe external-provider evidence.
-- **Excluded implementation:** product `/bootstrap/accept` or `/bootstrap/setup` routes, bootstrap grants, migrations, platform invitation APIs, worker delivery, tenant creation, and product UI.
+- **Excluded implementation for issue #70:** product `/bootstrap/accept` or `/bootstrap/setup` routes, bootstrap grants, migrations, platform invitation APIs, worker delivery, tenant creation, and product UI. Issue #72 later implemented those product surfaces separately; this plan remains the historical spike plan and does not provide product E2E evidence.
 - **Specialist delegation:** none. Test Engineer cannot delegate to another agent.
 - **Review sequence:** SDD Reviewer for changes under `specs/**`, then PR Reviewer for the complete change. Each handoff requires user confirmation.
 
@@ -178,13 +178,13 @@ Stop provider execution and clean up immediately when:
 - the required flow needs production route code or a change to PostgreSQL authority;
 - the observations contradict `SPEC-DIVE-ONBOARDING-001`, `ADR-DIVE-002`, or `ADR-DIVE-013`.
 
-## Known gaps after issue completion
+## Known gaps after spike completion
 
 - Natural seven-day expiration is not executed.
 - A real provider `429` is not deliberately induced.
 - The canonical deployed authentication host is not exercised by the loopback probe.
-- The product `/bootstrap/accept` route is not implemented.
-- Worker delivery, retry, reconciliation, and pre-tenant persistence remain future product implementation.
+- The product `/bootstrap/accept` route, `/bootstrap/setup` route, pre-tenant persistence, and worker delivery are implemented by issue #72 but are not exercised by this isolated spike.
+- A product E2E Clerk run against deployed web, API, PostgreSQL, and worker remains pending until an HTTPS preview or staging host exists.
 
 These gaps must remain visible in `results.md` and PR Validation. They prevent this spike alone from being used as onboarding readiness or implementation evidence.
 

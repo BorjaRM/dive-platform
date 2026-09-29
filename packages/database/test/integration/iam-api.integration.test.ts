@@ -95,6 +95,7 @@ describe('IAM/API persistence controls', () => {
     expect(protectedTables.rows).toEqual(
       [
         'audit_records',
+        'center_entries',
         'centers',
         'invitations',
         'memberships',
@@ -119,11 +120,11 @@ describe('IAM/API persistence controls', () => {
        WHERE schemaname = 'iam_app'
        ORDER BY tablename`,
     );
-    expect(policies.rows).toHaveLength(7);
+    expect(policies.rows).toHaveLength(8);
     for (const policy of policies.rows) {
-      expect(policy.qual).toContain("current_setting('app.tenant_id'::text)");
+      expect(policy.qual).toContain("current_setting('app.tenant_id'::text");
       expect(policy.with_check).toContain(
-        "current_setting('app.tenant_id'::text)",
+        "current_setting('app.tenant_id'::text",
       );
     }
 
@@ -135,6 +136,9 @@ describe('IAM/API persistence controls', () => {
     ).rejects.toThrow();
     await expect(
       appPool.query('SELECT * FROM iam_app.identity_tenants'),
+    ).rejects.toThrow();
+    await expect(
+      appPool.query('SELECT * FROM iam_app.identity_preferences'),
     ).rejects.toThrow();
     await expect(
       appPool.query(

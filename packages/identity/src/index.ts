@@ -17,6 +17,17 @@ export class IdentityProviderUnavailableError extends Error {
   }
 }
 
+export type {
+  BootstrapInvitationProviderPort,
+  BootstrapInvitationProviderResult,
+  ClerkBootstrapInvitationConfig,
+  ClerkBootstrapInvitationDependencies,
+} from './bootstrap-invitations.js';
+export {
+  BootstrapInvitationProviderError,
+  ClerkBootstrapInvitationAdapter,
+} from './bootstrap-invitations.js';
+
 declare const authenticatedPrincipal: unique symbol;
 
 export type IdentityAssurance = Readonly<{

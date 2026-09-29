@@ -5,6 +5,7 @@ import { CoreModule } from '../common/core.module.js';
 import { DatabaseModule } from '../common/database/database.module.js';
 import { CorrelationIdMiddleware } from '../common/observability/correlation-id.middleware.js';
 import { IamModule } from '../iam/iam.module.js';
+import { OnboardingModule } from '../onboarding/onboarding.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 
@@ -15,6 +16,7 @@ import { AppService } from './app.service.js';
     IamModule,
     CatalogModule,
     PublicBookingModule,
+    OnboardingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

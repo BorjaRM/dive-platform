@@ -14,14 +14,16 @@ const clerkMocks = vi.hoisted(() => ({
   isLoaded: true,
   isSignedIn: true,
   redirectRenders: 0,
+  redirectProps: [] as Array<Record<string, unknown>>,
 }));
 const dashboardMock = vi.hoisted(() => ({
   props: null as DashboardProps | null,
 }));
 
 vi.mock('@clerk/nextjs', () => ({
-  RedirectToSignIn: () => {
+  RedirectToSignIn: (props: Record<string, unknown>) => {
     clerkMocks.redirectRenders += 1;
+    clerkMocks.redirectProps.push(props);
     return null;
   },
   useAuth: () => ({
@@ -47,6 +49,7 @@ describe('ClerkDashboardSession', () => {
     clerkMocks.isLoaded = true;
     clerkMocks.isSignedIn = true;
     clerkMocks.redirectRenders = 0;
+    clerkMocks.redirectProps = [];
   });
 
   it('waits for Clerk before rendering the dashboard (DIVE-IAM-REQ-004)', () => {
@@ -68,6 +71,7 @@ describe('ClerkDashboardSession', () => {
     render(<ClerkDashboardSession apiBaseUrl="/api" />);
 
     expect(clerkMocks.redirectRenders).toBe(1);
+    expect(clerkMocks.redirectProps).toEqual([{}]);
     expect(dashboardMock.props).toBeNull();
   });
 

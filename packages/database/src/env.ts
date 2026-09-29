@@ -23,9 +23,8 @@ export function appDatabaseUrl(): string {
   return requiredEnv('APP_DATABASE_URL');
 }
 
-export function appDatabasePoolConfig(): PoolConfig {
+function runtimePoolConfig(): Omit<PoolConfig, 'connectionString'> {
   return {
-    connectionString: appDatabaseUrl(),
     max: requiredPositiveIntegerEnv('APP_DATABASE_POOL_MAX'),
     connectionTimeoutMillis: requiredPositiveIntegerEnv(
       'APP_DATABASE_CONNECTION_TIMEOUT_MS',
@@ -37,6 +36,24 @@ export function appDatabasePoolConfig(): PoolConfig {
     idle_in_transaction_session_timeout: requiredPositiveIntegerEnv(
       'APP_DATABASE_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS',
     ),
+  };
+}
+
+export function appDatabasePoolConfig(): PoolConfig {
+  return {
+    ...runtimePoolConfig(),
+    connectionString: appDatabaseUrl(),
+  };
+}
+
+export function workerDatabaseUrl(): string {
+  return requiredEnv('WORKER_DATABASE_URL');
+}
+
+export function workerDatabasePoolConfig(): PoolConfig {
+  return {
+    ...runtimePoolConfig(),
+    connectionString: workerDatabaseUrl(),
   };
 }
 
@@ -52,10 +69,26 @@ export function spikeAppDatabaseUrl(): string {
   return requiredEnv('SPIKE_APP_DATABASE_URL');
 }
 
+export function spikeWorkerDatabaseUrl(): string {
+  return requiredEnv('SPIKE_WORKER_DATABASE_URL');
+}
+
+export function spikePlatformAdminDatabaseUrl(): string {
+  return requiredEnv('SPIKE_PLATFORM_ADMIN_DATABASE_URL');
+}
+
 export function spikeAppPassword(): string {
   return process.env.SPIKE_APP_PASSWORD ?? 'dive_app';
 }
 
 export function spikeMigrationPassword(): string {
   return process.env.SPIKE_MIGRATION_PASSWORD ?? 'dive_migration';
+}
+
+export function spikeWorkerPassword(): string {
+  return process.env.SPIKE_WORKER_PASSWORD ?? 'dive_worker';
+}
+
+export function spikePlatformAdminPassword(): string {
+  return process.env.SPIKE_PLATFORM_ADMIN_PASSWORD ?? 'dive_platform_admin';
 }

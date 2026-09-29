@@ -15,6 +15,7 @@ import { bootstrapRoles } from '../../src/bootstrap-roles.js';
 import { migrationDatabaseUrl, spikeAdminDatabaseUrl } from '../../src/env.js';
 import * as iamSchema from '../../src/iam-schema.js';
 import { migrateProduct, productMigrationsFolder } from '../../src/migrate.js';
+import * as onboardingSchema from '../../src/onboarding-schema.js';
 import { createAdminPool, createAppPool } from './harness.js';
 
 const iamTables = [
@@ -36,6 +37,15 @@ const bookingTables = [
   bookingSchema.bookingChannels,
   bookingSchema.bookingBookings,
   bookingSchema.bookingCapabilityVerifiers,
+];
+const onboardingTables = [
+  onboardingSchema.onboardingPlatformPrincipals,
+  onboardingSchema.onboardingPlatformCapabilities,
+  onboardingSchema.onboardingBootstrapRateLimits,
+  onboardingSchema.onboardingBootstrapGrants,
+  onboardingSchema.onboardingCommandReceipts,
+  onboardingSchema.onboardingAuditRecords,
+  onboardingSchema.onboardingOutboxEvents,
 ];
 
 const onDeleteCodes: Record<string, string> = {
@@ -118,11 +128,12 @@ describe('product migrations', () => {
     const schemas = await requireEmptyAdminPool(emptyAdminPool).query<{
       nspname: string;
     }>(
-      `SELECT nspname FROM pg_namespace WHERE nspname IN ('booking_app', 'iam_app', 'mt_spike') ORDER BY nspname`,
+      `SELECT nspname FROM pg_namespace WHERE nspname IN ('booking_app', 'iam_app', 'mt_spike', 'onboarding_app') ORDER BY nspname`,
     );
     expect(schemas.rows.map((row) => row.nspname)).toEqual([
       'booking_app',
       'iam_app',
+      'onboarding_app',
     ]);
   });
 
@@ -135,8 +146,11 @@ describe('product migrations', () => {
     const after = await requireEmptyAdminPool(emptyAdminPool).query<{
       count: string;
     }>(`SELECT count(*)::text AS count FROM drizzle.__drizzle_migrations`);
+    const migrationJournal = JSON.parse(
+      readFileSync(join(productMigrationsFolder, 'meta/_journal.json'), 'utf8'),
+    ) as { entries: unknown[] };
     expect(after.rows[0]?.count).toBe(before.rows[0]?.count);
-    expect(Number(after.rows[0]?.count)).toBe(1);
+    expect(Number(after.rows[0]?.count)).toBe(migrationJournal.entries.length);
   });
 
   it('restores row_security before a later migration reads a forced-RLS table', async () => {
@@ -216,7 +230,7 @@ SELECT id FROM iam_app.tenants;
 
   it('keeps Drizzle product columns aligned with PostgreSQL', async () => {
     const migratedPool = requireEmptyAdminPool(emptyAdminPool);
-    for (const table of [...iamTables, ...bookingTables]) {
+    for (const table of [...iamTables, ...bookingTables, ...onboardingTables]) {
       const definition = getTableConfig(table);
       const qualifiedName = `${definition.schema}.${definition.name}`;
       const actual = await migratedPool.query<{
@@ -244,7 +258,7 @@ SELECT id FROM iam_app.tenants;
 
   it('keeps Drizzle check constraints aligned with PostgreSQL', async () => {
     const migratedPool = requireEmptyAdminPool(emptyAdminPool);
-    for (const table of [...iamTables, ...bookingTables]) {
+    for (const table of [...iamTables, ...bookingTables, ...onboardingTables]) {
       const definition = getTableConfig(table);
       const qualifiedName = `${definition.schema}.${definition.name}`;
       const actual = await migratedPool.query<{ name: string }>(

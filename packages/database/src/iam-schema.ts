@@ -83,6 +83,28 @@ export const iamCenters = iamApp.table(
   (table) => [primaryKey({ columns: [table.tenantId, table.id] })],
 );
 
+export const iamCenterEntries = iamApp.table(
+  'center_entries',
+  {
+    centerKey: text('center_key').primaryKey(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => iamTenants.id),
+    centerId: uuid('center_id').notNull(),
+  },
+  (table) => [
+    unique().on(table.tenantId, table.centerId),
+    foreignKey({
+      columns: [table.tenantId, table.centerId],
+      foreignColumns: [iamCenters.tenantId, iamCenters.id],
+    }),
+    check(
+      'center_entries_key_format',
+      sql`center_key ~ '^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$'`,
+    ),
+  ],
+);
+
 export const iamMemberships = iamApp.table(
   'memberships',
   {
@@ -128,6 +150,19 @@ export const iamIdentityTenants = iamApp.table(
       .references(() => iamTenants.id),
   },
   (table) => [primaryKey({ columns: [table.identityId, table.tenantId] })],
+);
+
+export const iamIdentityPreferences = iamApp.table(
+  'identity_preferences',
+  {
+    identityId: uuid('identity_id')
+      .primaryKey()
+      .references(() => iamIdentities.id),
+    locale: text('locale').notNull(),
+  },
+  () => [
+    check('identity_preferences_locale_known', sql`locale IN ('es', 'en')`),
+  ],
 );
 
 export const iamTenantContexts = iamApp.table(

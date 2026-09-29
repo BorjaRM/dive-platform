@@ -1,0 +1,35 @@
+services:
+  - type: cron
+    name: dive-bootstrap-invitation-worker
+    runtime: node
+    schedule: "*/15 * * * *"
+    autoDeployTrigger: checksPass
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@dive-center/worker...
+    startCommand: pnpm --filter @dive-center/worker start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.3
+      - key: NODE_ENV
+        value: production
+      - key: WORKER_DATABASE_URL
+        sync: false
+      - key: APP_DATABASE_POOL_MAX
+        value: 4
+      - key: APP_DATABASE_CONNECTION_TIMEOUT_MS
+        value: 5000
+      - key: APP_DATABASE_STATEMENT_TIMEOUT_MS
+        value: 30000
+      - key: APP_DATABASE_LOCK_TIMEOUT_MS
+        value: 5000
+      - key: APP_DATABASE_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS
+        value: 30000
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_REQUEST_TIMEOUT_MS
+        value: 15000
+      - key: BOOTSTRAP_INVITATION_REDIRECT_URL
+        sync: false
+      - key: BOOTSTRAP_INVITATION_WRITES_ENABLED
+        value: "false"
+      - key: BOOTSTRAP_INVITATION_DELIVERY_ENABLED
+        value: "false"
