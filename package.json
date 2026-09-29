@@ -18,6 +18,8 @@
     "check:fix": "biome check --write .",
     "test:spec-governance": "node --test scripts/validate-spec-governance.test.mjs",
     "test:integration": "pnpm --filter @dive-center/database test:integration && pnpm --filter @dive-center/api test:e2e",
+    "test:clerk:invitations:local": "pnpm --filter @dive-center/clerk-invitation-tests test:local",
+    "test:clerk:invitations:sandbox": "pnpm --filter @dive-center/clerk-invitation-tests test:e2e",
     "db:bootstrap": "pnpm --filter @dive-center/database db:bootstrap",
     "db:migrate": "pnpm --filter @dive-center/database db:migrate",
     "db:generate": "pnpm --filter @dive-center/database db:generate"
