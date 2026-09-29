@@ -15,7 +15,7 @@
 | Reliable side effects use the transactional outbox | `Documented` | `ADR-DIVE-002` § Decision | Existing normative constraint |
 | US-19 is self bootstrap by an invited future Owner; assisted provisioning is outside the MVP story | `Proposed` | PR #36 product-owner revision record | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | Controlled invitation, atomic creation, idempotency, fields, limits, rollout, and acceptance matrix | `Proposed` | PR #36 product-owner revision record; `SPEC-DIVE-ONBOARDING-001` Ready to start | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
-| Backend-owned bootstrap invitation administration; Clerk Dashboard excluded as the ordinary production issuance channel; no dedicated administration UI required initially | `Proposed` | Product confirmation 2026-09-29 retaining the backend-owned model after reviewing the dashboard/backend trade-off; `SPEC-DIVE-ONBOARDING-001` v0.9 | Approved for implementation; issue #72 remains the owning increment |
+| Backend-owned bootstrap invitation administration; Clerk Dashboard excluded as the ordinary production issuance channel; no dedicated administration UI or MFA step-up required initially | `Proposed` | Product confirmation 2026-09-29 retaining the backend-owned model after reviewing the dashboard/backend trade-off and confirming that MFA will not be used in the MVP; `SPEC-DIVE-ONBOARDING-001` v0.9 | Approved for implementation; issue #72 remains the owning increment; later step-up requires a separate decision |
 | Guided onboarding, Driver.js, renderer/content/analytics ports, guide browser state, and guidance rollout | `Proposed` | Original PR #36 guidance proposal; product confirmation 2026-09-29 deferring guided onboarding | **Approved for deferral:** excluded from current US-19 implementation authority; future story and flow selection required |
 | Clerk Application Invitations own identity ticket/email; dedicated acceptance and setup routes keep signup out of `/dashboard`; PostgreSQL owns the bootstrap grant; Clerk Organizations and metadata authority remain excluded | `Proposed` | [Clerk invitations](https://clerk.com/docs/guides/users/inviting); [custom flow](https://clerk.com/docs/guides/development/custom-flows/authentication/application-invitations); [Next.js sign-up component](https://clerk.com/docs/nextjs/reference/components/authentication/sign-up); `specs/spikes/SPIKE-DIVE-004/results.md`; product confirmation 2026-09-29 | Provider behavior demonstrated; approved for Ready-to-start promotion 2026-09-29 |
 | Transactional `centerKey`, pre-tenant outbox, Clerk worker adapter, provider-reference persistence, retention, audit, and completion event | `Proposed` | [Clerk createInvitation](https://clerk.com/docs/reference/backend/invitations/create-invitation); `SPEC-DIVE-ONBOARDING-001` v0.7 Ready to start; `specs/multitenancy/MT-SPIKE-001-specification.md` `MT-COND-WORKER-001`; product confirmation 2026-09-29 | Approved for Ready-to-start promotion; worker retry/backoff/exhaustion and dead-letter policy remains an activation gate before external effects |
@@ -33,7 +33,7 @@ The MVP decision is intentionally narrower than an assisted-provisioning model: 
 ### Pre-tenant authority
 
 - The Clerk application uses invite-only access mode. `/sign-in/[[...sign-in]]` exposes ordinary login only: no public operator signup, bootstrap-invitation discovery, manual code entry, or operator creation. `/dashboard` remains protected, redirects signed-out users to that sign-in route, and never renders `<SignUp />` or bootstrap data entry.
-- Platform identities use the PostgreSQL-authoritative `bootstrap_invitation.read|issue|reissue|revoke` capabilities, independent of tenant memberships and read-only support. Mutations require MFA, a reason, and audit.
+- Platform identities use the PostgreSQL-authoritative `bootstrap_invitation.read|issue|reissue|revoke` capabilities, independent of tenant memberships and read-only support. Mutations require a recorded reason and audit. MFA is not required for the MVP; later step-up requires a separate approved security change.
 - The internal application commands are the ordinary production administration path. A dedicated graphical administration UI is not required initially; controlled platform tooling may invoke the same authenticated API. Clerk Dashboard is limited to diagnostics, development testing, and bounded emergency provider action and never creates PostgreSQL bootstrap authority.
 - The API accepts only the approved destination, reason, and idempotency context. Provider expiry, notification, exact redirect, `ignoreExisting` policy, and metadata are server-owned. Callers cannot select tenant, center, role, permission, provider ticket, redirect, expiry, or Clerk metadata. The Clerk credential is confined to the post-commit worker adapter.
 - Platform staff do not create the tenant or center, designate an Owner, confirm customer data, or receive a tenant membership through this flow.
@@ -121,7 +121,7 @@ The simple bootstrap form remains subject to normal product accessibility requir
 ### Costs and risks
 
 - A pre-tenant invitation store, capability, transaction path, and audit surface must be implemented and kept separate from ordinary tenant invitations.
-- The internal administration endpoint adds an abuse surface and therefore requires platform-only capability checks, MFA, reason, audit, idempotency, abuse protection, server-owned provider parameters, safe responses, and a rollout control. It is not exposed as a tenant operation.
+- The internal administration endpoint adds an abuse surface and therefore requires platform-only capability checks, reason, audit, idempotency, abuse protection, server-owned provider parameters, safe responses, and a rollout control. It is not exposed as a tenant operation.
 - Cross-kind confusion must be rejected and tested so an employee invitation cannot create a tenant and a bootstrap grant cannot activate a pre-existing tenant membership.
 - Clerk invite-only enrollment and verified-email matching are additional bootstrap-only assurances beyond ordinary dashboard authentication.
 - The wildcard DNS/TLS boundary and transactional mapping reduce per-center provisioning, but their deployment configuration remains operationally critical.
@@ -140,6 +140,10 @@ Superseded by option B. A second application bearer, secret hash, encrypted deli
 ### Clerk Dashboard as the primary issuance channel
 
 Rejected for production bootstrap. Dashboard issuance can send a provider invitation before the application has atomically recorded its grant, audit, idempotency, and outbox intent; it also cannot replace the exact server-owned provider contract. A dashboard-created invitation therefore has no bootstrap authority without a matching PostgreSQL grant and fails neutrally. Dashboard access remains useful for diagnostics, development testing, and bounded emergency provider action accompanied by the authoritative application transition.
+
+### MFA step-up for invitation administration
+
+Deferred. The MVP relies on authenticated platform identities, dedicated capabilities, recorded reason, audit, idempotency, abuse protection, safe responses, and rollout control. A later security increment may add MFA or another step-up mechanism only after separately defining its threat model, recovery behavior, provider contract, and tests.
 
 ### Clerk Organization
 
