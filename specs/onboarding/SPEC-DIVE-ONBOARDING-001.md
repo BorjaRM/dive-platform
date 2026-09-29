@@ -1,16 +1,16 @@
-# SPEC-DIVE-ONBOARDING-001 — Controlled self bootstrap and guided first-center onboarding
+# SPEC-DIVE-ONBOARDING-001 — Controlled self bootstrap and first-center setup
 
 - **Status:** Ready to start
-- **Version:** 0.7
+- **Version:** 0.8
 - **Last reviewed:** 2026-09-29
 - **Approved by:** Product owner for Ready-to-start promotion
-- **Approval reference:** Product confirmation 2026-09-29 after executed `SPIKE-DIVE-004`; Ready-to-start status applied 2026-09-29
+- **Approval reference:** Product confirmation 2026-09-29 after executed `SPIKE-DIVE-004`; Ready-to-start status applied 2026-09-29; guided onboarding deferred by product confirmation 2026-09-29
 - **Owner:** Product / Security / Frontend Architecture
 - **IDs:** `DIVE-ONB-REQ-001` … `DIVE-ONB-REQ-050`
 
 ## Normative authority
 
-This SPEC governs invited self-service creation of an operator tenant, its first center, the initial active Tenant Owner membership, and the optional guided experience in `apps/web`.
+This SPEC governs invited self-service creation of an operator tenant, its first center, the initial active Tenant Owner membership, and the simple setup form in `apps/web`. Guided onboarding is deferred and is not part of current US-19 implementation authority.
 
 `SPEC-DIVE-IAM-001` remains authoritative for identities, memberships, tenant roles, permissions, tenant context, and ordinary tenant invitations. `DIVE-IAM-REQ-017` and `ADR-DIVE-004` define an ordinary invitation as an invitation inside an existing tenant that creates and activates one pending membership with predetermined roles and center scopes. US-19 instead uses a pre-tenant bootstrap grant that can create the tenant, first center, and initial Owner. Neither record, command, credential, acceptance path, nor idempotency key can be used as the other. `ADR-DIVE-002` remains authoritative for the transactional outbox. `ADR-DIVE-013` owns the architecture choices introduced by this flow.
 
@@ -23,13 +23,12 @@ The product owner narrowed US-19 to self bootstrap only. Assisted provisioning b
 | `DIVE-ONB-REQ-001` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-003` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-005..DIVE-ONB-REQ-020` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
-| `DIVE-ONB-REQ-022..DIVE-ONB-REQ-028` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
-| `DIVE-ONB-REQ-031..DIVE-ONB-REQ-034` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| `DIVE-ONB-REQ-022..DIVE-ONB-REQ-026` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| `DIVE-ONB-REQ-027..DIVE-ONB-REQ-034` | `Proposed` | Original PR #36 guidance proposal; product confirmation 2026-09-29 deferring guided onboarding | **Approved for deferral:** excluded from current US-19 implementation authority; a future story must decide whether guidance is needed, in which flows, and with which presentation approach |
 | `DIVE-ONB-REQ-035` | `Proposed` | Product confirmation 2026-09-28 accepting the dedicated acceptance/setup route boundary; product confirmation 2026-09-29 approving Ready-to-start promotion; `ADR-DIVE-013` v0.7 Ready to start | Approved for Ready-to-start promotion; route implementation pending |
 | `DIVE-ONB-REQ-002` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-001..006`; PR #36 product-owner revision record | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-004` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-002..006`; `ADR-DIVE-008` § Authorization path | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-021` | `Proposed` | PR #32 SDD Gatekeeper remediation; product confirmation 2026-09-28 | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
-| `DIVE-ONB-REQ-029..DIVE-ONB-REQ-030` | `Proposed` | PR #32 SDD Gatekeeper remediation; product confirmation 2026-09-28 | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-036` | `Derived` | `specs/foundation/sdd-specs-traceability.md` § Spec lifecycle / Definition of Ready / Definition of Done | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-037..DIVE-ONB-REQ-038` | `Proposed` | [Clerk application invitations](https://clerk.com/docs/guides/users/inviting); [invite-only access](https://clerk.com/docs/guides/secure/restricting-access); [custom invitation flow](https://clerk.com/docs/guides/development/custom-flows/authentication/application-invitations); [Next.js sign-up component](https://clerk.com/docs/nextjs/reference/components/authentication/sign-up); `specs/spikes/SPIKE-DIVE-004/results.md`; product confirmation 2026-09-29 | Provider behavior demonstrated; approved for Ready-to-start promotion 2026-09-29 |
 | `DIVE-ONB-REQ-039..DIVE-ONB-REQ-040` | `Proposed` | Product confirmation 2026-09-28; `ADR-DIVE-013` v0.3 Draft | Previously approved; unchanged by option B |
@@ -48,7 +47,7 @@ The product owner narrowed US-19 to self bootstrap only. Assisted provisioning b
 
 ## Goal
 
-Let an explicitly invited future Owner create its own operator tenant and first center without manual database preparation or public signup, while preserving isolation, auditable authority, atomicity, and optional replaceable guidance.
+Let an explicitly invited future Owner create its own operator tenant and first center without manual database preparation or public signup, while preserving isolation, auditable authority, and atomicity through a simple setup form.
 
 ## Scope
 
@@ -58,8 +57,7 @@ Let an explicitly invited future Owner create its own operator tenant and first 
 - Self-service bootstrap by the invited future Owner.
 - Atomic tenant, first-center, active Owner membership, invitation consumption, audit, and outbox persistence.
 - Idempotency, non-disclosure, rate limits, and concurrency protection.
-- Optional Driver.js guidance behind an internal renderer port.
-- Spanish and English copy, local visual preferences, accessibility, rollout controls, and expected evidence.
+- A simple `es` / `en` setup form, accessibility, rollout controls, and expected evidence.
 
 ### Out of scope
 
@@ -68,6 +66,7 @@ Let an explicitly invited future Owner create its own operator tenant and first 
 - Billing, plans, payments, VAT/tax identifiers, invoices, fiscal address, and payment methods.
 - Public center contact data, additional centers, activities, slots, or channel publication.
 - Clerk Organization as membership or authorization authority.
+- Guided onboarding, product tours, Driver.js or another tour library, guide-specific browser state, guide analytics, and guide content infrastructure. A future story must decide whether guidance is needed and which flows justify it.
 - A CMS or external analytics provider for the MVP.
 - A new tenant lifecycle status independent of active Owner membership.
 
@@ -77,7 +76,6 @@ Let an explicitly invited future Owner create its own operator tenant and first 
 - **Ordinary tenant invitation:** IAM invitation governed by `DIVE-IAM-REQ-017` and `ADR-DIVE-004`; it belongs to an existing tenant, creates one unbound `pending` membership with immutable roles and center scopes, and can only activate that membership.
 - **Self bootstrap:** the invited authenticated identity confirms the data and becomes the initial active Tenant Owner.
 - **Operational:** an active Tenant Owner membership exists and the approved center-entry prerequisites allow tenant context to be issued.
-- **Guidance state:** non-authoritative browser preference recording whether the guide was dismissed or completed.
 
 ## Requirements
 
@@ -107,14 +105,14 @@ Let an explicitly invited future Owner create its own operator tenant and first 
 - **DIVE-ONB-REQ-024:** The form MUST implement self-Owner bootstrap only and MUST NOT offer an assisted-provisioning mode.
 - **DIVE-ONB-REQ-025:** Self bootstrap MUST NOT request or accept a second Owner email; the authenticated invited identity is the initial Owner.
 - **DIVE-ONB-REQ-026:** The bootstrap form MUST NOT collect billing, plan, payment, tax, fiscal-address, public-contact, custom-domain, or additional-center data.
-- **DIVE-ONB-REQ-027:** The functional bootstrap flow MUST work without Driver.js; guidance MUST remain optional, dismissible, manually restartable, and unable to complete or authorize a domain operation.
-- **DIVE-ONB-REQ-028:** Driver.js MUST be isolated behind an internal guidance-renderer interface; product flows, forms, navigation decisions, server mutations, progress authority, and completion rules MUST NOT import or depend on Driver.js APIs.
-- **DIVE-ONB-REQ-029:** Initial guidance state MAY use `localStorage` only under `dive:guide:<opaqueIdentityRef>:<guideId>`, where the opaque identity reference is neither personal data nor authorization authority, and whose value contains a storage `schemaVersion`, `status` (`dismissed` or `completed`), and `lastSeenGuideVersion`; it MUST NOT store tokens, tenant context, authorization state, form contents, or functional progress. This closure was confirmed by the product owner on 2026-09-28.
-- **DIVE-ONB-REQ-030:** Dismissing or completing a guide MUST suppress automatic replay on that browser regardless of `lastSeenGuideVersion`; a new guide version MUST update metadata only when the user manually replays it and MUST NOT create a new auto-show key; `Help → Repeat guide` MUST allow manual replay. This closure was confirmed by the product owner on 2026-09-28.
-- **DIVE-ONB-REQ-031:** Guide copy MUST ship in versioned `es` / `en` catalogs behind an internal content interface so a future CMS can replace the source without changing product flows or renderer contracts.
-- **DIVE-ONB-REQ-032:** The MVP MUST expose a typed analytics port for `started`, `dismissed`, `completed`, and `restarted`; its initial implementation MUST be no-op and MUST NOT send data to an external provider.
-- **DIVE-ONB-REQ-033:** The guided experience MUST satisfy WCAG 2.2 AA before pilot, including keyboard access, focus placement and restoration, Escape behavior, assistive-technology semantics, contrast, reduced motion, mobile layouts, and non-blocking behavior when a target is absent.
-- **DIVE-ONB-REQ-034:** Self-bootstrap provisioning and visual guidance MUST have independent rollout controls so either capability can be disabled without disabling the other or existing dashboard access.
+- **DIVE-ONB-REQ-027:** **Deferred.** Guided onboarding is not required for the current simple bootstrap form. A future story must decide whether guidance is needed and which product flows justify it.
+- **DIVE-ONB-REQ-028:** **Deferred.** No tour library, including Driver.js, renderer abstraction, or product integration is selected or required for current US-19.
+- **DIVE-ONB-REQ-029:** **Deferred.** No guide-specific browser persistence contract is selected or required for current US-19.
+- **DIVE-ONB-REQ-030:** **Deferred.** No guide replay, dismissal, completion, or version-update behavior is selected or required for current US-19.
+- **DIVE-ONB-REQ-031:** **Deferred.** No guide content catalog, content port, or future CMS boundary is selected or required for current US-19.
+- **DIVE-ONB-REQ-032:** **Deferred.** No guide-specific analytics events or analytics port are selected or required for current US-19.
+- **DIVE-ONB-REQ-033:** **Deferred.** Guidance-specific accessibility acceptance is deferred with the guidance capability. The simple bootstrap form remains subject to the normal product accessibility requirements.
+- **DIVE-ONB-REQ-034:** **Deferred.** No independent guidance rollout control is required for current US-19; bootstrap provisioning retains its own approved rollout control.
 - **DIVE-ONB-REQ-035:** The authenticated bootstrap form MUST live at `/bootstrap/setup`, separate from invitation acceptance and `/dashboard`. After successful bootstrap, US-19 MUST navigate to the new tenant dashboard with the first center selected only after approved `centerKey` allocation and host/origin readiness; activity creation belongs to a subsequent flow.
 - **DIVE-ONB-REQ-036:** Ready-to-start review MUST confirm that all acceptance scenarios are unambiguous and testable and that the approved `centerKey`/host-entry contract is represented without ambiguity; executed evidence MUST cover every applicable scenario before Review, Accepted, or pilot gates claim conformance.
 - **DIVE-ONB-REQ-037:** The Clerk application MUST use invite-only access mode. `/sign-in/[[...sign-in]]` MUST expose ordinary login only and MUST NOT expose public signup, bootstrap-invitation discovery, manual invitation-code entry, or operator creation. `/dashboard` MUST remain a protected post-authentication route: its signed-out boundary MUST redirect to the configured sign-in route and MUST NOT render `<SignUp />` or the bootstrap form. Existing authenticated identities MAY continue to sign in, but authentication alone MUST NOT create or authorize a bootstrap grant.
@@ -164,10 +162,10 @@ The mandatory acceptance matrix is:
 5. Same-payload retry returns the same result; changed payload conflicts; concurrent tabs create no duplicates.
 6. Unknown, expired, revoked, consumed, email-mismatched, and identity-mismatched invitations fail without disclosure and are rate-limited.
 7. Cross-tenant access is denied and prior memberships neither authorize nor block valid bootstrap.
-8. The functional flow completes with Driver.js disabled or replaced.
-9. Guide auto-show, dismissal, completion, manual replay, and browser-state separation behave as specified.
+8. The functional flow uses the simple setup form and includes no guided-tour dependency, guide state, or guide analytics.
+9. `DIVE-ONB-REQ-027..034` remain Deferred and cannot be treated as implementation scope without a future approved story.
 10. `es` / `en`, confirmed time zone, mobile behavior, and WCAG 2.2 AA are validated.
-11. Self-bootstrap provisioning and guidance rollout controls operate independently.
+11. Self-bootstrap provisioning can be rolled out or disabled without introducing a guidance subsystem.
 12. Tokens, tenant context, form contents, and unnecessary personal data do not appear in browser persistence, logs, audit, outbox payloads, or analytics.
 13. Completion requires active Owner membership and successful entry to the first-center application through the approved `centerKey`/host contract; activity creation is not included.
 14. Clerk is configured invite-only; `/sign-in/[[...sign-in]]` contains no public signup or invitation discovery; `/bootstrap/accept` handles new, existing, matching-session, and wrong-session identities without disclosure; `__clerk_ticket` is removed by history replacement before `/bootstrap/setup` and is absent from setup/dashboard URLs, logs, referrers, audit, traces, analytics, errors, and events; `/dashboard` redirects signed-out users to login and never renders `<SignUp />`.
@@ -212,7 +210,7 @@ The completion event is `tenant.bootstrap.completed.v1` with tenant, center, mem
 
 ## Performance and observability
 
-No latency, bundle, or throughput budget is introduced. Implementation evidence must record the bootstrap transaction/query shape, outbox handoff, and whether Driver.js is loaded only when guidance is enabled.
+No latency, bundle, or throughput budget is introduced. Implementation evidence must record the bootstrap transaction/query shape and outbox handoff. Current US-19 must not add a tour-library bundle.
 
 ## Errors, concurrency, and idempotency
 
@@ -220,14 +218,14 @@ No latency, bundle, or throughput budget is introduced. Implementation evidence 
 - Payload mismatch after consumption is a conflict.
 - Transaction failure exposes no partial success.
 - Database uniqueness and transaction serialization are authoritative for concurrent consumption.
-- Browser state and Driver.js callbacks are never idempotency authority.
+- Browser state and UI callbacks are never idempotency authority.
 - Invitation consumption uses row locking plus database uniqueness so concurrent completions have one authoritative result.
 - Authentication failure and authorization denial remain separate generic contracts without cross-tenant disclosure.
 
 ## Migration, rollout, and rollback
 
-- Roll out self bootstrap and guidance behind independent controls, initially limited to Clerk invite-only identities with a matching PostgreSQL grant. Provider invitation issuance uses a separate rollout control from grant persistence and bootstrap completion.
-- Rolling back guidance disables the renderer without disabling the functional form.
+- Roll out self bootstrap behind its approved control, initially limited to Clerk invite-only identities with a matching PostgreSQL grant. Provider invitation issuance uses a separate rollout control from grant persistence and bootstrap completion.
+- No guidance rollout or rollback path is required while `DIVE-ONB-REQ-027..034` remain Deferred.
 - Rolling back provisioning disables new invitation issue/redemption without removing existing tenant access.
 - Database migrations, HTTP contracts, provider adapter, worker, Clerk invite-only configuration, exact redirect allowlist, and center-entry orchestration require a later implementation PR with reversible migration or explicit rollback. The immutable `0000_baseline.sql` MUST NOT be edited; add a new migration.
 
@@ -235,15 +233,15 @@ No latency, bundle, or throughput budget is introduced. Implementation evidence 
 
 - Domain/API tests for grant authority, verified-email binding, atomicity, rollback, pre-tenant outbox, Owner activation, idempotency, concurrency, non-disclosure, provider failure, cross-tenant isolation, and cross-kind confusion between bootstrap grants and ordinary IAM invitations.
 - Negative tests proving there is no assisted-provisioning path and invitation managers receive no tenant membership.
-- Component tests for renderer/content/analytics ports, guide state, target absence, and accessibility behavior.
-- Minimal Playwright coverage for Clerk invite-only signup/sign-in, invited-Owner self bootstrap, first-center entry, guide dismissal/replay, and Driver.js-disabled completion.
+- Component tests for the simple setup form, validation, localization, accessibility, and neutral failure states.
+- Minimal Playwright coverage for Clerk invite-only signup/sign-in, invited-Owner self bootstrap, and first-center entry without any guided-tour dependency.
 - Manual WCAG 2.2 AA validation before pilot.
 - **Documented:** `specs/spikes/SPIKE-DIVE-004/results.md` provides Clerk Development evidence for new and existing identities, matching/different sessions, revocation/reissue, exact loopback redirect behavior, invite-only signup restriction, and ticket redaction.
 - **Derived:** natural expiration, canonical deployed-host behavior, product-route integration, and deterministic worker handling of provider rate limits remain evidence gates for Review, Accepted, or pilot as applicable; they do not reopen a product decision required to begin reversible implementation. `MT-COND-WORKER-001` must be satisfied before the first external worker effect.
 
 ## Open questions
 
-None for Ready to start. **Documented:** `specs/spikes/SPIKE-DIVE-004/results.md` closed the provider questions for new and existing identities, active-session classification, invite-only behavior, Future API composition, ticket cleanup, and revoke/reissue. **Derived:** a real provider `429`, natural expiration, canonical deployed-host behavior, product-route integration, and worker retry/backoff/exhaustion remain implementation or later conformance evidence; `MT-COND-WORKER-001` is implemented and tested with the first real worker and blocks its external effects until its policy and tests are approved.
+None for current US-19 Ready to start. **Documented:** `specs/spikes/SPIKE-DIVE-004/results.md` closed the provider questions for new and existing identities, active-session classification, invite-only behavior, Future API composition, ticket cleanup, and revoke/reissue. **Proposed and approved:** guided onboarding is Deferred; a future story must decide whether it is needed, which flows justify it, and what presentation approach to use. **Derived:** a real provider `429`, natural expiration, canonical deployed-host behavior, product-route integration, and worker retry/backoff/exhaustion remain implementation or later conformance evidence; `MT-COND-WORKER-001` is implemented and tested with the first real worker and blocks its external effects until its policy and tests are approved.
 
 ## Traceability
 
