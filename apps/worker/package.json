@@ -5,14 +5,23 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/main.ts",
+    "prebuild": "rm -rf dist",
     "build": "tsc --project tsconfig.json",
     "start": "node dist/main.js",
-    "typecheck": "tsc --noEmit --project tsconfig.json"
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "test": "vitest run src"
+  },
+  "dependencies": {
+    "@dive-center/database": "workspace:*",
+    "@dive-center/identity": "workspace:*",
+    "pg": "^8.16.3"
   },
   "devDependencies": {
     "@dive-center/typescript-config": "workspace:*",
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.5",
     "tsx": "^4.23.15",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "^4.1.11"
   }
 }

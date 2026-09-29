@@ -15,9 +15,13 @@ Normative decisions:
 - **Database**: PostgreSQL shared DB/schema, RLS as defense in depth
 
 This topology is partially implemented. The API and database provide the walking
-skeleton for IAM, the center catalog, and public booking. The web app provides the
-authenticated dashboard shell and tenant-context flows. The worker remains a
-starter, and external outbox delivery is not implemented.
+skeleton for IAM, the center catalog, public booking, and controlled self
+bootstrap. The web app provides the authenticated dashboard, tenant-context
+flows, Clerk invitation acceptance, bootstrap setup, and ordinary sign-in. The
+worker implements the pre-tenant invitation outbox, retry/dead-letter policy,
+reconciliation, and Render cron entry point. A product E2E run against a
+deployed HTTPS host has not yet been executed; local unit, integration, API e2e,
+component, and deterministic worker tests remain the current proof.
 
 ## Principles
 

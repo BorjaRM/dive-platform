@@ -687,3 +687,330 @@ body {
     gap: 10px;
   }
 }
+
+.bootstrap-shell {
+  --bootstrap-ink: #17383b;
+  --bootstrap-muted: #60777a;
+  --bootstrap-paper: #fbfaf5;
+  --bootstrap-water: #267f74;
+  --bootstrap-sun: #d9993e;
+  display: grid;
+  min-height: 100svh;
+  grid-template-columns: minmax(320px, 0.92fr) minmax(430px, 1.08fr);
+  background: var(--bootstrap-paper);
+  color: var(--bootstrap-ink);
+}
+
+.bootstrap-intro {
+  display: flex;
+  min-height: 100svh;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: clamp(30px, 5vw, 76px);
+  background-color: #dfeae5;
+  background-image:
+    linear-gradient(rgba(23, 56, 59, 0.075) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 56, 59, 0.075) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.bootstrap-brand,
+.bootstrap-kicker,
+.bootstrap-caption,
+.bootstrap-step {
+  margin: 0;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.bootstrap-brand {
+  font-size: 0.82rem;
+}
+
+.bootstrap-kicker,
+.bootstrap-step {
+  color: var(--bootstrap-water, #267f74);
+  font-size: 0.7rem;
+}
+
+.bootstrap-intro h1 {
+  max-width: 650px;
+  margin: 16px 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.9rem, 5.5vw, 5.9rem);
+  font-weight: 500;
+  line-height: 0.98;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.bootstrap-intro
+  p:not(.bootstrap-brand, .bootstrap-kicker, .bootstrap-caption) {
+  max-width: 510px;
+  margin: 25px 0 0;
+  color: var(--bootstrap-muted);
+  line-height: 1.65;
+}
+
+.bootstrap-caption {
+  color: var(--bootstrap-muted);
+  font-size: 0.64rem;
+}
+
+.bootstrap-workspace {
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  padding: clamp(24px, 5vw, 70px);
+  background: #fffef9;
+}
+
+.bootstrap-panel {
+  width: min(100%, 510px);
+  border-top: 4px solid var(--bootstrap-ink);
+  padding-top: 24px;
+}
+
+.bootstrap-panel h2,
+.bootstrap-notice h1 {
+  margin: 8px 0 24px;
+  font-size: clamp(1.7rem, 3vw, 2.35rem);
+  font-weight: 620;
+  letter-spacing: 0;
+}
+
+.bootstrap-form,
+.bootstrap-form label {
+  display: grid;
+}
+
+.bootstrap-form {
+  gap: 19px;
+}
+
+.bootstrap-form label {
+  gap: 7px;
+  color: var(--bootstrap-muted);
+  font-size: 0.73rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.bootstrap-form input[type="text"],
+.bootstrap-form input[type="password"] {
+  min-height: 46px;
+  border: 1px solid #c8d5cf;
+  border-radius: 3px;
+  background: #fff;
+  color: var(--bootstrap-ink);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  padding: 10px 12px;
+  text-transform: none;
+}
+
+.bootstrap-form input:focus-visible,
+.bootstrap-primary:focus-visible,
+.bootstrap-secondary:focus-visible,
+.bootstrap-segments button:focus-visible,
+.locale-switcher label:focus-within {
+  outline: 3px solid var(--bootstrap-sun);
+  outline-offset: 2px;
+}
+
+.bootstrap-primary,
+.bootstrap-secondary,
+.bootstrap-segments button {
+  min-height: 44px;
+  border: 1px solid var(--bootstrap-ink);
+  border-radius: 3px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 10px 16px;
+}
+
+.bootstrap-primary {
+  justify-self: start;
+  background: var(--bootstrap-ink);
+  color: #fffef9;
+}
+
+.bootstrap-secondary {
+  background: transparent;
+  color: var(--bootstrap-ink);
+}
+
+.bootstrap-primary:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.bootstrap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 25px;
+}
+
+.bootstrap-segments {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 24px;
+  border: 0;
+  padding: 0;
+}
+
+.bootstrap-segments legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.bootstrap-segments button {
+  border-radius: 0;
+  background: transparent;
+  color: var(--bootstrap-muted);
+}
+
+.bootstrap-segments button + button {
+  border-left: 0;
+}
+
+.bootstrap-segments button[aria-pressed="true"] {
+  background: var(--bootstrap-ink);
+  color: #fff;
+}
+
+.bootstrap-form-copy {
+  color: var(--bootstrap-muted);
+  line-height: 1.6;
+}
+
+.bootstrap-feedback {
+  margin: 0;
+  border-left: 4px solid var(--bootstrap-sun);
+  background: rgba(217, 153, 62, 0.11);
+  color: var(--bootstrap-ink);
+  font-size: 0.83rem;
+  line-height: 1.5;
+  padding: 12px 14px;
+}
+
+.bootstrap-panel-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.locale-switcher {
+  display: flex;
+  gap: 3px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.locale-switcher legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.locale-switcher label {
+  display: block;
+  border: 1px solid #c8d5cf;
+  color: var(--bootstrap-muted);
+  cursor: pointer;
+  padding: 7px 9px;
+}
+
+.locale-switcher input {
+  position: absolute;
+  opacity: 0;
+}
+
+.locale-switcher label:has(input:checked) {
+  border-color: var(--bootstrap-ink);
+  background: var(--bootstrap-ink);
+  color: #fff;
+}
+
+.bootstrap-form .bootstrap-check {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.45;
+  text-transform: none;
+}
+
+.bootstrap-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--bootstrap-water);
+}
+
+.bootstrap-status-page {
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  padding: 24px;
+  background: #dfeae5;
+  color: #17383b;
+}
+
+.bootstrap-notice {
+  width: min(100%, 520px);
+  border-top: 4px solid #17383b;
+  padding-top: 24px;
+}
+
+.bootstrap-notice p:last-child {
+  color: #60777a;
+  line-height: 1.6;
+}
+
+@media (max-width: 760px) {
+  .bootstrap-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .bootstrap-intro {
+    min-height: 42svh;
+    gap: 38px;
+    padding: 27px 22px 34px;
+  }
+
+  .bootstrap-intro h1 {
+    font-size: clamp(2.7rem, 13vw, 4.2rem);
+  }
+
+  .bootstrap-workspace {
+    min-height: 58svh;
+    padding: 36px 20px 50px;
+  }
+
+  .bootstrap-panel-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .locale-switcher {
+    align-self: start;
+  }
+}

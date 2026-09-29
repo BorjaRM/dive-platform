@@ -6,6 +6,8 @@ export {
   appDatabasePoolConfig,
   appDatabaseUrl,
   migrationDatabaseUrl,
+  workerDatabasePoolConfig,
+  workerDatabaseUrl,
 } from './env.js';
 export type { IamAccessContext } from './iam-authorize.js';
 export {
@@ -40,6 +42,27 @@ export {
   sessionIdHashForWebhook,
 } from './iam-tenant-context-commands.js';
 export { migrateProduct } from './migrate.js';
+export type {
+  BootstrapInvitationDenied,
+  BootstrapInvitationResult,
+  BootstrapInvitationState,
+  BootstrapOutboxClaim,
+  TenantBootstrapCompletion,
+  TenantBootstrapCompletionDenied,
+  TenantBootstrapCompletionResult,
+} from './onboarding-commands.js';
+export {
+  claimBootstrapOutboxEvent,
+  completeBootstrapOutboxEvent,
+  completeOwnTenantBootstrap,
+  consumeBootstrapInvitationRateLimit,
+  failBootstrapOutboxEvent,
+  issueBootstrapInvitation,
+  readBootstrapInvitation,
+  reissueBootstrapInvitation,
+  revokeBootstrapInvitation,
+  setBootstrapPlatformCapability,
+} from './onboarding-commands.js';
 export * from './product-schema.js';
 export type { PublicBookingCreated } from './public-booking-commands.js';
 export { recordPublicBookingCreated } from './public-booking-commands.js';
