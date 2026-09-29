@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CenterEntriesService } from './center-entries/center-entries.service.js';
 import { CentersService } from './centers/centers.service.js';
 import { IamController } from './iam.controller.js';
 import { IamService } from './iam.facade.js';
@@ -13,9 +14,11 @@ import { TenantContextService } from './tenant-context/tenant-context.service.js
   providers: [
     TenantContextService,
     CentersService,
+    CenterEntriesService,
     MembershipsService,
     InvitationsService,
     IamService,
   ],
+  exports: [IamService],
 })
 export class IamModule {}

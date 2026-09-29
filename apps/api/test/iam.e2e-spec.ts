@@ -308,6 +308,11 @@ describe('IAM/API vertical (e2e)', () => {
       [centerA1, tenantA, centerA2, centerB1, tenantB],
     );
     await admin.query(
+      `INSERT INTO iam_app.center_entries(center_key,tenant_id,center_id)
+       VALUES ('alpha',$1,$2),('alpha-two',$1,$3),('bravo',$4,$5)`,
+      [tenantA, centerA1, centerA2, tenantB, centerB1],
+    );
+    await admin.query(
       `INSERT INTO iam_app.memberships(id,tenant_id,identity_id,status,roles,center_ids) VALUES
       ($1,$2,$3,'active',ARRAY['tenant_owner'],NULL),
       ($4,$2,$5,'active',ARRAY['tenant_owner'],NULL),
@@ -409,6 +414,154 @@ describe('IAM/API vertical (e2e)', () => {
           statusCode: 403,
         });
     }
+  });
+
+  it('issues center-entry context only for the exact authorized origin and center (DIVE-IAM-REQ-032, MT-REQ-010)', async () => {
+    const issued = await request(app.getHttpServer())
+      .post('/v1/me/center-entry-contexts')
+      .set('authorization', 'Bearer manager-a-token')
+      .set('origin', 'https://alpha.app.example.test')
+      .send({ centerRef: 'alpha' })
+      .expect(201);
+    expect(issued.body).toMatchObject({ center: { centerId: centerA1 } });
+    expect(issued.body.tenantContext).toMatch(/^ctx_[A-Za-z0-9_-]+$/);
+
+    await request(app.getHttpServer())
+      .get(`/v1/centers/${centerA1}`)
+      .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', issued.body.tenantContext)
+      .expect(200)
+      .expect({ id: centerA1, name: 'A1' });
+
+    for (const deniedRequest of [
+      {
+        token: 'manager-a-token',
+        origin: 'https://alpha-two.app.example.test',
+        body: { centerRef: 'alpha-two' },
+      },
+      {
+        token: 'owner-a-token',
+        origin: 'https://bravo.app.example.test',
+        body: { centerRef: 'bravo' },
+      },
+      {
+        token: 'owner-a-token',
+        origin: 'https://alpha.app.example.test',
+        body: { centerRef: 'other' },
+      },
+      {
+        token: 'owner-a-token',
+        origin: undefined,
+        body: { centerRef: 'alpha' },
+      },
+      {
+        token: 'owner-a-token',
+        origin: 'https://alpha.app.example.test',
+        body: { centerRef: 'alpha', tenantId: tenantA },
+      },
+    ]) {
+      const pending = request(app.getHttpServer())
+        .post('/v1/me/center-entry-contexts')
+        .set('authorization', `Bearer ${deniedRequest.token}`)
+        .send(deniedRequest.body);
+      if (deniedRequest.origin) pending.set('origin', deniedRequest.origin);
+      await pending.expect(403).expect({
+        message: 'Access denied',
+        error: 'Forbidden',
+        statusCode: 403,
+      });
+    }
+  });
+
+  it('lets tenant administrators disable and re-enable an entry without changing its key (DIVE-IAM-REQ-003, DIVE-IAM-REQ-023, DIVE-IAM-REQ-025, MT-REQ-010)', async () => {
+    const ownerContext = await contextFor('owner-a-token');
+    const managerContext = await contextFor('manager-a-token');
+
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/entry-status`)
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .send({ status: 'disabled' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/entry-status`)
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .send({
+        status: 'disabled',
+        purpose: 'extra selector must be rejected',
+        centerKey: 'alpha',
+      })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/entry-status`)
+      .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', managerContext)
+      .send({
+        status: 'disabled',
+        purpose: 'center manager must not control platform entry lifecycle',
+      })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerB1}/entry-status`)
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .send({ status: 'disabled', purpose: 'cross-tenant target' })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/entry-status`)
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .send({ status: 'disabled', purpose: 'temporary center closure' })
+      .expect(200)
+      .expect({ changed: true, status: 'disabled' });
+
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/entry-status`)
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .send({ status: 'disabled', purpose: 'retry center closure' })
+      .expect(200)
+      .expect({ changed: false, status: 'disabled' });
+
+    await request(app.getHttpServer())
+      .post('/v1/me/center-entry-contexts')
+      .set('authorization', 'Bearer owner-a-token')
+      .set('origin', 'https://alpha.app.example.test')
+      .send({ centerRef: 'alpha' })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/entry-status`)
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .send({ status: 'active', purpose: 'center reopened' })
+      .expect(200)
+      .expect({ changed: true, status: 'active' });
+
+    await request(app.getHttpServer())
+      .post('/v1/me/center-entry-contexts')
+      .set('authorization', 'Bearer owner-a-token')
+      .set('origin', 'https://alpha.app.example.test')
+      .send({ centerRef: 'alpha' })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body.center).toEqual({ centerId: centerA1 });
+      });
+
+    const entry = await admin.query<{
+      centerKey: string;
+      status: string;
+    }>(
+      `SELECT center_key AS "centerKey", status
+       FROM iam_app.center_entries
+       WHERE tenant_id = $1 AND center_id = $2`,
+      [tenantA, centerA1],
+    );
+    expect(entry.rows).toEqual([{ centerKey: 'alpha', status: 'active' }]);
   });
 
   it('lists centers allowed by the selected tenant context (DIVE-IAM-REQ-029..031)', async () => {

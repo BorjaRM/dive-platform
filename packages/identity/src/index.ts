@@ -187,6 +187,7 @@ export const IAM_ROLES = {
 
 export const IAM_PERMISSIONS = [
   'center.read',
+  'center_entry.manage',
   'booking_service.create',
   'booking_service.read',
   'booking_service.update',
@@ -214,6 +215,7 @@ export type IamPermission = (typeof IAM_PERMISSIONS)[number];
 
 const tenantAdministratorPermissions: readonly IamPermission[] = [
   'center.read',
+  'center_entry.manage',
   'booking_service.create',
   'booking_service.read',
   'booking_service.update',

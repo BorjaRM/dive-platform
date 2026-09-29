@@ -87,6 +87,7 @@ export const iamCenterEntries = iamApp.table(
   'center_entries',
   {
     centerKey: text('center_key').primaryKey(),
+    status: text('status').notNull().default('active'),
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => iamTenants.id),
@@ -102,6 +103,7 @@ export const iamCenterEntries = iamApp.table(
       'center_entries_key_format',
       sql`center_key ~ '^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$'`,
     ),
+    check('center_entries_status_known', sql`status IN ('active', 'disabled')`),
   ],
 );
 
@@ -254,6 +256,8 @@ export const iamAuditRecords = iamApp.table(
       sql`action IN (
         'membership.invite',
         'membership.disable',
+        'center_entry.enable',
+        'center_entry.disable',
         'booking.create',
         'booking.read',
         'booking.update',

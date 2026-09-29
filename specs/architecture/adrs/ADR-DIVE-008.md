@@ -1,15 +1,15 @@
 # ADR-DIVE-008 — Internal tenant-scoped dashboard context
 
 - **Status:** Ready to start
-- **Version:** 0.10
+- **Version:** 0.14
 - **Date:** 2026-09-27
-- **Decision date:** 2026-09-27
+- **Decision date:** 2026-09-29
 - **Deciders:** Product / Security / Architecture
-- **Affected IDs:** `DIVE-IAM-REQ-001..006`, `016`, `022`, `024`, `028..032`; `MT-REQ-002`, `006`, `009`
+- **Affected IDs:** `DIVE-IAM-REQ-001..006`, `016`, `022..025`, `028..032`; `MT-REQ-002`, `006`, `009`
 
 ## Provenance
 
-The path and credential decisions were introduced as `Proposed` on 2026-09-27. Product owner (Borja) explicitly promoted this ADR to Ready to start on 2026-09-27 and accepted the implementation closures below on the same date. It is now implementation authority for dashboard tenant context. The implementation must not add defaults beyond this decision.
+The path and credential decisions were introduced as `Proposed` on 2026-09-27. Product owner (Borja) explicitly promoted this ADR to Ready to start on 2026-09-27 and accepted the implementation closures below on the same date. Product owner approval on 2026-09-29 also closes the center-entry lifecycle decision below. It is now implementation authority for dashboard tenant context. The implementation must not add defaults beyond this decision.
 
 | Decision | Provenance | Exact source | Status |
 |---|---|---|---|
@@ -29,7 +29,7 @@ The path and credential decisions were introduced as `Proposed` on 2026-09-27. P
 | Limit issuance to 10 requests per identity and Clerk `sid` per minute and 20 live handles per identity and session; do not revoke handles automatically to enforce the cap | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | Mark handles revoked for idempotently processed `session.revoked`, `session.ended`, and `session.removed` events; request-time Clerk validation remains authoritative | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | Delete revoked handles after 30 days; do not expire active handles through an independent product TTL | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
-| Configure dashboard CORS with exact origins from `DASHBOARD_CORS_ORIGINS`, without wildcard origins or cookie credentials, and allow `Authorization`, `X-Tenant-Context`, and `Content-Type` | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| Configure dashboard CORS with exact origins, without wildcard origins or cookie credentials, and allow `Authorization`, `X-Tenant-Context`, and `Content-Type` | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27; center-origin source refined by the approved 2026-09-29 decision below | Approved by product owner; Ready to start |
 | Use `operators`, `operatorRef`, `displayName`, and `tenantContext` in the context API response shapes; operator references use the opaque `op_...` form | `Proposed` | Product acceptance of the implementation proposal by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | A center application establishes the organization context from its trusted center entry configuration without showing an intermediate operator or center selector | `Proposed` | Product confirmation by Borja on 2026-09-27; constrained by `DIVE-IAM-REQ-002`, `003`, `006`, `024`, `029..032` | Approved by product owner 2026-09-27; Ready to start |
 | Center-application entry uses the platform subdomain `https://<centerKey>.app.<domain>`; dedicated `POST /v1/me/center-entry-contexts` receives `{ "centerRef": "<centerKey>" }`; both fields carry the same selector value and are checked against trusted configuration before success returns `{ "tenantContext": "…", "center": { "centerId": "…" } }` once | `Proposed` | Product owner accepted the clarified single-slug recommendation on 2026-09-27; constrained by `DIVE-IAM-REQ-006`, `024`, `029..032` and existing exact-origin CORS | Approved by product owner 2026-09-27; Ready to start |
@@ -37,10 +37,20 @@ The path and credential decisions were introduced as `Proposed` on 2026-09-27. P
 | Custom center domains, white-label brand ownership, branded login, and cross-domain session continuity stay out of this increment; authentication, branding, center resolution, and authorization stay decoupled | `Proposed` | Product owner accepted platform subdomains as the MVP center-entry form on 2026-09-27 | Approved by product owner 2026-09-27; custom domains remain future scope |
 | Separate the database login used by provider webhooks from the shared application login | `Proposed` | Security hardening discussion with Borja on 2026-09-27 | Future consideration; not approved and not part of the current runtime contract |
 | MVP reserved `centerKey` set is `www`, `app`, `api`, `admin`, `mail`, `staging`, `preview`, `static`, `assets`; additional labels require a later approved change | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
-| `DASHBOARD_CORS_ORIGINS` is an exact-origin allowlist generated from issued `centerKey` hosts plus the environment authentication-host origin; wildcard CORS remains forbidden | `Proposed` | Product confirmation by Borja on 2026-09-27; constrained by existing exact-origin CORS | Approved by product owner 2026-09-27; Ready to start |
+| Exact CORS authorization covers issued `centerKey` hosts plus the environment authentication-host origin; wildcard CORS remains forbidden | `Proposed` | Product confirmation by Borja on 2026-09-27; runtime lookup and non-center configuration refined by the approved 2026-09-29 decision below | Approved by product owner; Ready to start |
 | Clerk authentication uses one authentication host per environment; after login the user returns to the center-application subdomain. Center subdomains are not registered as N Clerk applications | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | The same `centerKey` is reused across environments; each environment has its own `<domain>` and therefore a distinct host namespace | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | `POST /v1/me/center-entry-contexts` requires a browser `Origin` in the MVP. Clients without `Origin` are not authorized to call it | `Proposed` | Product confirmation by Borja on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| Require `center.read` plus current center scope when issuing a center-entry context; successful setup redirects by absolute URL to the first center's `/dashboard`, where the center-entry endpoint issues the handle | `Proposed` | Product direction to close issue #73 residual decisions on 2026-09-29; constrained by `DIVE-IAM-REQ-003`, `006`, `023`, `032` and `DIVE-ONB-REQ-035`, `042` | Approved by product owner 2026-09-29; Ready to start |
+| Use active PostgreSQL `centerKey` mappings as the source of truth for exact center origins; retain configured exact origins only for non-center surfaces and never reflect or suffix-allow an arbitrary `Origin` | `Proposed` | Product direction to close issue #73 residual decisions on 2026-09-29; resolves the runtime-allocation gap in the approved generated-CORS decision | Approved by product owner 2026-09-29; Ready to start |
+| Require `CENTER_APP_BASE_DOMAIN` and `AUTHENTICATION_ORIGIN` per deployed environment, with no code default; exact FQDN values are deployment inputs and readiness gates rather than product defaults | `Proposed` | Product direction to close issue #73 residual decisions on 2026-09-29; constrained by the approved environment namespace and authentication-host decisions | Approved by product owner 2026-09-29; Ready to start |
+| Serve the authentication host and all canonical center hosts from one Next.js application build and deployment, routing presentation by validated host without making the host an authorization source | `Proposed` | Product direction to close issue #73 residual decisions on 2026-09-29; constrained by `DIVE-IAM-REQ-006`, `024`, `032` and the approved one-authentication-host model | Approved by product owner 2026-09-29; Ready to start |
+| A center-entry mapping has exactly `active` or `disabled` state; a newly created mapping is `active`, only `active` mappings authorize CORS and center bootstrap, and state changes are reversible without changing `centerKey` | `Proposed` | Product approval to apply the center-entry lifecycle recommendation on 2026-09-29; constrained by `DIVE-IAM-REQ-003`, `022`, `023`, `024`, `025`, `032` | Approved by product owner 2026-09-29; Ready to start |
+| `center_entry.manage` is granted only to Tenant Owner and Tenant Admin; disable/enable is a tenant-context operation, executed transactionally, and records actor, center, key, transition, purpose, result, and correlation in IAM audit | `Proposed` | Product approval to apply the center-entry lifecycle recommendation on 2026-09-29; constrained by `DIVE-IAM-REQ-003`, `010`, `023`, `025` | Approved by product owner 2026-09-29; Ready to start |
+| A disabled mapping is a permanent tombstone for the MVP: runtime cannot delete, rename, reassign, or reuse its `centerKey`; reactivation is allowed only for the same tenant and center | `Proposed` | Product approval to apply the center-entry lifecycle recommendation on 2026-09-29; constrained by the immutable-key decision and cross-tenant non-disclosure | Approved by product owner 2026-09-29; Ready to start |
+| Repeating the current center-entry state is an idempotent success with `changed: false`; every success audits the previous state, requested state, and whether persistence changed | `Proposed` | Product approval on 2026-09-29 to apply the recommended lifecycle corrections | Approved by product owner 2026-09-29; Ready to start |
+| Disabling a center entry blocks new exact-origin CORS authorization and center bootstrap only; it does not revoke tenant-scoped handles or define an operational center shutdown state | `Proposed` | Product approval on 2026-09-29 to apply the recommended lifecycle corrections; constrained by the tenant-scoped handle decision | Approved by product owner 2026-09-29; Ready to start |
+| Center-origin resolution uses a direct indexed database lookup without cache or TTL; resolver failure grants no CORS header, is operationally logged, and fails unavailable | `Proposed` | Product approval on 2026-09-29 to apply the recommended lifecycle corrections | Approved by product owner 2026-09-29; Ready to start |
 
 ## Context
 
@@ -104,7 +114,7 @@ Public widget and hosted-page routes stay outside this dashboard contract and co
 - The handle is not a signed application JWT and must not carry authoritative roles, permissions, center scopes, membership state, or resource state.
 - Transport is the request header `X-Tenant-Context` together with `Authorization: Bearer <clerk-session-token>`.
 - Cookies are not used for this credential, so a browser has no single implicit active tenant and a custom header is not sent automatically on cross-site form requests.
-- Dashboard CORS uses exact origins from `DASHBOARD_CORS_ORIGINS`, with no wildcard origins or cookie credentials, and allows `Authorization`, `X-Tenant-Context`, and `Content-Type`.
+- Dashboard CORS authorizes only exact origins, with no wildcard origins or cookie credentials, and allows `Authorization`, `X-Tenant-Context`, and `Content-Type`.
 
 Conceptual stored fields (physical table and index names remain implementation details):
 
@@ -155,7 +165,7 @@ There is no intermediate operator or center selection screen. Changing center me
 | `centerId` | Internal resource UUID returned after successful bootstrap and used in center-scoped product paths. | Resource selector only; never authorizes. |
 | `tenantContext` | Opaque tenant-scoped handle returned after successful authentication and authorization. | Selects tenant context but is insufficient authorization by itself. |
 
-`centerKey` is unique per environment and immutable for the MVP. It is not the editable center name and is not a tenant or center UUID. The client MUST send the same value as `centerRef`; it MUST NOT combine two independent center identifiers.
+`centerKey` is unique per environment and immutable for the MVP. It is not the editable center name and is not a tenant or center UUID. The client MUST send the same value as `centerRef`; it MUST NOT combine two independent center identifiers. A newly created mapping is `active`. A mapping is then either `active` or `disabled`; `disabled` is a reversible tombstone that remains reserved for the same tenant and center. Runtime operations MUST NOT delete, rename, reassign, or reuse the key.
 
 The trusted bootstrap comparison uses both surfaces:
 
@@ -184,7 +194,26 @@ Success returns once:
 
 `tenantContext` is the same tenant-scoped handle issued by `POST /v1/me/tenant-contexts`. `centerId` is used in product paths after bootstrap. `centerRef` is not reused as the product resource identifier. The handle remains tenant-scoped; center-application product operations are center-scoped in their paths and must not aggregate other centers.
 
+Issuance requires the active membership to have current scope for the resolved center and the existing stable `center.read` permission. This check does not make the handle center-scoped: every later request still revalidates its own permission, center scope, resource, and state.
+
 The endpoint MUST NOT accept `operatorRef`, `tenantId`, a separate `centerKey`, or another tenant/center selector in body, query, or path. It MUST NOT return other operators or centers. `GET /v1/me/operators` is not part of the center-application journey.
+
+#### Center-entry lifecycle
+
+Tenant Owner and Tenant Admin may change a mapped center entry through:
+
+```http
+PATCH /v1/centers/<centerId>/entry-status
+Authorization: Bearer <clerk-session-token>
+X-Tenant-Context: <tenant-context>
+Content-Type: application/json
+
+{ "status": "disabled", "purpose": "temporary center closure" }
+```
+
+The request MUST contain exactly one supported state and a non-empty administrative purpose. The endpoint MUST resolve the tenant from the server-issued context, MUST NOT accept `centerKey` or `tenantId`, and MUST fail without disclosure for a missing, unrelated, inactive, or cross-tenant center. The database command validates its complete input before establishing tenant context, rechecks the active administrator membership, and writes the state transition and audit record in one transaction. Audit actions are `center_entry.disable` and `center_entry.enable`; denied attempts record the applicable denial reason. Repeating the current state is an idempotent `200` response with that state and `changed: false`; the audit record includes previous state, requested state, and `changed`. A disabled mapping is excluded from exact CORS authorization and center-entry context issuance immediately on the next request.
+
+Disabling the mapping does not revoke an existing tenant-scoped handle and does not disable other operations for the center. A future operational shutdown state requires separate approved authorization and state semantics.
 
 Denial:
 
@@ -226,20 +255,29 @@ A reserved label MUST NOT be issued as a center subdomain. Adding or removing a 
 
 #### CORS population
 
-`DASHBOARD_CORS_ORIGINS` remains an exact-origin allowlist with no wildcard origins and no cookie credentials. For the center application it is generated from:
+Dashboard CORS remains exact, with no wildcard origins and no cookie credentials. Active PostgreSQL `centerKey -> tenantId + centerId` mappings are the source of truth for center origins. For a request origin matching the configured `https://<centerKey>.<CENTER_APP_BASE_DOMAIN>` shape, the API resolves the complete normalized origin to an active mapping in the current environment before returning an allow-origin header. Unknown, inactive, malformed, reserved, or cross-environment origins receive no CORS authorization.
 
-- `https://<centerKey>.app.<domain>` for each issued, non-reserved `centerKey` in that environment;
-- the configured authentication-host origin for that environment.
+`DASHBOARD_CORS_ORIGINS` contains only additional exact non-center origins needed by that environment. `AUTHENTICATION_ORIGIN` supplies the one exact authentication-host origin. Neither setting accepts `*`, a regular expression, a suffix, or a center-origin template. The implementation MUST NOT reflect an arbitrary received `Origin`.
 
-Wildcard DNS/TLS for `*.app.<domain>` does not authorize wildcard CORS. Manual one-off origin editing is not the source of truth for issued center hosts.
+Wildcard DNS/TLS for `*.app.<domain>` does not authorize wildcard CORS. Creating or activating the trusted mapping makes its one derived center origin eligible without a deployment or manual allowlist edit; disabling the mapping makes that origin ineligible. Resolution uses a direct indexed database lookup and does not introduce an authorization cache, TTL, or stale-origin interval. If the resolver fails, the API MUST NOT emit `Access-Control-Allow-Origin`, MUST record an operational error, and MUST fail the request as unavailable rather than reflect the received origin.
 
 #### Authentication host
 
-Each environment has one authentication host, distinct from center-application subdomains. Unauthenticated visitors of `https://<centerKey>.app.<domain>` are sent to that host and, after a successful Clerk session, return to the same center URL. The authentication-host FQDN is environment configuration and is not invented here. Center subdomains are not each registered as a separate Clerk application.
+Each environment has one authentication host, distinct from center-application subdomains. `AUTHENTICATION_ORIGIN` is its exact HTTPS origin. Unauthenticated visitors of `https://<centerKey>.app.<domain>` are sent to that host and, after a successful Clerk session, return to the same center URL. Center subdomains are not each registered as a separate Clerk application.
+
+One Next.js application build and deployment serves that authentication host and the canonical `*.app.<domain>` center hosts. Request-host routing may select the authentication or center presentation, but it MUST first validate the host against `AUTHENTICATION_ORIGIN` or the configured center-domain shape and active mapping. Unknown hosts fail closed and MUST NOT render another center or the authentication surface. This deployment choice does not make `Host` authoritative and does not create a Clerk application per center.
 
 #### Environment namespace
 
-The same `centerKey` may be reused in production, staging, and preview. Each environment has its own `<domain>`, so hosts do not collide across environments. Production, staging, and preview do not share a host namespace.
+The same `centerKey` may be reused in production, staging, and preview. `CENTER_APP_BASE_DOMAIN` is the exact lower-case DNS suffix `app.<domain>` for one environment, without scheme, port, path, wildcard, or trailing dot. Each deployed environment MUST provide its own value and `AUTHENTICATION_ORIGIN`; there is no code default or fallback to another environment. Production, staging, and preview do not share a host namespace.
+
+The concrete owned FQDNs are deployment inputs, not product defaults. Readiness requires DNS/TLS coverage, Clerk redirect/origin configuration, the two environment values, and an end-to-end probe for the environment being activated. Missing values fail startup or deployment validation; implementation MUST NOT invent production, staging, preview, or local domains.
+
+#### Post-bootstrap handoff
+
+After `POST /v1/me/tenant-bootstrap` commits and returns the allocated `centerKey`, the setup client navigates by absolute URL to `https://<centerKey>.<CENTER_APP_BASE_DOMAIN>/dashboard`. It MUST NOT first navigate to the authentication-host `/dashboard`, put `centerKey`, `centerId`, tenant id, or a handle in the path, query, or fragment, or issue a tenant handle before reaching the center origin.
+
+On the center host, `/dashboard` derives `centerKey` from the current origin and calls `POST /v1/me/center-entry-contexts` with the matching `centerRef`. Only after that call succeeds may it persist the returned handle in that origin's `sessionStorage` and request the returned `centerId`. Failure renders the approved generic unavailable-center state.
 
 #### Clients without `Origin`
 
@@ -408,6 +446,13 @@ Implementation must demonstrate:
 - a context for tenant A cannot read or mutate tenant B;
 - a center outside the current membership scope is denied;
 - a center application with access to center A cannot list or mutate center B through catalog or availability routes;
+- only Tenant Owner and Tenant Admin can disable or enable a center entry;
+- disabling a center entry blocks exact CORS and center-entry bootstrap, while re-enabling restores the same immutable `centerKey`;
+- repeating the requested center-entry state succeeds idempotently with `changed: false` and an audit record of the no-op;
+- disabling a center entry does not revoke an existing tenant-scoped handle or define a center-wide operational shutdown;
+- a center-origin resolver failure grants no CORS header and fails unavailable;
+- a disabled entry cannot be deleted, renamed, reassigned, or reused by runtime operations;
+- center-entry lifecycle allow/deny decisions include the actor, purpose, transition, result, and correlation in tenant-scoped audit;
 - membership disable, Clerk logout, and session expiry prevent further authorized calls within the existing requirements;
 - context credentials cannot be replayed by another identity or another Clerk session;
 - missing Clerk session or missing/revoked handle fails closed;
@@ -424,8 +469,8 @@ These questions do not reopen the approved reserved-key, CORS-generation, authen
 1. Whether forgotten active handles need an approved maximum-age or idle TTL, and whether continuity of existing tabs or availability for new tabs has priority at the 20-handle cap.
 2. The operational cleanup contract: scheduler ownership, cadence, database credential, batching, retry, alerting, and deletion metrics for revoked handles older than 30 days.
 3. Future custom-domain verification, DNS/TLS provisioning, host administration, and mapping to the canonical `centerKey`. Out of this increment: custom domains, `BrandConfiguration`, branded login, and cross-domain session continuity.
-4. Exact authentication-host FQDN and exact `<domain>` values per environment. Configuration only; the pattern is approved.
-5. Administrative process for allocating or retiring a non-reserved `centerKey` after the reserved set above.
+4. The exact `purposeCode` catalog, optional-note limits, permitted content, and retention/review policy for center-entry lifecycle purposes.
+5. The operational tooling, approval workflow, and incident response for the already-defined owner/admin lifecycle of a non-reserved `centerKey`.
 
 Catalog list cursor encoding, extra catalog response DTO fields, and physical activity/slot table names are pending decision in `SPEC-DIVE-BOOKING-001`. They are not authorized by this ADR.
 

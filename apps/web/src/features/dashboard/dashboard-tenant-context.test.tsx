@@ -156,6 +156,32 @@ describe('authenticated dashboard tenant-context flow', () => {
     fetchMock.mockRestore();
   });
 
+  it('shows neutral no-access state without an operator-creation recovery path (DIVE-ONB-REQ-049)', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        if (String(input).endsWith('/v1/me/operators')) {
+          return jsonResponse({ operators: [] });
+        }
+        throw new Error('Unexpected request');
+      });
+    const session: SessionTokenSource = {
+      configured: true,
+      getToken: async () => 'session-without-membership',
+    };
+
+    renderDashboard(session);
+
+    expect(
+      await screen.findByText('No active operator memberships'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /create|open|choose/i }),
+    ).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls).toHaveLength(1);
+    fetchMock.mockRestore();
+  });
+
   it('does not leave the initial session probe pending past its deadline', async () => {
     const session: SessionTokenSource = {
       configured: true,

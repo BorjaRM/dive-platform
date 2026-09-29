@@ -3,8 +3,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { bootstrapRoles } from '../../src/bootstrap-roles.js';
 import { migrationDatabaseUrl } from '../../src/env.js';
 import { resolveIamAccess } from '../../src/iam-authorize.js';
+import { setIamCenterEntryStatus } from '../../src/iam-center-entry-commands.js';
 import { disableIamMembership } from '../../src/iam-membership-commands.js';
-import { cleanupRevokedIamTenantContexts } from '../../src/iam-tenant-context-commands.js';
+import {
+  cleanupRevokedIamTenantContexts,
+  resolveIamCenterEntry,
+} from '../../src/iam-tenant-context-commands.js';
 import { migrateProduct } from '../../src/migrate.js';
 import { createAdminPool, createAppPool } from './harness.js';
 
@@ -173,10 +177,12 @@ describe('IAM/API persistence controls', () => {
            'issue_tenant_context_command',
            'list_operators_command',
            'resolve_access',
+           'resolve_center_entry_command',
            'resolve_tenant_context_command',
            'respond_invitation_command',
            'revoke_invitation_command',
-           'revoke_tenant_context_command'
+           'revoke_tenant_context_command',
+           'set_center_entry_status_command'
          )
        ORDER BY routine.proname`,
     );
@@ -189,15 +195,22 @@ describe('IAM/API persistence controls', () => {
         'issue_tenant_context_command',
         'list_operators_command',
         'resolve_access',
+        'resolve_center_entry_command',
         'resolve_tenant_context_command',
         'respond_invitation_command',
         'revoke_invitation_command',
         'revoke_tenant_context_command',
+        'set_center_entry_status_command',
       ].map((proname) => ({
         app_can_execute: true,
         owner: 'dive_migration',
         proname,
-        proconfig: ['search_path=iam_app, pg_temp'],
+        proconfig: [
+          proname === 'resolve_center_entry_command' ||
+          proname === 'set_center_entry_status_command'
+            ? 'search_path=iam_app, pg_catalog, pg_temp'
+            : 'search_path=iam_app, pg_temp',
+        ],
         prosecdef: true,
         public_can_execute: false,
       })),
@@ -212,6 +225,7 @@ describe('IAM/API persistence controls', () => {
       can_insert_membership: boolean;
       can_insert_outbox: boolean;
       can_select_identity_tenants: boolean;
+      can_update_center_entry_status: boolean;
       can_update_identity_tenants: boolean;
       can_update_invitation: boolean;
       can_update_membership_roles: boolean;
@@ -229,7 +243,8 @@ describe('IAM/API persistence controls', () => {
         has_table_privilege('dive_app', 'iam_app.identity_tenants', 'SELECT') AS can_select_identity_tenants,
         has_table_privilege('dive_app', 'iam_app.identity_tenants', 'INSERT') AS can_insert_identity_tenants,
         has_table_privilege('dive_app', 'iam_app.identity_tenants', 'UPDATE') AS can_update_identity_tenants,
-        has_table_privilege('dive_app', 'iam_app.identity_tenants', 'DELETE') AS can_delete_identity_tenants`,
+        has_table_privilege('dive_app', 'iam_app.identity_tenants', 'DELETE') AS can_delete_identity_tenants,
+        has_column_privilege('dive_app', 'iam_app.center_entries', 'status', 'UPDATE') AS can_update_center_entry_status`,
     );
     expect(privileges.rows[0]).toEqual({
       can_delete_membership: false,
@@ -240,11 +255,351 @@ describe('IAM/API persistence controls', () => {
       can_insert_membership: false,
       can_insert_outbox: false,
       can_select_identity_tenants: false,
+      can_update_center_entry_status: false,
       can_update_identity_tenants: false,
       can_update_invitation: false,
       can_update_membership_roles: false,
       can_update_membership_status: false,
     });
+    await expect(
+      appPool.query(`UPDATE iam_app.center_entries SET status = 'disabled'`),
+    ).rejects.toThrow('permission denied for table center_entries');
+  });
+
+  it('rejects invalid direct center-entry lifecycle arguments before setting tenant context (MT-REQ-004)', async () => {
+    const validArguments: unknown[] = [
+      'test',
+      'identity-a',
+      tenantA,
+      'aaaaaaaa-0001-0001-0001-000000000001',
+      'disabled',
+      'temporary center closure',
+      '11111111-1111-4111-8111-111111111111',
+    ];
+    const argumentTypes = [
+      'text',
+      'text',
+      'uuid',
+      'uuid',
+      'text',
+      'text',
+      'uuid',
+    ];
+
+    for (const invalidIndex of validArguments.keys()) {
+      const invalidArguments = [...validArguments];
+      invalidArguments[invalidIndex] = null;
+      const result = await appPool.query<{ outcome: unknown }>(
+        `SELECT iam_app.set_center_entry_status_command(
+          ${argumentTypes.map((type, index) => `$${index + 1}::${type}`).join(', ')}
+        ) AS outcome`,
+        invalidArguments,
+      );
+      expect(result.rows[0]?.outcome).toEqual({
+        deniedReason: 'invariant_violation',
+      });
+    }
+
+    for (const [status, purpose] of [
+      ['unknown', 'temporary center closure'],
+      ['disabled', '   '],
+    ]) {
+      const result = await appPool.query<{ outcome: unknown }>(
+        `SELECT iam_app.set_center_entry_status_command(
+          $1, $2, $3::uuid, $4::uuid, $5, $6, $7::uuid
+        ) AS outcome`,
+        [
+          validArguments[0],
+          validArguments[1],
+          validArguments[2],
+          validArguments[3],
+          status,
+          purpose,
+          validArguments[6],
+        ],
+      );
+      expect(result.rows[0]?.outcome).toEqual({
+        deniedReason: 'invariant_violation',
+      });
+    }
+
+    const context = await appPool.query<{ tenantId: string | null }>(
+      `SELECT current_setting('app.tenant_id', true) AS "tenantId"`,
+    );
+    expect(context.rows[0]).toEqual({ tenantId: null });
+  });
+
+  it('resolves exact center-entry mappings and clears pooled selector context (DIVE-IAM-REQ-032, MT-REQ-004..005, MT-REQ-010)', async () => {
+    const centerA = 'aaaaaaaa-0001-0001-0001-000000000001';
+    const centerB = 'bbbbbbbb-0002-0002-0002-000000000001';
+    await adminPool.query(
+      `INSERT INTO iam_app.tenants(id,name) VALUES ($1,'A'),($2,'B')`,
+      [tenantA, tenantB],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.centers(id,tenant_id,name)
+       VALUES ($1,$2,'A1'),($3,$4,'B1')`,
+      [centerA, tenantA, centerB, tenantB],
+    );
+    await withAdminTenant(migrationPool, tenantA, (client) =>
+      client.query(
+        `INSERT INTO iam_app.center_entries(center_key,tenant_id,center_id)
+         VALUES ('alpha', $1, $2)`,
+        [tenantA, centerA],
+      ),
+    );
+    await withAdminTenant(migrationPool, tenantB, (client) =>
+      client.query(
+        `INSERT INTO iam_app.center_entries(center_key,tenant_id,center_id)
+         VALUES ('bravo', $1, $2)`,
+        [tenantB, centerB],
+      ),
+    );
+
+    const singleConnectionPool = createAppPool(1);
+    try {
+      await expect(
+        resolveIamCenterEntry(singleConnectionPool, 'alpha'),
+      ).resolves.toEqual({ tenantId: tenantA, centerId: centerA });
+      await expect(
+        resolveIamCenterEntry(singleConnectionPool, 'bravo'),
+      ).resolves.toEqual({ tenantId: tenantB, centerId: centerB });
+      await expect(
+        resolveIamCenterEntry(singleConnectionPool, 'unknown'),
+      ).resolves.toBeNull();
+      await expect(
+        resolveIamCenterEntry(singleConnectionPool, 'www'),
+      ).resolves.toBeNull();
+      await expect(
+        resolveIamCenterEntry(singleConnectionPool, ' Alpha '),
+      ).resolves.toBeNull();
+      await expect(
+        singleConnectionPool.query('SELECT * FROM iam_app.center_entries'),
+      ).rejects.toThrow('permission denied for table center_entries');
+
+      const context = await singleConnectionPool.query<{
+        centerKey: string;
+        tenantId: string;
+      }>(
+        `SELECT current_setting('app.center_entry_key', true) AS "centerKey",
+                current_setting('app.tenant_id', true) AS "tenantId"`,
+      );
+      expect(context.rows[0]).toEqual({ centerKey: null, tenantId: null });
+    } finally {
+      await singleConnectionPool.end();
+    }
+  });
+
+  it('keeps center-entry lifecycle changes tenant-scoped, audited, and reversible (DIVE-IAM-REQ-003, DIVE-IAM-REQ-023, DIVE-IAM-REQ-025, MT-REQ-004..005, MT-REQ-010)', async () => {
+    const centerA = 'aaaaaaaa-0001-0001-0001-000000000001';
+    const centerB = 'bbbbbbbb-0002-0002-0002-000000000001';
+    const managerIdentity = 'c3333333-3333-3333-3333-333333333333';
+    const ownerMembership = 'aaaaaaaa-1111-1111-1111-111111111111';
+    const managerMembership = 'bbbbbbbb-2222-2222-2222-222222222222';
+    await adminPool.query(
+      `INSERT INTO iam_app.tenants(id,name) VALUES ($1,'A'),($2,'B')`,
+      [tenantA, tenantB],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.identities(id) VALUES ($1),($2)`,
+      [identity, managerIdentity],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.external_identities(identity_id,issuer,subject)
+       VALUES ($1,'test','identity-a'),($2,'test','identity-manager')`,
+      [identity, managerIdentity],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.centers(id,tenant_id,name)
+       VALUES ($1,$3,'A1'),($2,$4,'B1')`,
+      [centerA, centerB, tenantA, tenantB],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.memberships(id,tenant_id,identity_id,status,roles,center_ids)
+       VALUES
+         ($1,$3,$4,'active',ARRAY['tenant_owner'],NULL),
+         ($2,$3,$5,'active',ARRAY['center_manager'],$6::uuid[])`,
+      [
+        ownerMembership,
+        managerMembership,
+        tenantA,
+        identity,
+        managerIdentity,
+        [centerA],
+      ],
+    );
+    await withAdminTenant(migrationPool, tenantA, (client) =>
+      client.query(
+        `INSERT INTO iam_app.center_entries(center_key,tenant_id,center_id)
+         VALUES ('alpha',$1,$2)`,
+        [tenantA, centerA],
+      ),
+    );
+    await withAdminTenant(migrationPool, tenantB, (client) =>
+      client.query(
+        `INSERT INTO iam_app.center_entries(center_key,tenant_id,center_id)
+         VALUES ('bravo',$1,$2)`,
+        [tenantB, centerB],
+      ),
+    );
+
+    await expect(
+      setIamCenterEntryStatus(
+        appPool,
+        { issuer: 'test', subject: 'identity-a' },
+        { tenantId: tenantA },
+        {
+          centerId: centerA,
+          status: 'disabled',
+          purpose: 'center temporarily closed',
+          correlationId: '11111111-1111-4111-8111-111111111111',
+        },
+      ),
+    ).resolves.toEqual({ changed: true, status: 'disabled' });
+    await expect(
+      setIamCenterEntryStatus(
+        appPool,
+        { issuer: 'test', subject: 'identity-a' },
+        { tenantId: tenantA },
+        {
+          centerId: centerA,
+          status: 'disabled',
+          purpose: 'retry center closure',
+          correlationId: '66666666-6666-4666-8666-666666666666',
+        },
+      ),
+    ).resolves.toEqual({ changed: false, status: 'disabled' });
+    await expect(resolveIamCenterEntry(appPool, 'alpha')).resolves.toBeNull();
+
+    await expect(
+      setIamCenterEntryStatus(
+        appPool,
+        { issuer: 'test', subject: 'identity-manager' },
+        { tenantId: tenantA },
+        {
+          centerId: centerA,
+          status: 'active',
+          purpose: 'manager cannot change platform entry lifecycle',
+          correlationId: '22222222-2222-4222-8222-222222222222',
+        },
+      ),
+    ).resolves.toEqual({ deniedReason: 'permission_missing' });
+
+    await expect(
+      setIamCenterEntryStatus(
+        appPool,
+        { issuer: 'test', subject: 'identity-a' },
+        { tenantId: tenantA },
+        {
+          centerId: centerB,
+          status: 'disabled',
+          purpose: 'cross-tenant target must remain inaccessible',
+          correlationId: '33333333-3333-4333-8333-333333333333',
+        },
+      ),
+    ).resolves.toEqual({ deniedReason: 'resource_missing_or_inaccessible' });
+    await expect(resolveIamCenterEntry(appPool, 'bravo')).resolves.toEqual({
+      tenantId: tenantB,
+      centerId: centerB,
+    });
+
+    await expect(
+      setIamCenterEntryStatus(
+        appPool,
+        { issuer: 'test', subject: 'unknown' },
+        { tenantId: tenantA },
+        {
+          centerId: centerA,
+          status: 'active',
+          purpose: 'unknown actor must be audited',
+          correlationId: '55555555-5555-4555-8555-555555555555',
+        },
+      ),
+    ).resolves.toEqual({ deniedReason: 'membership_missing_or_inactive' });
+
+    await expect(
+      setIamCenterEntryStatus(
+        appPool,
+        { issuer: 'test', subject: 'identity-a' },
+        { tenantId: tenantA },
+        {
+          centerId: centerA,
+          status: 'active',
+          purpose: 'center reopened',
+          correlationId: '44444444-4444-4444-8444-444444444444',
+        },
+      ),
+    ).resolves.toEqual({ changed: true, status: 'active' });
+    await expect(resolveIamCenterEntry(appPool, 'alpha')).resolves.toEqual({
+      tenantId: tenantA,
+      centerId: centerA,
+    });
+
+    const audit = await adminPool.query<{
+      action: string;
+      purpose: string | null;
+      reason: string | null;
+      result: string;
+      sourceMetadata: Record<string, boolean | string> | null;
+    }>(
+      `SELECT action, purpose, reason, result, source_metadata AS "sourceMetadata"
+       FROM iam_app.audit_records
+       WHERE tenant_id = $1 AND resource_id = $2
+       ORDER BY created_at, action`,
+      [tenantA, centerA],
+    );
+    expect(audit.rows).toEqual([
+      {
+        action: 'center_entry.disable',
+        purpose: 'center temporarily closed',
+        reason: null,
+        result: 'success',
+        sourceMetadata: {
+          changed: true,
+          centerKey: 'alpha',
+          previousStatus: 'active',
+          newStatus: 'disabled',
+        },
+      },
+      {
+        action: 'center_entry.disable',
+        purpose: 'retry center closure',
+        reason: null,
+        result: 'success',
+        sourceMetadata: {
+          changed: false,
+          centerKey: 'alpha',
+          previousStatus: 'disabled',
+          newStatus: 'disabled',
+        },
+      },
+      {
+        action: 'center_entry.enable',
+        purpose: 'manager cannot change platform entry lifecycle',
+        reason: 'permission_missing',
+        result: 'denied',
+        sourceMetadata: null,
+      },
+      {
+        action: 'center_entry.enable',
+        purpose: 'unknown actor must be audited',
+        reason: 'membership_missing_or_inactive',
+        result: 'denied',
+        sourceMetadata: null,
+      },
+      {
+        action: 'center_entry.enable',
+        purpose: 'center reopened',
+        reason: null,
+        result: 'success',
+        sourceMetadata: {
+          changed: true,
+          centerKey: 'alpha',
+          previousStatus: 'disabled',
+          newStatus: 'active',
+        },
+      },
+    ]);
   });
 
   it('forces tenant-context RLS while privileged commands remain tenant-scoped (DATA-01, MT-REQ-004)', async () => {

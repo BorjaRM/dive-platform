@@ -36,6 +36,20 @@
       "when": 1790676375149,
       "tag": "0004_nifty_black_tom",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790684365223,
+      "tag": "0005_center_entry_resolution",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790685047583,
+      "tag": "0006_keen_silver_fox",
+      "breakpoints": true
     }
   ]
 }

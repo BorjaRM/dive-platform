@@ -4,6 +4,7 @@ export const SECURITY_LOGGER = Symbol('SECURITY_LOGGER');
 
 export const IAM_ACTIONS = {
   centerRead: 'center.read',
+  centerEntryManage: 'center_entry.manage',
   tenantContextIssue: 'tenant.context.issue',
   tenantContextRevoke: 'tenant.context.revoke',
   identityWebhookApply: 'identity.webhook.apply',

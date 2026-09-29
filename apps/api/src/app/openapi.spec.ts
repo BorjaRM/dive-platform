@@ -11,7 +11,10 @@ import { DATABASE_POOL } from '../common/database/database.tokens.js';
 import { configureOpenApi } from '../common/security/http-hardening.js';
 import { SECURITY_LOGGER } from '../common/security/security.tokens.js';
 import { TenantContextCrypto } from '../common/tenant-context/tenant-context.crypto.js';
-import { TENANT_CONTEXT_CRYPTO } from '../common/tenant-context/tenant-context.tokens.js';
+import {
+  CENTER_APP_BASE_DOMAIN,
+  TENANT_CONTEXT_CRYPTO,
+} from '../common/tenant-context/tenant-context.tokens.js';
 import { IamModule } from '../iam/iam.module.js';
 
 @Global()
@@ -22,6 +25,10 @@ import { IamModule } from '../iam/iam.module.js';
     { provide: IDENTITY_WEBHOOK_VERIFIER, useValue: { verify: vi.fn() } },
     { provide: SECURITY_LOGGER, useValue: { warn: vi.fn() } },
     {
+      provide: CENTER_APP_BASE_DOMAIN,
+      useValue: 'app.example.test',
+    },
+    {
       provide: TENANT_CONTEXT_CRYPTO,
       useValue: new TenantContextCrypto('t'.repeat(32)),
     },
@@ -31,6 +38,7 @@ import { IamModule } from '../iam/iam.module.js';
     IDENTITY_PROVIDER,
     IDENTITY_WEBHOOK_VERIFIER,
     SECURITY_LOGGER,
+    CENTER_APP_BASE_DOMAIN,
     TENANT_CONTEXT_CRYPTO,
   ],
 })
@@ -57,9 +65,20 @@ describe('OpenAPI document generation', () => {
 
     expect(document.paths['/v1/me/operators']?.get).toBeDefined();
     expect(document.paths['/v1/me/tenant-contexts']?.post).toBeDefined();
+    expect(document.paths['/v1/me/center-entry-contexts']?.post).toBeDefined();
     expect(document.paths['/v1/me/tenant-contexts']?.delete).toBeDefined();
     expect(document.paths['/v1/centers']?.get).toBeDefined();
     expect(document.paths['/v1/centers/{centerId}']?.get).toBeDefined();
+    expect(
+      document.paths['/v1/centers/{centerId}/entry-status']?.patch,
+    ).toBeDefined();
+    expect(document.components?.schemas?.CenterEntryStatusDto).toMatchObject({
+      properties: {
+        changed: { type: 'boolean' },
+        status: { enum: ['active', 'disabled'], type: 'string' },
+      },
+      required: ['changed', 'status'],
+    });
     expect(
       document.paths['/v1/memberships/{membershipId}/disable']?.patch,
     ).toBeDefined();

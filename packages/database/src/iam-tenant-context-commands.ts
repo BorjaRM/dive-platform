@@ -3,7 +3,14 @@ import {
   assertAuthenticatedPrincipal,
   type IdentityWebhookEvent,
 } from '@dive-center/identity';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
+
+type QueryConnection = Pick<Pool | PoolClient, 'query'>;
+
+export type CenterEntryResolution = Readonly<{
+  tenantId: string;
+  centerId: string;
+}>;
 
 export type IamOperator = Readonly<{
   identityId: string;
@@ -23,6 +30,17 @@ export type TenantContextResolution = Readonly<{
   identityId: string;
   tenantId: string;
 }>;
+
+export async function resolveIamCenterEntry(
+  connection: QueryConnection,
+  centerKey: string,
+): Promise<CenterEntryResolution | null> {
+  const result = await connection.query<{
+    entry: CenterEntryResolution | null;
+  }>(`SELECT iam_app.resolve_center_entry_command($1) AS entry`, [centerKey]);
+  const entry = result.rows[0]?.entry;
+  return entry ? Object.freeze({ ...entry }) : null;
+}
 
 export async function listIamOperators(
   pool: Pool,
@@ -46,7 +64,7 @@ export async function listIamOperators(
 }
 
 export async function issueIamTenantContext(
-  pool: Pool,
+  pool: QueryConnection,
   principal: AuthenticatedPrincipal,
   input: Readonly<{
     tenantId: string;

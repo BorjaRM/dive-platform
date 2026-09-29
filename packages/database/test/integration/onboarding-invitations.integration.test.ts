@@ -368,6 +368,175 @@ describe('bootstrap invitation persistence (DIVE-ONB-REQ-001..009, 013, 039..040
     });
   });
 
+  it('rolls back every bootstrap write when center-key allocation cannot complete (DIVE-ONB-REQ-013, DIVE-ONB-REQ-019, MT-REQ-005..006)', async () => {
+    const invitationId = await issueDeliveredGrant('bootstrap-rollback');
+    const centerKeyBase = `rollback-${invitationId.slice(0, 8)}`;
+    const seedTenantId = 'cccccccc-3333-4333-8333-333333333333';
+    const seedCenterId = 'cccccccc-4444-4444-8444-444444444444';
+    const seedFallbackCenterId = 'cccccccc-5555-4555-8555-555555555555';
+    await adminPool.query(
+      `INSERT INTO iam_app.tenants(id, name) VALUES ($1, 'Rollback seed')`,
+      [seedTenantId],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.centers(id, tenant_id, name, time_zone)
+       VALUES ($1, $2, 'Rollback seed center', 'Europe/Madrid'),
+              ($3, $2, 'Rollback fallback center', 'Europe/Madrid')`,
+      [seedCenterId, seedTenantId, seedFallbackCenterId],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.center_entries(center_key, tenant_id, center_id)
+       VALUES ($1, $2, $3), ($4, $2, $5)`,
+      [
+        centerKeyBase,
+        seedTenantId,
+        seedCenterId,
+        `${centerKeyBase}-${invitationId.replaceAll('-', '').slice(0, 8)}`,
+        seedFallbackCenterId,
+      ],
+    );
+
+    const before = await adminPool.query<{
+      identities: number;
+      memberships: number;
+      tenants: number;
+    }>(
+      `SELECT
+        (SELECT count(*)::int FROM iam_app.identities) AS identities,
+        (SELECT count(*)::int FROM iam_app.memberships) AS memberships,
+        (SELECT count(*)::int FROM iam_app.tenants) AS tenants`,
+    );
+    const invitedPrincipal = await authenticateIdentity(
+      provider,
+      'bootstrap-token',
+    );
+
+    await expect(
+      completeOwnTenantBootstrap(appPool, invitedPrincipal, {
+        operatorDisplayName: 'Rollback operation',
+        centerDisplayName: `Rollback ${invitationId.slice(0, 8)}`,
+        timeZone: 'Europe/Madrid',
+        locale: 'en',
+        correlationId,
+      }),
+    ).rejects.toThrow(/duplicate key/);
+
+    const after = await adminPool.query<{
+      grant_status: string;
+      identities: number;
+      memberships: number;
+      tenants: number;
+    }>(
+      `SELECT
+        (SELECT status FROM onboarding_app.tenant_bootstrap_grants WHERE id = $1) AS grant_status,
+        (SELECT count(*)::int FROM iam_app.identities) AS identities,
+        (SELECT count(*)::int FROM iam_app.memberships) AS memberships,
+        (SELECT count(*)::int FROM iam_app.tenants) AS tenants`,
+      [invitationId],
+    );
+    expect(after.rows[0]).toEqual({
+      grant_status: 'issued',
+      identities: before.rows[0]?.identities,
+      memberships: before.rows[0]?.memberships,
+      tenants: before.rows[0]?.tenants,
+    });
+  });
+
+  it('rejects terminal bootstrap grants and ordinary IAM invitations without creating tenant state (DIVE-ONB-REQ-009, DIVE-ONB-REQ-041, DIVE-ONB-REQ-050)', async () => {
+    const expiredInvitationId = await issueDeliveredGrant('bootstrap-expired');
+    await adminPool.query(
+      `UPDATE onboarding_app.tenant_bootstrap_grants
+       SET expires_at = now() - interval '1 second'
+       WHERE id = $1`,
+      [expiredInvitationId],
+    );
+
+    const revokedInvitationId = await issueDeliveredGrant('bootstrap-revoked');
+    await adminPool.query(
+      `UPDATE onboarding_app.tenant_bootstrap_grants
+       SET status = 'revoked', revoked_at = now()
+       WHERE id = $1`,
+      [revokedInvitationId],
+    );
+
+    const supersededInvitationId = await issueDeliveredGrant(
+      'bootstrap-superseded',
+    );
+    const platformPrincipal = await authenticateIdentity(
+      provider,
+      'platform-token',
+    );
+    const reissued = await reissueBootstrapInvitation(
+      appPool,
+      platformPrincipal,
+      {
+        invitationId: supersededInvitationId,
+        reason: 'Replace for terminal-state test',
+        idempotencyKey: 'bootstrap-superseded-reissue',
+        correlationId,
+      },
+    );
+    expect(reissued).not.toHaveProperty('deniedReason');
+
+    const ordinaryTenantId = 'dddddddd-5555-4555-8555-555555555555';
+    const ordinaryCenterId = 'dddddddd-6666-4666-8666-666666666666';
+    const ordinaryMembershipId = 'dddddddd-7777-4777-8777-777777777777';
+    const ordinaryInvitationId = 'dddddddd-8888-4888-8888-888888888888';
+    await adminPool.query(
+      `INSERT INTO iam_app.tenants(id, name) VALUES ($1, 'Ordinary tenant')`,
+      [ordinaryTenantId],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.centers(id, tenant_id, name, time_zone)
+       VALUES ($1, $2, 'Ordinary center', 'Europe/Madrid')`,
+      [ordinaryCenterId, ordinaryTenantId],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.memberships(id, tenant_id, status, roles, center_ids)
+       VALUES ($1, $2, 'pending', ARRAY['center_manager'], ARRAY[$3]::uuid[])`,
+      [ordinaryMembershipId, ordinaryTenantId, ordinaryCenterId],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.invitations(
+         id, tenant_id, membership_id, target_address, credential_hash,
+         status, idempotency_key
+       ) VALUES ($1, $2, $3, 'owner@example.test', repeat('a', 64), 'pending', 'ordinary-1')`,
+      [ordinaryInvitationId, ordinaryTenantId, ordinaryMembershipId],
+    );
+
+    const before = await adminPool.query<{
+      memberships: number;
+      tenants: number;
+    }>(
+      `SELECT
+        (SELECT count(*)::int FROM iam_app.memberships) AS memberships,
+        (SELECT count(*)::int FROM iam_app.tenants) AS tenants`,
+    );
+    const invitedPrincipal = await authenticateIdentity(
+      provider,
+      'bootstrap-token',
+    );
+    await expect(
+      completeOwnTenantBootstrap(appPool, invitedPrincipal, {
+        operatorDisplayName: 'Terminal operation',
+        centerDisplayName: 'Terminal center',
+        timeZone: 'Europe/Madrid',
+        locale: 'en',
+        correlationId,
+      }),
+    ).resolves.toEqual({ deniedReason: 'bootstrap_unavailable' });
+
+    const after = await adminPool.query<{
+      memberships: number;
+      tenants: number;
+    }>(
+      `SELECT
+        (SELECT count(*)::int FROM iam_app.memberships) AS memberships,
+        (SELECT count(*)::int FROM iam_app.tenants) AS tenants`,
+    );
+    expect(after.rows[0]).toEqual(before.rows[0]);
+  });
+
   it('fails neutrally for zero or multiple matching grants without tenant side effects (DIVE-ONB-REQ-009, DIVE-ONB-REQ-041)', async () => {
     const before = await adminPool.query<{
       memberships: number;
