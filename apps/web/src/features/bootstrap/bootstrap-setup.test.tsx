@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BootstrapSetup } from './bootstrap-setup';
 
 const routerMock = vi.hoisted(() => ({ replace: vi.fn() }));
+const useAuthMock = vi.hoisted(() => vi.fn());
 const clerkMock = vi.hoisted(() => ({
   getToken: vi.fn<() => Promise<string | null>>(),
   isLoaded: true,
@@ -18,7 +19,7 @@ const apiMock = vi.hoisted(() => ({ completeTenantBootstrap: vi.fn() }));
 
 vi.mock('next/navigation', () => ({ useRouter: () => routerMock }));
 vi.mock('@clerk/nextjs', () => ({
-  useAuth: () => clerkMock,
+  useAuth: useAuthMock,
 }));
 vi.mock('./bootstrap-api', () => ({
   BootstrapApiError: class BootstrapApiError extends Error {
@@ -37,6 +38,7 @@ describe('BootstrapSetup', () => {
     clerkMock.isLoaded = true;
     clerkMock.isSignedIn = true;
     clerkMock.getToken.mockResolvedValue('session-token');
+    useAuthMock.mockReturnValue(clerkMock);
     apiMock.completeTenantBootstrap.mockResolvedValue({
       operatorRef: 'operator-ref',
       centerRef: 'center-ref',
@@ -52,6 +54,16 @@ describe('BootstrapSetup', () => {
     cleanup();
     clerkMock.getToken.mockReset();
     apiMock.completeTenantBootstrap.mockReset();
+    useAuthMock.mockReset();
+  });
+
+  it('does not access Clerk when configuration is unavailable', () => {
+    render(<BootstrapSetup apiBaseUrl="" clerkConfigured={false} />);
+
+    expect(
+      screen.getByRole('heading', { name: 'Setup is unavailable' }),
+    ).toBeInTheDocument();
+    expect(useAuthMock).not.toHaveBeenCalled();
   });
 
   it('redirects a signed-out visitor to ordinary sign-in', async () => {

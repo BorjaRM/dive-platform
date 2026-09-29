@@ -84,7 +84,10 @@ jobs:
     env:
       SPIKE_ADMIN_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/dive_spike
       SPIKE_APP_DATABASE_URL: postgres://dive_app:dive_app@127.0.0.1:5432/dive_spike
+      SPIKE_WORKER_DATABASE_URL: postgres://dive_worker:dive_worker@127.0.0.1:5432/dive_spike
+      SPIKE_PLATFORM_ADMIN_DATABASE_URL: postgres://dive_platform_admin:dive_platform_admin@127.0.0.1:5432/dive_spike
       APP_DATABASE_URL: postgres://dive_app:dive_app@127.0.0.1:5432/dive_spike
+      WORKER_DATABASE_URL: postgres://dive_worker:dive_worker@127.0.0.1:5432/dive_spike
       SPIKE_APP_PASSWORD: dive_app
       SPIKE_MIGRATION_PASSWORD: dive_migration
       MIGRATION_DATABASE_URL: postgres://dive_migration:dive_migration@127.0.0.1:5432/dive_spike

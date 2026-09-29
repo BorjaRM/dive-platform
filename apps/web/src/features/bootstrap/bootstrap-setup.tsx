@@ -36,6 +36,15 @@ export function BootstrapSetup({
   apiBaseUrl,
   clerkConfigured,
 }: Readonly<{ apiBaseUrl: string; clerkConfigured: boolean }>) {
+  if (!clerkConfigured || !apiBaseUrl) {
+    return <SetupStatus title="Setup is unavailable" />;
+  }
+  return <AuthenticatedBootstrapSetup apiBaseUrl={apiBaseUrl} />;
+}
+
+function AuthenticatedBootstrapSetup({
+  apiBaseUrl,
+}: Readonly<{ apiBaseUrl: string }>) {
   const router = useRouter();
   const { getToken, isLoaded, isSignedIn } = useAuth();
   const [locale, setLocale] = useState<'en' | 'es'>('en');
@@ -98,9 +107,6 @@ export function BootstrapSetup({
     }
   }
 
-  if (!clerkConfigured || !apiBaseUrl) {
-    return <SetupStatus title="Setup is unavailable" />;
-  }
   if (!isLoaded || !isSignedIn) {
     return <SetupStatus title="Checking your session" />;
   }
