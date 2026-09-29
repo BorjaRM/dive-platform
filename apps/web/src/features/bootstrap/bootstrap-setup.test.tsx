@@ -6,6 +6,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { BootstrapApiError } from './bootstrap-api';
 import { BootstrapSetup } from './bootstrap-setup';
 
 const routerMock = vi.hoisted(() => ({ replace: vi.fn() }));
@@ -127,4 +128,48 @@ describe('BootstrapSetup', () => {
     });
     expect(routerMock.replace).toHaveBeenCalledWith('/dashboard');
   });
+
+  it.each([
+    [401, 'Your session expired. Sign in again.'],
+    [
+      403,
+      'Setup could not be completed. Check your invitation or contact support.',
+    ],
+  ])(
+    'reports registration failure %s without navigating to the dashboard (DIVE-ONB-REQ-041)',
+    async (status, message) => {
+      apiMock.completeTenantBootstrap.mockRejectedValue(
+        new BootstrapApiError(status, 'bootstrap_unavailable'),
+      );
+
+      render(
+        <BootstrapSetup
+          apiBaseUrl="https://api.example.test"
+          clerkConfigured
+        />,
+      );
+      fireEvent.change(await screen.findByLabelText('Operation name'), {
+        target: { value: 'Ocean North' },
+      });
+      fireEvent.change(screen.getByLabelText('First center name'), {
+        target: { value: 'Harbor Base' },
+      });
+      fireEvent.change(screen.getByLabelText('Center time zone'), {
+        target: { value: 'Europe/Madrid' },
+      });
+      fireEvent.click(
+        screen.getByRole('checkbox', {
+          name: 'I confirm this is the center’s local time zone.',
+        }),
+      );
+      const form = screen
+        .getByRole('button', { name: 'Create operation' })
+        .closest('form');
+      if (!form) throw new Error('Expected setup form');
+      fireEvent.submit(form);
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(message);
+      expect(routerMock.replace).not.toHaveBeenCalledWith('/dashboard');
+    },
+  );
 });

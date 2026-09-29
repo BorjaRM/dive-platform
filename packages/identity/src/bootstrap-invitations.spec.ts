@@ -152,4 +152,31 @@ describe('ClerkBootstrapInvitationAdapter (DIVE-ONB-REQ-038, 043..045)', () => {
         ),
     ).toThrow('Invalid BOOTSTRAP_INVITATION_REDIRECT_URL');
   });
+
+  it('allows localhost HTTP only when explicitly enabled for local development', () => {
+    expect(
+      () =>
+        new ClerkBootstrapInvitationAdapter(
+          {
+            allowInsecureLocalRedirect: true,
+            secretKey: 'sk_test_not-real',
+            redirectUrl: 'http://localhost:3000/bootstrap/accept',
+            requestTimeoutMillis: 15_000,
+          },
+          dependencies(),
+        ),
+    ).not.toThrow();
+
+    expect(
+      () =>
+        new ClerkBootstrapInvitationAdapter(
+          {
+            secretKey: 'sk_test_not-real',
+            redirectUrl: 'http://localhost:3000/bootstrap/accept',
+            requestTimeoutMillis: 15_000,
+          },
+          dependencies(),
+        ),
+    ).toThrow('Invalid BOOTSTRAP_INVITATION_REDIRECT_URL');
+  });
 });

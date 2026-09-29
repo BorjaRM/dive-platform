@@ -31,6 +31,7 @@ export class BootstrapInvitationProviderError extends Error {
 }
 
 export type ClerkBootstrapInvitationConfig = Readonly<{
+  allowInsecureLocalRedirect?: boolean;
   secretKey: string;
   redirectUrl: string;
   requestTimeoutMillis: number;
@@ -92,7 +93,10 @@ async function withDeadline<T>(
   }
 }
 
-function redirectUrl(value: string): string {
+function redirectUrl(
+  value: string,
+  allowInsecureLocalRedirect: boolean,
+): string {
   const normalized = required(value, 'BOOTSTRAP_INVITATION_REDIRECT_URL');
   let parsed: URL;
   try {
@@ -100,8 +104,12 @@ function redirectUrl(value: string): string {
   } catch {
     throw new Error('Invalid BOOTSTRAP_INVITATION_REDIRECT_URL');
   }
+  const isAllowedLocalHttp =
+    allowInsecureLocalRedirect &&
+    parsed.protocol === 'http:' &&
+    (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1');
   if (
-    parsed.protocol !== 'https:' ||
+    (parsed.protocol !== 'https:' && !isAllowedLocalHttp) ||
     parsed.pathname !== '/bootstrap/accept' ||
     parsed.search !== '' ||
     parsed.hash !== ''
@@ -169,7 +177,10 @@ export class ClerkBootstrapInvitationAdapter
     dependencies?: ClerkBootstrapInvitationDependencies,
   ) {
     const secretKey = required(config.secretKey, 'CLERK_SECRET_KEY');
-    this.redirect = redirectUrl(config.redirectUrl);
+    this.redirect = redirectUrl(
+      config.redirectUrl,
+      config.allowInsecureLocalRedirect ?? false,
+    );
     this.requestTimeoutMillis = positiveInteger(
       config.requestTimeoutMillis,
       'CLERK_REQUEST_TIMEOUT_MS',

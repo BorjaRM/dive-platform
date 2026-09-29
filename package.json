@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "dev": ". \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" && nvm use --silent && node --env-file=.env.example ./node_modules/turbo/bin/turbo run dev",
+    "dev": ". \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" && nvm use --silent && node --env-file=.env.example --env-file-if-exists=.env.local ./node_modules/turbo/bin/turbo run dev",
     "lint": "biome check .",
     "typecheck": "turbo run typecheck",
     "check-types": "turbo run typecheck",
