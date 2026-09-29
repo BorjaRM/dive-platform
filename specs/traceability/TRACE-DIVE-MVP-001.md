@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.45
+- **Version:** 0.46
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -28,18 +28,18 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` are Ready to start
 | ADR-DIVE-010 | `specs/architecture/adrs/ADR-DIVE-010.md` | Ready to start | 0.3 |
 | ADR-DIVE-011 | `specs/architecture/adrs/ADR-DIVE-011.md` | Draft | 0.3 |
 | ADR-DIVE-012 | `specs/architecture/adrs/ADR-DIVE-012.md` | Draft | 0.1 |
-| ADR-DIVE-013 | `specs/architecture/adrs/ADR-DIVE-013.md` | Ready to start | 0.8 |
+| ADR-DIVE-013 | `specs/architecture/adrs/ADR-DIVE-013.md` | Ready to start | 0.9 |
 | ADR-DIVE-014 | `specs/architecture/adrs/ADR-DIVE-014.md` | Draft | 0.4 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 1.3 |
 | SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.14 |
-| SPEC-DIVE-ONBOARDING-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md` | Ready to start | 0.8 |
+| SPEC-DIVE-ONBOARDING-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md` | Ready to start | 0.9 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.2-draft |
 | MT-SPIKE-001 | `specs/multitenancy/` | Accepted with conditions | 0.3 |
 | SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-004 | `specs/spikes/SPIKE-DIVE-004/` | Draft / executed 2026-09-29 (Documented: spike results and dated provider evidence) | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.45 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.46 |
 
 Notion indexes must show this map’s version. They must not invent an independent version sequence.
 
@@ -87,7 +87,7 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` remain Ready to st
 | Center entry, provider delivery, persistence, and retention | 042–047 | `centerKey` mapping/rollback, pre-tenant outbox, Clerk create/revoke/reissue, existing-identity, rate-limit, redirect, retention, audit, and event contract tests | implementation PR plus Clerk Development evidence |
 | Revocation and no-active-membership safety | 048–050 | stale-handle denial, renewal denial, unrelated-membership continuity, neutral UI, and non-disclosure tests | implementation PR |
 
-`SPEC-DIVE-ONBOARDING-001` and `ADR-DIVE-013` are Ready to start for `DIVE-ONB-REQ-001..026` and `035..050`; guided-onboarding requirements `027..034` are Deferred. Current US-19 uses a simple setup form and selects no tour library, guide state, guide analytics, or guidance rollout. Option B replaces the application-owned bearer/email design with Clerk Application Invitations plus a PostgreSQL bootstrap grant. US-19 remains limited to invited self bootstrap; assisted provisioning and Clerk Organizations remain outside the story. The bootstrap-grant relationship is explicitly separate from ordinary tenant invitations governed by `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-017` and `ADR-DIVE-004`; neither flow can consume or activate the other. `specs/spikes/SPIKE-DIVE-004/results.md` owns the bounded Clerk Development evidence for `ignoreExisting`, new/existing identities, active-session states, invite-only behavior, and redirect/ticket cleanup. Its direct provider calls are measurement-only; production invitation delivery remains assigned to the post-commit pre-tenant outbox worker. Remaining provider lifecycle behavior stays in implementation tests unless the spike exposes an architectural contradiction. `SPEC-DIVE-IAM-001` v0.14 only clarifies the authority boundary; this TRACE relationship is not implementation coverage. Implementation authority is active for reversible work, subject to the onboarding activation gates.
+`SPEC-DIVE-ONBOARDING-001` and `ADR-DIVE-013` are Ready to start for `DIVE-ONB-REQ-001..026` and `035..050`; guided-onboarding requirements `027..034` are Deferred. Current US-19 uses a simple setup form and selects no tour library, guide state, guide analytics, or guidance rollout. Option B replaces the application-owned bearer/email design with Clerk Application Invitations plus a PostgreSQL bootstrap grant. Production invitation administration remains application-owned through the protected platform API, authoritative grant transaction, pre-tenant outbox, and post-commit worker; no dedicated administration UI is required initially. Clerk Dashboard is diagnostic/provider tooling rather than the ordinary issuance channel and cannot create bootstrap authority. US-19 remains limited to invited self bootstrap; assisted provisioning and Clerk Organizations remain outside the story. The bootstrap-grant relationship is explicitly separate from ordinary tenant invitations governed by `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-017` and `ADR-DIVE-004`; neither flow can consume or activate the other. `specs/spikes/SPIKE-DIVE-004/results.md` owns the bounded Clerk Development evidence for `ignoreExisting`, new/existing identities, active-session states, invite-only behavior, and redirect/ticket cleanup. Its direct provider calls are measurement-only; production invitation delivery remains assigned to the post-commit pre-tenant outbox worker. Remaining provider lifecycle behavior stays in implementation tests unless the spike exposes an architectural contradiction. `SPEC-DIVE-IAM-001` v0.14 only clarifies the authority boundary; this TRACE relationship is not implementation coverage. Implementation authority is active for reversible work, subject to the onboarding activation gates.
 
 ### Multi-tenant — `MT-REQ-001` … `010`
 
