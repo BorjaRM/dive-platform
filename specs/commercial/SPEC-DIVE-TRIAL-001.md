@@ -159,7 +159,7 @@ After promotion and implementation authorization, expected tests include atomic 
 
 ## Traceability
 
-- Decision: `specs/architecture/adrs/ADR-DIVE-015.md`
+- Decision: `specs/architecture/adrs/ADR-DIVE-016.md`
 - Bootstrap: `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md`; `specs/architecture/adrs/ADR-DIVE-013.md`
 - IAM: `specs/iam/SPEC-DIVE-IAM-001.md`
 - Product gate: `specs/product/dive-mvp-profile.md`

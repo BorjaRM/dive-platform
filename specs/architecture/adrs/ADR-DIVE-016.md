@@ -1,4 +1,4 @@
-# ADR-DIVE-015 — Separate trial availability from bootstrap and IAM
+# ADR-DIVE-016 — Separate trial availability from bootstrap and IAM
 
 - **Status:** Draft
 - **Version:** 0.1

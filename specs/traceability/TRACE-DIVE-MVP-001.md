@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.60
+- **Version:** 0.61
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -30,7 +30,7 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` are Ready to start
 | ADR-DIVE-012 | `specs/architecture/adrs/ADR-DIVE-012.md` | Draft | 0.4 |
 | ADR-DIVE-013 | `specs/architecture/adrs/ADR-DIVE-013.md` | Ready to start | 0.13 |
 | ADR-DIVE-014 | `specs/architecture/adrs/ADR-DIVE-014.md` | Draft | 0.4 |
-| ADR-DIVE-015 | `specs/architecture/adrs/ADR-DIVE-015.md` | Draft | 0.1 |
+| ADR-DIVE-016 | `specs/architecture/adrs/ADR-DIVE-016.md` | Draft | 0.1 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 1.3 |
 | SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.18 |
 | SPEC-DIVE-MARKETING-001 | `specs/marketing/SPEC-DIVE-MARKETING-001.md` | Ready to start | 0.1 |
@@ -42,7 +42,7 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` are Ready to start
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-004 | `specs/spikes/SPIKE-DIVE-004/` | Draft / executed 2026-09-29 (Documented: spike results and dated provider evidence) | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.59 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.61 |
 
 Notion indexes must show this map’s version. They must not invent an independent version sequence.
 
@@ -96,7 +96,7 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` remain Ready to st
 
 ### Trial access — `DIVE-TRIAL-REQ-001` … `018`
 
-`SPEC-DIVE-TRIAL-001` v0.1 and `ADR-DIVE-015` v0.1 are Draft. They record the product-owner-approved direction from issue #84 for an invite-only, platform-configured trial beginning after successful bootstrap. Exact duration representation and bounds, expiry handling for already-committed effects, rights/export execution, persistence labels, API/events, and privacy validation remain open; no implementation authority or coverage is claimed.
+`SPEC-DIVE-TRIAL-001` v0.1 and `ADR-DIVE-016` v0.1 are Draft. They record the product-owner-approved direction from issue #84 for an invite-only, platform-configured trial beginning after successful bootstrap. Exact duration representation and bounds, expiry handling for already-committed effects, rights/export execution, persistence labels, API/events, and privacy validation remain open; no implementation authority or coverage is claimed.
 
 ### Public product landing — `DIVE-MKT-REQ-001` … `012`
 
