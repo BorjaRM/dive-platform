@@ -30,8 +30,9 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` are Ready to start
 | ADR-DIVE-012 | `specs/architecture/adrs/ADR-DIVE-012.md` | Draft | 0.4 |
 | ADR-DIVE-013 | `specs/architecture/adrs/ADR-DIVE-013.md` | Ready to start | 0.13 |
 | ADR-DIVE-014 | `specs/architecture/adrs/ADR-DIVE-014.md` | Draft | 0.4 |
+| ADR-DIVE-015 | `specs/architecture/adrs/ADR-DIVE-015.md` | Draft | 0.1 |
 | ADR-DIVE-016 | `specs/architecture/adrs/ADR-DIVE-016.md` | Draft | 0.1 |
-| SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 1.3 |
+| SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Draft | 1.4 |
 | SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.18 |
 | SPEC-DIVE-MARKETING-001 | `specs/marketing/SPEC-DIVE-MARKETING-001.md` | Ready to start | 0.1 |
 | SPEC-DIVE-ONBOARDING-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md` | Ready to start | 0.15 |
@@ -67,15 +68,16 @@ Notion pages are indexes only. They are not coverage evidence.
 | Public booking capabilities | 070–072 | public capability contract tests | implementation PR |
 | Public availability query and presentation closures | ADR-DIVE-011 Draft; no new SPEC IDs yet | none until ADR approved | none |
 | Public create-booking | 058–067 | public-create API, idempotency, origin, channel-policy, token, and contention tests in implementation PR | implementation PR |
+| Activity scheduling, recurrence, unscheduled booking, calendar, public projection, and staff mutation reconciliation | `ADR-DIVE-015`; affected existing booking IDs in SPEC v1.4 Draft | none until the revised contract is approved | none |
 
 `DIVE-BOOK-REQ-003` is the capacity invariant. `DIVE-BOOK-REQ-029` states that capacity lives on the slot.
-`DIVE-BOOK-REQ-037..038` publish future `Available` and `Full` slots; `Full` is visible as non-bookable.
+`ADR-DIVE-015` governs the expanded scheduling direction. `SPEC-DIVE-BOOKING-001` v1.4 is Draft while fixed-time slot assumptions are reconciled with recurrence, date-free booking, public projection, calendar, and staff mutation. Existing fixed-time implementation coverage remains valid but is not coverage of the expanded model.
 
 ### IAM — `DIVE-IAM-REQ-001` … `032`
 
 Coverage is recorded in the current-coverage table below. Cross-tenant cases also map to `MT-REQ-*` and remain separate from `DIVE-*` results. Public-token and support-access evidence is not yet available in this vertical.
 
-Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` remain Ready to start. `ADR-DIVE-008` v0.14 closes reserved keys, database-resolved exact CORS, mandatory environment host configuration, `center.read`, the Owner/Admin-only active/disabled center-entry lifecycle with immutable keys, idempotent transitions, scoped disablement, fail-closed resolver errors, and audit, the absolute post-bootstrap center handoff, one Next.js deployment for canonical authentication and center hosts, and the MVP ban on center-entry without `Origin`. `SPEC-DIVE-BOOKING-001` v1.3 closes US-08 activity/slot page pagination, minimal DTOs, and physical activity/slot naming; ADR-DIVE-014 remains the Draft decision record. Backend coverage for `DIVE-IAM-REQ-032` is recorded below; the web handoff and deployed-host activation evidence remain incomplete.
+Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` remain Ready to start. `ADR-DIVE-008` v0.14 closes reserved keys, database-resolved exact CORS, mandatory environment host configuration, `center.read`, the Owner/Admin-only active/disabled center-entry lifecycle with immutable keys, idempotent transitions, scoped disablement, fail-closed resolver errors, and audit, the absolute post-bootstrap center handoff, one Next.js deployment for canonical authentication and center hosts, and the MVP ban on center-entry without `Origin`. `SPEC-DIVE-BOOKING-001` v1.4 keeps the implemented US-08 fixed-time catalog contract but is Draft for ADR-DIVE-015 reconciliation; ADR-DIVE-014 remains the Draft catalog decision record. Backend coverage for `DIVE-IAM-REQ-032` is recorded below; the web handoff and deployed-host activation evidence remain incomplete.
 
 ### Onboarding — `DIVE-ONB-REQ-001` … `050`
 

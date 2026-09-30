@@ -1,10 +1,10 @@
 # SPEC-DIVE-BOOKING-001 — Bookings, widget, and calendar
 
-- **Status:** Ready to start
-- **Version:** 1.3
-- **Last reviewed:** 2026-09-27
+- **Status:** Draft
+- **Version:** 1.4
+- **Last reviewed:** 2026-09-30
 - **Approved by:** Borja (Product owner)
-- **Approval reference:** PR #1, provenance migration PR, product confirmations 2026-09-27 for catalog HTTP, slot time representation, public visibility of full slots, ADR-DIVE-010 public create closures, and explicit approval by Product, Security, and Architecture on 2026-09-27 of the point 1 rejection contract and public capability contract; PR #35 product-owner confirmations on 2026-09-27 for simple page pagination on activity and slot lists, catalog DTOs, and persistence naming
+- **Approval reference:** PR #1, provenance migration PR, product confirmations 2026-09-27 for catalog HTTP, slot time representation, public visibility of full slots, ADR-DIVE-010 public create closures, and explicit approval by Product, Security, and Architecture on 2026-09-27 of the point 1 rejection contract and public capability contract; PR #35 product-owner confirmations on 2026-09-27 for simple page pagination on activity and slot lists, catalog DTOs, and persistence naming; merged ADR-DIVE-015 and explicit product-owner confirmation on 2026-09-30 that its decisions govern the booking-model reconciliation
 - **Owner:** Product / Booking
 - **IDs:** `DIVE-BOOK-REQ-001` … `DIVE-BOOK-REQ-072`
 
@@ -15,6 +15,12 @@ This SPEC is the single normative source for booking services (activities), sche
 Other documents (product profile, spikes, traceability, deliverables, Notion pages) must link here. They must not redefine these rules.
 
 Historical Notion draft IDs `REQ-003` and `REQ-029` map to `DIVE-BOOK-REQ-003` and `DIVE-BOOK-REQ-029`.
+
+### ADR-DIVE-015 precedence and reconciliation boundary
+
+`ADR-DIVE-015` records product decisions explicitly approved by Borja on 2026-09-30. Where this SPEC's previous fixed-slot-only wording conflicts with that ADR, the ADR governs the product direction. This revision marks the SPEC Draft while the affected state, capacity, recurrence, publication, HTTP, persistence, migration, and compatibility contracts are reconciled.
+
+The existing fixed-time slot contract remains valid for that implemented slice, but it is no longer the exclusive booking model. This Draft does not authorize implementation of date-free or time-free booking, multi-session courses, recurrence materialization, or staff structural mutation until their open contracts below are closed. Unaffected Ready-to-start behavior must not be weakened by this reconciliation.
 
 ## Requirement provenance
 
@@ -33,6 +39,12 @@ The ranges below cover every requirement in this SPEC. `Derived` consolidates th
 | `DIVE-BOOK-REQ-058..DIVE-BOOK-REQ-067` | `Proposed` | ADR-DIVE-010 v0.3; explicit acceptance by Borja on 2026-09-27 of public create, channel policy, retry, surface, origin, and OTA-boundary closures | Approved by product owner 2026-09-27; Ready to start |
 | `DIVE-BOOK-REQ-068..DIVE-BOOK-REQ-069` | `Proposed` | Product, Security, and Architecture approval on 2026-09-27 of the rejected-booking state and internal rejection contract | Approved; Ready to start |
 | `DIVE-BOOK-REQ-070..DIVE-BOOK-REQ-072` | `Proposed` | Product, Security, and Architecture approval on 2026-09-27 of the public capability recommendations; ADR-DIVE-005 v0.3 | Approved; Ready to start |
+
+### ADR-DIVE-015 reconciliation provenance
+
+| Affected requirements | Provenance | Exact source | Decision status |
+|---|---|---|---|
+| ADR-DIVE-015 affected booking contract | `Proposed` | `ADR-DIVE-015`; explicit product-owner confirmation on 2026-09-30; affected IDs are identified in the ADR and changed requirements below | Product-approved direction; Draft contract reconciliation |
 
 ### Normative defaults provenance
 
@@ -79,8 +91,9 @@ Out of scope:
 ## Definitions
 
 - **Activity (booking service):** catalog offering configured by a center, e.g. “Discover Scuba Dive”. It may propose a default capacity. It is not the authoritative capacity record.
-- **Slot (scheduled activity / `Slot` in code):** concrete occurrence of an activity at a date and time, with its own identity, capacity, and state. This is the authoritative capacity record.
-- **Booking:** reservation of one or more seats on one slot.
+- **Availability configuration:** center-controlled rule that offers one-off dates, recurrence with optional exact time, or date-free booking; it is distinct from a concrete scheduled activity.
+- **Scheduled activity (`Slot` in the current fixed-time implementation):** concrete execution of an activity once its exact start, duration, capacity, and state are known. It is the authoritative capacity record for bookings assigned to it.
+- **Booking:** customer commitment for one or more seats in an activity. It may initially select a scheduled activity, a center-published day without an exact time, or no date when the center will schedule it later. Multi-session cardinality remains open in this Draft.
 - **Booker:** responsible contact for the booking.
 - **Channel:** server-side public or internal entry configuration. Browser input never authorizes tenant, center, activity, or slot.
 - **Held seats:** seats reserved by a `Pending` booking that has not yet confirmed, expired, or been rejected.
@@ -99,7 +112,7 @@ Out of scope:
 - Slot: `Available → Full → Closed | Cancelled`; `Full → Available` is allowed when seats are released and the slot is not `Closed` or `Cancelled`; `Closed → Cancelled` is allowed
 - Booking: `Pending → Confirmed | Rejected | Cancelled | Expired`; `Confirmed → Cancelled`
 
-`Cancelled`, `Rejected`, and `Expired` are terminal. `Closed` is terminal except for the approved `Closed → Cancelled` transition. `Disabled` on an activity does not change existing slot states.
+`Cancelled`, `Rejected`, and `Expired` are terminal for the existing fixed-time booking lifecycle. `Closed` is terminal except for the approved `Closed → Cancelled` transition. `Disabled` on an activity does not change existing scheduled-activity states. `Pending` MUST NOT be reused to mean pending scheduling; the scheduling state machine remains open under ADR-DIVE-015.
 
 ## Capacity invariant
 
@@ -127,9 +140,9 @@ Public, widget, hosted-page, and dashboard channels apply this invariant with th
 ### Catalog and booking model
 
 - **DIVE-BOOK-REQ-009:** An activity is a center-scoped catalog offering with its own identity, publication state, localized name/description, and optional default capacity.
-- **DIVE-BOOK-REQ-010:** A slot is a distinct entity: activity, start time, duration or end time, capacity, and state.
+- **DIVE-BOOK-REQ-010:** A scheduled activity is distinct from both its activity and its availability configuration. Once exact scheduling exists, it has start time, duration or end time, capacity, and state. A recurrence day without an exact time and a date-free offer MUST NOT be represented as a concrete scheduled activity with a fabricated or null start.
 - **DIVE-BOOK-REQ-011:** An activity may propose a default capacity for new slots. That default is never the authoritative remaining-capacity source.
-- **DIVE-BOOK-REQ-012:** A booking references exactly one slot, a positive seat count, a stable `booking_channel`, and a booker contact.
+- **DIVE-BOOK-REQ-012:** A booking references exactly one activity, a positive seat count, a stable `booking_channel`, and a booker contact. It may initially reference one scheduled activity, one center-published day without an exact time, or no date. Whether one booking may later relate to multiple scheduled activities for a multi-session course remains an open Draft decision.
 - **DIVE-BOOK-REQ-013:** Booker contact in the MVP is first name, last name, and email; phone is optional. No medical, certification, or emergency fields.
 - **DIVE-BOOK-REQ-014:** Participant records, if collected, are limited to non-sensitive identifiers such as name and optional email. They are not an operational manifest.
 - **DIVE-BOOK-REQ-015:** Public form configuration is explicit and versioned. Fields cannot silently expand into sensitive or deferred data.
@@ -141,7 +154,7 @@ Public, widget, hosted-page, and dashboard channels apply this invariant with th
 - **DIVE-BOOK-REQ-018:** Disabling an activity stops new use of that activity. Existing slots are not cancelled automatically.
 - **DIVE-BOOK-REQ-019:** A slot becomes `Full` when no remaining sellable seats exist; it may return to `Available` if seats are released and it is not `Closed` or `Cancelled`.
 - **DIVE-BOOK-REQ-020:** Full cancellation of a slot blocks remaining sellable capacity. No new booking can confirm on that slot.
-- **DIVE-BOOK-REQ-021:** `Pending` bookings hold seats. `Confirmed` bookings consume seats. `Cancelled` and `Expired` bookings do not consume seats unless staff explicitly blocks them.
+- **DIVE-BOOK-REQ-021:** For a booking assigned to a scheduled activity, `Pending` holds seats and `Confirmed` consumes seats. `Cancelled` and `Expired` do not consume seats unless staff explicitly blocks them. A booking without a scheduled activity does not consume or hold occurrence capacity; its scheduling and commercial states remain Draft and MUST NOT silently reuse `Pending`.
 - **DIVE-BOOK-REQ-022:** Closing a slot rejects new bookings and leaves already confirmed bookings intact.
 - **DIVE-BOOK-REQ-023:** Public cancellation uses an opaque, single-purpose, expiring token. The token is not a session and is not reusable after success or expiry.
 - **DIVE-BOOK-REQ-024:** Manual confirmation, rejection, and expiry of `Pending` bookings are deterministic. Held seats are released or blocked exactly once.
@@ -152,7 +165,7 @@ Public, widget, hosted-page, and dashboard channels apply this invariant with th
 - **DIVE-BOOK-REQ-026:** Public and manual channels apply the same capacity rule.
 - **DIVE-BOOK-REQ-027:** A multi-seat request consumes or holds exactly the requested number of seats and never exceeds remaining sellable capacity.
 - **DIVE-BOOK-REQ-028:** Idempotency keys are unique within tenant and channel. A retry returns the persisted result without duplicating booking, seats, audit, email, or outbox.
-- **DIVE-BOOK-REQ-029:** Authoritative capacity resides on the slot (scheduled activity), not on the activity catalog record.
+- **DIVE-BOOK-REQ-029:** Authoritative occurrence capacity resides on the scheduled activity, not on the activity catalog record or availability configuration. No capacity guarantee exists before a booking is assigned to a scheduled activity unless a later approved contract defines one.
 - **DIVE-BOOK-REQ-030:** A booking competing with slot closure has one observable order: if closure wins, the booking is rejected; if the booking wins, it is confirmed or held and closure only prevents further new bookings.
 - **DIVE-BOOK-REQ-031:** A booking competing with full slot cancellation has one observable order, leaves no active bookings on a cancelled slot, and emits coherent audit and outbox records.
 - **DIVE-BOOK-REQ-032:** Expiry, rejection, and cancellation release or block seats exactly once, including concurrent workers.
@@ -160,14 +173,14 @@ Public, widget, hosted-page, and dashboard channels apply this invariant with th
 ### Mutation
 
 - **DIVE-BOOK-REQ-033:** Non-structural fields (copy, notes, localization, non-capacity metadata) may be edited in place with audit.
-- **DIVE-BOOK-REQ-034:** Changing the slot identity, date/time, or seat count of a booking requires cancellation-plus-replacement, not an in-place structural edit.
-- **DIVE-BOOK-REQ-035:** Staff cancellation may release seats back to sellable capacity.
+- **DIVE-BOOK-REQ-034:** An authorized staff operation may change the scheduled activity, date/time, or seat count while preserving booking identity. It MUST revalidate capacity and apply the booking change, capacity effects, audit, and outbox atomically with one observable concurrency order. Public customers do not perform this structural edit; they cancel and create another booking. Exact HTTP, idempotency, notification, and incompatible-state rules remain Draft.
+- **DIVE-BOOK-REQ-035:** Staff cancellation releases seats back to sellable capacity by default. An explicit authorized choice may instead retain them as blocked under `DIVE-BOOK-REQ-036`.
 - **DIVE-BOOK-REQ-036:** Staff cancellation may instead block those seats. Blocked seats remain counted in the invariant until explicitly released by an authorized capability.
 
 ### Channels and widget
 
-- **DIVE-BOOK-REQ-037:** Channel type `center_catalog` publishes the published activities and future slots in state `Available` or `Full` of one center. `Full` slots are visible as non-bookable. `Closed` and `Cancelled` slots are excluded.
-- **DIVE-BOOK-REQ-038:** Channel type `single_activity` publishes one published activity and its future slots in state `Available` or `Full`. `Full` slots are visible as non-bookable. `Closed` and `Cancelled` slots are excluded.
+- **DIVE-BOOK-REQ-037:** Channel type `center_catalog` exposes a server-derived public projection of eligible published activities and the availability configurations or scheduled activities explicitly included by that published channel. Future scheduled activities in `Available` or `Full` may appear; `Full` is non-bookable and `Closed` or `Cancelled` is excluded. Internal catalog visibility never implies public publication.
+- **DIVE-BOOK-REQ-038:** Channel type `single_activity` exposes one eligible published activity and only the center-controlled availability included by that published channel: fixed scheduled activities, published recurrence days with optional exact times, or date-free booking. `Full` scheduled activities are visible as non-bookable; `Closed`, `Cancelled`, excluded dates, and closed ranges are excluded.
 - **DIVE-BOOK-REQ-039:** Multi-center public channels are out of MVP.
 - **DIVE-BOOK-REQ-040:** The MVP widget is a responsive iframe of the hosted booking page. The hosted page is the required fallback.
 - **DIVE-BOOK-REQ-041:** Each channel has an exact allow-list of origins. Production uses `frame-ancestors`. Wildcards and subdomains are allowed only when explicitly configured. Staging has a separate test mode.
@@ -175,13 +188,13 @@ Public, widget, hosted-page, and dashboard channels apply this invariant with th
 
 ### Delivery, privacy, and side effects
 
-- **DIVE-BOOK-REQ-043:** The dashboard calendar shows online and manual bookings for authorized tenant/center scopes using the same slot model.
+- **DIVE-BOOK-REQ-043:** The center dashboard calendar shows authorized online and manual bookings and scheduled activities in day, week, and month views, opening on the current week. It distinguishes bookings still missing a date or exact time from concrete scheduled activities. Filtering is required; exact filter fields and URL behavior remain Draft.
 - **DIVE-BOOK-REQ-044:** Confirmation and cancellation emails are produced through `TransactionalEmailPort` via the transactional outbox. The worker is idempotent.
 - **DIVE-BOOK-REQ-045:** Domain change, audit record, and outbox record for the same operation commit atomically or not at all.
 - **DIVE-BOOK-REQ-046:** MVP booking does not collect payments, medical answers, diagnoses, document images, emergency contacts, or certification evidence.
 - **DIVE-BOOK-REQ-047:** Rate limits, validation, and anti-abuse controls must not create an enumeration oracle for tenants, centers, slots, or personal data.
 - **DIVE-BOOK-REQ-048:** Booking-related personal data is limited to contact and booking operation. Retention, export, correction, and deletion follow the privacy baseline and must be defined before any real-data pilot.
-- **DIVE-BOOK-REQ-049:** A slot persists `starts_at` as timestamptz and `duration_minutes` as a positive integer. End time is derived. Remaining sellable seats are not persisted; they are derived from bookings.
+- **DIVE-BOOK-REQ-049:** A concrete scheduled activity persists `starts_at` as timestamptz and `duration_minutes` as a positive integer; end is derived and remaining sellable seats are derived from bookings. Recurrence without an exact time and date-free booking belong to availability or scheduling records and MUST NOT fabricate `starts_at`. Their physical persistence remains Draft.
 - **DIVE-BOOK-REQ-050:** Dashboard catalog and availability HTTP for the center application is always scoped to one center:
 
 ```text
@@ -273,7 +286,7 @@ These defaults are normative until a later SPEC/ADR changes them:
 - `postMessage` types allowed: height, load, navigate-to-fallback, booking-result
 - `postMessage` never transports secrets or full personal data
 - Allowed widget customization: logo, validated colors, catalog font, localized copy, predefined corner radius. No center-supplied HTML, CSS, or JavaScript
-- Slot time fields: persist `starts_at` as timestamptz and `duration_minutes`; derive end; do not persist remaining seats
+- Scheduled-activity time fields: once exact scheduling exists, persist `starts_at` as timestamptz and `duration_minutes`; derive end; do not persist remaining seats. Do not fabricate a start for time-free or date-free availability
 - Catalog pagination: one-based `page` defaults to 1; `pageSize` defaults to 20 and has a maximum of 50; responses include `hasNext` and no total count
 - Public channel confirmation mode: `immediate` when omitted
 - Public create first success: `201`; same-request replay: `200`; different-request key reuse: `409 idempotency_conflict`
@@ -335,6 +348,16 @@ No real personal data in development, preview, or staging for this increment.
 
 ## Open questions
 
-No US-08 catalog-contract decision remains open for the walking skeleton. PR #35 records the product-owner confirmation for page pagination, response DTOs, and physical persistence naming.
+The existing US-08 fixed-time catalog contract remains closed for its implemented slice. ADR-DIVE-015 opens the following blocking reconciliation questions for the expanded model:
 
-Cursor pagination is deferred rather than specified. If demonstrated volume or offset drift later requires it, a separately approved contract change must define its scope and compatibility semantics before implementation.
+1. Booking and scheduling state machines for day-without-time and date-free booking.
+2. Capacity and hold behavior before a concrete scheduled activity exists.
+3. Multi-session course cardinality and partial scheduling.
+4. Recurrence, exclusion, time-zone, materialization, and rule-edit semantics.
+5. Channel inclusion and publication lifecycle for availability configurations and scheduled activities.
+6. Exact staff structural-mutation HTTP, idempotency, incompatible-state, notification, and concurrency contract.
+7. Resolution workflow when closures overlap existing scheduled activities or bookings.
+8. Exact calendar and activity-list filters.
+9. HTTP routes, DTOs, stable errors, persistence, migration, and backward compatibility for the expanded model.
+
+Cursor pagination remains deferred. Staff assignment remains deferred and no permission, role, eligibility rule, or schema is authorized by this revision.
