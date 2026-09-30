@@ -1,7 +1,7 @@
 # Product profile — Dive centers (MVP)
 
 - **Status:** Ready to start
-- **Version:** 0.6
+- **Version:** 0.7
 - **Reference market:** Spain
 - **Repository:** `BorjaRM/dive-platform`
 - **Package name:** `dive-center-platform`
@@ -44,6 +44,7 @@ Dive-specific configuration lives in:
 - `specs/architecture/adrs/ADR-DIVE-003.md`
 - `specs/booking/SPEC-DIVE-BOOKING-001.md`
 - `specs/iam/SPEC-DIVE-IAM-001.md`
+- `specs/marketing/SPEC-DIVE-MARKETING-001.md`
 
 Any future divergence from the baseline requires an ADR with justification, risk, owner, and review date. Unresolved contradiction blocks implementation.
 
@@ -65,6 +66,7 @@ Any future divergence from the baseline requires an ADR with justification, risk
 - Secure cancellation
 - Idempotent confirmations via outbox without overselling
 - Spanish and English
+- Public Spanish product landing with one request-access/contact action and no public signup
 
 ## 5) Explicitly out of scope
 
@@ -74,6 +76,7 @@ Any future divergence from the baseline requires an ADR with justification, risk
 - Multi-provider marketplace / OTA
 - Offline mode / sync
 - Equipment, boats, and combined-resource capacity
+- Marketing prices, checkout, lead forms/CRM, CMS, experiments, and marketing analytics in the initial landing
 
 Those topics remain in Deferred artifacts (`SPEC-DIVE-OPS-001`, `SPIKE-DIVE-002`) and must not enter booking implementation.
 
