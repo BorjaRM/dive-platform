@@ -1,0 +1,316 @@
+.page {
+  --color-text: #193437;
+  --color-text-muted: #627579;
+  --color-surface: #fbf8f0;
+  --color-border: #cfd9d2;
+  --color-accent: #2e8f82;
+  --color-warning: #d89b3d;
+  --color-action: var(--color-text);
+  --color-action-hover: var(--color-accent);
+  --color-on-action: var(--color-surface);
+  --color-focus: var(--color-warning);
+  --text-button: 0.78rem;
+  --button-padding-block: var(--space-2);
+  --button-padding-inline: var(--space-3);
+}
+
+.sectionKicker {
+  composes: sectionKicker from "../../components/ui/primitives.module.css";
+}
+
+.sectionHeading {
+  composes: sectionHeading from "../../components/ui/primitives.module.css";
+}
+
+.page {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.frame {
+  container: catalog / inline-size;
+  width: min(100% - var(--space-6), 61.25rem);
+  margin: 0 auto;
+  padding: var(--space-8) 0 var(--space-20);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding-bottom: var(--space-8);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.header > div {
+  min-width: 0;
+}
+
+.header h2,
+.section h3,
+.slotForm h4 {
+  margin: var(--space-2) 0 0;
+  font-weight: var(--weight-section-title);
+  letter-spacing: 0;
+}
+
+.header h2 {
+  max-width: 38.75rem;
+  font-size: 2.35rem;
+  line-height: 1;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.header p:not(.sectionKicker) {
+  max-width: 36.25rem;
+  margin: var(--space-4) 0 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.control,
+.filter,
+.field {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.control {
+  composes: label from "../../components/ui/primitives.module.css";
+  width: 100%;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.section {
+  container: content-section / inline-size;
+  min-width: 0;
+  position: relative;
+  margin-top: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: 3px solid var(--color-text);
+}
+
+.section h4 {
+  font-size: 1.2rem;
+}
+
+.filter {
+  composes: label from "../../components/ui/primitives.module.css";
+  max-width: 11.25rem;
+  margin-bottom: var(--space-4);
+}
+
+.field {
+  composes: label from "../../components/ui/primitives.module.css";
+}
+
+.list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
+  min-height: 4.5rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  background: rgba(255, 253, 247, 0.82);
+}
+
+.row.isSelected {
+  border-color: var(--color-accent);
+  box-shadow: inset 4px 0 0 var(--color-accent);
+}
+
+.rowSelect {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  font: inherit;
+  padding: var(--space-2);
+  text-align: left;
+}
+
+.rowStatic {
+  cursor: default;
+}
+
+.rowSelect strong,
+.rowSelect small {
+  display: block;
+}
+
+.rowSelect > span {
+  min-width: 0;
+}
+
+.rowSelect strong {
+  font-size: 0.98rem;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.rowSelect small {
+  max-width: 22.5rem;
+  margin-top: var(--space-1);
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: start;
+  gap: var(--space-2);
+  padding-left: var(--space-2);
+}
+
+.form,
+.slotForm {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.formFieldGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.formFieldGridWide {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.fieldHint {
+  composes: helper from "../../components/ui/primitives.module.css";
+  margin: calc(-1 * var(--space-2)) 0 0;
+}
+
+.slotToolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.slotToolbar .filter {
+  margin-bottom: 0;
+}
+
+.slotForm {
+  margin-top: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-border);
+}
+
+.slotForm .sectionHeading {
+  margin-bottom: 0;
+}
+
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+@container catalog (min-width: 40rem) {
+  .header {
+    align-items: end;
+    flex-direction: row;
+  }
+
+  .header h2 {
+    font-size: 2.8rem;
+  }
+
+  .control {
+    flex: 0 0 13.125rem;
+    width: auto;
+  }
+}
+
+@container catalog (min-width: 50rem) {
+  .grid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    gap: var(--space-8);
+  }
+}
+
+@container content-section (min-width: 25rem) {
+  .formFieldGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .slotToolbar {
+    align-items: end;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--space-6);
+  }
+}
+
+@container content-section (min-width: 32rem) {
+  .row {
+    align-items: center;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .rowActions {
+    justify-content: end;
+    padding-left: 0;
+  }
+
+  .formFieldGridWide {
+    grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 0.7fr));
+  }
+}
+
+.fieldError {
+  composes: errorText from "../../components/ui/controls.module.css";
+}
+
+.formFields {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.frame > [data-variant="inline"][role="status"] {
+  margin-top: var(--space-6);
+}
+
+.rowSelect {
+  composes: focusable from "../../components/ui/controls.module.css";
+}

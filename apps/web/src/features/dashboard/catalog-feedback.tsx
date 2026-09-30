@@ -1,3 +1,5 @@
+import { Notice } from '../../components/ui/controls';
+
 import { DashboardApiError } from './tenant-context';
 
 export function describeCatalogError(error: unknown) {
@@ -16,9 +18,9 @@ export function CatalogNotice({
   message?: string;
 }) {
   return (
-    <div className="catalog-notice" role="status">
+    <Notice variant="panel" tone="warning" role="status">
       <strong>{title}</strong>
       {message && <span>{message}</span>}
-    </div>
+    </Notice>
   );
 }

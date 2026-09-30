@@ -3,6 +3,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { type UseFormRegisterReturn, useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { Button, Input, Select } from '../../components/ui/controls';
+import styles from './catalog.module.css';
 import type {
   CatalogLocale,
   CatalogSettings,
@@ -74,13 +76,10 @@ export function CatalogActivityEditor({
 }) {
   const baseLocale = settings.data?.defaultActivityLocale ?? null;
   return (
-    <section
-      className="catalog-section catalog-editor"
-      aria-labelledby="activity-form-heading"
-    >
-      <div className="section-heading">
+    <section className={styles.section} aria-labelledby="activity-form-heading">
+      <div className={styles.sectionHeading}>
         <div>
-          <p className="section-kicker">New record</p>
+          <p className={styles.sectionKicker}>New record</p>
           <h3 id="activity-form-heading">Create activity</h3>
         </div>
       </div>
@@ -92,13 +91,13 @@ export function CatalogActivityEditor({
         />
       )}
       {baseLocale && (
-        <p className="field-hint">
+        <p className={styles.fieldHint}>
           Catalog language: {baseLocale === 'es' ? 'Spanish' : 'English'}
         </p>
       )}
       {settings.isSuccess && !baseLocale && (
         <form
-          className="catalog-form"
+          className={styles.form}
           onSubmit={(event) => {
             event.preventDefault();
             if (isBusy) return;
@@ -108,9 +107,10 @@ export function CatalogActivityEditor({
             if (locale === 'es' || locale === 'en') onSelectLanguage(locale);
           }}
         >
-          <label className="catalog-field">
+          <label className={styles.field} htmlFor="catalog-language">
             <span>Catalog language</span>
-            <select
+            <Select
+              id="catalog-language"
               name="catalogLocale"
               required
               defaultValue=""
@@ -121,15 +121,11 @@ export function CatalogActivityEditor({
               </option>
               <option value="es">Spanish</option>
               <option value="en">English</option>
-            </select>
+            </Select>
           </label>
-          <button
-            type="submit"
-            className="catalog-primary-action"
-            disabled={isBusy}
-          >
+          <Button type="submit" disabled={isBusy}>
             Save catalog language
-          </button>
+          </Button>
         </form>
       )}
       <CreateActivityForm
@@ -196,15 +192,14 @@ function CreateActivityForm({
 
   return (
     <form
-      className="catalog-form"
+      className={styles.form}
       onSubmit={form.handleSubmit(submit, onInvalid)}
     >
       <fieldset
-        className="catalog-form"
-        style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}
+        className={`${styles.form} ${styles.formFields}`}
         disabled={!baseLocale || disabled}
       >
-        <div className="form-field-grid">
+        <div className={styles.formFieldGrid}>
           <Field
             id="activity-name-es"
             label="Name · ES"
@@ -220,7 +215,7 @@ function CreateActivityForm({
             error={form.formState.errors.nameEn?.message}
           />
         </div>
-        <div className="form-field-grid">
+        <div className={styles.formFieldGrid}>
           <Field
             id="activity-description-es"
             label="Description · ES"
@@ -242,13 +237,9 @@ function CreateActivityForm({
           registration={form.register('defaultCapacity')}
           error={form.formState.errors.defaultCapacity?.message}
         />
-        <button
-          className="catalog-primary-action"
-          type="submit"
-          disabled={!baseLocale || disabled}
-        >
+        <Button type="submit" disabled={!baseLocale || disabled}>
           Create activity
-        </button>
+        </Button>
       </fieldset>
     </form>
   );
@@ -281,14 +272,17 @@ export function CreateSlotForm({
   };
 
   return (
-    <form className="slot-form" onSubmit={form.handleSubmit(submit, onInvalid)}>
-      <div className="section-heading">
+    <form
+      className={styles.slotForm}
+      onSubmit={form.handleSubmit(submit, onInvalid)}
+    >
+      <div className={styles.sectionHeading}>
         <div>
-          <p className="section-kicker">New availability</p>
+          <p className={styles.sectionKicker}>New availability</p>
           <h4>Create slot</h4>
         </div>
       </div>
-      <div className="form-field-grid form-field-grid-wide">
+      <div className={`${styles.formFieldGrid} ${styles.formFieldGridWide}`}>
         <Field
           id="slot-starts-at"
           label="Starts at · RFC3339"
@@ -313,13 +307,9 @@ export function CreateSlotForm({
           error={form.formState.errors.capacity?.message}
         />
       </div>
-      <button
-        className="catalog-primary-action"
-        type="submit"
-        disabled={disabled}
-      >
+      <Button type="submit" disabled={disabled}>
         Create slot
-      </button>
+      </Button>
     </form>
   );
 }
@@ -344,9 +334,9 @@ function Field({
   required?: boolean;
 }) {
   return (
-    <div className="catalog-field">
+    <div className={styles.field}>
       <label htmlFor={id}>{label}</label>
-      <input
+      <Input
         id={id}
         type={type}
         min={min}
@@ -357,7 +347,7 @@ function Field({
         {...registration}
       />
       {error && (
-        <span id={`${id}-error`} className="field-error" role="alert">
+        <span id={`${id}-error`} className={styles.fieldError} role="alert">
           {error}
         </span>
       )}

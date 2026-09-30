@@ -1,0 +1,15 @@
+{
+  "version": 1.1,
+  "properties": [
+    {
+      "name": "composes",
+      "description": "Compose CSS Module classes from the current module or another stylesheet. Validated by the Next.js CSS Modules build.",
+      "references": [
+        {
+          "name": "CSS Modules composition",
+          "url": "https://github.com/css-modules/css-modules/blob/master/docs/composition.md"
+        }
+      ]
+    }
+  ]
+}

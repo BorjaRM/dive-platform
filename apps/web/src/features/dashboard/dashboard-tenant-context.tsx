@@ -9,6 +9,8 @@ import {
   useRef,
   useState,
 } from 'react';
+import { Badge, Button } from '../../components/ui/controls';
+import styles from './dashboard.module.css';
 import {
   DashboardContextProvider,
   type DashboardSessionState,
@@ -471,9 +473,9 @@ export function DashboardTenantContext({
           title="Your session is no longer available"
           message="Sign in again through the host application, then retry the dashboard."
           action={
-            <button type="button" onClick={retrySession}>
+            <Button type="button" onClick={retrySession}>
               Check session again
-            </button>
+            </Button>
           }
         />
       </DashboardShell>,
@@ -506,13 +508,13 @@ export function DashboardTenantContext({
           title="This center is unavailable"
           message="Access could not be established. Contact support to continue."
           action={
-            <div className="dashboard-actions">
-              <button type="button" onClick={() => window.history.back()}>
+            <div className={styles.actions}>
+              <Button type="button" onClick={() => window.history.back()}>
                 Back
-              </button>
-              <button type="button" onClick={() => void logout()}>
+              </Button>
+              <Button type="button" onClick={() => void logout()}>
                 Log out
-              </button>
+              </Button>
               {supportEmail && (
                 <a href={`mailto:${supportEmail}`}>Contact support</a>
               )}
@@ -541,9 +543,9 @@ export function DashboardTenantContext({
           title="Access to this workspace was denied"
           message="Choose an active operator to establish a new context."
           action={
-            <button type="button" onClick={chooseOperator}>
+            <Button type="button" onClick={chooseOperator}>
               Choose operator
-            </button>
+            </Button>
           }
         />
       </DashboardShell>,
@@ -572,15 +574,15 @@ export function DashboardTenantContext({
         eyebrow="Authenticated dashboard"
         title="Your dive operation"
         action={
-          <div className="dashboard-actions">
+          <div className={styles.actions}>
             {!centerKey && (
-              <button type="button" onClick={() => void changeWorkspace()}>
+              <Button type="button" onClick={() => void changeWorkspace()}>
                 Change workspace
-              </button>
+              </Button>
             )}
-            <button type="button" onClick={() => void logout()}>
+            <Button type="button" onClick={() => void logout()}>
               Log out
-            </button>
+            </Button>
           </div>
         }
       >
@@ -605,13 +607,13 @@ function CentersSection({
   error: Error | null;
 }) {
   return (
-    <section className="dashboard-section" aria-labelledby="centers-heading">
-      <div className="section-heading">
+    <section className={styles.section} aria-labelledby="centers-heading">
+      <div className={styles.sectionHeading}>
         <div>
-          <p className="section-kicker">Tenant-scoped data</p>
+          <p className={styles.sectionKicker}>Tenant-scoped data</p>
           <h2 id="centers-heading">Centers</h2>
         </div>
-        <span className="context-badge">Context active</span>
+        <Badge variant="count">Context active</Badge>
       </div>
       {isLoading && (
         <StatusPanel
@@ -632,10 +634,10 @@ function CentersSection({
         />
       )}
       {!error && centers && centers.length > 0 && (
-        <ul className="center-list">
+        <ul className={styles.centerList}>
           {centers.map((center) => (
-            <li key={center.id} className="center-row">
-              <span className="center-mark" aria-hidden="true" />
+            <li key={center.id} className={styles.centerRow}>
+              <span className={styles.centerMark} aria-hidden="true" />
               <span>
                 <strong>{center.name}</strong>
                 <small>Current server-authorized center</small>
@@ -687,25 +689,25 @@ function OperatorSelection({
   }
 
   return (
-    <section className="dashboard-section" aria-labelledby="operators-heading">
+    <section className={styles.section} aria-labelledby="operators-heading">
       {notice === 'revocation-failed' && (
         <StatusPanel
           title="Previous workspace cleanup needs attention"
           message="The local context was removed, but the server could not confirm revocation. A new workspace can still be selected."
         />
       )}
-      <div className="section-heading">
+      <div className={styles.sectionHeading}>
         <div>
-          <p className="section-kicker">Active memberships</p>
+          <p className={styles.sectionKicker}>Active memberships</p>
           <h2 id="operators-heading">Select an operator</h2>
         </div>
-        <span className="operator-count">{operators.length} available</span>
+        <Badge variant="count">{operators.length} available</Badge>
       </div>
-      <div className="operator-list">
+      <div className={styles.operatorList}>
         {operators.map((operator) => (
           <button
             type="button"
-            className="operator-option"
+            className={styles.operatorOption}
             key={operator.operatorRef}
             onClick={() => onSelect(operator)}
           >
@@ -713,7 +715,7 @@ function OperatorSelection({
               <strong>{operator.displayName}</strong>
               <small>Open tenant workspace</small>
             </span>
-            <span className="arrow" aria-hidden="true">
+            <span className={styles.arrow} aria-hidden="true">
               -&gt;
             </span>
           </button>
@@ -735,14 +737,20 @@ function DashboardShell({
   children: React.ReactNode;
 }) {
   return (
-    <main className="dashboard-page">
-      <div className="dashboard-orbit orbit-one" aria-hidden="true" />
-      <div className="dashboard-orbit orbit-two" aria-hidden="true" />
-      <div className="dashboard-frame">
-        <header className="dashboard-header">
+    <main className={styles.page}>
+      <div
+        className={`${styles.orbit} ${styles.orbitOne}`}
+        aria-hidden="true"
+      />
+      <div
+        className={`${styles.orbit} ${styles.orbitTwo}`}
+        aria-hidden="true"
+      />
+      <div className={styles.frame}>
+        <header className={styles.header}>
           <div>
-            <p className="brand-mark">BLUECURRENT</p>
-            <p className="dashboard-eyebrow">{eyebrow}</p>
+            <p className={styles.brandMark}>BLUECURRENT</p>
+            <p className={styles.eyebrow}>{eyebrow}</p>
             <h1>{title}</h1>
           </div>
           {action}
@@ -763,12 +771,12 @@ function StatusPanel({
   action?: React.ReactNode;
 }) {
   return (
-    <section className="status-panel" role="status">
-      <span className="status-line" aria-hidden="true" />
+    <section className={styles.statusPanel} role="status">
+      <span className={styles.statusLine} aria-hidden="true" />
       <div>
         <h2>{title}</h2>
         <p>{message}</p>
-        {action && <div className="status-action">{action}</div>}
+        {action && <div className={styles.statusAction}>{action}</div>}
       </div>
     </section>
   );

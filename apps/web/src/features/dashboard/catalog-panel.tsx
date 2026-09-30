@@ -2,6 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { Notice, Select } from '../../components/ui/controls';
+import styles from './catalog.module.css';
 import type {
   CatalogLocale,
   CreateCatalogActivityInput,
@@ -283,20 +285,21 @@ function CatalogCenterPanel({
     pendingMutationType === 'slot-command';
 
   return (
-    <section className="catalog-page" aria-labelledby="catalog-heading">
-      <div className="catalog-frame">
-        <header className="catalog-header">
+    <section className={styles.page} aria-labelledby="catalog-heading">
+      <div className={styles.frame}>
+        <header className={styles.header}>
           <div>
-            <p className="section-kicker">US-08 · Catalog</p>
+            <p className={styles.sectionKicker}>US-08 · Catalog</p>
             <h2 id="catalog-heading">Activities and availability</h2>
             <p>
               Manage the published experiences and their bookable time slots for
               one authorized center.
             </p>
           </div>
-          <label className="catalog-control">
+          <label className={styles.control} htmlFor="catalog-center">
             <span>Center</span>
-            <select
+            <Select
+              id="catalog-center"
               value={centerId}
               disabled={catalogMutation.isPending}
               onChange={(event) => {
@@ -313,7 +316,7 @@ function CatalogCenterPanel({
                   {center.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         </header>
 
@@ -324,7 +327,7 @@ function CatalogCenterPanel({
           />
         ) : (
           <>
-            <div className="catalog-grid">
+            <div className={styles.grid}>
               <ActivitiesSection
                 query={activitiesQuery}
                 selectedActivityId={effectiveActivityId}
@@ -427,9 +430,14 @@ function CatalogCenterPanel({
           </>
         )}
         {(successNotice || mutationError) && (
-          <div className="catalog-feedback" role="status" aria-live="polite">
+          <Notice
+            variant="inline"
+            tone="success"
+            role="status"
+            aria-live="polite"
+          >
             {successNotice ?? describeCatalogError(mutationError)}
-          </div>
+          </Notice>
         )}
       </div>
     </section>

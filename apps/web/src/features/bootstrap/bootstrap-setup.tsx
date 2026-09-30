@@ -3,7 +3,9 @@
 import { useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useState } from 'react';
+import { Button, Input, Notice } from '../../components/ui/controls';
 import { centerDashboardUrl } from '../../lib/application-hosts';
+import styles from './bootstrap.module.css';
 import { BootstrapApiError, completeTenantBootstrap } from './bootstrap-api';
 
 const copy = {
@@ -130,24 +132,27 @@ function AuthenticatedBootstrapSetup({
   }
 
   return (
-    <main className="bootstrap-shell setup-shell">
-      <section className="bootstrap-intro" aria-labelledby="setup-title">
-        <p className="bootstrap-brand">BlueCurrent</p>
+    <main className={styles.shell}>
+      <section className={styles.intro} aria-labelledby="setup-title">
+        <p className={styles.brand}>BlueCurrent</p>
         <div>
-          <p className="bootstrap-kicker">{text.kicker}</p>
+          <p className={styles.kicker}>{text.kicker}</p>
           <h1 id="setup-title">{text.title}</h1>
           <p>{text.summary}</p>
         </div>
-        <p className="bootstrap-caption">Step 1 of 1</p>
+        <p className={styles.caption}>Step 1 of 1</p>
       </section>
-      <section className="bootstrap-workspace">
-        <form className="bootstrap-panel bootstrap-form" onSubmit={submitSetup}>
-          <div className="bootstrap-panel-heading">
+      <section className={styles.workspace}>
+        <form
+          className={`${styles.panel} ${styles.form}`}
+          onSubmit={submitSetup}
+        >
+          <div className={styles.panelHeading}>
             <div>
-              <p className="bootstrap-step">Workspace</p>
+              <p className={styles.step}>Workspace</p>
               <h2>{text.title}</h2>
             </div>
-            <fieldset className="locale-switcher">
+            <fieldset className={styles.localeSwitcher}>
               <legend>Language</legend>
               {(['es', 'en'] as const).map((option) => (
                 <label key={option}>
@@ -163,9 +168,10 @@ function AuthenticatedBootstrapSetup({
               ))}
             </fieldset>
           </div>
-          <label>
+          <label htmlFor="setup-operator-name">
             {text.operator}
-            <input
+            <Input
+              id="setup-operator-name"
               name="operatorDisplayName"
               type="text"
               maxLength={120}
@@ -173,9 +179,10 @@ function AuthenticatedBootstrapSetup({
               required
             />
           </label>
-          <label>
+          <label htmlFor="setup-center-name">
             {text.center}
-            <input
+            <Input
+              id="setup-center-name"
               name="centerDisplayName"
               type="text"
               maxLength={120}
@@ -183,9 +190,10 @@ function AuthenticatedBootstrapSetup({
               required
             />
           </label>
-          <label>
+          <label htmlFor="setup-time-zone">
             {text.timeZone}
-            <input
+            <Input
+              id="setup-time-zone"
               name="timeZone"
               type="text"
               value={timeZone}
@@ -197,7 +205,7 @@ function AuthenticatedBootstrapSetup({
               required
             />
           </label>
-          <label className="bootstrap-check">
+          <label className={styles.check}>
             <input
               type="checkbox"
               checked={confirmed}
@@ -206,17 +214,13 @@ function AuthenticatedBootstrapSetup({
             <span>{text.confirm}</span>
           </label>
           {message ? (
-            <p className="bootstrap-feedback" role="alert">
+            <Notice variant="inline" tone="warning" as="p" role="alert">
               {message}
-            </p>
+            </Notice>
           ) : null}
-          <button
-            className="bootstrap-primary"
-            type="submit"
-            disabled={submitting}
-          >
+          <Button type="submit" disabled={submitting}>
             {submitting ? text.submitting : text.submit}
-          </button>
+          </Button>
         </form>
       </section>
     </main>
@@ -225,9 +229,9 @@ function AuthenticatedBootstrapSetup({
 
 function SetupStatus({ title }: Readonly<{ title: string }>) {
   return (
-    <main className="bootstrap-status-page">
-      <section className="bootstrap-notice" role="status">
-        <p className="bootstrap-kicker">BlueCurrent</p>
+    <main className={styles.statusPage}>
+      <section className={styles.notice} role="status">
+        <p className={styles.kicker}>BlueCurrent</p>
         <h1>{title}</h1>
         <p>Contact support if the problem continues.</p>
       </section>

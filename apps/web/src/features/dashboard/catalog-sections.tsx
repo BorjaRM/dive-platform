@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import { Badge, Button, Select } from '../../components/ui/controls';
+import styles from './catalog.module.css';
 import type {
   CatalogActivity,
   CatalogListResponse,
@@ -46,13 +48,13 @@ export function ActivitiesSection({
 }) {
   const items = query.data?.items ?? [];
   return (
-    <section className="catalog-section" aria-labelledby="activities-heading">
-      <div className="section-heading">
+    <section className={styles.section} aria-labelledby="activities-heading">
+      <div className={styles.sectionHeading}>
         <div>
-          <p className="section-kicker">Catalog</p>
+          <p className={styles.sectionKicker}>Catalog</p>
           <h3 id="activities-heading">Activities</h3>
         </div>
-        <span className="context-badge">{items.length} shown</span>
+        <Badge variant="count">{items.length} shown</Badge>
       </div>
       {isUpdating && (
         <CatalogNotice
@@ -60,9 +62,10 @@ export function ActivitiesSection({
           message="Saving the latest activity change."
         />
       )}
-      <label className="catalog-filter">
+      <label className={styles.filter} htmlFor="catalog-activity-status">
         <span>Status</span>
-        <select
+        <Select
+          id="catalog-activity-status"
           value={status}
           onChange={(event) => onStatusChange(event.target.value)}
         >
@@ -70,7 +73,7 @@ export function ActivitiesSection({
           <option value="Draft">Draft</option>
           <option value="Published">Published</option>
           <option value="Disabled">Disabled</option>
-        </select>
+        </Select>
       </label>
       {query.isPending && <CatalogNotice title="Loading activities" />}
       {query.error && (
@@ -85,7 +88,7 @@ export function ActivitiesSection({
           message="Create the first activity for this center to start adding availability."
         />
       )}
-      <ul className="catalog-list">
+      <ul className={styles.list}>
         {items.map((activity) => (
           <ActivityRow
             key={activity.id}
@@ -127,30 +130,28 @@ export function ActivitySlotsSection({
 }) {
   const items = query.data?.items ?? [];
   return (
-    <section
-      className="catalog-section slots-section"
-      aria-labelledby="slots-heading"
-    >
-      <div className="section-heading">
+    <section className={styles.section} aria-labelledby="slots-heading">
+      <div className={styles.sectionHeading}>
         <div>
-          <p className="section-kicker">Activity availability</p>
+          <p className={styles.sectionKicker}>Activity availability</p>
           <h3 id="slots-heading">
             Slots for{' '}
             {resolveCatalogText(activity.name, 'en', activity.baseLocale)}
           </h3>
         </div>
-        <span className="context-badge">{activity.status}</span>
+        <Badge variant="count">{activity.status}</Badge>
       </div>
-      <div className="slot-toolbar">
+      <div className={styles.slotToolbar}>
         {isUpdating && (
           <CatalogNotice
             title="Updating slots"
             message="Saving the latest slot change."
           />
         )}
-        <label className="catalog-filter">
+        <label className={styles.filter} htmlFor="catalog-slot-status">
           <span>Status</span>
-          <select
+          <Select
+            id="catalog-slot-status"
             value={status}
             onChange={(event) => onStatusChange(event.target.value)}
           >
@@ -159,9 +160,9 @@ export function ActivitySlotsSection({
             <option value="Full">Full</option>
             <option value="Closed">Closed</option>
             <option value="Cancelled">Cancelled</option>
-          </select>
+          </Select>
         </label>
-        <span className="field-hint">
+        <span className={styles.fieldHint}>
           Starts at accepts an RFC3339 instant such as 2026-10-01T10:00:00Z.
         </span>
       </div>
@@ -178,7 +179,7 @@ export function ActivitySlotsSection({
           message="Add a slot after the activity is published."
         />
       )}
-      <ul className="catalog-list slot-list">
+      <ul className={styles.list}>
         {items.map((slot) => (
           <SlotRow
             key={slot.id}
@@ -215,9 +216,9 @@ function ActivityRow({
     ? resolveCatalogText(activity.description, 'en', activity.baseLocale)
     : undefined;
   return (
-    <li className={`catalog-row${isSelected ? ' is-selected' : ''}`}>
+    <li className={`${styles.row}${isSelected ? ` ${styles.isSelected}` : ''}`}>
       <button
-        className="catalog-row-select"
+        className={styles.rowSelect}
         type="button"
         aria-pressed={isSelected}
         onClick={onSelect}
@@ -230,24 +231,24 @@ function ActivityRow({
         </span>
         <StatusBadge status={activity.status} />
       </button>
-      <div className="catalog-row-actions">
+      <div className={styles.rowActions}>
         {activity.status === 'Draft' && (
-          <button
+          <Button
             type="button"
             disabled={isBusy}
             onClick={() => onCommand('publish')}
           >
             Publish
-          </button>
+          </Button>
         )}
         {activity.status === 'Published' && (
-          <button
+          <Button
             type="button"
             disabled={isBusy}
             onClick={() => onCommand('disable')}
           >
             Disable
-          </button>
+          </Button>
         )}
       </div>
     </li>
@@ -264,8 +265,8 @@ function SlotRow({
   onCommand: (command: 'close' | 'cancel') => void;
 }) {
   return (
-    <li className="catalog-row">
-      <div className="catalog-row-select catalog-row-static">
+    <li className={styles.row}>
+      <div className={`${styles.rowSelect} ${styles.rowStatic}`}>
         <span>
           <strong>{slot.startsAt}</strong>
           <small>
@@ -274,24 +275,24 @@ function SlotRow({
         </span>
         <StatusBadge status={slot.status} />
       </div>
-      <div className="catalog-row-actions">
+      <div className={styles.rowActions}>
         {['Available', 'Full'].includes(slot.status) && (
-          <button
+          <Button
             type="button"
             disabled={isBusy}
             onClick={() => onCommand('close')}
           >
             Close
-          </button>
+          </Button>
         )}
         {['Available', 'Full', 'Closed'].includes(slot.status) && (
-          <button
+          <Button
             type="button"
             disabled={isBusy}
             onClick={() => onCommand('cancel')}
           >
             Cancel
-          </button>
+          </Button>
         )}
       </div>
     </li>
@@ -308,32 +309,39 @@ function Pagination({
   onPageChange: (page: number) => void;
 }) {
   return (
-    <nav className="pagination" aria-label="Pagination">
-      <button
+    <nav className={styles.pagination} aria-label="Pagination">
+      <Button
+        size="compact"
         type="button"
         disabled={page === 1}
         onClick={() => onPageChange(page - 1)}
       >
         Previous
-      </button>
+      </Button>
       <span>Page {page}</span>
-      <button
+      <Button
+        size="compact"
         type="button"
         disabled={!hasNext}
         onClick={() => onPageChange(page + 1)}
       >
         Next
-      </button>
+      </Button>
     </nav>
   );
 }
 
 function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className={`status-badge status-${status.toLowerCase()}`}>
-      {status}
-    </span>
-  );
+  switch (status) {
+    case 'Published':
+    case 'Available':
+      return <Badge variant="success">{status}</Badge>;
+    case 'Disabled':
+    case 'Cancelled':
+      return <Badge variant="warning">{status}</Badge>;
+    default:
+      return <Badge variant="neutral">{status}</Badge>;
+  }
 }
 
 function resolveCatalogText(

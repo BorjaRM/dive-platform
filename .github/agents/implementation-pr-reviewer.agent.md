@@ -82,6 +82,7 @@ Before any handoff, explain the result, next agent, reason, and remaining scope,
 - Diff-first: changed files, claimed IDs, Validation vs commands actually run.
 - Apply **Context by path** before style/smells.
 - Apply `reuse-boundary-hygiene` to matching changes. Verify the stated reuse decision against repository searches and consumers; do not demand extraction solely because code looks similar.
+- **Documented:** for frontend styling changes, check each of the five [maintainable frontend styling rules](../copilot-instructions.md#maintainable-frontend-styling) and the [units, spacing and responsive policy](../copilot-instructions.md#units-spacing-and-responsive): minimal globals, responsibility-based CSS Modules, semantic tokens, reusable primitives, explicit variants, relative units, the shared spacing scale, typography roles and content/container-based responsive. Report violations with paths, demonstrated impact and a proportionate alternative using the existing severity policy. Do not claim compliance or visual/zoom coverage from passing lint/tests/build alone or require unrelated cleanup or a redesign.
 - Check implementation against listed IDs. Do not paraphrase requirements into new rules.
 - Flag deficiencies, incongruence (code vs SPEC/ADR/tests/Validation), and maintainability issues Biome cannot see.
 - Classify every finding **grave**, **moderado**, or **leve**. Cite path, IDs, and evidence (diff hunk, test path, or "not executed").

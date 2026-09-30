@@ -3,6 +3,8 @@
 import { useClerk, useSignIn, useSignUp, useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { Button, Input, Notice } from '../../components/ui/controls';
+import styles from './bootstrap.module.css';
 
 type AcceptancePhase =
   | 'loading'
@@ -178,23 +180,19 @@ export function BootstrapAcceptance() {
   if (phase === 'active-session') {
     return (
       <AcceptanceFrame title="Confirm your account">
-        <p className="bootstrap-form-copy">
+        <p className={styles.formCopy}>
           Sign out of the active account, then authenticate with the account for
           this invitation.
         </p>
         {message ? (
-          <p className="bootstrap-feedback" role="alert">
+          <Notice variant="inline" tone="warning" as="p" role="alert">
             {message}
-          </p>
+          </Notice>
         ) : null}
-        <div className="bootstrap-actions">
-          <button
-            className="bootstrap-primary"
-            type="button"
-            onClick={confirmReauthentication}
-          >
+        <div className={styles.actions}>
+          <Button type="button" onClick={confirmReauthentication}>
             Sign out and continue
-          </button>
+          </Button>
         </div>
       </AcceptanceFrame>
     );
@@ -212,15 +210,16 @@ export function BootstrapAcceptance() {
 
   return (
     <AcceptanceFrame title="Accept your invitation">
-      <p className="bootstrap-form-copy">
+      <p className={styles.formCopy}>
         {invitationFlow === 'sign_up'
           ? 'Create a password to accept this invitation.'
           : 'Enter your password to accept this invitation.'}
       </p>
-      <form className="bootstrap-form" onSubmit={acceptInvitation}>
-        <label>
+      <form className={styles.form} onSubmit={acceptInvitation}>
+        <label htmlFor="invitation-password">
           Password
-          <input
+          <Input
+            id="invitation-password"
             name="password"
             type="password"
             autoComplete={
@@ -232,9 +231,10 @@ export function BootstrapAcceptance() {
         </label>
         {invitationFlow === 'sign_up' ? (
           <>
-            <label>
+            <label htmlFor="invitation-password-confirmation">
               Confirm password
-              <input
+              <Input
+                id="invitation-password-confirmation"
                 name="passwordConfirmation"
                 type="password"
                 autoComplete="new-password"
@@ -246,17 +246,13 @@ export function BootstrapAcceptance() {
           </>
         ) : null}
         {message ? (
-          <p className="bootstrap-feedback" role="alert">
+          <Notice variant="inline" tone="warning" as="p" role="alert">
             {message}
-          </p>
+          </Notice>
         ) : null}
-        <button
-          className="bootstrap-primary"
-          type="submit"
-          disabled={phase === 'submitting'}
-        >
+        <Button type="submit" disabled={phase === 'submitting'}>
           {phase === 'submitting' ? 'Accepting invitation…' : 'Continue'}
-        </button>
+        </Button>
       </form>
     </AcceptanceFrame>
   );
@@ -267,19 +263,19 @@ function AcceptanceFrame({
   children,
 }: Readonly<{ title: string; children: React.ReactNode }>) {
   return (
-    <main className="bootstrap-shell">
-      <section className="bootstrap-intro">
-        <p className="bootstrap-brand">BlueCurrent</p>
+    <main className={styles.shell}>
+      <section className={styles.intro}>
+        <p className={styles.brand}>BlueCurrent</p>
         <div>
-          <p className="bootstrap-kicker">Private invitation</p>
+          <p className={styles.kicker}>Private invitation</p>
           <h1>Build the base for every dive day.</h1>
           <p>Your invitation creates one operation and its first center.</p>
         </div>
-        <p className="bootstrap-caption">Secure, invitation-only access</p>
+        <p className={styles.caption}>Secure, invitation-only access</p>
       </section>
-      <section className="bootstrap-workspace">
-        <div className="bootstrap-panel">
-          <p className="bootstrap-step">Invitation</p>
+      <section className={styles.workspace}>
+        <div className={styles.panel}>
+          <p className={styles.step}>Invitation</p>
           <h2>{title}</h2>
           {children}
         </div>
@@ -293,9 +289,9 @@ function AcceptanceStatus({
   body = 'Preparing secure invitation access.',
 }: Readonly<{ title: string; body?: string }>) {
   return (
-    <main className="bootstrap-status-page">
-      <section className="bootstrap-notice" role="status">
-        <p className="bootstrap-kicker">Invitation access</p>
+    <main className={styles.statusPage}>
+      <section className={styles.notice} role="status">
+        <p className={styles.kicker}>Invitation access</p>
         <h1>{title}</h1>
         <p>{body}</p>
       </section>

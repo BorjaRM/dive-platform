@@ -37,6 +37,75 @@ The store lives inside the feature at
 encapsulated within that feature: if the feature is deleted, its store is
 deleted with it.
 
+## Styling ownership
+
+The current implementation separates styling from feature behavior so the
+components can be redesigned without rewriting their flows:
+
+- [Global styles](src/app/globals.css) contain the Tailwind import, base styles
+	and semantic tokens for colors, typography, spacing and control dimensions.
+	Tailwind is already available for local layout utilities; there is no
+	wholesale utility-class migration.
+- Feature CSS Modules own their layouts and area-specific token overrides:
+	marketing, dashboard, catalog and bootstrap. CSS Module composition reuses
+	shared rules without restoring global feature selectors.
+- [Native controls](src/components/ui/controls.tsx) provide `Button`, `Input`,
+	`Select`, `Badge` and `Notice`. Their explicit variants and shared
+	[control styles](src/components/ui/controls.module.css) centralize hover,
+	focus, disabled and invalid states. Native attributes, events and refs remain
+	available; arbitrary `className` and `style` overrides are not part of the API.
+- [Access styles](src/components/ui/access.module.css) own the visual shell
+	shared by sign-in and invitations; bootstrap-specific form styles stay in
+	the bootstrap feature. Domain status-to-badge mapping stays in catalog.
+
+These primitives are local to this web app. `packages/ui` has no demonstrated
+cross-app consumer for them. This organization is not a visual redesign.
+
+### Units and responsive
+
+Spacing tokens use a 4-point scale in `rem`; `--space-2` is `0.5rem` and
+`--space-4` is `1rem`. These correspond to 8px and 16px only with a 16px root;
+the app does not force that root size. Layout spacing generally uses 8-point
+steps, with 4-point half steps for compact controls. Area-specific control
+padding references the same scale. Borders, outlines and decorative geometry
+remain separate from spacing; the marketing visual's 3px icon margin aligns
+its fixed 3px border rather than defining a layout step.
+
+[Shared typography roles](src/components/ui/primitives.module.css) provide
+label, helper-text and section-heading styles using semantic tokens. Layout
+margins stay with their consumers. Text sizes use stable `rem` values within
+each responsive mode, not viewport interpolation.
+
+Narrow layouts are the base. Catalog and dashboard use named container queries
+for available content width; bootstrap adapts its heading to its panel width.
+Access and marketing use page-level media queries. Thresholds live with their
+owning CSS Modules and use literal `rem` conditions, not CSS variables.
+
+The approved engineering policy lives in
+[Copilot instructions](../../.github/copilot-instructions.md#units-spacing-and-responsive).
+DOM tests and the production build do not establish visual or zoom coverage.
+
+### Browser compatibility
+
+`composes` is CSS Modules build-time syntax, not a browser CSS property. Next.js
+resolves composition into class names and ordinary CSS; browsers do not need
+native `composes` support. See the
+[CSS Modules composition guide](https://github.com/css-modules/css-modules/blob/master/docs/composition.md).
+VS Code CSS Custom Data only describes this syntax to the editor; it adds no
+runtime transformation, fallback or polyfill.
+
+Compatibility depends on the emitted CSS and the framework/runtime baseline.
+Current styles use container queries, CSS custom properties and `color-mix()`,
+which have their own browser support requirements. Without container-query
+support, the query rules are ignored and the base narrow layout remains,
+provided the remaining CSS and runtime are supported. This is not a guarantee
+of compatibility with all older browsers.
+
+**Open question (2026-09-30):** the product owner has not selected a supported
+browser/version matrix in this chat. Legacy targets, required fallbacks and
+compatibility checks remain decisions to confirm, not an implied commitment.
+A successful build or DOM test alone does not establish browser compatibility.
+
 ## Getting Started
 
 First, run the development server:

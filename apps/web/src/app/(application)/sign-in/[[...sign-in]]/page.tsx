@@ -1,6 +1,7 @@
 import { SignIn } from '@clerk/nextjs';
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
+import styles from '@/components/ui/access.module.css';
 import { readApplicationHostConfig } from '@/lib/application-hosts';
 
 export const metadata: Metadata = {
@@ -16,17 +17,17 @@ export default async function SignInPage() {
     (await headers()).get('x-dive-center-return') ??
     `${readApplicationHostConfig().authenticationOrigin}/dashboard`;
   return (
-    <main className="bootstrap-shell auth-shell">
-      <section className="bootstrap-intro" aria-labelledby="sign-in-title">
-        <p className="bootstrap-brand">BlueCurrent</p>
+    <main className={styles.shell}>
+      <section className={styles.intro} aria-labelledby="sign-in-title">
+        <p className={styles.brand}>BlueCurrent</p>
         <div>
-          <p className="bootstrap-kicker">Operations console</p>
+          <p className={styles.kicker}>Operations console</p>
           <h1 id="sign-in-title">Welcome back below the surface.</h1>
           <p>Sign in with your existing team account.</p>
         </div>
-        <p className="bootstrap-caption">Authorized team members only</p>
+        <p className={styles.caption}>Authorized team members only</p>
       </section>
-      <section className="bootstrap-workspace" aria-label="Sign in form">
+      <section className={styles.workspace} aria-label="Sign in form">
         <SignIn
           path="/sign-in"
           routing="path"
@@ -41,9 +42,9 @@ export default async function SignInPage() {
 
 function AuthConfigurationMissing() {
   return (
-    <main className="bootstrap-status-page">
-      <section className="bootstrap-notice" role="status">
-        <p className="bootstrap-kicker">BlueCurrent</p>
+    <main className={styles.statusPage}>
+      <section className={styles.notice} role="status">
+        <p className={styles.kicker}>BlueCurrent</p>
         <h1>Authentication is unavailable</h1>
         <p>Contact support to continue.</p>
       </section>

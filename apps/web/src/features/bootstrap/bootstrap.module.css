@@ -1,0 +1,156 @@
+.shell {
+  composes: shell from "../../components/ui/access.module.css";
+}
+
+.intro {
+  composes: intro from "../../components/ui/access.module.css";
+}
+
+.brand {
+  composes: brand from "../../components/ui/access.module.css";
+}
+
+.kicker {
+  composes: kicker from "../../components/ui/access.module.css";
+}
+
+.caption {
+  composes: caption from "../../components/ui/access.module.css";
+}
+
+.step {
+  composes: kicker from "../../components/ui/access.module.css";
+}
+
+.workspace {
+  composes: workspace from "../../components/ui/access.module.css";
+}
+
+.panel {
+  container: access-panel / inline-size;
+  width: min(100%, 31.875rem);
+  border-top: 4px solid var(--color-text);
+  padding-top: var(--space-6);
+}
+
+.panel h2 {
+  margin: var(--space-2) 0 var(--space-6);
+  font-size: var(--text-panel-title);
+  font-weight: 620;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.form,
+.form label {
+  display: grid;
+}
+
+.form {
+  gap: var(--space-5);
+}
+
+.form label {
+  min-width: 0;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-label);
+  font-weight: var(--weight-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.localeSwitcher label:focus-within {
+  outline: 3px solid var(--color-warning);
+  outline-offset: 2px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+}
+
+.formCopy {
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+.panelHeading {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+
+.localeSwitcher {
+  display: flex;
+  flex-wrap: wrap;
+  align-self: start;
+  gap: var(--space-1);
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.localeSwitcher legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.localeSwitcher label {
+  display: block;
+  border: 1px solid #c8d5cf;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: var(--space-2);
+}
+
+.localeSwitcher input {
+  position: absolute;
+  opacity: 0;
+}
+
+.localeSwitcher label:has(input:checked) {
+  border-color: var(--color-text);
+  background: var(--color-text);
+  color: #fff;
+}
+
+.form .check {
+  display: grid;
+  grid-template-columns: var(--space-5) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: var(--line-height-helper);
+  text-transform: none;
+}
+
+.check input {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--color-accent);
+}
+
+.statusPage {
+  composes: statusPage from "../../components/ui/access.module.css";
+}
+
+.notice {
+  composes: notice from "../../components/ui/access.module.css";
+}
+
+@container access-panel (min-width: 25rem) {
+  .panelHeading {
+    align-items: start;
+    flex-direction: row;
+  }
+}

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import styles from '@/components/ui/access.module.css';
 import { BootstrapAcceptance } from '@/features/bootstrap/bootstrap-acceptance';
 
 export const metadata: Metadata = {
@@ -15,9 +16,9 @@ export default function BootstrapAcceptPage() {
 
 function BootstrapUnavailable() {
   return (
-    <main className="bootstrap-status-page">
-      <section className="bootstrap-notice" role="status">
-        <p className="bootstrap-kicker">Invitation access</p>
+    <main className={styles.statusPage}>
+      <section className={styles.notice} role="status">
+        <p className={styles.kicker}>Invitation access</p>
         <h1>This invitation cannot be opened</h1>
         <p>Contact support or request a new invitation.</p>
       </section>

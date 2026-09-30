@@ -2,6 +2,7 @@
 
 import { RedirectToSignIn, useAuth, useClerk } from '@clerk/nextjs';
 import { useMemo, useState } from 'react';
+import styles from './dashboard.module.css';
 import { DashboardTenantContext } from './dashboard-tenant-context';
 import type { SessionTokenSource } from './tenant-context';
 
@@ -34,9 +35,9 @@ export function ClerkDashboardSession({
 
   if (!isLoaded) {
     return (
-      <main className="dashboard-page">
-        <section className="status-panel" role="status">
-          <span className="status-line" aria-hidden="true" />
+      <main className={styles.page}>
+        <section className={styles.statusPanel} role="status">
+          <span className={styles.statusLine} aria-hidden="true" />
           <div>
             <h1>Checking your session</h1>
             <p>Preparing the secure dashboard sign-in boundary.</p>
