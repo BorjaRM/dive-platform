@@ -1,7 +1,7 @@
 # ADR-DIVE-014 — Center catalog lists, response DTO, and persistence naming
 
 - **Status:** Draft
-- **Version:** 0.4
+- **Version:** 0.5
 - **Date:** 2026-09-27
 - **Deciders:** Product / Architecture / Data / Security
 - **Affected IDs:** `DIVE-BOOK-REQ-001..006`, `009..011`, `017..020`, `029`, `049..057`; `DIVE-IAM-REQ-024`, `029..032`; ADR-DIVE-001; ADR-DIVE-008; ADR-DIVE-009
@@ -12,15 +12,13 @@
 |---|---|---|---|
 | Dashboard catalog is scoped to one authorized center; path identifiers are selectors, never authorization | `Documented` | `SPEC-DIVE-BOOKING-001` `DIVE-BOOK-REQ-001..006`, `050`; ADR-DIVE-008 | Existing normative constraint |
 | Activity and slot request fields, lifecycle, HTTP status/error contract, filters, and stable ordering | `Documented` | `SPEC-DIVE-BOOKING-001` `DIVE-BOOK-REQ-009..011`, `017..020`, `029`, `049..057` | Existing normative constraint |
-| Activities and slots use one-based page pagination; cursor pagination is deferred | `Proposed` | Product-owner confirmation by Borja for PR #35 on 2026-09-27 | Approved for incorporation into `SPEC-DIVE-BOOKING-001` v1.3; ADR remains Draft |
-| Minimal activity/slot representations | `Proposed` | Product-owner confirmation by Borja for PR #35 on 2026-09-27 | Approved for incorporation into the booking contract; ADR remains Draft |
-| `booking_app.activities` / `booking_app.slots`, physical columns, constraints, and catalog indexes | `Proposed` | Existing `iam_app` PostgreSQL/Drizzle conventions; product-owner confirmation by Borja for PR #35 on 2026-09-27 | Approved for incorporation into the booking contract; ADR remains Draft |
-| RFC3339 instants are persisted as `timestamptz`; slot responses render with the center's confirmed IANA time zone; missing or invalid center time zones fail closed | `Proposed` | Product-owner confirmation by Borja for PR #35 on 2026-09-27; `DIVE-BOOK-REQ-049`; `DIVE-ONB-REQ-022` | Approved for incorporation into the booking contract; ADR remains Draft |
+| Activities and slots use one-based page pagination; cursor pagination is deferred | `Proposed` | Product-owner confirmation by the product owner for PR #35 on 2026-09-27 | Approved for incorporation into `SPEC-DIVE-BOOKING-001` v1.3; ADR remains Draft |
+| Minimal activity/slot representations | `Proposed` | Product-owner confirmation by the product owner for PR #35 on 2026-09-27 | Approved for incorporation into the booking contract; ADR remains Draft |
+| `booking_app.activities` / `booking_app.slots`, physical columns, constraints, and catalog indexes | `Proposed` | Existing `iam_app` PostgreSQL/Drizzle conventions; product-owner confirmation by the product owner for PR #35 on 2026-09-27 | Approved for incorporation into the booking contract; ADR remains Draft |
+| RFC3339 instants are persisted as `timestamptz`; slot responses render with the center's confirmed IANA time zone; missing or invalid center time zones fail closed | `Proposed` | Product-owner confirmation by the product owner for PR #35 on 2026-09-27; `DIVE-BOOK-REQ-049`; `DIVE-ONB-REQ-022` | Approved for incorporation into the booking contract; ADR remains Draft |
 | The dashboard client consumes the catalog response DTOs and lifecycle states without creating a second client-side domain model | `Documented` | `SPEC-DIVE-BOOKING-001` `DIVE-BOOK-REQ-009..011`, `017..020`, `049..057`; `ADR-DIVE-009` § State ownership | Existing normative constraint |
 | Interactive catalog reads and mutations use TanStack Query; pagination and filters are URL-owned; form drafts and dialogs remain local React state | `Documented` | `ADR-DIVE-009` § State ownership | Existing implementation boundary |
 | Catalog query keys may contain center/resource selectors and filters, but never the Clerk token or raw `X-Tenant-Context` handle | `Documented` | `ADR-DIVE-009` § Cache and tenant boundaries; `ADR-DIVE-008` § Credential representation and transport | Existing security constraint |
-| The client invalidates or replaces catalog cache after a mutation, center-context change, explicit revocation, or logout; it does not treat cached data as authorization | `Derived` | `ADR-DIVE-009` § Cache and tenant boundaries; `ADR-DIVE-008` § Lifetime, renewal, and revocation | Draft implementation handoff; no status promotion |
-| The catalog feature is split into an activities list/form and an activity-scoped slots list/form, with state-valid commands delegated to the existing API boundary | `Proposed` | `SPEC-DIVE-BOOKING-001` `DIVE-BOOK-REQ-049..057`; current `apps/web` dashboard boundary | Draft implementation handoff; explicit review required |
 
 ## Context
 
@@ -28,53 +26,7 @@ US-08 needs predictable lists for activities and slots. A typical center is expe
 
 This ADR closes the walking-skeleton contract with limit/offset pagination. It does not change catalog lifecycle, permissions, routes, capacity semantics, public availability, booking creation, or onboarding.
 
-### Dashboard client implementation handoff
-
-This section is an implementation SDD for the authenticated US-08 client. It records the boundary between the existing dashboard context and the catalog feature; it does not add a new booking capability or replace the SPEC.
-
-#### Scope and ownership
-
-- `[Documented]` The implementation belongs in `apps/web` and uses the Next.js dashboard, the authenticated Clerk session, and the opaque tenant context defined by `ADR-DIVE-008` and `ADR-DIVE-009`.
-- `[Documented]` The client implements the center-scoped catalog surface covered by `DIVE-BOOK-REQ-049..057`: activities, activity-scoped slots, and their catalog commands. Public booking, widget, payment, and operational-trip workflows remain outside this slice.
-- `[Derived]` The feature should be isolated from the current tenant-context orchestration behind a small catalog API and feature boundary. The feature must receive the server-authorized `centerId` and must not create a second tenant or authorization model.
-- `[Proposed]` The first web slice should expose two feature surfaces: an activities list with activity creation and lifecycle actions, and an activity detail surface with slot listing, scheduling, and slot lifecycle actions. The exact route names remain an implementation choice and are not part of this ADR.
-
-#### Data and request flow
-
-- `[Documented]` Catalog reads and commands use the routes and DTOs in `SPEC-DIVE-BOOKING-001` `DIVE-BOOK-REQ-050..057`. Protected requests carry the Clerk bearer token and `X-Tenant-Context`; `centerId`, `activityId`, and `slotId` remain resource selectors only.
-- `[Documented]` Client request bodies are limited to the fields permitted by `DIVE-BOOK-REQ-051..052`; the client never sends tenant identifiers, an alternate center, lifecycle status, derived end time, or remaining seats.
-- `[Derived]` The catalog API boundary should expose typed operations for activity and slot reads, creates, and status commands, while preserving the server's `application/problem+json` `code` and `detail` alongside the HTTP status.
-- `[Derived]` Successful commands should invalidate the affected list query and refetch server state. The first slice should not use optimistic catalog status or capacity values because the server remains authoritative and successful commands return `204`.
-- `[Documented]` Pagination and filters are navigation state under `ADR-DIVE-009`; activity and slot form drafts, validation display, and dialogs are local feature state.
-
-#### UI state and lifecycle mapping
-
-- `[Documented]` The UI represents the activity states `Draft`, `Published`, and `Disabled`, and the slot states `Available`, `Full`, `Closed`, and `Cancelled` from `SPEC-DIVE-BOOKING-001`.
-- `[Derived]` An activity form must allow the Draft shape accepted by the API, while the publish action must surface the server validation failure when the required localized name is incomplete. The client must not add translation fallback.
-- `[Documented]` Slot creation submits an explicit-offset or `Z` RFC3339 instant, positive duration, and positive capacity. End time and remaining sellable seats are display or server-derived values, not request fields.
-- `[Proposed]` Each list must have explicit loading, empty, error, and mutation-pending states. `401` is delegated to the dashboard session recovery; `403`, `404`, `409`, and `422` remain feature-level feedback using the problem code without exposing cross-center data.
-- `[Proposed]` A stale page after a successful mutation should return to page 1 when the affected list is invalidated. The UI must not promise exact totals because the contract exposes `hasNext`, not a count.
-
-#### Tenant and cache boundary
-
-- `[Documented]` Query keys may include the authorized center/resource selectors, page, page size, status, and date filters, but must never include the Clerk token or raw tenant-context handle (`ADR-DIVE-009`, `ADR-DIVE-008`).
-- `[Derived]` The catalog cache must be removed or replaced when the tenant context changes, is explicitly revoked, or the user logs out. The existing dashboard context transition is the owner of that invalidation boundary.
-- `[Documented]` The client must not infer access from a center identifier, display name, activity identifier, or cached role. The API remains the authority for center scope and permission checks on every request.
-
-#### Implementation sequence
-
-1. `[Proposed]` Extract or expose the existing authenticated dashboard API/context boundary without changing its `sessionStorage` or header contract.
-2. `[Proposed]` Add typed catalog request/response models and adapter tests for headers, allowed bodies, pagination, problem details, `204`, and abort handling.
-3. `[Proposed]` Add the activities surface, then the activity-scoped slots surface, with query invalidation after each command.
-4. `[Proposed]` Add focused component tests for lifecycle actions, pagination/filter state, validation, non-disclosing errors, and context reset.
-5. `[Proposed]` Run manual validation with synthetic tenant/center data before any real-data pilot; link the implementation PR to the API contract tests and this ADR.
-
-#### Non-goals and blockers
-
-- `[Documented]` This handoff does not define activity editing, public availability, booking creation, calendar management, or a client-side permission cache.
-- `[Open question]` The current API has no activity-edit command. Product must decide whether Draft completion is intentionally create-only for this increment or whether an edit/update contract is required before the UI supports incomplete Drafts.
-- `[Open question]` The current center response does not expose the confirmed IANA time zone, while slot responses are rendered with that zone. Product/API must decide how a center-local scheduling form obtains the zone; the client must not silently use the browser zone as a center default.
-- `[Open question]` `DIVE-IAM-REQ-032` and `POST /v1/me/center-entry-contexts` are the approved direct-center bootstrap contract, but the current API/web implementation does not expose that flow. The catalog feature must either depend on that bootstrap slice or explicitly document a temporary synthetic/test entry; it must not infer tenant context from an arbitrary `centerId`.
+**Documented:** client state/cache architecture remains owned by ADR-DIVE-009. Increment-specific implementation sequencing belongs in its issue Development Brief, not this ADR. Draft editing and trusted timezone-response questions are owned by SPEC-DIVE-BOOKING-CATALOG-001; backend center-entry coverage and the pending web handoff are distinguished in TRACE-DIVE-MVP-001.
 
 ## Decision
 
@@ -253,10 +205,10 @@ An implementation PR must link `DIVE-BOOK-REQ-049..057` and include:
 
 ## Open questions
 
-No US-08 catalog-contract decision remains open for the walking skeleton.
+The approved fixed-time list/DTO/schema decisions are closed. Draft editing and the center-timezone read projection remain explicit proposals in SPEC-DIVE-BOOKING-CATALOG-001; they are not implied by list approval.
 
 Cursor pagination is deferred. If demonstrated volume, deep-page cost, or offset drift later requires it, its scope, cursor format, validation, and compatibility become a new proposed contract change.
 
 ## Implementation authority
 
-`SPEC-DIVE-BOOKING-001` v1.3 is the normative implementation authority after merge. This ADR remains Draft as a decision record and is not independently promoted by this PR.
+The unchanged approved fixed-time clauses are now owned by SPEC-DIVE-BOOKING-CATALOG-001, with time representation in SPEC-DIVE-BOOKING-SCHEDULING-001 and historical approvals retained. This ADR remains Draft; neither merge nor the split approves editing, expanded scheduling or new timezone DTO fields.

@@ -57,13 +57,16 @@ Read only relevant source sections and skill rules. Use existing focused checks,
 - **Validation is proportional:** tests are the default proof; Test Engineer is an optional specialist when tests, Validation, or special evidence are missing.
 - **Pause** on missing or contradictory behavior decisions; record an open question. Repair in-scope implementation defects using the established contract. Do not mistake tests still to be written for a reason to abandon the authorized task.
 
-## Required reading for all agents
+## Progressive reading
 
-- `docs/sdd/how-we-work.md`
-- `specs/foundation/sdd-specs-traceability.md`
-- `specs/traceability/TRACE-DIVE-MVP-001.md`
-- Relevant SPEC/ADR/spike files for the task
-- `.github/copilot-instructions.md`
+**Documented:** the [SDD baseline](../../specs/foundation/sdd-specs-traceability.md#artifact-versions) owns the user-approved reference and task-routing policy. Reading fewer unrelated documents does not remove constraints, role restrictions or approval gates.
+
+1. Apply `.github/copilot-instructions.md`, this file's coordination contract and the active profile's role-specific requirements. Use the [task index](../../docs/README.md#find-the-task-owner) to locate the behavior owner.
+2. For product or architecture work, read the applicable sections of `docs/sdd/how-we-work.md` and `specs/foundation/sdd-specs-traceability.md`. Read the target requirement IDs, their approval/provenance, relevant SPEC sections and governing ADR decisions; do not infer authority from an index.
+3. Read only the affected TRACE ownership/map/coverage sections when locating IDs, checking authority or proof, or updating relationships. Load applicable cross-cutting skills and baselines for the surface touched. Follow another document only when it controls an unresolved contract or dependency.
+4. Reuse context already read in the current task while it remains current. Expand reading for contradictory decisions or broader authorized scope, not to cover every document. Do not load full TRACE, all baselines or all SPECs by default.
+
+Profiles list additional reading for their role; those lists are not instructions to load whole files unconditionally. Current references use stable paths/IDs. Historical approval and evidence references retain their pinned revision, PR, commit or date.
 
 ## Workflow (you are the coordinator)
 

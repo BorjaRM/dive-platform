@@ -52,21 +52,18 @@ implementation issue. Product implementation requires the issue, its
 Development Brief, the IDs, and the applicable SPEC/ADR(s). Do not invent
 product behavior.
 
-## Required reading
+## Role-specific reading
 
-- `.github/copilot-instructions.md`
-- `.github/agents/README.md` for the shared delegation and confirmation contract
-- `docs/architecture/api-feature-based-refactor-plan.md` when changing the internal structure of `apps/api`
-- `docs/sdd/how-we-work.md`
-- `specs/foundation/sdd-specs-traceability.md`
+Follow [Progressive reading](README.md#progressive-reading), including the shared delegation and confirmation contract. Read relevant sections of these additional sources for the authorized slice:
+
+- `docs/architecture/overview.md` for the current internal boundaries of `apps/api`
 - `specs/architecture/adrs/ADR-DIVE-001.md`
 - `specs/architecture/adrs/ADR-DIVE-002.md`
 - `specs/architecture/adrs/ADR-DIVE-003.md`
 - `specs/foundation/multitenancy-architecture.md`
 - `specs/multitenancy/MT-SPIKE-001-requirements.md`
 - `specs/iam/SPEC-DIVE-IAM-001.md` when the slice touches identity, membership, invitation, webhook, or dashboard tenant-context
-- `specs/traceability/TRACE-DIVE-MVP-001.md`
-- Target SPEC(s) named by the task. Do not guess IDs. Booking slices use `specs/booking/SPEC-DIVE-BOOKING-001.md`.
+- Target SPEC(s) named by the task. Do not guess IDs. Resolve booking IDs through `specs/booking/SPEC-DIVE-BOOKING-001.md`'s ownership map; dashboard, tenant invitation and bootstrap IDs may belong to their focused SPECs.
 - `.github/skills/traceability-first-implementation/SKILL.md`
 - `.github/skills/tenant-isolation-invariants/SKILL.md`
 - `.github/skills/reuse-boundary-hygiene/SKILL.md`

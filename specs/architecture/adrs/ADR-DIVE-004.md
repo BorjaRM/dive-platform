@@ -1,7 +1,7 @@
 # ADR-DIVE-004 - IAM invitation and membership lifecycle
 
 - **Status:** Ready to start
-- **Version:** 0.3
+- **Version:** 0.4
 - **Date:** 2026-09-26
 - **Decision date:** 2026-09-26
 - **Deciders:** Product / Security / Architecture
@@ -79,7 +79,7 @@ Terminal invitation states do not transition again. `accepted` activates the lin
 
 ## Open questions
 
-- None for the proposed lifecycle. Product and security approval are still required before implementation.
+- **Documented:** the lifecycle already has the approval recorded above. Invitation HTTP/application-boundary hardening remains Draft in SPEC-DIVE-IAM-INVITATIONS-001; existing approval does not settle that new boundary.
 
 ## Acceptance criteria / evidence
 

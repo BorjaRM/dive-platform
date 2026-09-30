@@ -23,14 +23,12 @@ handoffs:
 
 Enforce Spec-Driven Development. Do not implement features.
 
-## Required reading
+## Role-specific reading
 
-- `docs/sdd/how-we-work.md`
-- `specs/foundation/sdd-specs-traceability.md`
-- `specs/traceability/TRACE-DIVE-MVP-001.md`
-- `.github/copilot-instructions.md`
-- `.github/agents/README.md` for the shared confirmation and tool-access contract
-- `.github/pull_request_template.md`
+Follow [Progressive reading](README.md#progressive-reading), including the shared confirmation and tool-access contract. Read relevant sections of these additional sources:
+
+- Target SPEC/ADR/TRACE sections and the provenance sources needed to review the change
+- `.github/pull_request_template.md` when reviewing a PR
 - `.github/skills/sdd-normative-change-hygiene/SKILL.md`
 
 ## You do
@@ -53,7 +51,7 @@ Enforce Spec-Driven Development. Do not implement features.
 ## Process
 
 1. Identify the change set (PR number, branch, or local diff). If missing, stop.
-2. If the change set is **only** implementation (no `specs/**` / TRACE / docs): stop. Tell Borja to use PR Reviewer.
+2. If the change set is **only** implementation (no `specs/**` / TRACE / docs): stop. Tell the user to use PR Reviewer.
 3. List affected files and requirement IDs (or confirm none).
 4. For normative changes, fill provenance; missing sources become open questions.
 5. `Derived` and `Proposed` remain Draft.

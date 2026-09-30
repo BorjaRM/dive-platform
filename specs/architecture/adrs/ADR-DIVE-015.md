@@ -8,21 +8,21 @@
 
 ## Provenance
 
-This ADR records product decisions explicitly confirmed by Borja on 2026-09-30. The decisions are `Proposed` because they change or extend the current `SPEC-DIVE-BOOKING-001` contract. Product approval is recorded, but this ADR remains Draft and is not implementation authority until the owning SPEC, state machines, capacity rules, HTTP contract, and migration impact are reconciled and approved.
+This ADR records product decisions explicitly confirmed by the product owner on 2026-09-30. The decisions are `Proposed` because they change or extend the current `SPEC-DIVE-BOOKING-001` contract. Product approval is recorded, but this ADR remains Draft and is not implementation authority until the owning SPEC, state machines, capacity rules, HTTP contract, and migration impact are reconciled and approved.
 
 | Decision | Provenance | Exact source | Approval / status |
 |---|---|---|---|
-| Separate activity, scheduled activity, and booking concepts | `Proposed` | Product confirmation by Borja on 2026-09-30 | Product-approved; Draft |
-| Staff may structurally edit a booking in place from its detail or calendar drag-and-drop; public customers cancel and create another booking | `Proposed` | Product confirmation by Borja on 2026-09-30 | Product-approved; contradicts current `DIVE-BOOK-REQ-034`; Draft |
-| Staff cancellation releases seats by default and may explicitly retain them as blocked | `Proposed` | Product confirmation by Borja on 2026-09-30 | Product-approved; specializes `DIVE-BOOK-REQ-035..036`; Draft |
-| Calendar supports day, week, and month views and opens on the current week | `Proposed` | Product confirmation by Borja on 2026-09-30 | Product-approved; Draft |
-| Calendar and activity lists support filtering; exact filters remain open | `Proposed` | Product confirmation by Borja on 2026-09-30 | Product-approved capability; filter contract open; Draft |
-| An activity may use one-off dates, recurrence with optional exact time, or no published dates | `Proposed` | Product confirmations by Borja on 2026-09-30 | Product-approved; Draft |
-| The center defines recurrence validity; no global recurrence horizon is selected here | `Proposed` | Product confirmation by Borja on 2026-09-30 | Product-approved; Draft |
-| Weekly closures, specific excluded dates, and closed date ranges override recurrence | `Proposed` | Product confirmation by Borja on 2026-09-30 | Product-approved; Draft |
-| Customers choose only center-published days/times, or book the activity without a date; they provide no scheduling preference and receive no counterproposal | `Proposed` | Product confirmations by Borja on 2026-09-30 | Product-approved; Draft |
-| Participants have no independent identity in the MVP | `Proposed` | Product confirmation by Borja on 2026-09-30 | Product-approved; Draft |
-| Staff assignment is deferred for later definition | `Proposed` | Product confirmation by Borja on 2026-09-30 | Product-approved deferral; Draft |
+| Separate activity, scheduled activity, and booking concepts | `Proposed` | Product confirmation by the product owner on 2026-09-30 | Product-approved; Draft |
+| Staff may structurally edit a booking in place from its detail or calendar drag-and-drop; public customers cancel and create another booking | `Proposed` | Product confirmation by the product owner on 2026-09-30 | Product-approved; contradicts current `DIVE-BOOK-REQ-034`; Draft |
+| Staff cancellation releases seats by default and may explicitly retain them as blocked | `Proposed` | Product confirmation by the product owner on 2026-09-30 | Product-approved; specializes `DIVE-BOOK-REQ-035..036`; Draft |
+| Calendar supports day, week, and month views and opens on the current week | `Proposed` | Product confirmation by the product owner on 2026-09-30 | Product-approved; Draft |
+| Calendar and activity lists support filtering; exact filters remain open | `Proposed` | Product confirmation by the product owner on 2026-09-30 | Product-approved capability; filter contract open; Draft |
+| An activity may use one-off dates, recurrence with optional exact time, or no published dates | `Proposed` | Product confirmations by the product owner on 2026-09-30 | Product-approved; Draft |
+| The center defines recurrence validity; no global recurrence horizon is selected here | `Proposed` | Product confirmation by the product owner on 2026-09-30 | Product-approved; Draft |
+| Weekly closures, specific excluded dates, and closed date ranges override recurrence | `Proposed` | Product confirmation by the product owner on 2026-09-30 | Product-approved; Draft |
+| Customers choose only center-published days/times, or book the activity without a date; they provide no scheduling preference and receive no counterproposal | `Proposed` | Product confirmations by the product owner on 2026-09-30 | Product-approved; Draft |
+| Participants have no independent identity in the MVP | `Proposed` | Product confirmation by the product owner on 2026-09-30 | Product-approved; Draft |
+| Staff assignment is deferred for later definition | `Proposed` | Product confirmation by the product owner on 2026-09-30 | Product-approved deferral; Draft |
 
 ## Context
 

@@ -26,12 +26,11 @@ Automate checks the repo can already run locally. Do not invent a delivery platf
 
 Keep this agent. Spec governance and a general `pnpm check` / `pnpm test` workflow are separate jobs.
 
-## Required reading
+## Role-specific reading
 
-- `.github/copilot-instructions.md`
-- `.github/agents/README.md` for the shared confirmation and tool-access contract
-- `docs/sdd/how-we-work.md`
-- `.github/pull_request_template.md`
+Follow [Progressive reading](README.md#progressive-reading), including the shared confirmation and tool-access contract.
+
+- `.github/pull_request_template.md` when preparing or reviewing a PR
 
 ## Inspect first (mandatory)
 

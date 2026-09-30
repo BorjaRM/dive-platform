@@ -24,14 +24,11 @@ handoffs:
 
 Write the smallest SPEC/ADR/TRACE change that records the requested decision. Do not implement product features. Do not promote status.
 
-## Required reading
+## Role-specific reading
 
-- `docs/sdd/how-we-work.md`
-- `specs/foundation/sdd-specs-traceability.md`
-- `specs/traceability/TRACE-DIVE-MVP-001.md`
-- `.github/copilot-instructions.md`
-- `.github/agents/README.md` for the shared confirmation and tool-access contract
-- `.github/pull_request_template.md`
+Follow [Progressive reading](README.md#progressive-reading), including the shared confirmation and tool-access contract. Read relevant sections of these additional sources:
+
+- `.github/pull_request_template.md` when preparing a PR
 - `.github/skills/sdd-normative-change-hygiene/SKILL.md`
 - The target SPEC/ADR/spike files (do not guess IDs)
 

@@ -30,12 +30,10 @@ handoffs:
 
 Make the change reproducible with the fewest durable artifacts. Do not pretend missing tooling exists. Do not implement product features.
 
-## Required reading
+## Role-specific reading
 
-- `.github/copilot-instructions.md`
-- `docs/sdd/how-we-work.md`
-- `specs/foundation/sdd-specs-traceability.md`
-- `specs/traceability/TRACE-DIVE-MVP-001.md`
+Follow [Progressive reading](README.md#progressive-reading). Read relevant sections of these additional validation sources for the assigned IDs and checks:
+
 - `.github/pull_request_template.md`
 - `.github/skills/fill-pr-validation/SKILL.md`
 - `.github/skills/tenant-isolation-invariants/SKILL.md` when proving isolation

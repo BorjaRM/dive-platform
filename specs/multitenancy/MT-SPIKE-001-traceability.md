@@ -3,7 +3,7 @@
 - **Status:** Accepted with conditions
 - **Version:** 0.3
 - **Pull request:** https://github.com/BorjaRM/dive-platform/pull/8
-- **Human review:** approved by Borja on 2026-09-26
+- **Human review:** approved by the product owner on 2026-09-26
 - **Evidence:** [green integration job](https://github.com/BorjaRM/dive-platform/actions/runs/36256124088/job/108443130352) for `2f55ad85bfb2e0731e42cc2b0481aa699c6207f3`
 - **Results:** `specs/multitenancy/MT-SPIKE-001-results.md` (Accepted with conditions)
 

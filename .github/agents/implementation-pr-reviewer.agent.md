@@ -44,20 +44,17 @@ handoffs:
 
 Review the implementation diff against listed requirement IDs and this repo's stop conditions. Classify findings. Do not implement. Do not promote SPEC/ADR status. Do not submit a GitHub pull-request review (`COMMENT`, `REQUEST_CHANGES`, `APPROVE`).
 
-Always report in chat. If Borja explicitly asks to publish on GitHub, post the same classified list as a **conversation comment** on the PR (`add_issue_comment`), not a review. If write tools are unavailable, keep the chat report and record an open question.
+Always report in chat. If the user explicitly asks to publish on GitHub, post the same classified list as a **conversation comment** on the PR (`add_issue_comment`), not a review. If write tools are unavailable, keep the chat report and record an open question.
 
 Severity labels **grave / moderado / leve** are review output, not a SPEC.
 
 Context comes from **paths + SPECs + skills**, not from invoking Backend/Frontend/Tenancy as subagents. Those agents implement; this agent classifies.
 
-## Required reading
+## Role-specific reading
 
-- `docs/sdd/how-we-work.md`
-- `specs/foundation/sdd-specs-traceability.md`
-- `specs/traceability/TRACE-DIVE-MVP-001.md`
+Follow [Progressive reading](README.md#progressive-reading), including the shared confirmation and tool-access contract. Read relevant sections of these additional sources:
+
 - `.github/pull_request_template.md`
-- `.github/copilot-instructions.md`
-- `.github/agents/README.md` for the shared confirmation and tool-access contract
 - SPECs/ADRs named by the PR (do not guess IDs)
 - `.github/skills/fill-pr-validation/SKILL.md`
 - `.github/skills/traceability-first-implementation/SKILL.md`
@@ -108,7 +105,7 @@ Before any handoff, explain the result, next agent, reason, and remaining scope,
 ## Process
 
 1. Identify the change set (PR number, branch, or local diff). If missing, stop.
-2. If the change set is **only** `specs/**` (plus TRACE/docs with no implementation): stop. Tell Borja to use SDD Reviewer.
+2. If the change set is **only** `specs/**` (plus TRACE/docs with no implementation): stop. Tell the user to use SDD Reviewer.
 3. Classify PR type using the template: documentation-only, normative, implementation, spike/evidence, or refactor.
 4. For a product implementation PR, verify that the body contains `Closes #<issue>`, load the linked issue with the GitHub issue-reading tool, and read its Development Brief. If that tool is unavailable, follow the README fallback and disclose the source. For a local diff without publication authorization, use the issue and validation supplied in chat; do not require creating a PR. Maintenance, documentation-only, and behavior-preserving refactors do not require an implementation issue.
 5. List claimed vs actually touched IDs. Missing IDs on a product implementation PR → finding.
@@ -135,7 +132,7 @@ Missing issue links, copied briefs, and similar workflow defects are normally **
 
 If a finding does not fit a level, record an open question — do not invent a fourth level.
 
-## Stop conditions (escalate to Borja, do not pick a value)
+## Stop conditions (escalate to the user, do not pick a value)
 
 - Possible cross-tenant access or IAM matrix ambiguity (`SPEC-DIVE-IAM-001`).
 - `BYPASSRLS`, migration role as app role, or browser-trusted tenant/center/activity.

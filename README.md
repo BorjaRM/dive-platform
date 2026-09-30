@@ -1,7 +1,7 @@
 # dive-center-platform
 
 > 🤿 **Status:** Ready to start documentation · **Method:** Spec-Driven Development · **Initial market:** recreational dive centers in Spain  
-> **Repository:** `BorjaRM/dive-platform` · **npm package name:** `dive-center-platform`
+> **Repository:** `dive-platform` · **npm package name:** `dive-center-platform`
 
 SaaS multi-tenant platform for bookings (and later operations) of dive centers. The first cut publishes availability, accepts online and manual bookings, keeps a calendar, and confirms without overselling.
 

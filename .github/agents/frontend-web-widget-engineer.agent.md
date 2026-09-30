@@ -52,19 +52,16 @@ implementation issue. Product implementation requires the issue, its
 Development Brief, the IDs, and the applicable SPEC/ADR(s). Iframe is
 provisional until SPIKE-DIVE-003 evidence exists.
 
-## Required reading
+## Role-specific reading
 
-- `.github/copilot-instructions.md`
-- `.github/agents/README.md` for the shared delegation and confirmation contract
+Follow [Progressive reading](README.md#progressive-reading), including the shared delegation and confirmation contract. Read relevant sections of these additional sources for the authorized slice:
+
 - `apps/web/AGENTS.md` for the installed framework's local guidance
-- `docs/sdd/how-we-work.md`
-- `specs/foundation/sdd-specs-traceability.md`
-- Target SPEC/ADR sections named by the issue. For booking channels/widget, read `DIVE-BOOK-REQ-037`..`042` in `specs/booking/SPEC-DIVE-BOOKING-001.md`.
-- `specs/iam/SPEC-DIVE-IAM-001.md` when the slice touches dashboard auth, session, or tenant-context (`DIVE-IAM-REQ-029`..`032`)
+- Target SPEC/ADR sections named by the issue. For booking channels/widget, resolve affected IDs through the task index or `specs/booking/SPEC-DIVE-BOOKING-001.md`'s ownership map rather than assuming the core owns every ID.
+- `specs/iam/SPEC-DIVE-IAM-001.md` for dashboard auth/session authority; `specs/iam/SPEC-DIVE-IAM-DASHBOARD-001.md` for affected tenant-context IDs `DIVE-IAM-REQ-029`..`032`
 - `specs/spikes/SPIKE-DIVE-003/specification.md` and `requirements.md` only for public channel/widget or embed-security work
 - `specs/architecture/adrs/ADR-DIVE-001.md`
 - `specs/architecture/adrs/ADR-DIVE-002.md`
-- `specs/traceability/TRACE-DIVE-MVP-001.md`
 - `.github/skills/tenant-isolation-invariants/SKILL.md`
 - `.github/skills/reuse-boundary-hygiene/SKILL.md`
 - `.github/skills/traceability-first-implementation/SKILL.md` for product implementation

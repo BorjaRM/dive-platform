@@ -1,7 +1,7 @@
 # ADR-DIVE-009 — Frontend state management
 
 - **Status:** Draft
-- **Version:** 0.3
+- **Version:** 0.4
 - **Date:** 2026-09-27
 - **Decision date:** 2026-09-27
 - **Deciders:** Product / Frontend Architecture
@@ -20,7 +20,7 @@ Revision record: version 0.2 was approved for implementation on 2026-09-27. This
 | Do not cache application authorization decisions in the MVP | `Documented` | `ADR-DIVE-008` § Authorization path | Existing normative constraint |
 | Use TanStack Query for interactive client-side server state, URL state for navigation, and local React state for component-owned UI | `Documented` | `ADR-DIVE-009` v0.2 § Decision | Previously approved baseline; retained |
 | Do not introduce a general-purpose global store by default; assess Zustand only for demonstrated cross-route browser-owned state | `Documented` | `ADR-DIVE-009` v0.2 § Shared client store | Previously approved baseline; retained |
-| Evaluate URL ownership before Context or Zustand, and include local state explicitly in the decision sequence | `Proposed` | Borja's documentation-update request following the NestJS/React strategy review on 2026-09-27 | Draft pending explicit approval |
+| Evaluate URL ownership before Context or Zustand, and include local state explicitly in the decision sequence | `Proposed` | the product owner's documentation-update request following the NestJS/React strategy review on 2026-09-27 | Draft pending explicit approval |
 | Prefer server-owned loading when browser cache lifecycle is unnecessary; use TanStack Query only for interactive remote data | `Proposed` | Same review and request | Draft pending explicit approval |
 | Keep forms in React Hook Form with Zod for client validation, without making client validation or persistence authoritative | `Proposed` | Same review and request | Draft pending explicit approval |
 | Keep authorization, invariants, concurrency, idempotency, and final validation authoritative in NestJS/domain/PostgreSQL | `Derived` | `ADR-DIVE-008` § Authorization path; `.github/agents/frontend-web-widget-engineer.agent.md` § Implementation design; `specs/foundation/sdd-specs-traceability.md` § Definition of Ready | Draft pending explicit approval |
@@ -155,4 +155,4 @@ Not selected. Provider scope, consumer breadth, value identity, and render cost 
 
 ## Implementation authority
 
-This revision is Draft. The previously approved v0.2 boundary remains the current `main` decision until this revision is explicitly approved and merged. This PR does not authorize new dependencies, persistence mechanisms, retry defaults, or a production pilot.
+This revision is Draft even though the document is merged. **Documented:** only v0.2 decisions explicitly retained as previously approved in the provenance table are implementation authority; merge does not approve semantic refinements. Remaining proposals authorize no new dependencies, persistence, retry defaults or pilot.

@@ -6,15 +6,15 @@ Requirements, ADRs, spikes, and TRACE live in `specs/`. Implementation lives in 
 
 Do not restate requirement text. Reference exact files and IDs (`DIVE-*`, `MT-REQ-*`, `MT-SPIKE-001`, `SPIKE-DIVE-001`, `SPIKE-DIVE-*-REQ-*`). Never write `SPIKE-001` in this repo; that ID is another product. If GitHub and Notion disagree, GitHub wins.
 
+Use roles rather than personal names when attributing decisions, approvals or instructions in documentation. Preserve source links, dates and approval semantics.
+
 Do not create parallel summaries, copied test logs, placeholder evidence, or TRACE churn. Tests are the default evidence; the PR `Validation` section records commands and observed results. Follow `docs/sdd/how-we-work.md` for proportional documentation.
 
 Product implementation follows one flow: Ready-to-start SPEC/ADR → implementation issue created from `.github/ISSUE_TEMPLATE/implementation-increment.md` → implementation PR with `Closes #<issue>`. The Development Brief lives only in the issue. The PR must not copy it. Follow `docs/sdd/development-brief-template.md`.
 
-Required reading before product or architecture work:
+Before product or architecture work, use the [task index](../docs/README.md#find-the-task-owner). Read the applicable sections of `docs/sdd/how-we-work.md` and `specs/foundation/sdd-specs-traceability.md`, then the owning SPEC requirement IDs and relevant ADRs. Consult only the affected ownership, artifact-map or coverage sections of TRACE; do not load all specs, baselines or the full TRACE by default. Follow dependencies only when the task crosses their boundary. Mandatory constraints and approval gates still apply.
 
-- `docs/sdd/how-we-work.md`
-- `specs/foundation/sdd-specs-traceability.md`
-- `specs/traceability/TRACE-DIVE-MVP-001.md`
+Reference current documents by path and requirement ID without repeating versions. Retain pinned revisions, PRs, commits or dates for historical approval and evidence. Headers and TRACE own current versions; the reference policy lives in `specs/foundation/sdd-specs-traceability.md#artifact-versions`.
 
 ## Custom agents (VS Code)
 

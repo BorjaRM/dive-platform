@@ -94,14 +94,40 @@ function validateStatusAndVersion(file, text, errors) {
   return status;
 }
 
+function requirementIds(text) {
+  const section =
+    text.match(/^## Requirements\s*\n([\s\S]*?)(?=^## |$(?![\s\S]))/m)?.[1] ??
+    '';
+  const declarations = section.replace(
+    /^### Derivations\s*\n[\s\S]*?(?=^#{2,3} |$(?![\s\S]))/m,
+    '',
+  );
+  return [...declarations.matchAll(/^- \*\*([A-Z0-9-]+-REQ-\d{3}):\*\*/gm)].map(
+    (match) => match[1],
+  );
+}
+
+export function validateRequirementOwnership(files, errors) {
+  const owners = new Map();
+  for (const file of files) {
+    for (const id of requirementIds(fs.readFileSync(file, 'utf8'))) {
+      if (owners.has(id)) {
+        errors.push(
+          `${file}: ${id} has duplicate owners (${owners.get(id)}, ${file})`,
+        );
+      } else {
+        owners.set(id, file);
+      }
+    }
+  }
+}
+
 export function validateSpec(file, errors) {
   const text = fs.readFileSync(file, 'utf8');
   const status = validateStatusAndVersion(file, text, errors);
   validateHeader(file, text, errors);
 
-  const requirements = [
-    ...text.matchAll(/^- \*\*([A-Z0-9-]+-REQ-\d{3}):\*\*/gm),
-  ].map((match) => match[1]);
+  const requirements = requirementIds(text);
   if (!requirements.length)
     errors.push(`${file}: no numbered requirements found`);
 
@@ -194,7 +220,7 @@ export function validateAdr(file, errors) {
   }
 }
 
-export function validateTrace(file, errors) {
+export function validateTrace(file, errors, repositoryRoot = root) {
   const text = fs.readFileSync(file, 'utf8');
   validateHeader(file, text, errors);
   validateStatusAndVersion(file, text, errors);
@@ -206,6 +232,64 @@ export function validateTrace(file, errors) {
   ]) {
     if (!new RegExp(`^## ${section}\\s*$`, 'm').test(text))
       errors.push(`${file}: missing ${section} section`);
+  }
+
+  const artifactMap =
+    text.match(/^## Artifact map\s*\n([\s\S]*?)(?=^## |$(?![\s\S]))/m)?.[1] ??
+    '';
+  let tableStarted = false;
+  let tableEnded = false;
+  for (const line of artifactMap.split(/\r?\n/)) {
+    if (!line.trim().startsWith('|')) {
+      if (tableStarted) tableEnded = true;
+      continue;
+    }
+    if (tableEnded) {
+      errors.push(`${file}: Artifact map table is interrupted`);
+      break;
+    }
+    tableStarted = true;
+  }
+  for (const line of artifactMap.split(/\r?\n/)) {
+    const [, pathCell, expectedStatus, expectedVersion] = splitRow(line);
+    const target = pathCell?.match(/^`([^`]+\.md)`$/)?.[1];
+    if (!target) continue;
+    const absolute = path.resolve(repositoryRoot, target);
+    if (!fs.existsSync(absolute)) {
+      errors.push(`${file}: artifact map references missing ${target}`);
+      continue;
+    }
+    const artifact = fs.readFileSync(absolute, 'utf8');
+    for (const [key, expected] of [
+      ['Status', expectedStatus],
+      ['Version', expectedVersion],
+    ]) {
+      const actual = metadata(artifact, key);
+      if (expected !== actual) {
+        errors.push(
+          `${file}: ${target} ${key} is '${actual}', map says '${expected}'`,
+        );
+      }
+    }
+  }
+
+  const demonstrated =
+    text.match(
+      /^### Demonstrated coverage\s*\n([\s\S]*?)(?=^### |^## |$(?![\s\S]))/m,
+    )?.[1] ?? '';
+  for (const line of demonstrated
+    .split(/\r?\n/)
+    .filter((row) => row.startsWith('|'))) {
+    const proof = splitRow(line)[2] ?? '';
+    for (const match of proof.matchAll(
+      /`((?:apps|packages|tests|docs|specs)\/[^`]+\.(?:ts|tsx|sql|md))`/g,
+    )) {
+      if (!fs.existsSync(path.resolve(repositoryRoot, match[1]))) {
+        errors.push(
+          `${file}: demonstrated proof references missing ${match[1]}`,
+        );
+      }
+    }
   }
 }
 
@@ -258,6 +342,10 @@ export function run(args) {
   }
 
   for (const file of files) validateArtifact(file, errors);
+  validateRequirementOwnership(
+    allArtifacts().filter((file) => artifactKind(file) === 'spec'),
+    errors,
+  );
   validatePullRequestBody(files, errors);
 
   return { errors, files };

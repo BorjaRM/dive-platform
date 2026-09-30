@@ -1,7 +1,7 @@
 # ADR-DIVE-010 — Public create-booking (hosted page)
 
-- **Status:** Ready to start
-- **Version:** 0.3
+- **Status:** Draft
+- **Version:** 0.4
 - **Date:** 2026-09-27
 - **Decision date:** 2026-09-27
 - **Deciders:** Product
@@ -9,7 +9,7 @@
 
 ## Provenance
 
-The public-create closures were introduced as `Proposed` on 2026-09-27. Product owner Borja explicitly accepted the remaining recommendations and the idempotent-retry contract on 2026-09-27. This revision promotes the ADR to Ready to start and maps the approved decisions to `DIVE-BOOK-REQ-058..067`. Provenance remains visible; approval makes these decisions implementation authority with synthetic data.
+The public-create closures were introduced as `Proposed` on 2026-09-27. Product owner explicitly accepted the remaining recommendations and the idempotent-retry contract on 2026-09-27, establishing the historical v0.3 approval for `DIVE-BOOK-REQ-058..067`. The v0.4 original-emission replay reconciliation remains Proposed and Draft; this revision does not promote it to Ready to start. Unchanged historical approvals are preserved.
 
 | Decision | Provenance | Exact source | Approval / status |
 |---|---|---|---|
@@ -18,7 +18,7 @@ The public-create closures were introduced as `Proposed` on 2026-09-27. Product 
 | Idempotency keys are unique within tenant and channel; retry returns the persisted result without duplicate side effects | `Documented` | `DIVE-BOOK-REQ-028` | Existing normative constraint |
 | `Pending` holds seats; `Confirmed` consumes seats; Pending hold TTL is 15 minutes | `Proposed` | `DIVE-BOOK-REQ-021`, `025`, `060`; `SPEC-DIVE-BOOKING-001` normative defaults | Approved; `DIVE-BOOK-REQ-060`; Ready to start |
 | Confirmation/cancellation email uses `TransactionalEmailPort` and the outbox; domain + audit + outbox commit atomically | `Documented` | `DIVE-BOOK-REQ-044`, `045`; ADR-DIVE-002 | Existing normative constraint |
-| Public create persists the authorizing channel, caller idempotency identity, atomic side effects, and capability verifiers | `Proposed` | Product decisions accepted by Borja on 2026-09-27 | Approved; `DIVE-BOOK-REQ-059`, `062`, `063`; Ready to start |
+| Public create persists the authorizing channel, caller idempotency identity, atomic side effects, and capability verifiers | `Proposed` | Product decisions accepted by the product owner on 2026-09-27 | Approved; `DIVE-BOOK-REQ-059`, `062`, `063`; Ready to start |
 | Per-channel `confirmation_mode`, default `immediate`, and staff administration contract | `Proposed` | Product decisions and accepted recommendation on 2026-09-27 | Approved; `DIVE-BOOK-REQ-060`, `061`; Ready to start |
 | Public HTTP path, response, errors, and idempotent replay behavior | `Proposed` | Product decisions and accepted recommendation on 2026-09-27 | Approved; `DIVE-BOOK-REQ-058`, `062`, `064`, `065`; Ready to start |
 | First slice records `public_hosted`; `public_widget` is server-derived only after SPIKE-DIVE-003 | `Proposed` | Accepted recommendation on 2026-09-27 | Approved; `DIVE-BOOK-REQ-059`; Ready to start |
@@ -27,9 +27,11 @@ The public-create closures were introduced as `Proposed` on 2026-09-27. Product 
 
 ## Context
 
+**Documented:** the introduction records original v0.3 approval, not approval of v0.4's Security reconciliation. Unchanged clauses retain their original approval; the new token rules remain Proposed/Draft.
+
 US-10 needs an implementation-authorized public create contract without treating browser input as tenant authorization. The first slice is a hosted public page for a `single_activity` channel. Marketplace / OTA distribution remains outside the MVP. SPIKE-DIVE-001 remains not executed and is not evidence.
 
-This ADR owns public create-booking. ADR-DIVE-011 owns public availability and presentation while it remains Draft. Dashboard/center-application traffic continues to use ADR-DIVE-008 and does not use this public contract.
+SPEC-DIVE-BOOKING-PUBLIC-001 owns the public-create requirements/HTTP contract; this ADR owns rationale and architecture. Original v0.3 approvals remain recorded, but v0.4 is Draft for Security review of token replay with ADR-DIVE-005. ADR-DIVE-011 owns proposed public availability/presentation. Dashboard traffic does not use these public credentials.
 
 ## Decision
 
@@ -111,7 +113,7 @@ One successful transaction commits:
 3. outbox record for booker email;
 4. versioned verifiers for `booking_confirmation_read` and `booking_cancel`.
 
-The browser receives both bearer tokens once in the successful response. Bearers are never persisted or logged. A `Pending` booking under `staff_approval` receives both tokens before staff confirmation: read exposes current state and cancel releases the hold according to the booking lifecycle.
+**Proposed, Draft:** first response and exact replay return the original credential emissions under DIVE-BOOK-REQ-063 without new emission, expiry renewal or reactivation. Bearers are never persisted/logged; Pending receives both purposes before staff confirmation. Derivation, original-key retention and recovery controls require Security approval under ADR-DIVE-005; current HMAC implementation is not that approval.
 
 ### Success and error contract
 

@@ -3,7 +3,7 @@
 - **Status:** Deferred
 - **Version:** 0.3-draft
 - **Last reviewed:** 2026-09-26
-- **Approved by:** Borja (Product owner)
+- **Approved by:** Product owner
 - **Approval reference:** PR #1 and this provenance migration PR
 - **Owner:** Product / Operations
 
