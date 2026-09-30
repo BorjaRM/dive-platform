@@ -1,14 +1,14 @@
 # ADR-DIVE-012 — Domain, host, and origin strategy
 
 - **Status:** Draft
-- **Version:** 0.3
+- **Version:** 0.4
 - **Date:** 2026-09-27
 - **Deciders:** Product / Security / Architecture
 - **Affected IDs:** `DIVE-IAM-REQ-006`, `024`, `032`; `DIVE-BOOK-REQ-004`, `040`, `042`; ADR-DIVE-005; ADR-DIVE-008; ADR-DIVE-011
 
 ## Provenance
 
-This ADR separates already approved constraints from new architecture proposals. The Notion page that motivated this draft is context only and is not a normative source. Borja requested opening this Draft PR on 2026-09-27; that request does not approve the remaining Proposed decisions. Product confirmation on 2026-09-29 closed only the center-entry hosting and lifecycle decisions now documented from ADR-DIVE-008 v0.12; this ADR remains Draft and does not promote its shared-API, booking-host, proxy, or future-domain proposals.
+This ADR separates already approved constraints from new architecture proposals. The Notion page that motivated this draft is context only and is not a normative source. The Draft PR requested on 2026-09-27 did not approve the remaining Proposed decisions. Product confirmation on 2026-09-29 closed the center-entry hosting and lifecycle decisions documented from ADR-DIVE-008 v0.12. A later explicit product confirmation on 2026-09-29 approved the canonical public-product host, the landing boundary, the absence of a login CTA, the email-only contact action, Spanish-only initial content, omission of prices and marketing tracking, and future reconsideration of pricing. This ADR remains Draft because its shared-API, booking-host, wildcard-DNS, proxy, and future-domain proposals are still unapproved.
 
 | Decision | Provenance | Exact source | Approval / status |
 |---|---|---|---|
@@ -17,6 +17,7 @@ This ADR separates already approved constraints from new architecture proposals.
 | Environments require distinct `CENTER_APP_BASE_DOMAIN` and `AUTHENTICATION_ORIGIN` values with no code default; the same `centerKey` may be reused across environments | `Documented` | ADR-DIVE-008 v0.12, sections “Authentication host” and “Environment namespace” | Ready to start; existing implementation authority |
 | Successful setup navigates by absolute URL to the first center dashboard; center context is issued there with current scope and `center.read` | `Documented` | ADR-DIVE-008 v0.12, section “Post-bootstrap handoff”; `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-032` | Ready to start; existing implementation authority |
 | One Next.js application build and deployment serves the canonical authentication host and center hosts and fails closed for unknown hosts | `Documented` | ADR-DIVE-008 v0.12, section “Authentication host” | Ready to start; existing implementation authority |
+| The canonical apex product host serves a tenant-neutral Spanish landing from the existing `apps/web` deployment; `www` redirects permanently; the only CTA requests access/contact by configured email; login, signup, prices, lead persistence, and marketing tracking are absent | `Proposed` → approved | Product confirmation 2026-09-29; `SPEC-DIVE-MARKETING-001` v0.1 | Ready to start for `DIVE-MKT-REQ-001..012` |
 | Center-entry mappings use reversible `active`/`disabled` state; `center_entry.manage` is limited to Tenant Owner and Tenant Admin, lifecycle changes are audited, and disabled `centerKey` values are never reused | `Documented` | ADR-DIVE-008 v0.12, section “Center-entry lifecycle” | Ready to start; existing implementation authority |
 | Center bootstrap requires a valid browser `Origin`; clients without `Origin` cannot use it in the MVP | `Documented` | ADR-DIVE-008 v0.12, section “Clients without `Origin`”; `DIVE-IAM-REQ-032` | Ready to start; existing implementation authority |
 | Custom center domains, branded login, and cross-domain session continuity remain outside the MVP | `Documented` | ADR-DIVE-008 v0.12; `SPEC-DIVE-IAM-001` open questions | Existing scope constraint |
@@ -35,7 +36,7 @@ It also owns the approved center web deployment: one Next.js build and deploymen
 
 ADR-DIVE-011 owns the proposed hosted availability route and presentation boundary. ADR-DIVE-005 and `SPEC-DIVE-BOOKING-001` own public-channel authorization. This ADR must not duplicate or weaken those contracts.
 
-The remaining architecture gap is the platform-level relationship between the corporate/product host, center applications, the shared API, the hosted booking surface, DNS/TLS coverage, trusted proxy boundaries, and future verified aliases.
+The public product host and landing boundary are now closed by `SPEC-DIVE-MARKETING-001`. The remaining architecture gap is the platform-level relationship between center applications, the shared API, the hosted booking surface, DNS/TLS coverage beyond the approved product redirect, trusted proxy boundaries, and future verified aliases.
 
 ## Proposed decision
 
@@ -45,12 +46,12 @@ The proposed logical surfaces are:
 
 | Surface | Proposed pattern | Responsibility |
 |---|---|---|
-| Product and marketing | `<domain>` and optionally `www.<domain>` | Public product information; never selects a tenant |
+| Product and marketing | Canonical `<domain>`; `www.<domain>` permanently redirects | Public Spanish product information; tenant-neutral; one configured email contact action; no login/signup/prices/tracking |
 | Center application | `<centerKey>.app.<domain>` | Existing authenticated center-entry flow from ADR-DIVE-008 |
 | Shared API | `api.<domain>` | Shared HTTP boundary for dashboard and public endpoints |
 | Hosted booking | `book.<domain>/{locale}/book/{channelPublicId}` | First-party public page using the ADR-DIVE-011 route proposal |
 
-Exact owned environment values are required deployment inputs under ADR-DIVE-008 v0.12 and are not invented by this ADR. Whether `www` exists and apex/`www` canonicalization remain open. This table does not allocate production names.
+Exact owned environment values are required deployment inputs under ADR-DIVE-008 v0.12 and are not invented by this ADR. Product approval on 2026-09-29 closes apex/`www` canonicalization for the public product surface: the apex is canonical and `www` redirects permanently. This table does not allocate production names.
 
 ### Shared API
 
@@ -158,11 +159,10 @@ These are proposed validation targets, not claims of current test coverage.
 
 ## Open questions
 
-1. Whether the product host uses apex, `www`, or a redirect between them.
-2. DNS provider, certificate provider, provisioning, renewal, monitoring, and incident ownership.
-3. Trusted proxy topology, forwarded-header contract, normalization, and rejection behavior.
-4. Operational tooling, approval workflow, and incident response around the approved owner/admin lifecycle for a non-reserved `centerKey`.
-5. Whether a future custom-domain feature is justified and which artifact owns its contract.
+1. DNS provider, certificate provider, provisioning, renewal, monitoring, and incident ownership beyond the approved canonical product redirect.
+2. Trusted proxy topology, forwarded-header contract, normalization, and rejection behavior.
+3. Operational tooling, approval workflow, and incident response around the approved owner/admin lifecycle for a non-reserved `centerKey`.
+4. Whether a future custom-domain feature is justified and which artifact owns its contract.
 
 Clerk allowed-origin/redirect behavior on the configured canonical hosts and each environment's DNS/TLS values are activation evidence gates, not open product decisions. Failure of that evidence blocks environment activation and must not be bypassed with wildcard CORS, a second authorization model, or a per-center Clerk application.
 
@@ -170,4 +170,4 @@ The following are not open in this ADR: the approved reserved `centerKey` set, r
 
 ## Implementation authority
 
-This ADR is Draft. Its remaining new decisions stay Proposed and non-normative. It does not authorize the shared API host, booking host, proxy topology, future custom domains, or unrelated DNS/TLS changes. The center-entry configuration, lifecycle state, exact CORS resolution, single Next.js deployment, and handoff are implementation-authorized by ADR-DIVE-008 v0.12 and `SPEC-DIVE-IAM-001`; other approved behavior continues to be governed by the cited source artifacts.
+This ADR is Draft. Its remaining new decisions stay Proposed and non-normative. It does not authorize the shared API host, booking host, wildcard DNS, proxy topology, future custom domains, or unrelated DNS/TLS changes. The canonical public product host and landing boundary are implementation-authorized only through `SPEC-DIVE-MARKETING-001` v0.1 and `DIVE-MKT-REQ-001..012`. The center-entry configuration, lifecycle state, exact CORS resolution, single Next.js deployment, and handoff remain implementation-authorized by ADR-DIVE-008 v0.12 and `SPEC-DIVE-IAM-001`; other approved behavior continues to be governed by the cited source artifacts.
