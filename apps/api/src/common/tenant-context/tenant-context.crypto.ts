@@ -45,6 +45,7 @@ export function dashboardCorsOriginsFromEnvironment(
 ): readonly string[] {
   const runtimeEnvironment = runtimeEnvironmentFromEnvironment(environment);
   const centerAppBaseDomain = centerAppBaseDomainFromEnvironment(environment);
+  const centerAppBaseOrigin = centerAppBaseOriginFromEnvironment(environment);
   const configuredOrigins = environment.DASHBOARD_CORS_ORIGINS?.trim() ?? '';
   const origins = configuredOrigins
     .split(',')
@@ -58,11 +59,19 @@ export function dashboardCorsOriginsFromEnvironment(
     'AUTHENTICATION_ORIGIN',
     runtimeEnvironment,
   );
-  if (centerKeyFromOrigin(authenticationOrigin, centerAppBaseDomain)) {
+  if (
+    centerKeyFromOrigin(
+      authenticationOrigin,
+      centerAppBaseDomain,
+      centerAppBaseOrigin,
+    )
+  ) {
     throw new Error('Invalid AUTHENTICATION_ORIGIN');
   }
   if (
-    origins.some((origin) => centerKeyFromOrigin(origin, centerAppBaseDomain))
+    origins.some((origin) =>
+      centerKeyFromOrigin(origin, centerAppBaseDomain, centerAppBaseOrigin),
+    )
   ) {
     throw new Error('Invalid DASHBOARD_CORS_ORIGINS');
   }
@@ -91,19 +100,48 @@ export function centerAppBaseDomainFromEnvironment(
   return value;
 }
 
+export function centerAppBaseOriginFromEnvironment(
+  environment: Environment,
+): string {
+  const baseDomain = centerAppBaseDomainFromEnvironment(environment);
+  if (environment.CENTER_APP_BASE_ORIGIN === undefined)
+    return `https://${baseDomain}`;
+  const runtimeEnvironment = runtimeEnvironmentFromEnvironment(environment);
+  const value = exactOrigin(
+    required(environment, 'CENTER_APP_BASE_ORIGIN'),
+    'CENTER_APP_BASE_ORIGIN',
+    runtimeEnvironment,
+  );
+  const origin = new URL(value);
+  const localHttp =
+    runtimeEnvironment === 'development' &&
+    origin.protocol === 'http:' &&
+    origin.hostname.endsWith('.localhost');
+  if (
+    origin.hostname !== baseDomain ||
+    (!localHttp && (origin.protocol !== 'https:' || origin.port !== ''))
+  ) {
+    throw new Error('Invalid CENTER_APP_BASE_ORIGIN');
+  }
+  return value;
+}
+
 export function centerKeyFromOrigin(
   value: string | undefined,
   baseDomain: string,
+  baseOrigin = `https://${baseDomain}`,
 ): string | null {
   if (!value) return null;
   try {
     const origin = new URL(value);
+    const configuredOrigin = new URL(baseOrigin);
     const suffix = `.${baseDomain}`;
     if (
-      origin.protocol !== 'https:' ||
+      configuredOrigin.hostname !== baseDomain ||
+      origin.protocol !== configuredOrigin.protocol ||
       origin.username ||
       origin.password ||
-      origin.port ||
+      origin.port !== configuredOrigin.port ||
       origin.pathname !== '/' ||
       origin.search ||
       origin.hash ||

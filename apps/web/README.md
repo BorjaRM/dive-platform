@@ -12,6 +12,51 @@ The dashboard accepts an explicit `NEXT_PUBLIC_DASHBOARD_API_URL` and keeps the 
 
 The opaque tenant context is read and written through `sessionStorage` only. The API boundary sends it as `X-Tenant-Context` alongside the provider session bearer token. TanStack Query owns interactive server state, while query keys do not contain either credential. The dashboard removes its affected query cache when context changes, a context is denied, or the user logs out.
 
+## Local center origins
+
+The local center-entry configuration uses the same active mapping and
+authorization flow as deployed centers. Configure the following overrides in
+the root `.env.local`, shared by web and API through `pnpm dev`:
+
+```dotenv
+NODE_ENV=development
+AUTHENTICATION_ORIGIN=http://localhost:3000
+CENTER_APP_BASE_DOMAIN=app.localhost
+CENTER_APP_BASE_ORIGIN=http://app.localhost:3000
+```
+
+`CENTER_APP_BASE_ORIGIN` is optional. Without it, the base origin remains
+`https://<CENTER_APP_BASE_DOMAIN>`. A local HTTP origin is accepted only in
+development, with a `.localhost` hostname matching the configured base domain.
+The configured port is matched exactly; mismatched protocols, ports and domains
+are rejected. Deployed center origins remain HTTPS without a non-default port.
+
+After bootstrap, the allocated `centerKey` determines the destination, for
+example `http://test-center.app.localhost:3000/dashboard` or
+`http://ocean-north.app.localhost:3000/dashboard`. Neither key is hardcoded or
+created by this configuration. Unknown or inactive mappings still fail closed;
+center origins are not added to the static CORS allowlist. Restart `pnpm dev`
+after changing the root environment, because running processes retain their
+existing environment.
+
+Clerk also validates the session token's authorized party independently of
+CORS. Add each real local center origin to the existing exact
+`CLERK_AUTHORIZED_PARTIES` configuration before using its authenticated
+dashboard, keeping the authentication origin in the list. For example, if those
+center keys exist:
+
+```dotenv
+CLERK_AUTHORIZED_PARTIES=http://localhost:3000,http://test-center.app.localhost:3000,http://ocean-north.app.localhost:3000
+```
+
+This list does not register a center or grant membership. A different allocated
+key needs its own exact origin; wildcards remain rejected. Without that entry,
+Clerk tokens issued for the center origin are rejected with `401` even when its
+mapping and CORS are valid.
+
+Browser resolution of `.localhost` and Clerk session continuity across these
+hosts require browser verification; unit tests do not establish that proof.
+
 ## Frontend state conventions
 
 These conventions are proposed implementation guidance and do not replace the

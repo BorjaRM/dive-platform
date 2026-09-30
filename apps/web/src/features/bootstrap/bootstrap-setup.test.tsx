@@ -146,6 +146,43 @@ describe('BootstrapSetup', () => {
     expect(routerMock.replace).not.toHaveBeenCalledWith('/dashboard');
   });
 
+  it.each(['test-center', 'ocean-north'])(
+    'redirects successful local setup to the allocated center %s',
+    async (centerKey) => {
+      apiMock.completeTenantBootstrap.mockResolvedValue({ centerKey });
+      render(
+        <BootstrapSetup
+          apiBaseUrl="http://localhost:3001"
+          clerkConfigured
+          centerAppBaseDomain="app.localhost"
+          centerAppBaseOrigin="http://app.localhost:3000"
+          navigate={navigateMock}
+        />,
+      );
+      fireEvent.change(await screen.findByLabelText('Operation name'), {
+        target: { value: 'Ocean North' },
+      });
+      fireEvent.change(screen.getByLabelText('First center name'), {
+        target: { value: 'Another display name' },
+      });
+      fireEvent.click(
+        screen.getByRole('checkbox', {
+          name: 'I confirm this is the center’s local time zone.',
+        }),
+      );
+      const form = screen
+        .getByRole('button', { name: 'Create operation' })
+        .closest('form');
+      if (!form) throw new Error('Expected setup form');
+      fireEvent.submit(form);
+      await waitFor(() => {
+        expect(navigateMock).toHaveBeenCalledWith(
+          `http://${centerKey}.app.localhost:3000/dashboard`,
+        );
+      });
+    },
+  );
+
   it.each([
     [401, 'Your session expired. Sign in again.'],
     [

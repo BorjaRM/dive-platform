@@ -1,6 +1,7 @@
 export type ApplicationHostConfig = Readonly<{
   authenticationOrigin: string;
   centerAppBaseDomain: string;
+  centerAppBaseOrigin?: string;
 }>;
 
 export type ApplicationSurface =
@@ -12,6 +13,32 @@ const dnsName =
   /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
 const centerLabel = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
+function parseCenterBaseOrigin(
+  value: string,
+  baseDomain: string,
+  allowLocalHttp: boolean,
+): URL {
+  if (!URL.canParse(value)) throw new Error('Invalid CENTER_APP_BASE_ORIGIN');
+  const origin = new URL(value);
+  const localHttp =
+    allowLocalHttp &&
+    origin.protocol === 'http:' &&
+    origin.hostname.endsWith('.localhost');
+  if (
+    origin.origin !== value ||
+    origin.hostname !== baseDomain ||
+    origin.username ||
+    origin.password ||
+    origin.pathname !== '/' ||
+    origin.search ||
+    origin.hash ||
+    (!localHttp && (origin.protocol !== 'https:' || origin.port !== ''))
+  ) {
+    throw new Error('Invalid CENTER_APP_BASE_ORIGIN');
+  }
+  return origin;
+}
+
 export function readApplicationHostConfig(
   environment: Record<string, string | undefined> = process.env,
 ): ApplicationHostConfig {
@@ -19,6 +46,14 @@ export function readApplicationHostConfig(
   const authenticationOrigin = environment.AUTHENTICATION_ORIGIN?.trim();
   if (!centerAppBaseDomain || !dnsName.test(centerAppBaseDomain)) {
     throw new Error('Invalid CENTER_APP_BASE_DOMAIN');
+  }
+  const centerAppBaseOrigin = environment.CENTER_APP_BASE_ORIGIN?.trim();
+  if (centerAppBaseOrigin !== undefined) {
+    parseCenterBaseOrigin(
+      centerAppBaseOrigin,
+      centerAppBaseDomain,
+      environment.NODE_ENV === 'development',
+    );
   }
   if (!authenticationOrigin) throw new Error('Missing AUTHENTICATION_ORIGIN');
   const origin = new URL(authenticationOrigin);
@@ -39,7 +74,11 @@ export function readApplicationHostConfig(
   ) {
     throw new Error('Invalid AUTHENTICATION_ORIGIN');
   }
-  return { authenticationOrigin, centerAppBaseDomain };
+  return {
+    authenticationOrigin,
+    centerAppBaseDomain,
+    ...(centerAppBaseOrigin ? { centerAppBaseOrigin } : {}),
+  };
 }
 
 export function classifyApplicationHost(
@@ -50,11 +89,19 @@ export function classifyApplicationHost(
   const authentication = new URL(config.authenticationOrigin);
   if (host.toLowerCase() === authentication.host)
     return { kind: 'authentication', origin: authentication.origin };
-  if (host.includes(':') || !URL.canParse(`https://${host}`))
+  const baseOrigin = new URL(
+    config.centerAppBaseOrigin ?? `https://${config.centerAppBaseDomain}`,
+  );
+  if (!URL.canParse(`${baseOrigin.protocol}//${host}`))
     return { kind: 'unknown' };
-  const url = new URL(`https://${host}`);
+  const url = new URL(`${baseOrigin.protocol}//${host}`);
   const suffix = `.${config.centerAppBaseDomain}`;
-  if (url.port || !url.hostname.endsWith(suffix)) return { kind: 'unknown' };
+  if (
+    host.toLowerCase() !== url.host ||
+    url.port !== baseOrigin.port ||
+    !url.hostname.endsWith(suffix)
+  )
+    return { kind: 'unknown' };
   const centerKey = url.hostname.slice(0, -suffix.length);
   if (!centerLabel.test(centerKey)) return { kind: 'unknown' };
   return { kind: 'center', centerKey, origin: url.origin };
@@ -63,10 +110,18 @@ export function classifyApplicationHost(
 export function centerDashboardUrl(
   centerKey: string,
   centerAppBaseDomain: string,
+  centerAppBaseOrigin = `https://${centerAppBaseDomain}`,
 ) {
   if (!centerLabel.test(centerKey) || !dnsName.test(centerAppBaseDomain))
     throw new Error('Invalid center application URL');
-  return `https://${centerKey}.${centerAppBaseDomain}/dashboard`;
+  const destination = parseCenterBaseOrigin(
+    centerAppBaseOrigin,
+    centerAppBaseDomain,
+    true,
+  );
+  destination.hostname = `${centerKey}.${centerAppBaseDomain}`;
+  destination.pathname = '/dashboard';
+  return destination.toString();
 }
 
 export async function isActiveCenterOrigin(
@@ -135,7 +190,7 @@ export async function validatedCenterReturnUrl(
     ) || url.searchParams.getAll('__clerk_synced').length > 1;
   if (
     surface.kind !== 'center' ||
-    url.protocol !== 'https:' ||
+    url.origin !== surface.origin ||
     url.username ||
     url.password ||
     invalidQuery ||

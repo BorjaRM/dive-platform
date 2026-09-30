@@ -119,6 +119,57 @@ describe('public product proxy', () => {
     ).toBe('https://alpha.app.example.test/dashboard');
   });
 
+  it.each(['test-center', 'ocean-north'])(
+    'keeps local center %s behind active mapping and canonical login',
+    async (centerKey) => {
+      vi.stubEnv('NODE_ENV', 'development');
+      vi.stubEnv('AUTHENTICATION_ORIGIN', 'http://localhost:3000');
+      vi.stubEnv('CENTER_APP_BASE_DOMAIN', 'app.localhost');
+      vi.stubEnv('CENTER_APP_BASE_ORIGIN', 'http://app.localhost:3000');
+      const origin = `http://${centerKey}.app.localhost:3000`;
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(null, {
+          status: 204,
+          headers: { 'Access-Control-Allow-Origin': origin },
+        }),
+      );
+      expect((await proxy(new NextRequest(`${origin}/dashboard`))).status).toBe(
+        200,
+      );
+      expect(
+        (await proxy(new NextRequest(`${origin}/`))).headers.get('location'),
+      ).toBe(`${origin}/dashboard`);
+      const login = await proxy(new NextRequest(`${origin}/sign-in`));
+      const loginUrl = new URL(login.headers.get('location') ?? '');
+      expect(loginUrl.origin).toBe('http://localhost:3000');
+      expect(loginUrl.searchParams.get('redirect_url')).toBe(
+        `${origin}/dashboard`,
+      );
+      const returned = await proxy(
+        new NextRequest(
+          `http://localhost:3000/sign-in?redirect_url=${encodeURIComponent(`${origin}/dashboard`)}`,
+        ),
+      );
+      expect(
+        returned.headers.get('x-middleware-request-x-dive-center-return'),
+      ).toBe(`${origin}/dashboard`);
+      expect(
+        (await proxy(new NextRequest(`${origin}/bootstrap/setup`))).status,
+      ).toBe(404);
+      expect(
+        (
+          await proxy(
+            new NextRequest(`http://${centerKey}.app.localhost:4000/dashboard`),
+          )
+        ).status,
+      ).toBe(404);
+      fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+      expect((await proxy(new NextRequest(`${origin}/dashboard`))).status).toBe(
+        404,
+      );
+    },
+  );
+
   it('forwards a validated Clerk sync return without dropping its protocol parameter', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(null, {

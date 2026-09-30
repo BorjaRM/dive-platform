@@ -8,11 +8,13 @@ export const metadata: Metadata = {
 };
 
 export default function BootstrapSetupPage() {
+  const hostConfig = readApplicationHostConfig();
   return (
     <BootstrapSetup
       clerkConfigured={Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)}
       apiBaseUrl={process.env.NEXT_PUBLIC_DASHBOARD_API_URL ?? ''}
-      centerAppBaseDomain={readApplicationHostConfig().centerAppBaseDomain}
+      centerAppBaseDomain={hostConfig.centerAppBaseDomain}
+      centerAppBaseOrigin={hostConfig.centerAppBaseOrigin}
     />
   );
 }

@@ -15,7 +15,7 @@ import {
   type AuthenticatedPrincipal,
   authorizeIamMembership,
 } from '@dive-center/identity';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { Pool } from 'pg';
 import { DATABASE_POOL } from '../../common/database/database.tokens.js';
 import {
@@ -30,6 +30,7 @@ import {
 } from '../../common/tenant-context/tenant-context.crypto.js';
 import {
   CENTER_APP_BASE_DOMAIN,
+  CENTER_APP_BASE_ORIGIN,
   TENANT_CONTEXT_CRYPTO,
 } from '../../common/tenant-context/tenant-context.tokens.js';
 import { denied } from '../iam-denied.js';
@@ -43,6 +44,9 @@ export class TenantContextService {
     private readonly contextCrypto: TenantContextCrypto,
     @Inject(CENTER_APP_BASE_DOMAIN)
     private readonly centerAppBaseDomain: string,
+    @Optional()
+    @Inject(CENTER_APP_BASE_ORIGIN)
+    private readonly centerAppBaseOrigin?: string,
   ) {}
 
   private securityDenied(
@@ -116,7 +120,11 @@ export class TenantContextService {
   }
 
   async resolveCenterOrigin(origin: string) {
-    const centerKey = centerKeyFromOrigin(origin, this.centerAppBaseDomain);
+    const centerKey = centerKeyFromOrigin(
+      origin,
+      this.centerAppBaseDomain,
+      this.centerAppBaseOrigin,
+    );
     if (!centerKey) return null;
     return resolveIamCenterEntry(this.pool, centerKey);
   }
@@ -139,7 +147,11 @@ export class TenantContextService {
       typeof (input as { centerRef?: unknown }).centerRef === 'string'
         ? (input as { centerRef: string }).centerRef
         : null;
-    const centerKey = centerKeyFromOrigin(origin, this.centerAppBaseDomain);
+    const centerKey = centerKeyFromOrigin(
+      origin,
+      this.centerAppBaseDomain,
+      this.centerAppBaseOrigin,
+    );
     if (!centerKey || centerRef !== centerKey) {
       this.securityDenied(
         IAM_ACTIONS.tenantContextIssue,

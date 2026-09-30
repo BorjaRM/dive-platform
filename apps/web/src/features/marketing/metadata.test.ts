@@ -60,6 +60,31 @@ describe('public product metadata', () => {
     expect(sitemap()).toEqual([]);
   });
 
+  it('opts out of training crawlers while preserving public discovery and private-route exclusions', () => {
+    vi.stubEnv('PUBLIC_PRODUCT_INDEXABLE', 'true');
+
+    expect(robots()).toEqual({
+      rules: [
+        {
+          userAgent: '*',
+          allow: '/',
+          disallow: ['/dashboard', '/bootstrap', '/sign-in'],
+        },
+        {
+          userAgent: [
+            'GPTBot',
+            'ClaudeBot',
+            'Google-Extended',
+            'Applebot-Extended',
+            'CCBot',
+          ],
+          disallow: '/',
+        },
+      ],
+      sitemap: 'https://bluecurrent.example/sitemap.xml',
+    });
+  });
+
   it('keeps the page server-only and independent from Clerk', () => {
     expect(marketingPage).toBeTypeOf('function');
   });

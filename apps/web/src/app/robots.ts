@@ -13,11 +13,23 @@ export default function robots(): MetadataRoute.Robots {
   }
 
   return {
-    rules: {
-      userAgent: '*',
-      allow: '/',
-      disallow: ['/dashboard', '/bootstrap', '/sign-in'],
-    },
+    rules: [
+      {
+        userAgent: '*',
+        allow: '/',
+        disallow: ['/dashboard', '/bootstrap', '/sign-in'],
+      },
+      {
+        userAgent: [
+          'GPTBot',
+          'ClaudeBot',
+          'Google-Extended',
+          'Applebot-Extended',
+          'CCBot',
+        ],
+        disallow: '/',
+      },
+    ],
     sitemap: `${config.canonicalOrigin.origin}/sitemap.xml`,
   };
 }

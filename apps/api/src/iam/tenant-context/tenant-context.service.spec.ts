@@ -22,6 +22,7 @@ const principal = () => authenticateIdentity(principalProvider, 'token');
 function serviceWithAccess(
   roles = ['tenant_owner'],
   centerIds: string[] | null = null,
+  baseOrigin = 'https://app.dive-platform.com',
 ) {
   const query = vi.fn(async (statement: string) => {
     if (statement === 'BEGIN' || statement === 'COMMIT') return { rows: [] };
@@ -58,12 +59,67 @@ function serviceWithAccess(
       pool as never,
       logger,
       new TenantContextCrypto('t'.repeat(32)),
-      'app.dive-platform.com',
+      new URL(baseOrigin).hostname,
+      baseOrigin,
     ),
   };
 }
 
 describe('TenantContextService center entry (DIVE-IAM-REQ-032)', () => {
+  it.each(['test-center', 'ocean-north'])(
+    'uses the existing permission boundary for local center %s',
+    async (centerKey) => {
+      const { client, service } = serviceWithAccess(
+        ['tenant_owner'],
+        null,
+        'http://app.localhost:3000',
+      );
+      const origin = `http://${centerKey}.app.localhost:3000`;
+      await expect(service.isCenterOriginAllowed(origin)).resolves.toBe(true);
+      await expect(
+        service.issueCenterEntryContext(
+          await principal(),
+          origin,
+          { centerRef: centerKey },
+          'correlation',
+        ),
+      ).resolves.toMatchObject({ center: { centerId } });
+      expect(client.query).toHaveBeenCalledWith('COMMIT');
+      await expect(
+        service.isCenterOriginAllowed(`http://${centerKey}.app.localhost:4000`),
+      ).resolves.toBe(false);
+    },
+  );
+
+  it('denies local entry when membership scope belongs to another center', async () => {
+    const { client, service } = serviceWithAccess(
+      ['center_manager'],
+      ['bbbbbbbb-0002-0002-0002-000000000001'],
+      'http://app.localhost:3000',
+    );
+    await expect(
+      service.issueCenterEntryContext(
+        await principal(),
+        'http://test-center.app.localhost:3000',
+        { centerRef: 'test-center' },
+        'correlation',
+      ),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
+  });
+
+  it('does not authorize local CORS without an active database mapping', async () => {
+    const { client, service } = serviceWithAccess(
+      ['tenant_owner'],
+      null,
+      'http://app.localhost:3000',
+    );
+    client.query.mockImplementationOnce(async () => ({ rows: [] }));
+    await expect(
+      service.isCenterOriginAllowed('http://test-center.app.localhost:3000'),
+    ).resolves.toBe(false);
+  });
+
   it('issues the tenant handle only after exact origin, mapping, permission, and scope agree', async () => {
     const { client, service } = serviceWithAccess();
 

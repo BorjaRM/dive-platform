@@ -47,11 +47,13 @@ export function BootstrapSetup({
   apiBaseUrl,
   clerkConfigured,
   centerAppBaseDomain,
+  centerAppBaseOrigin,
   navigate = (destination: string) => window.location.replace(destination),
 }: Readonly<{
   apiBaseUrl: string;
   clerkConfigured: boolean;
   centerAppBaseDomain?: string;
+  centerAppBaseOrigin?: string | undefined;
   navigate?: (destination: string) => void;
 }>) {
   if (!clerkConfigured || !apiBaseUrl || !centerAppBaseDomain) {
@@ -61,6 +63,7 @@ export function BootstrapSetup({
     <AuthenticatedBootstrapSetup
       apiBaseUrl={apiBaseUrl}
       centerAppBaseDomain={centerAppBaseDomain}
+      centerAppBaseOrigin={centerAppBaseOrigin}
       navigate={navigate}
     />
   );
@@ -69,10 +72,12 @@ export function BootstrapSetup({
 function AuthenticatedBootstrapSetup({
   apiBaseUrl,
   centerAppBaseDomain,
+  centerAppBaseOrigin,
   navigate,
 }: Readonly<{
   apiBaseUrl: string;
   centerAppBaseDomain: string;
+  centerAppBaseOrigin?: string | undefined;
   navigate: (destination: string) => void;
 }>) {
   const router = useRouter();
@@ -115,7 +120,13 @@ function AuthenticatedBootstrapSetup({
           locale,
         },
       });
-      navigate(centerDashboardUrl(result.centerKey, centerAppBaseDomain));
+      navigate(
+        centerDashboardUrl(
+          result.centerKey,
+          centerAppBaseDomain,
+          centerAppBaseOrigin,
+        ),
+      );
     } catch (error) {
       if (error instanceof BootstrapApiError && error.status === 401) {
         setMessage(text.sessionExpired);
