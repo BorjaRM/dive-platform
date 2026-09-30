@@ -80,6 +80,47 @@ function memoryStorage() {
 }
 
 describe('dashboard tenant-context boundary', () => {
+  it('issues center entry with a single selector and reads only its returned center (DIVE-IAM-REQ-032)', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            tenantContext: 'ctx_center',
+            center: { centerId: 'center-alpha' },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: 'center-alpha', name: 'Harbor' })),
+      );
+    const api = createDashboardApi({
+      baseUrl: 'https://api.example.test',
+      session: { getToken: async () => 'session-secret' },
+    });
+    const issued = await api.issueCenterEntryContext('alpha');
+    await api.getCenter(issued.tenantContext, issued.center.centerId);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      'https://api.example.test/v1/me/center-entry-contexts',
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      centerRef: 'alpha',
+    });
+    expect(
+      new Headers(fetchMock.mock.calls[0]?.[1]?.headers).has(
+        'X-Tenant-Context',
+      ),
+    ).toBe(false);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      'https://api.example.test/v1/centers/center-alpha',
+    );
+    expect(
+      new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get(
+        'X-Tenant-Context',
+      ),
+    ).toBe('ctx_center');
+  });
+
   it('persists the opaque handle only through the session storage contract (DIVE-IAM-REQ-030)', () => {
     const storage = memoryStorage();
     const contextStorage = createTenantContextStorage(storage);

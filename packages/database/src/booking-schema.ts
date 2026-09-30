@@ -57,6 +57,30 @@ export type LocalizedText = {
   en?: string;
 };
 
+export const bookingCatalogSettings = bookingApp.table(
+  'catalog_settings',
+  {
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => iamTenants.id),
+    centerId: uuid('center_id').notNull(),
+    defaultActivityLocale: text('default_activity_locale')
+      .$type<'es' | 'en'>()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.tenantId, table.centerId] }),
+    foreignKey({
+      columns: [table.tenantId, table.centerId],
+      foreignColumns: [iamCenters.tenantId, iamCenters.id],
+    }),
+    check(
+      'catalog_settings_locale_known',
+      sql`default_activity_locale IN ('es', 'en')`,
+    ),
+  ],
+);
+
 export const bookingActivities = bookingApp.table(
   'activities',
   {
@@ -65,6 +89,7 @@ export const bookingActivities = bookingApp.table(
       .notNull()
       .references(() => iamTenants.id),
     centerId: uuid('center_id').notNull(),
+    baseLocale: text('base_locale').$type<'es' | 'en'>().notNull(),
     name: jsonb('name').$type<LocalizedText>().notNull(),
     description: jsonb('description').$type<LocalizedText>(),
     defaultCapacity: integer('default_capacity'),
@@ -88,6 +113,7 @@ export const bookingActivities = bookingApp.table(
       'activities_status_known',
       sql`status IN ('Draft', 'Published', 'Disabled')`,
     ),
+    check('activities_base_locale_known', sql`base_locale IN ('es', 'en')`),
     check(
       'activities_default_capacity_positive',
       sql`default_capacity IS NULL OR default_capacity > 0`,

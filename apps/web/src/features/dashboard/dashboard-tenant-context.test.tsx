@@ -35,6 +35,7 @@ function renderDashboard(
   session: SessionTokenSource,
   storage = createTenantContextStorage(memoryStorage()),
   requestTimeoutMillis?: number,
+  centerKey?: string,
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -46,6 +47,7 @@ function renderDashboard(
         requestTimeoutMillis={requestTimeoutMillis}
         session={session}
         storage={storage}
+        centerKey={centerKey}
       />
     </QueryClientProvider>,
   );
@@ -96,6 +98,82 @@ function DashboardContextProbe() {
 }
 
 describe('authenticated dashboard tenant-context flow', () => {
+  it('discards a stale handle, bootstraps the origin center and never lists other workspaces (DIVE-IAM-REQ-032)', async () => {
+    const storage = createTenantContextStorage(memoryStorage());
+    storage.write('ctx_old_other_center');
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input, init) => {
+        if (String(input).endsWith('/v1/me/center-entry-contexts')) {
+          expect(JSON.parse(String(init?.body))).toEqual({
+            centerRef: 'alpha',
+          });
+          expect(new Headers(init?.headers).has('X-Tenant-Context')).toBe(
+            false,
+          );
+          return jsonResponse({
+            tenantContext: 'ctx_alpha',
+            center: { centerId: 'center-alpha' },
+          });
+        }
+        if (String(input).endsWith('/v1/centers/center-alpha')) {
+          expect(new Headers(init?.headers).get('X-Tenant-Context')).toBe(
+            'ctx_alpha',
+          );
+          return jsonResponse({ id: 'center-alpha', name: 'Harbor Base' });
+        }
+        throw new Error(`Unexpected request: ${String(input)}`);
+      });
+    renderDashboard(
+      { configured: true, getToken: async () => 'session-alpha' },
+      storage,
+      undefined,
+      'alpha',
+    );
+    expect(await screen.findByText('Harbor Base')).toBeInTheDocument();
+    expect(storage.read()).toBe('ctx_alpha');
+    expect(
+      screen.queryByRole('button', { name: 'Change workspace' }),
+    ).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls).toHaveLength(2);
+  });
+
+  it.each([403, 404, 500])(
+    'shows generic center denial %s without membership enumeration or retrying another workspace',
+    async (status) => {
+      const storage = createTenantContextStorage(memoryStorage());
+      storage.write('ctx_stale');
+      const fetchMock = vi
+        .spyOn(globalThis, 'fetch')
+        .mockResolvedValue(
+          jsonResponse({ code: 'center_entry_unavailable' }, status),
+        );
+      renderDashboard(
+        { configured: true, getToken: async () => 'session-alpha' },
+        storage,
+        undefined,
+        'alpha',
+      );
+      expect(
+        await screen.findByRole('heading', {
+          name: 'This center is unavailable',
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Choose operator' }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Change workspace' }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Log out' }),
+      ).toBeInTheDocument();
+      expect(storage.read()).toBeNull();
+      expect(fetchMock).toHaveBeenCalledOnce();
+    },
+  );
+
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();

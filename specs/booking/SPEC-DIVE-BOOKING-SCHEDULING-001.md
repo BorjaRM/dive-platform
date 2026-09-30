@@ -1,7 +1,7 @@
 # SPEC-DIVE-BOOKING-SCHEDULING-001 - Expanded scheduling and calendar
 
 - **Status:** Accepted
-- **Version:** 0.5
+- **Version:** 0.7
 - **Last reviewed:** 2026-09-30
 - **Owner:** Product / Booking
 - **Approval reference:** Historical approvals extracted from SPEC-DIVE-BOOKING-001 at commit `86e9d97` are retained. The product owner explicitly accepted the configuration model and stated boundaries on 2026-09-30 with "no lo indiques como draft, esta aceptado"; unresolved contracts and implementation evidence are not approved by implication.
@@ -81,7 +81,7 @@ Activity
 - description?            localized es/en
 - default_capacity?
 - status
-- base_locale             explicit es/en; no default
+- base_locale             es/en resolved from center configuration at creation
 - allow_booking_without_date
 - created_at
 
@@ -118,7 +118,7 @@ CenterBookingSettings
 
 **Documented:** the commercial extension's field ownership is in [SPEC-DIVE-BOOKING-CATALOG-001](SPEC-DIVE-BOOKING-CATALOG-001.md), `DIVE-BOOK-REQ-073..079`. The logical records above remain the scheduling configuration, not a duplicate complete commercial schema.
 
-**Documented:** creation and publication require a name only in the activity's explicit base language; other translations and description are optional. `DIVE-BOOK-REQ-009`, `051` and `053` in [the catalog language policy](SPEC-DIVE-BOOKING-CATALOG-001.md#activity-languages-and-fallback) own the approved requested-language-to-base fallback. Scheduling configuration does not duplicate that resolution or choose a base-language default.
+**Documented:** creation and publication require a name only in the activity's stored base language; other translations and description are optional. `DIVE-BOOK-REQ-009`, `051` and `053` in [the catalog language policy](SPEC-DIVE-BOOKING-CATALOG-001.md#activity-languages-and-fallback) own the approved center-level choice of Spanish or English, server resolution at activity creation and requested-language-to-base fallback. Scheduling configuration does not require a per-activity client choice, duplicate center configuration or choose an implicit language default. The owner's [initial-configuration contract](SPEC-DIVE-BOOKING-CATALOG-001.md#initial-center-catalog-language-contract), also under `050..056`, records the subsequent approval of bounded settings transport/authorization and concurrent initial selection. Later preference changes remain excluded; this configuration is not a dependency on the unresolved expanded scheduling settings.
 
 `CenterBookingSettings` has one record per `(tenant_id, center_id)`. Rule-to-activity and record-to-center relations preserve both tenant and center through composite keys and the existing authorization/RLS boundary in [ADR-DIVE-001](../architecture/adrs/ADR-DIVE-001.md). Missing settings, nullability, physical names, constraints, permissions and migration details require explicit contracts; missing configuration must not silently invent open weekdays.
 

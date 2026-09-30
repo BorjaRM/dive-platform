@@ -1,10 +1,10 @@
 # SPEC-DIVE-BOOKING-CATALOG-001 - Activity catalog, public profiles and HTTP
 
 - **Status:** Draft
-- **Version:** 0.5
+- **Version:** 0.9
 - **Last reviewed:** 2026-09-30
 - **Owner:** Product / Booking
-- **Approval reference:** Original requirements and approvals extracted from SPEC-DIVE-BOOKING-001 at commit `86e9d97`; documentation split requested 2026-09-30. Language-policy approval and product-owner approval of commercial-profile proposals on 2026-09-30 are recorded below. No artifact promotion or implementation conformance is inferred.
+- **Approval reference:** Original requirements and approvals extracted from SPEC-DIVE-BOOKING-001 at commit `86e9d97`; documentation split requested 2026-09-30. Language-policy approval, its center-level selection clarification, the subsequent initial-configuration contract approval and the product-owner approval of commercial-profile proposals on 2026-09-30 are recorded below. No artifact promotion or implementation conformance is inferred.
 
 ## Normative authority
 
@@ -21,11 +21,14 @@
 | `DIVE-BOOK-REQ-050` | `Proposed` | Product confirmation by the product owner on 2026-09-27 for US-08 center-scoped catalog HTTP; explicit user request on 2026-09-30: "es necesario añadir PATCH /activities/:activityId, documentalo" | Original routes and scope retain their approval. Activity-editing endpoint requested; detailed editing semantics remain Draft pending the decisions below |
 | `DIVE-BOOK-REQ-051..DIVE-BOOK-REQ-057` | `Proposed` | Product confirmation by the product owner on 2026-09-27 for US-08 catalog HTTP, center-scoped operations, slot time representation, listing defaults, and PR #35 page-pagination contract for activity/slot listing | Approved by product owner 2026-09-27 for MVP validation |
 | Language-policy revision of `DIVE-BOOK-REQ-009`, `051`, `053` | `Proposed` | Product-owner request on 2026-09-30: "aplicalo", approving the preceding recommendation for one initial language, optional later translations, publication with a base language and requested-language-to-base fallback | Accepted language policy; supersedes the earlier bilingual publication gate only; unresolved editing contracts remain separate |
+| Center-level language selection for `DIVE-BOOK-REQ-009`, `051`, `053` | `Proposed` | Product-owner clarification on 2026-09-30: "el centro elige el idioma por defecto en el que rellena la info de sus actividades, no es necesario que lo indique en cada actividad"; supported values clarified with "por ahora entre español e ingles"; subsequent requests "Implementa los cambios, incluido el idioma del catalogo" and "registra la decision sobre el cambio y haz handoff al agente indicado para su implementacion" | Explicitly approved center-level selection and implementation intent; supersedes client selection of `baseLocale` for each activity. Initial configuration is closed by the subsequent approval below; later preference changes remain outside scope |
+| Initial center catalog-language contract under `DIVE-BOOK-REQ-009`, `050..056` | `Proposed` | Product-owner acceptance on 2026-09-30: "se acepta la propuesta, documentalo", referring to the preceding GET/PUT catalog-settings proposal, existing read/update permissions, explicit missing/locked errors, catalog-owned persistence, transactional selection and activity creation, empty-catalog migration checks, and reuse of the catalog audit/outbox owner | Explicitly approved bounded initial-configuration increment; subsequent language changes are excluded. This approval records the contract without artifact promotion, new role grants, implementation evidence or invented audit/event names |
+| Empty existing activity catalog for the language migration | `Documented` | Product-owner statement on 2026-09-30: "no existen actividades existentes aun" | Reported migration premise, not executed database evidence; no existing-activity language assignment is needed under that premise |
 | `DIVE-BOOK-REQ-073..DIVE-BOOK-REQ-079` | `Proposed` | Product-owner request on 2026-09-30: "aplica los cambios propuestos sobre la documentacion", approving the preceding center/activity field analysis and inconsistency-resolution proposals | Approved product direction and ownership boundaries; detailed transport, persistence, publication-readiness and edit contracts remain open; no runtime coverage claimed |
 
 ## Requirements
 
-- **DIVE-BOOK-REQ-009:** An activity is a center-scoped catalog offering with its own identity, publication state, explicit `baseLocale` (`es` or `en`), localized name/description, and optional default capacity. Translations share that activity identity; they do not create duplicate activities.
+- **DIVE-BOOK-REQ-009:** An activity is a center-scoped catalog offering with its own identity, publication state, server-resolved `baseLocale` (`es` or `en`), localized name/description, and optional default capacity. The center selects its default activity-content language once; the server obtains the activity's base language from that authorized center configuration at creation, without a separate selection for each activity. Translations share that activity identity; they do not create duplicate activities.
 
 - **DIVE-BOOK-REQ-011:** An activity may propose a default capacity for new slots. That default is never the authoritative remaining-capacity source.
 
@@ -42,6 +45,8 @@
 - **DIVE-BOOK-REQ-050:** Dashboard catalog and availability HTTP for the center application is always scoped to one center:
 
 ```text
+GET    /v1/centers/:centerId/catalog-settings
+PUT    /v1/centers/:centerId/catalog-settings
 GET    /v1/centers/:centerId/activities
 POST   /v1/centers/:centerId/activities
 PATCH  /v1/centers/:centerId/activities/:activityId
@@ -57,7 +62,9 @@ PATCH  /v1/centers/:centerId/slots/:slotId/cancel
 
 The activity-editing route was explicitly requested on 2026-09-30. Its detailed contract is Proposed/Draft in [Activity editing](#activity-editing); adding it to this inventory does not approve unresolved semantics or claim implementation.
 
-- **DIVE-BOOK-REQ-051:** `POST /v1/centers/:centerId/activities` creates an activity in `Draft`. The client sends explicit `baseLocale` (`es` or `en`), localized `name` with a non-blank value in that base language, optional localized `description`, and optional positive `defaultCapacity`. The other language is optional; no base-language default, automatic translation or copy into a missing translation is introduced. The client MUST NOT send `tenantId`, `centerId`, or `status`.
+The catalog-settings routes implement only the explicitly approved [initial center catalog-language contract](#initial-center-catalog-language-contract); they do not expose the Draft commercial profile or expanded scheduling settings.
+
+- **DIVE-BOOK-REQ-051:** `POST /v1/centers/:centerId/activities` creates an activity in `Draft`. The client sends localized `name` with a non-blank value in the center-selected base language, optional localized `description`, and optional positive `defaultCapacity`. The server resolves and stores `baseLocale` from the authorized center configuration; the creation request does not include a per-activity `baseLocale` selection or override. Missing configuration returns `409 center_catalog_locale_not_configured` without creating an activity. The other language is optional; no code/database language default, automatic translation or copy into a missing translation is introduced. The client MUST NOT send `tenantId`, `centerId`, or `status`.
 
 - **DIVE-BOOK-REQ-052:** `POST /v1/centers/:centerId/activities/:activityId/slots` is allowed only when that activity is `Published`. The created slot is `Available`. The client sends `startsAt`, positive `durationMinutes`, and positive `capacity`. Tenant and center are taken from the authorized path and activity. The client MUST NOT send `tenantId`, another `centerId`, `status`, `end`, or remaining seats.
 
@@ -67,7 +74,7 @@ The activity-editing route was explicitly requested on 2026-09-30. Its detailed 
 
 - **DIVE-BOOK-REQ-055:** A slot may transition `Closed → Cancelled`.
 
-- **DIVE-BOOK-REQ-056:** Catalog HTTP uses `application/problem+json`. Create returns `201`. Successful commands return `204`. Malformed JSON returns `400`. Missing session or tenant context returns `401`. A permission failure inside the current authorized center returns `403`. A missing resource or a resource outside the current center/tenant returns `404` with the same observable result. Semantic field errors return `422`.
+- **DIVE-BOOK-REQ-056:** Catalog HTTP uses `application/problem+json`. Create returns `201`. Successful commands return `204`. Malformed JSON returns `400`. Missing session or tenant context returns `401`. A permission failure inside the current authorized center returns `403`. A missing resource or a resource outside the current center/tenant returns `404` with the same observable result. Semantic field errors return `422`. The approved initial catalog-language contract adds `409 center_catalog_locale_not_configured` when activity creation lacks configuration and `409 center_catalog_locale_locked` when a PUT attempts to replace the selected language; these errors are returned only after authorization of the current center.
 
 - **DIVE-BOOK-REQ-057:** Catalog lists never accept multiple centers. Activity and slot lists use one-based page pagination with optional `page` and `pageSize` query parameters. `page` defaults to `1`; `pageSize` defaults to `20` and has a maximum of `50`. Values outside those bounds return the existing `422 validation_error`. Responses return `items`, `page`, `pageSize`, and `hasNext`; they do not require a total count. Activities are ordered by `created_at DESC`, then `id DESC`, and may be filtered by `status`. Slots are ordered by `starts_at ASC`, then `id ASC`, and may be filtered by optional date range and `status`. The walking skeleton uses limit/offset pagination; cursor pagination requires a separately approved contract change.
 
@@ -141,6 +148,8 @@ This interface is for the authenticated center application. Public widget and ho
 
 | Method and path | Effect |
 |---|---|
+| `GET /v1/centers/:centerId/catalog-settings` | Read the initial catalog-language selection, or explicit unconfigured state |
+| `PUT /v1/centers/:centerId/catalog-settings` | Select the initial catalog language; same-value retry succeeds, replacement is excluded |
 | `GET /v1/centers/:centerId/activities` | List activities of that center only |
 | `POST /v1/centers/:centerId/activities` | Create a Draft activity in that center |
 | `PATCH /v1/centers/:centerId/activities/:activityId` | Edit the stored Draft activity; detailed semantics remain Proposed/Draft below |
@@ -155,26 +164,65 @@ Protected requests send `Authorization: Bearer <clerk-session-token>` and `X-Ten
 
 ### Activity languages and fallback
 
-**Proposed, explicitly approved:** the language-policy revision in the provenance table is the owner of these rules. Activity state `Draft` is a lifecycle value, not a pending approval of this policy.
+**Proposed, explicitly approved:** the language-policy revision and subsequent center-level selection clarification in the provenance table own these rules. The later clarification supersedes the earlier per-activity client selection, not the approved optional translations or presentation fallback. Activity state `Draft` is a lifecycle value, not a pending approval of this policy.
 
-One language is sufficient for creation and publication:
+The center chooses its default activity-content language once, currently Spanish or English. When that configured language is Spanish, one language is sufficient for this activity creation request and subsequent publication:
 
 ```json
 {
-	"baseLocale": "es",
 	"name": { "es": "Bautismo de buceo" }
 }
 ```
 
-- `baseLocale` belongs to the activity, not the viewer or channel, and is explicitly selected. Only `es` and `en` translation keys are supported. Supplied translation values must be non-blank; a missing translation is omitted rather than stored as a blank placeholder.
+- The center-selected default belongs to its activity-content configuration, not the viewer, channel, interface locale, booker locale, customer-service languages or teaching languages. It is not inferred from browser language, translation keys or the bootstrap form's user locale. No implicit Spanish or English default is selected.
+- Activity creation resolves the default through the existing authorized tenant/center boundary and persists the resulting activity `baseLocale`. The activity form uses that configured language without asking for another language choice. Only `es` and `en` translation keys are supported. Supplied translation values must be non-blank; a missing translation is omitted rather than stored as a blank placeholder.
 - `name` and `description` retain their localized-object representation. Catalog DTOs return the stored translations and `baseLocale`, not objects filled with fallback text. A UI can distinguish authored translations from absent ones and add translations later through authorized edits.
 - Hosted/widget presentation resolves each field independently: use the requested-language value if present, otherwise the base-language value. If neither description exists, omit it; a publishable activity always has its base name. Do not select an arbitrary third fallback or claim that base-language text is translated.
 - Resolution never writes fallback text into persistence and does not create an extra activity. It does not change the requested page/booking locale, interface translations, email locale or channel authorization.
-- This policy does not decide per-language PATCH merge/clear semantics, base-language changes, or permission to edit Published/Disabled activities. Those remain part of the editing contract below.
+- This policy does not decide per-language PATCH merge/clear semantics, base-language changes, or permission to edit Published/Disabled activities. Those remain part of the editing contract below. The approved first increment rejects changing the center preference after initial selection; a subsequent change flow and its effect on existing activities require a separate approved contract.
 
-Expected checks, not executed behavior evidence: creation and publication with only `es` or only `en`; missing/unsupported base locale or missing/blank base name rejected; optional description; requested translation preferred; per-field fallback; omitted absent description; raw DTOs and persisted objects unchanged by rendering; and additional translations without duplicate activity identities.
+**Proposed, explicitly approved:** the dated acceptance of the initial-configuration proposal closes the previous Derived/Draft absence-of-default and transport questions for the bounded contract below. Missing configuration is explicit, not a browser, bootstrap-locale or code fallback. This acceptance does not extend to the other Draft catalog proposals.
 
-**Documented implementation gap:** the current activity publish service still checks both names in [activity-catalog.service.ts](../../apps/api/src/catalog/activities/activity-catalog.service.ts), and [booking-schema.ts](../../packages/database/src/booking-schema.ts) does not yet store `baseLocale`. This documentation approves the contract, not runtime conformance. Existing-record backfill and rollout require an explicit migration decision; do not infer a base language from object-key order or silently assign one.
+Expected checks, not executed behavior evidence: center selection of either supported language; creation without per-activity language input; same-tenant/same-center configuration resolution and cross-scope denial; creation/publication with only the selected language; missing/blank base name rejected; optional description; requested translation preferred; per-field fallback; omitted absent description; raw DTOs and persisted objects unchanged by rendering; and the configuration, replay, concurrency and rollback cases specified below.
+
+**Documented implementation coverage:** [catalog-settings.service.ts](../../apps/api/src/catalog/settings/catalog-settings.service.ts) implements initial selection through the existing authorized catalog unit of work. [activity-catalog.service.ts](../../apps/api/src/catalog/activities/activity-catalog.service.ts) resolves and returns stored `baseLocale` and publishes with only the stored base-language name; [booking-schema.ts](../../packages/database/src/booking-schema.ts) and [the incremental migration](../../packages/database/drizzle/0007_center_catalog_language.sql) provide catalog-owned tenant-scoped persistence without language defaults. [API tests](../../apps/api/test/iam.e2e-spec.ts) and [persistence tests](../../packages/database/test/integration/booking-catalog.integration.test.ts) preserve backend behavior. [The existing catalog panel](../../apps/web/src/features/dashboard/catalog-panel.tsx) implements explicit initial selection, base-language creation validation and independent presentation fallback for the current English interface without modifying raw translations. [Client contract tests](../../apps/web/src/features/dashboard/catalog-api.test.ts) and [panel tests](../../apps/web/src/features/dashboard/catalog-panel.test.tsx) cover missing/locked configuration, denied access, center changes, monolingual creation and field fallback. Local tests do not establish deployed-database or live-provider conformance.
+
+**Documented migration premise:** the product owner's dated statement in the provenance table reports no existing activities. Existing-activity language selection/backfill is therefore not an unresolved product decision for that reported empty catalog; the schema migration and executable migration checks are still required. No deployed database was inspected by this documentation change, and the statement does not assert that no centers exist or choose a language for an unconfigured center. If an implementation check finds existing activities, their migration must be explicitly resolved rather than assigning a fabricated base language.
+
+### Initial center catalog-language contract
+
+**Proposed, explicitly approved:** source is the product owner's 2026-09-30 acceptance "se acepta la propuesta, documentalo" recorded in the provenance table. This is the bounded initial-selection contract under `DIVE-BOOK-REQ-009`, `050..056`, not a general center-settings API or permission to edit an already selected language.
+
+#### HTTP and authorization
+
+| Method and path | Existing permission | Result |
+|---|---|---|
+| `GET /v1/centers/:centerId/catalog-settings` | `booking_service.read` | `200` with `{ "defaultActivityLocale": "es" }`, `{ "defaultActivityLocale": "en" }` or `{ "defaultActivityLocale": null }` |
+| `PUT /v1/centers/:centerId/catalog-settings` | `booking_service.update` | Closed body `{ "defaultActivityLocale": "es" }` or `{ "defaultActivityLocale": "en" }`; initial selection or same-value repetition returns `204` without a response body |
+
+`null` is a read projection of an unconfigured center, not a language value or a stored database default. PUT does not accept `null`, unsupported languages, omitted selection or client authority fields. Semantic/unknown-field errors use `422 validation_error`; malformed JSON uses the existing `400` contract. A valid different selection after initialization returns `409 center_catalog_locale_locked` without modifying configuration or activities. No delete/reset or subsequent-language-change operation is included.
+
+**Documented:** authentication, tenant context, current center scope and non-disclosing `401`/`403`/`404` conventions remain owned by `DIVE-BOOK-REQ-050`, `056`. Permission grants remain those in [SPEC-DIVE-IAM-001](../iam/SPEC-DIVE-IAM-001.md#matrix-mvp); this contract reuses `booking_service.read`/`update` and grants no additional role capability. A missing or unauthorized center does not expose whether its language has been configured.
+
+#### Activity creation and interface
+
+The server reads the selected language through the authorized tenant/center transaction and stores it as the activity's `baseLocale`; the request supplies neither that field nor another language override. The base-language name remains mandatory, the other translation and description remain optional, and publication uses the activity's stored value. If selection is missing, creation returns `409 center_catalog_locale_not_configured` with no activity, activity audit or activity outbox side effect.
+
+The interface asks for the center selection once before its first activity can be created and thereafter authors in that language without a per-activity selector. Missing selection does not block dashboard entry or bootstrap and does not add a bootstrap field. It remains distinct from interface, booker, service and teaching languages. Reaching the language-setting step does not replace server authorization.
+
+#### Persistence, concurrency and mutation ownership
+
+Configuration is catalog-owned in PostgreSQL schema `booking_app`, not a field inferred from IAM identity or the browser. There is at most one selection per `(tenant_id, center_id)`, with a tenant-qualified relation to the existing center, forced RLS and the existing authorized transaction boundary. A configured value is constrained to `es` or `en` without a database language default. An unconfigured center is represented by absent configuration; migration does not assign a language to existing centers. This decision selects ownership and keys, not an additional dependency on the expanded scheduling settings.
+
+Initial selection, its audit and required outbox effects use one transaction and the existing catalog mutation owner. Extend that owner's supported configuration responsibility rather than introduce another audit/outbox implementation, generic authorization helper or pre-commit external call. Audit/event names and payload schemas were not specified by the accepted proposal; no new named event, recipient or external delivery is inferred here. Any additional public event contract must be resolved under [ADR-DIVE-002](../architecture/adrs/ADR-DIVE-002.md) before it is introduced.
+
+Database uniqueness and transaction ordering choose one committed selection. Concurrent identical PUTs both succeed; competing Spanish/English PUTs have one success and one locked conflict, never last-write-wins replacement. Same-value retries do not reapply the mutation or duplicate its committed effects. Activity creation reads the same center's committed selection inside its own authorized transaction. If it observes no committed selection while PUT is still in flight, it returns the missing-configuration error and can be retried after PUT succeeds; no language is guessed and no partially selected configuration is used.
+
+The migration must check the reported empty-activity premise before enforcing the activity base-language constraint. It must not assign fabricated activity languages or delete existing data if that premise is false. A discovered existing activity requires an explicitly resolved migration; schema migration, rollback and isolation tests remain required even when no backfill is needed.
+
+#### Expected validation
+
+These are accepted test expectations, not executed proof: GET unconfigured/null and selected values; es/en selection; forbidden/missing/unsupported/null inputs; current permission and center-scope enforcement; cross-tenant and same-tenant cross-center denial; same-value retry; different-value conflict; concurrent identical and competing selections; activity creation racing with selection; committed-language inheritance with no per-activity input; atomic configuration/audit/outbox rollback without duplicate retry effects; monolingual creation/publication; optional translations and presentation-only fallback; empty-catalog migration checks; and tenant-context/RLS inventory coverage for the new product relation and commands. Keep `MT-REQ-*` isolation results separate from `DIVE-BOOK-*` results.
 
 ### Activity editing
 
@@ -216,19 +264,18 @@ Commercial-field, public-profile, readiness, policy-version and Published-edit t
 
 The unresolved [Activity editing](#activity-editing) decisions and the trusted center-timezone response contract need explicit closure before claiming a complete management UI.
 
-Existing-activity base-language selection/backfill and rollout compatibility must be approved before the language-policy implementation is activated. No legacy-language default is selected.
+**Documented:** [the initial center catalog-language contract](#initial-center-catalog-language-contract) records approval of read/write routes, existing permissions, missing/locked errors, persistence ownership and concurrent initial selection/creation. It replaces the earlier configuration blockers for this bounded increment. Later center-preference changes and activity-language editing remain excluded; no automatic rewrite or legacy-language default is selected. Exact new audit/event names were not part of the proposal; additional public event contracts remain subject to ADR-DIVE-002 rather than being invented by this acceptance. The reported empty activity catalog is still a premise to check, not executed evidence.
 
-### Pending API implementation
+### Implementation verification
 
-**Documented:** `DIVE-BOOK-REQ-009`, `051` and `053` define the approved [language policy](#activity-languages-and-fallback), but the current API and persistence do not implement it. The API update remains required; documentation acceptance is not delivery.
+**Documented:** local API, persistence and web coverage for the approved [language policy](#activity-languages-and-fallback) and initial selection is linked above. Deployment verification remains separate; documentation acceptance is not delivery.
 
 **Proposed, explicitly approved operational exception:** on 2026-09-30 the product owner authorized "se autoriza expresamente la actualizacion aunque no existe issue. no generes issue", then requested a durable pending-change record and permission for chat authorization. The [workflow exception](../../docs/sdd/development-brief-template.md#explicit-chat-authorization) governs that issue-free route. This records the pending contract implementation, not a second Development Brief.
 
-- Update catalog input validation and raw activity DTOs for explicit `baseLocale`, and align creation/publication with the approved single-language gate.
-- Persist the activity's base language through the existing tenant/center-scoped mutation boundary; preserve authorization, RLS, audit and outbox behavior.
-- Add requirement-scoped API/contract tests and migration/isolation checks before claiming conformance. Presentation fallback remains owned by its consumer boundary, not stored DTO copies.
 - Do not create an issue or fake closure reference. No branch, commit, push, PR or deployment is authorized by this operational exception alone.
-- Existing-activity base-language assignment/backfill and rollout remain unresolved; do not infer a language or choose a default. This decision still blocks the affected migration/activation slice.
+- The empty-catalog migration premise is recorded above; it removes the need for existing-activity language assignment, not the schema migration or checks. **Documented:** [migration tests](../../packages/database/test/integration/migrations.integration.test.ts) cover an empty database and atomic refusal of a synthetic nonempty upgrade. Initial-configuration API/persistence/web coverage is linked above; deployed-database checks remain pending.
+
+**Documented implementation authorization:** the product owner's subsequent 2026-09-30 request "Implementa los cambios, incluido el idioma del catalogo" retains the issue-free authorization for the bounded catalog-language and already-approved center-entry work discussed in this chat. The later acceptance "se acepta la propuesta, documentalo" additionally approves the initial-configuration contract above, not the other Draft proposals, subsequent preference changes, status promotion or publication. The implementation owner is Backend for catalog API/persistence; Frontend owns the dependent configuration/activity UI and presentation plus the already-approved center-entry web flow. Coordination remains governed by [the agent contract](../../.github/agents/README.md).
 
 ### Proposed completion contracts
 

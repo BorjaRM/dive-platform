@@ -29,6 +29,22 @@ const commands: ReadonlyArray<{
       }),
   },
   {
+    name: 'audit-only catalog settings',
+    correlationId: 'aaaaaaaa-1001-4001-8001-000000000026',
+    execute: (client) =>
+      recordBookingCatalogMutation(client, {
+        tenantId: tenantB,
+        actorIdentityId: 'aaaaaaaa-1001-4001-8001-000000000031',
+        action: 'booking.update',
+        resourceType: 'catalog_settings',
+        resourceId: 'aaaaaaaa-1001-4001-8001-000000000022',
+        eventType: null,
+        payload: { defaultActivityLocale: 'es' },
+        correlationId: 'aaaaaaaa-1001-4001-8001-000000000026',
+        idempotencyKey: null,
+      }),
+  },
+  {
     name: 'public booking creation',
     correlationId: 'aaaaaaaa-1001-4001-8001-000000000024',
     execute: (client) =>
@@ -55,6 +71,29 @@ describe('tenant-scoped product commands', () => {
     await appPool.end();
     await adminPool.end();
   });
+
+  it.each(commands)(
+    'rejects $name with missing, empty or malformed context (MT-REQ-005, MT-REQ-007, MT-REQ-010)',
+    async ({ execute }) => {
+      for (const context of [undefined, '', 'malformed']) {
+        const client = await appPool.connect();
+        try {
+          await client.query('BEGIN');
+          if (context !== undefined) {
+            await client.query(`SELECT set_config('app.tenant_id', $1, true)`, [
+              context,
+            ]);
+          }
+          await expect(execute(client)).rejects.toThrow(
+            /Tenant context mismatch/,
+          );
+        } finally {
+          await client.query('ROLLBACK');
+          client.release();
+        }
+      }
+    },
+  );
 
   it.each(commands)(
     'rejects $name when its tenant differs from transaction context (MT-REQ-005, MT-REQ-007, MT-REQ-010)',

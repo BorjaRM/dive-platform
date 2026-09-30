@@ -16,7 +16,12 @@ import { migrationDatabaseUrl, spikeAdminDatabaseUrl } from '../../src/env.js';
 import * as iamSchema from '../../src/iam-schema.js';
 import { migrateProduct, productMigrationsFolder } from '../../src/migrate.js';
 import * as onboardingSchema from '../../src/onboarding-schema.js';
-import { createAdminPool, createAppPool } from './harness.js';
+import {
+  centerA1,
+  createAdminPool,
+  createAppPool,
+  tenantA,
+} from './harness.js';
 
 const iamTables = [
   iamSchema.iamTenants,
@@ -33,6 +38,7 @@ const iamTables = [
   iamSchema.iamOutboxEvents,
 ];
 const bookingTables = [
+  bookingSchema.bookingCatalogSettings,
   bookingSchema.bookingActivities,
   bookingSchema.bookingSlots,
   bookingSchema.bookingChannels,
@@ -227,6 +233,102 @@ SELECT id FROM iam_app.tenants;
       await maintenance.end();
       rmSync(tempFolder, { recursive: true, force: true });
     }
+  });
+
+  it('rejects nonempty catalog upgrades atomically instead of inventing a base language (DIVE-BOOK-REQ-009, 051)', async () => {
+    const databaseName = 'dive_migrate_catalog_nonempty';
+    const tempFolder = mkdtempSync(join(tmpdir(), 'dive-migrate-catalog-'));
+    const journal = JSON.parse(
+      readFileSync(join(productMigrationsFolder, 'meta/_journal.json'), 'utf8'),
+    ) as {
+      entries: Array<{ tag: string }>;
+    };
+    journal.entries = journal.entries.slice(0, -1);
+    mkdirSync(join(tempFolder, 'meta'));
+    writeFileSync(
+      join(tempFolder, 'meta/_journal.json'),
+      JSON.stringify(journal),
+    );
+    for (const entry of journal.entries) {
+      writeFileSync(
+        join(tempFolder, `${entry.tag}.sql`),
+        readFileSync(join(productMigrationsFolder, `${entry.tag}.sql`), 'utf8'),
+      );
+    }
+    const maintenance = new Pool({
+      connectionString: spikeAdminDatabaseUrl(),
+      max: 1,
+    });
+    let priorAdmin: Pool | undefined;
+    try {
+      await maintenance.query(`DROP DATABASE IF EXISTS ${databaseName}`);
+      await maintenance.query(`CREATE DATABASE ${databaseName}`);
+      await maintenance.query(
+        `GRANT CONNECT, CREATE ON DATABASE ${databaseName} TO dive_migration`,
+      );
+      const migrationUrl = urlForDatabase(migrationDatabaseUrl(), databaseName);
+      await migrateProduct(tempFolder, migrationUrl);
+      priorAdmin = new Pool({
+        connectionString: urlForDatabase(spikeAdminDatabaseUrl(), databaseName),
+        max: 1,
+      });
+      await priorAdmin.query(
+        `INSERT INTO iam_app.tenants(id, name) VALUES ($1, 'Existing operator')`,
+        [tenantA],
+      );
+      await priorAdmin.query(
+        `INSERT INTO iam_app.centers(id, tenant_id, name) VALUES ($1, $2, 'Existing center')`,
+        [centerA1, tenantA],
+      );
+      await priorAdmin.query(
+        `INSERT INTO booking_app.activities(id, tenant_id, center_id, name, status) VALUES (gen_random_uuid(), $1, $2, '{"es":"Existing activity"}'::jsonb, 'Draft')`,
+        [tenantA, centerA1],
+      );
+      await expect(
+        migrateProduct(productMigrationsFolder, migrationUrl),
+      ).rejects.toThrow(/ADD COLUMN "base_locale"/);
+      const preserved = await priorAdmin.query(
+        'SELECT name FROM booking_app.activities',
+      );
+      expect(preserved.rows).toEqual([{ name: { es: 'Existing activity' } }]);
+      const configuration = await priorAdmin.query(
+        `SELECT to_regclass('booking_app.catalog_settings') AS relation`,
+      );
+      expect(configuration.rows).toEqual([{ relation: null }]);
+      const columns = await priorAdmin.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_schema='booking_app' AND table_name='activities' AND column_name='base_locale'`,
+      );
+      expect(columns.rows).toEqual([]);
+      const migrations = await priorAdmin.query(
+        'SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations',
+      );
+      expect(migrations.rows).toEqual([{ count: journal.entries.length }]);
+    } finally {
+      await priorAdmin?.end();
+      await maintenance.query(`DROP DATABASE IF EXISTS ${databaseName}`);
+      await maintenance.end();
+      rmSync(tempFolder, { recursive: true, force: true });
+    }
+  });
+
+  it('persists catalog languages without database defaults (DIVE-BOOK-REQ-009, 051)', async () => {
+    const columns = await requireEmptyAdminPool(emptyAdminPool).query(
+      `SELECT table_name, column_name, column_default, is_nullable FROM information_schema.columns WHERE table_schema='booking_app' AND (table_name='activities' AND column_name='base_locale' OR table_name='catalog_settings' AND column_name='default_activity_locale') ORDER BY table_name`,
+    );
+    expect(columns.rows).toEqual([
+      {
+        table_name: 'activities',
+        column_name: 'base_locale',
+        column_default: null,
+        is_nullable: 'NO',
+      },
+      {
+        table_name: 'catalog_settings',
+        column_name: 'default_activity_locale',
+        column_default: null,
+        is_nullable: 'NO',
+      },
+    ]);
   });
 
   it('keeps Drizzle product columns aligned with PostgreSQL', async () => {

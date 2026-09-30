@@ -115,10 +115,14 @@ export class TenantContextService {
     return { tenantContext: handle };
   }
 
-  async isCenterOriginAllowed(origin: string): Promise<boolean> {
+  async resolveCenterOrigin(origin: string) {
     const centerKey = centerKeyFromOrigin(origin, this.centerAppBaseDomain);
-    if (!centerKey) return false;
-    return (await resolveIamCenterEntry(this.pool, centerKey)) !== null;
+    if (!centerKey) return null;
+    return resolveIamCenterEntry(this.pool, centerKey);
+  }
+
+  async isCenterOriginAllowed(origin: string): Promise<boolean> {
+    return (await this.resolveCenterOrigin(origin)) !== null;
   }
 
   async issueCenterEntryContext(

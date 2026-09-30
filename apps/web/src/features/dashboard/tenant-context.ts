@@ -83,7 +83,7 @@ export function dashboardRequestTimeoutFromEnvironment(
 }
 
 export type DashboardRequestOptions = {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   context?: string;
   body?: unknown;
   signal?: AbortSignal | undefined;
@@ -229,6 +229,20 @@ export function createDashboardApi({
       request<{ tenantContext: string }>('/v1/me/tenant-contexts', {
         method: 'POST',
         body: operatorRef === undefined ? {} : { operatorRef },
+      }),
+    issueCenterEntryContext: (centerRef: string, signal?: AbortSignal) =>
+      request<{ tenantContext: string; center: { centerId: string } }>(
+        '/v1/me/center-entry-contexts',
+        {
+          method: 'POST',
+          body: { centerRef },
+          signal,
+        },
+      ),
+    getCenter: (context: string, centerId: string, signal?: AbortSignal) =>
+      request<Center>(`/v1/centers/${encodeURIComponent(centerId)}`, {
+        context,
+        signal,
       }),
     revokeTenantContext: (context: string) =>
       request<void>('/v1/me/tenant-contexts', {

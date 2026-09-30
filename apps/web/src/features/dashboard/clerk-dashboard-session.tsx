@@ -1,28 +1,35 @@
 'use client';
 
 import { RedirectToSignIn, useAuth, useClerk } from '@clerk/nextjs';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { DashboardTenantContext } from './dashboard-tenant-context';
 import type { SessionTokenSource } from './tenant-context';
 
 export function ClerkDashboardSession({
   apiBaseUrl,
   requestTimeoutMillis,
+  centerKey,
+  centerReturnUrl,
+  supportEmail,
   children,
 }: {
   apiBaseUrl: string;
   requestTimeoutMillis?: number;
+  centerKey?: string | undefined;
+  centerReturnUrl?: string | undefined;
+  supportEmail?: string | undefined;
   children?: React.ReactNode;
 }) {
-  const { getToken, isLoaded, isSignedIn } = useAuth();
+  const { getToken, isLoaded, isSignedIn, sessionId } = useAuth();
   const { signOut } = useClerk();
+  const [sessionExpired, setSessionExpired] = useState(false);
   const session = useMemo<SessionTokenSource>(
     () => ({
       configured: true,
-      getToken: () => getToken(),
+      getToken: () => (sessionId ? getToken() : Promise.resolve(null)),
       logout: signOut,
     }),
-    [getToken, signOut],
+    [getToken, sessionId, signOut],
   );
 
   if (!isLoaded) {
@@ -39,8 +46,14 @@ export function ClerkDashboardSession({
     );
   }
 
-  if (!isSignedIn) {
-    return <RedirectToSignIn />;
+  if (!isSignedIn || sessionExpired) {
+    return (
+      <RedirectToSignIn
+        {...(centerReturnUrl
+          ? { signInForceRedirectUrl: centerReturnUrl }
+          : {})}
+      />
+    );
   }
 
   return (
@@ -48,6 +61,9 @@ export function ClerkDashboardSession({
       apiBaseUrl={apiBaseUrl}
       requestTimeoutMillis={requestTimeoutMillis}
       session={session}
+      centerKey={centerKey}
+      supportEmail={supportEmail}
+      onSessionExpired={centerKey ? () => setSessionExpired(true) : undefined}
     >
       {children}
     </DashboardTenantContext>

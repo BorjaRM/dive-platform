@@ -10,6 +10,7 @@ import {
 import type { Pool } from 'pg';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TenantContextCrypto } from '../common/tenant-context/tenant-context.crypto.js';
+import type { IamService } from '../iam/iam.facade.js';
 
 const databaseMocks = vi.hoisted(() => ({
   recordBookingCatalogMutation: vi.fn(),
@@ -62,6 +63,14 @@ describe('CatalogAccessService', () => {
   const principal = () => authenticateIdentity(principalProvider, 'token');
   const contextCrypto = new TenantContextCrypto('t'.repeat(32));
   const centerId = '11111111-1111-4111-8111-111111111112';
+  const resolveCenterOrigin = vi.fn<IamService['resolveCenterOrigin']>();
+  const serviceForTest = () =>
+    new CatalogAccessService(
+      {} as Pool,
+      contextCrypto,
+      { resolveCenterOrigin } as unknown as IamService,
+      ['https://auth.example.test', 'https://dashboard.example.test'],
+    );
 
   beforeEach(() => {
     vi.resetAllMocks();
@@ -76,7 +85,7 @@ describe('CatalogAccessService', () => {
   it('preserves operational IAM errors instead of returning unauthenticated', async () => {
     const operationalError = new Error('database unavailable');
     databaseMocks.resolveIamAccess.mockRejectedValue(operationalError);
-    const service = new CatalogAccessService({} as Pool, contextCrypto);
+    const service = serviceForTest();
 
     await expect(
       service.authorized(
@@ -93,7 +102,7 @@ describe('CatalogAccessService', () => {
     databaseMocks.resolveIamAccess.mockRejectedValue(
       new IamAccessDeniedError('membership_missing_or_inactive'),
     );
-    const service = new CatalogAccessService({} as Pool, contextCrypto);
+    const service = serviceForTest();
 
     await expect(
       service.authorized(
@@ -150,7 +159,7 @@ describe('CatalogAccessService', () => {
       ) => action(unitOfWork, current),
     );
     databaseMocks.recordBookingCatalogMutation.mockResolvedValue(undefined);
-    const service = new CatalogAccessService({} as Pool, contextCrypto);
+    const service = serviceForTest();
 
     await expect(
       service.authorized(
@@ -188,4 +197,98 @@ describe('CatalogAccessService', () => {
       },
     );
   });
+
+  it.each([
+    ['AAAAAAAA-0001-4001-8001-000000000001', true],
+    ['AAAAAAAA-0001-4001-8001-000000000002', false],
+  ])(
+    'normalizes uppercase center UUID %s before comparing Origin scope (DIVE-IAM-REQ-032)',
+    async (requestedCenterId, allowed) => {
+      databaseMocks.resolveIamAccess.mockResolvedValue({
+        tenantId: '11111111-1111-1111-1111-111111111111',
+      });
+      resolveCenterOrigin.mockResolvedValue({
+        tenantId: '11111111-1111-1111-1111-111111111111',
+        centerId: 'aaaaaaaa-0001-4001-8001-000000000001',
+      });
+      const result = serviceForTest().assertCenterOriginScope(
+        await principal(),
+        'ctx_test',
+        requestedCenterId,
+        'https://alpha.app.example.test',
+      );
+      if (allowed) await expect(result).resolves.toBeUndefined();
+      else await expect(result).rejects.toMatchObject({ status: 404 });
+      expect(databaseMocks.withIamAuthorizedTenant).not.toHaveBeenCalled();
+      expect(databaseMocks.recordBookingCatalogMutation).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects a different center before entering a catalog transaction (DIVE-IAM-REQ-032)', async () => {
+    databaseMocks.resolveIamAccess.mockResolvedValue({
+      tenantId: '11111111-1111-1111-1111-111111111111',
+      roles: ['tenant_owner'],
+      centerIds: null,
+    });
+    resolveCenterOrigin.mockResolvedValue({
+      tenantId: '11111111-1111-1111-1111-111111111111',
+      centerId,
+    });
+    await expect(
+      serviceForTest().assertCenterOriginScope(
+        await principal(),
+        'ctx_test',
+        '11111111-1111-4111-8111-111111111199',
+        'https://alpha.app.example.test',
+      ),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(databaseMocks.withIamAuthorizedTenant).not.toHaveBeenCalled();
+    expect(databaseMocks.recordBookingCatalogMutation).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['11111111-1111-1111-1111-111111111111', true],
+    ['22222222-2222-2222-2222-222222222222', false],
+  ])(
+    'compares the mapped tenant with the handle tenant %s (DIVE-IAM-REQ-032)',
+    async (entryTenantId, allowed) => {
+      databaseMocks.resolveIamAccess.mockResolvedValue({
+        tenantId: '11111111-1111-1111-1111-111111111111',
+      });
+      resolveCenterOrigin.mockResolvedValue({
+        tenantId: entryTenantId,
+        centerId,
+      });
+      const result = serviceForTest().assertCenterOriginScope(
+        await principal(),
+        'ctx_test',
+        centerId,
+        'https://alpha.app.example.test',
+      );
+      if (allowed) await expect(result).resolves.toBeUndefined();
+      else await expect(result).rejects.toMatchObject({ status: 404 });
+      expect(databaseMocks.withIamAuthorizedTenant).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    undefined,
+    'https://auth.example.test',
+    'https://dashboard.example.test',
+  ])(
+    'keeps the existing catalog access boundary for Origin %s (DIVE-IAM-REQ-030..032)',
+    async (origin) => {
+      await expect(
+        serviceForTest().assertCenterOriginScope(
+          await principal(),
+          'ctx_test',
+          centerId,
+          origin,
+        ),
+      ).resolves.toBeUndefined();
+      expect(resolveCenterOrigin).not.toHaveBeenCalled();
+      expect(databaseMocks.resolveIamTenantContext).not.toHaveBeenCalled();
+      expect(databaseMocks.withIamAuthorizedTenant).not.toHaveBeenCalled();
+    },
+  );
 });

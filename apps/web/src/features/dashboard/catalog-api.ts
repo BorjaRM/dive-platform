@@ -5,6 +5,12 @@ export type LocalizedText = {
   en?: string;
 };
 
+export type CatalogLocale = 'es' | 'en';
+
+export type CatalogSettings = {
+  defaultActivityLocale: CatalogLocale | null;
+};
+
 export type ActivityStatus = 'Draft' | 'Published' | 'Disabled';
 
 export type SlotStatus = 'Available' | 'Full' | 'Closed' | 'Cancelled';
@@ -12,6 +18,7 @@ export type SlotStatus = 'Available' | 'Full' | 'Closed' | 'Cancelled';
 export type CatalogActivity = {
   id: string;
   status: ActivityStatus;
+  baseLocale: CatalogLocale;
   name: LocalizedText;
   description?: LocalizedText;
   defaultCapacity?: number;
@@ -111,6 +118,30 @@ function slotInputBody(input: CreateCatalogSlotInput) {
 
 export function createCatalogApi({ request }: { request: DashboardRequest }) {
   return {
+    getCatalogSettings: (
+      tenantContext: string,
+      centerId: string,
+      signal?: AbortSignal,
+    ) =>
+      request<CatalogSettings>(
+        `/v1/centers/${encodeURIComponent(centerId)}/catalog-settings`,
+        { context: tenantContext, signal },
+      ),
+    selectCatalogLanguage: (
+      tenantContext: string,
+      centerId: string,
+      defaultActivityLocale: CatalogLocale,
+      signal?: AbortSignal,
+    ) =>
+      request<void>(
+        `/v1/centers/${encodeURIComponent(centerId)}/catalog-settings`,
+        {
+          method: 'PUT',
+          context: tenantContext,
+          body: { defaultActivityLocale },
+          signal,
+        },
+      ),
     listActivities: (
       tenantContext: string,
       centerId: string,

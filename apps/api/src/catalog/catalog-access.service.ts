@@ -19,13 +19,17 @@ import type { Pool } from 'pg';
 import { DATABASE_POOL } from '../common/database/database.tokens.js';
 import type { TenantContextCrypto } from '../common/tenant-context/tenant-context.crypto.js';
 import { TENANT_CONTEXT_CRYPTO } from '../common/tenant-context/tenant-context.tokens.js';
+import { IamService } from '../iam/iam.facade.js';
 import { CatalogProblemException } from './catalog.errors.js';
 import { validateCatalogTimeZone } from './catalog.time.js';
 import { uuid } from './catalog.validation.js';
 
+export const CATALOG_DASHBOARD_ORIGINS = Symbol('CATALOG_DASHBOARD_ORIGINS');
+
 export type CatalogPermission =
   | 'booking_service.create'
   | 'booking_service.read'
+  | 'booking_service.update'
   | 'booking_service.publish'
   | 'availability.read'
   | 'availability.manage'
@@ -33,16 +37,16 @@ export type CatalogPermission =
 
 type CatalogMutationInput = Readonly<{
   action: 'booking.create' | 'booking.update';
-  eventType: string;
-  resourceType: 'activity' | 'slot' | 'channel';
+  eventType: string | null;
+  resourceType: 'activity' | 'slot' | 'channel' | 'catalog_settings';
   resourceId: string;
   payload: Record<string, unknown>;
-  idempotencyKey: string;
+  idempotencyKey: string | null;
 }>;
 
 type CatalogAuthorizedScope = Readonly<{
   context: IamAccessContext;
-  center: Readonly<{ timeZone: string | null }>;
+  center: Readonly<{ id: string; timeZone: string | null }>;
   db: TenantUnitOfWork['db'];
   recordMutation(input: CatalogMutationInput): Promise<void>;
 }>;
@@ -53,7 +57,29 @@ export class CatalogAccessService {
     @Inject(DATABASE_POOL) private readonly pool: Pool,
     @Inject(TENANT_CONTEXT_CRYPTO)
     private readonly contextCrypto: TenantContextCrypto,
+    @Inject(IamService) private readonly iam: IamService,
+    @Inject(CATALOG_DASHBOARD_ORIGINS)
+    private readonly dashboardOrigins: readonly string[],
   ) {}
+
+  async assertCenterOriginScope(
+    principal: AuthenticatedPrincipal,
+    handle: string | undefined,
+    requestedCenterId: string,
+    origin: string | undefined,
+  ): Promise<void> {
+    if (origin === undefined || this.dashboardOrigins.includes(origin)) return;
+    const normalizedCenterId = uuid(requestedCenterId, 'centerId');
+    const context = await this.context(principal, handle);
+    const entry = await this.iam.resolveCenterOrigin(origin);
+    if (
+      !entry ||
+      entry.tenantId !== context.tenantId ||
+      entry.centerId !== normalizedCenterId
+    ) {
+      throw new CatalogProblemException(404, 'resource_not_found');
+    }
+  }
 
   private async context(
     principal: AuthenticatedPrincipal,
@@ -76,11 +102,11 @@ export class CatalogAccessService {
   async authorized<T>(
     principal: AuthenticatedPrincipal,
     handle: string | undefined,
-    centerId: string,
+    requestedCenterId: string,
     permission: CatalogPermission,
     action: (scope: CatalogAuthorizedScope) => Promise<T>,
   ): Promise<T> {
-    const normalizedCenterId = uuid(centerId, 'centerId');
+    const normalizedCenterId = uuid(requestedCenterId, 'centerId');
     const context = await this.context(principal, handle);
     return withIamAuthorizedTenant(
       this.pool,
@@ -120,7 +146,10 @@ export class CatalogAccessService {
         return action(
           Object.freeze({
             context: current,
-            center: Object.freeze({ timeZone: center[0].timeZone }),
+            center: Object.freeze({
+              id: center[0].id,
+              timeZone: center[0].timeZone,
+            }),
             db: unitOfWork.db,
             recordMutation: (input: CatalogMutationInput) =>
               this.recordMutation(unitOfWork, current, input),

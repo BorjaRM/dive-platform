@@ -4,12 +4,47 @@ import {
   pagination,
   parseCatalogActivityInput,
   parseCatalogListQueryInput,
+  parseCatalogSettingsInput,
   parseCatalogSlotInput,
   positiveInteger,
   uuid,
 } from './catalog.validation.js';
 
 describe('catalog runtime validation', () => {
+  it.each(['es', 'en'] as const)(
+    'accepts explicit center catalog language %s (DIVE-BOOK-REQ-009, 050)',
+    (defaultActivityLocale) => {
+      expect(parseCatalogSettingsInput({ defaultActivityLocale })).toEqual({
+        defaultActivityLocale,
+      });
+    },
+  );
+
+  it.each([
+    null,
+    [],
+    {},
+    { defaultActivityLocale: null },
+    { defaultActivityLocale: 'fr' },
+    { defaultActivityLocale: 'ES' },
+    { defaultActivityLocale: ' es ' },
+    { defaultActivityLocale: 'es', tenantId: 'untrusted' },
+    { defaultActivityLocale: 'en', centerId: 'untrusted' },
+  ])(
+    'rejects invalid catalog settings without a default (DIVE-BOOK-REQ-056)',
+    (input) => {
+      expect(() => parseCatalogSettingsInput(input)).toThrow(
+        CatalogProblemException,
+      );
+    },
+  );
+
+  it('rejects per-activity language selection (DIVE-BOOK-REQ-051)', () => {
+    expect(() =>
+      parseCatalogActivityInput({ baseLocale: 'es', name: { es: 'Buceo' } }),
+    ).toThrow(CatalogProblemException);
+  });
+
   it('normalizes valid activity input and rejects unsupported fields', () => {
     expect(
       parseCatalogActivityInput({

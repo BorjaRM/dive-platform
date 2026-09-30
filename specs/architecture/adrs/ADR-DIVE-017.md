@@ -1,7 +1,7 @@
 # ADR-DIVE-017 - Center-entry mappings, origins, and application hosts
 
 - **Status:** Ready to start
-- **Version:** 0.1
+- **Version:** 0.4
 - **Date:** 2026-09-30
 - **Deciders:** Product / Security / Architecture
 - **Approval reference:** Unchanged decisions extracted from ADR-DIVE-008 v0.14 at commit `86e9d97`; original explicit approvals 2026-09-27 and 2026-09-29 retained. Structural division requested 2026-09-30; no new promotion.
@@ -86,6 +86,8 @@ Success returns once:
 
 `tenantContext` is the same tenant-scoped handle issued by `POST /v1/me/tenant-contexts`. `centerId` is used in product paths after bootstrap. `centerRef` is not reused as the product resource identifier. The handle remains tenant-scoped; center-application product operations are center-scoped in their paths and must not aggregate other centers.
 
+**Documented:** [SPEC-DIVE-IAM-DASHBOARD-001, authorization capability and application scope](../../iam/SPEC-DIVE-IAM-DASHBOARD-001.md#authorization-capability-and-application-scope) owns the explicitly confirmed current product restriction and future permission-checked multi-center direction for `DIVE-IAM-REQ-032`, recorded as Documented from the product-owner confirmation on 2026-09-30. Its [open implementation questions](../../iam/SPEC-DIVE-IAM-DASHBOARD-001.md#implementation-questions-and-current-limits) remain visible for future work. This pointer does not change the tenant-handle or center-entry lifecycle decisions, activate an administrative surface, or claim that the existing Origin guard enforces the restriction application-wide.
+
 Issuance requires the active membership to have current scope for the resolved center and the existing stable `center.read` permission. This check does not make the handle center-scoped: every later request still revalidates its own permission, center scope, resource, and state.
 
 The endpoint MUST NOT accept `operatorRef`, `tenantId`, a separate `centerKey`, or another tenant/center selector in body, query, or path. It MUST NOT return other operators or centers. `GET /v1/me/operators` is not part of the center-application journey.
@@ -158,6 +160,30 @@ Wildcard DNS/TLS for `*.app.<domain>` does not authorize wildcard CORS. Creating
 Each environment has one authentication host, distinct from center-application subdomains. `AUTHENTICATION_ORIGIN` is its exact HTTPS origin. Unauthenticated visitors of `https://<centerKey>.app.<domain>` are sent to that host and, after a successful Clerk session, return to the same center URL. Center subdomains are not each registered as a separate Clerk application.
 
 One Next.js application build and deployment serves that authentication host and the canonical `*.app.<domain>` center hosts. Request-host routing may select the authentication or center presentation, but it MUST first validate the host against `AUTHENTICATION_ORIGIN` or the configured center-domain shape and active mapping. Unknown hosts fail closed and MUST NOT render another center or the authentication surface. This deployment choice does not make `Host` authoritative and does not create a Clerk application per center.
+
+#### Clerk satellite configuration: pending deployment review
+
+**Documented implementation observation, 2026-09-30:** [the current application layout](../../../apps/web/src/app/(application)/layout.tsx) sets `isSatellite: true` and `domain` to each center hostname, without an explicit `proxyUrl` alternative. The installed `@clerk/shared@4.36.0` `parsePublishableKey` implementation, pinned by [the dependency lock](../../../pnpm-lock.yaml), resolves the production Frontend API to `clerk.<domain>` for that configuration. This is SDK address selection, not proof that Clerk, DNS or certificates are provisioned for the resulting address. Development-key behavior is different and cannot establish production readiness.
+
+**Derived, Draft review risk:** allocating a platform center hostname does not by itself provision the separate Clerk Frontend API hostname selected by this SDK configuration. Without working DNS/routing, TLS and Clerk instance/domain configuration, the operations application can load while authentication initialization or session synchronization fails. The same Clerk application can remain in use; this observation does not imply a separate Clerk application or tenant per center.
+
+**Derived, Draft illustrative example:** one operator has two centers. These `.example.test` names are examples only, not environment defaults or provisioned hosts.
+
+| Center | Operations application | Frontend API selected by the current production SDK configuration |
+|---|---|---|
+| Puerto | `https://puerto.app.example.test/dashboard` | `https://clerk.puerto.app.example.test` |
+| Bahia | `https://bahia.app.example.test/dashboard` | `https://clerk.bahia.app.example.test` |
+
+An ordinary wildcard TLS certificate for `*.app.example.test` covers `puerto.app.example.test` and `bahia.app.example.test`, but not `clerk.puerto.app.example.test` or `clerk.bahia.app.example.test`: those names have an extra label. DNS wildcard behavior and routing depend on the provider and zone records and need separate verification; the TLS limitation does not imply identical DNS wildcard semantics. Adding a center can therefore introduce an additional authentication-host provisioning dependency even though the operations build and operator are unchanged.
+
+**Proposed, Draft review questions; no solution approved or implemented:**
+
+- Does the selected Clerk production configuration support dynamically allocated center satellite domains, and what provisioning is required for each derived Frontend API hostname?
+- Which DNS/routing and TLS arrangement covers those names when a new center is allocated?
+- Is a supported common Frontend API/proxy configuration viable without changing the approved authentication-host, exact-origin and tenant/center boundaries?
+- How will environment activation demonstrate login, return to the same center and session synchronization for more than one center?
+
+**Documented scope boundary:** the product-owner request on 2026-09-30 authorizes documenting this problem and an example for review, explicitly not changing this satellite configuration yet. The existing approved decisions and artifact status are unchanged; the questions above remain open and do not grant deployment readiness.
 
 #### Environment namespace
 

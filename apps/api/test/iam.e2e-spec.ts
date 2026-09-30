@@ -14,6 +14,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app/app.module.js';
 import { DATABASE_POOL } from '../src/common/database/database.tokens.js';
 import { SECURITY_LOGGER } from '../src/common/security/security.tokens.js';
+import { dashboardCorsOriginsFromEnvironment } from '../src/common/tenant-context/tenant-context.crypto.js';
 import { legacyDashboardCenterPath } from './legacy-dashboard-routes.js';
 
 function testDatabaseUrl(
@@ -184,6 +185,19 @@ describe('IAM/API vertical (e2e)', () => {
     return handle;
   }
 
+  async function selectCatalogLanguage(
+    token: string,
+    centerId: string,
+    defaultActivityLocale: 'es' | 'en',
+  ) {
+    await request(app.getHttpServer())
+      .put(`/v1/centers/${centerId}/catalog-settings`)
+      .set('authorization', `Bearer ${token}`)
+      .set('x-tenant-context', await contextFor(token))
+      .send({ defaultActivityLocale })
+      .expect(204);
+  }
+
   async function seedImmediatePublicSlot(input: {
     capacity: number;
     publicId: string;
@@ -193,8 +207,8 @@ describe('IAM/API vertical (e2e)', () => {
     const channelId = randomUUID();
     await admin.query(
       `INSERT INTO booking_app.activities
-       (id, tenant_id, center_id, name, status)
-       VALUES ($1, $2, $3, '{"es":"Buceo","en":"Diving"}'::jsonb, 'Published')`,
+      (id, tenant_id, center_id, base_locale, name, status)
+      VALUES ($1, $2, $3, 'es', '{"es":"Buceo","en":"Diving"}'::jsonb, 'Published')`,
       [activityId, tenantA, centerA1],
     );
     await admin.query(
@@ -471,6 +485,246 @@ describe('IAM/API vertical (e2e)', () => {
         statusCode: 403,
       });
     }
+  });
+
+  it.each(['owner-a-token', 'manager-a-token'])(
+    'binds center-application catalog scope to Origin for %s (DIVE-IAM-REQ-032)',
+    async (token) => {
+      await admin.query(
+        `UPDATE iam_app.memberships SET center_ids=ARRAY[$1::uuid,$2::uuid] WHERE id=$3`,
+        [centerA1, centerA2, membershipManagerA],
+      );
+      const issued = await request(app.getHttpServer())
+        .post('/v1/me/center-entry-contexts')
+        .set('authorization', `Bearer ${token}`)
+        .set('origin', 'https://alpha.app.example.test')
+        .send({ centerRef: 'alpha' })
+        .expect(201);
+      const headers = {
+        authorization: `Bearer ${token}`,
+        'x-tenant-context': issued.body.tenantContext,
+        origin: 'https://alpha.app.example.test',
+      };
+      await request(app.getHttpServer())
+        .get(`/v1/centers/${centerA1}/catalog-settings`)
+        .set(headers)
+        .expect(200);
+      await request(app.getHttpServer())
+        .get(`/v1/centers/${centerA1.toUpperCase()}/catalog-settings`)
+        .set(headers)
+        .expect(200);
+      await request(app.getHttpServer())
+        .put(`/v1/centers/${centerA1}/catalog-settings`)
+        .set(headers)
+        .send({ defaultActivityLocale: 'es' })
+        .expect(204);
+      const ownActivity = await request(app.getHttpServer())
+        .post(`/v1/centers/${centerA1}/activities`)
+        .set(headers)
+        .send({ name: { es: 'Origin-bound activity' } })
+        .expect(201);
+      await request(app.getHttpServer())
+        .get(`/v1/centers/${centerA1}/activities`)
+        .set(headers)
+        .expect(200);
+      await request(app.getHttpServer())
+        .patch(
+          `/v1/centers/${centerA1}/activities/${ownActivity.body.id}/publish`,
+        )
+        .set(headers)
+        .expect(204);
+      await request(app.getHttpServer())
+        .post(`/v1/centers/${centerA1}/activities/${ownActivity.body.id}/slots`)
+        .set(headers)
+        .send({
+          startsAt: '2030-10-01T10:00:00Z',
+          durationMinutes: 60,
+          capacity: 4,
+        })
+        .expect(201);
+      await request(app.getHttpServer())
+        .get(`/v1/centers/${centerA1}/activities/${ownActivity.body.id}/slots`)
+        .set(headers)
+        .expect(200);
+
+      const foreignResources = [];
+      for (const [tenantId, centerId, actor] of [
+        [tenantA, centerA2, 'owner-a-token'],
+        [tenantB, centerB1, 'member-b-token'],
+      ] as const) {
+        await selectCatalogLanguage(actor, centerId, 'es');
+        const activityId = randomUUID();
+        const slotId = randomUUID();
+        const channelId = randomUUID();
+        await admin.query(
+          `INSERT INTO booking_app.activities (id,tenant_id,center_id,base_locale,name,status)
+           VALUES ($1,$2,$3,'es','{"es":"Foreign activity"}'::jsonb,'Published')`,
+          [activityId, tenantId, centerId],
+        );
+        await admin.query(
+          `INSERT INTO booking_app.slots (id,tenant_id,center_id,activity_id,starts_at,duration_minutes,capacity,status)
+           VALUES ($1,$2,$3,$4,'2030-10-01T10:00:00Z',60,4,'Available')`,
+          [slotId, tenantId, centerId, activityId],
+        );
+        await admin.query(
+          `INSERT INTO booking_app.channels (id,tenant_id,center_id,public_id,type,activity_id,status,confirmation_mode,allowed_origins)
+           VALUES ($1,$2,$3,$4,'single_activity',$5,'Published','immediate',ARRAY['https://a.example.test'])`,
+          [channelId, tenantId, centerId, randomUUID(), activityId],
+        );
+        foreignResources.push({ centerId, activityId, slotId, channelId });
+      }
+      const snapshot = () =>
+        admin.query(`SELECT jsonb_build_object(
+          'settings', (SELECT jsonb_agg(to_jsonb(settings) ORDER BY center_id) FROM booking_app.catalog_settings settings),
+          'activities', (SELECT jsonb_agg(to_jsonb(activities) ORDER BY id) FROM booking_app.activities activities),
+          'slots', (SELECT jsonb_agg(to_jsonb(slots) ORDER BY id) FROM booking_app.slots slots),
+          'channels', (SELECT jsonb_agg(to_jsonb(channels) ORDER BY id) FROM booking_app.channels channels),
+          'audit', (SELECT jsonb_agg(to_jsonb(audit) ORDER BY id) FROM iam_app.audit_records audit),
+          'outbox', (SELECT jsonb_agg(to_jsonb(outbox) ORDER BY id) FROM iam_app.outbox_events outbox)
+        ) AS state`);
+      const before = await snapshot();
+      for (const {
+        centerId,
+        activityId,
+        slotId,
+        channelId,
+      } of foreignResources) {
+        const root = `/v1/centers/${centerId}`;
+        const operations = [
+          ['get', 'catalog-settings', undefined],
+          ['put', 'catalog-settings', { defaultActivityLocale: 'es' }],
+          ['get', 'activities', undefined],
+          ['post', 'activities', { name: { es: 'Denied activity' } }],
+          ['patch', `activities/${activityId}/publish`, undefined],
+          ['patch', `activities/${activityId}/disable`, undefined],
+          ['get', `activities/${activityId}/slots`, undefined],
+          [
+            'post',
+            `activities/${activityId}/slots`,
+            {
+              startsAt: '2030-10-01T11:00:00Z',
+              durationMinutes: 60,
+              capacity: 4,
+            },
+          ],
+          ['patch', `slots/${slotId}/close`, undefined],
+          ['patch', `slots/${slotId}/cancel`, undefined],
+          [
+            'patch',
+            `channels/${channelId}`,
+            { confirmationMode: 'staff_approval' },
+          ],
+        ] as const;
+        for (const [method, path, input] of operations) {
+          const pending = request(app.getHttpServer())
+            [method](`${root}/${path}`)
+            .set(headers);
+          if (input) pending.send(input);
+          const denied = await pending.expect(404);
+          expect(denied.body.code).toBe('resource_not_found');
+          expect(denied.headers['content-type']).toMatch(
+            /^application\/problem\+json/,
+          );
+          const response = JSON.stringify(denied.body);
+          for (const sensitive of [
+            centerId,
+            activityId,
+            slotId,
+            channelId,
+            tenantA,
+            tenantB,
+            'alpha',
+          ]) {
+            expect(response).not.toContain(sensitive);
+          }
+        }
+      }
+      expect((await snapshot()).rows).toEqual(before.rows);
+    },
+  );
+
+  it('denies invalid and unknown catalog Origins without disclosure or effects (DIVE-IAM-REQ-032)', async () => {
+    const handle = await contextFor('owner-a-token');
+    for (const origin of [
+      '',
+      'null',
+      'not-an-origin',
+      'http://alpha.app.example.test',
+      'https://alpha.app.example.test/path',
+      'https://alpha.app.example.test.attacker.test',
+      'https://unknown.app.example.test',
+    ]) {
+      for (const centerId of [centerA1, centerB1, randomUUID()]) {
+        const denied = await request(app.getHttpServer())
+          .put(`/v1/centers/${centerId}/catalog-settings`)
+          .set('authorization', 'Bearer owner-a-token')
+          .set('x-tenant-context', handle)
+          .set('origin', origin)
+          .send({ defaultActivityLocale: 'es' })
+          .expect(404);
+        expect(denied.body.code).toBe('resource_not_found');
+        const response = JSON.stringify(denied.body);
+        expect(response).not.toContain(centerId);
+        expect(response).not.toContain(tenantA);
+        expect(response).not.toContain('alpha');
+      }
+    }
+    const effects = await admin.query(`SELECT
+      (SELECT count(*)::int FROM booking_app.catalog_settings) AS settings,
+      (SELECT count(*)::int FROM iam_app.audit_records) AS audit,
+      (SELECT count(*)::int FROM iam_app.outbox_events) AS outbox`);
+    expect(effects.rows).toEqual([{ settings: 0, audit: 0, outbox: 0 }]);
+  });
+
+  it('preserves general Origins and no-Origin product scopes after entry disable (DIVE-IAM-REQ-030..032)', async () => {
+    const issued = await request(app.getHttpServer())
+      .post('/v1/me/center-entry-contexts')
+      .set('authorization', 'Bearer owner-a-token')
+      .set('origin', 'https://alpha.app.example.test')
+      .send({ centerRef: 'alpha' })
+      .expect(201);
+    const headers = {
+      authorization: 'Bearer owner-a-token',
+      'x-tenant-context': issued.body.tenantContext,
+    };
+    await request(app.getHttpServer())
+      .patch(`/v1/centers/${centerA1}/entry-status`)
+      .set(headers)
+      .send({
+        status: 'disabled',
+        purpose: 'Test preserved tenant-scoped handle',
+      })
+      .expect(200);
+    for (const origin of [
+      undefined,
+      ...dashboardCorsOriginsFromEnvironment(process.env),
+    ]) {
+      for (const centerId of [centerA1, centerA2]) {
+        const pending = request(app.getHttpServer())
+          .put(`/v1/centers/${centerId}/catalog-settings`)
+          .set(headers)
+          .send({ defaultActivityLocale: 'es' });
+        if (origin) pending.set('origin', origin);
+        await pending.expect(204);
+      }
+      const foreign = request(app.getHttpServer())
+        .get(`/v1/centers/${centerB1}/catalog-settings`)
+        .set(headers);
+      if (origin) foreign.set('origin', origin);
+      await foreign.expect(404);
+      const scoped = request(app.getHttpServer())
+        .get(`/v1/centers/${centerA2}/catalog-settings`)
+        .set('authorization', 'Bearer manager-a-token')
+        .set('x-tenant-context', await contextFor('manager-a-token'));
+      if (origin) scoped.set('origin', origin);
+      await scoped.expect(404);
+    }
+    await request(app.getHttpServer())
+      .post('/v1/me/center-entry-contexts')
+      .set('authorization', 'Bearer owner-a-token')
+      .set('origin', 'https://alpha.app.example.test')
+      .send({ centerRef: 'alpha' })
+      .expect(403);
   });
 
   it('lets tenant administrators disable and re-enable an entry without changing its key (DIVE-IAM-REQ-003, DIVE-IAM-REQ-023, DIVE-IAM-REQ-025, MT-REQ-010)', async () => {
@@ -1141,10 +1395,10 @@ describe('IAM/API vertical (e2e)', () => {
     const channelB = randomUUID();
     await admin.query(
       `INSERT INTO booking_app.activities
-       (id, tenant_id, center_id, name, status)
+       (id, tenant_id, center_id, base_locale, name, status)
        VALUES
-         ($1, $2, $3, '{"es":"Buceo","en":"Diving"}'::jsonb, 'Published'),
-         ($4, $5, $6, '{"es":"Buceo B","en":"Diving B"}'::jsonb, 'Published')`,
+         ($1, $2, $3, 'es', '{"es":"Buceo","en":"Diving"}'::jsonb, 'Published'),
+         ($4, $5, $6, 'es', '{"es":"Buceo B","en":"Diving B"}'::jsonb, 'Published')`,
       [activityA, tenantA, centerA1, activityB, tenantB, centerB1],
     );
     await admin.query(
@@ -1658,7 +1912,317 @@ describe('IAM/API vertical (e2e)', () => {
     }
   }, 10_000);
 
+  it.each(['es', 'en'] as const)(
+    'selects initial catalog language %s and inherits it without copied translations (DIVE-BOOK-REQ-009, 050..056)',
+    async (defaultActivityLocale) => {
+      const headers = {
+        authorization: 'Bearer owner-a-token',
+        'x-tenant-context': await contextFor('owner-a-token'),
+      };
+      const path = `/v1/centers/${centerA1}/catalog-settings`;
+      const name = { [defaultActivityLocale]: 'Diving' };
+      await request(app.getHttpServer())
+        .get(path)
+        .set(headers)
+        .expect(200)
+        .expect({ defaultActivityLocale: null });
+      const missing = await request(app.getHttpServer())
+        .post(`/v1/centers/${centerA1}/activities`)
+        .set(headers)
+        .send({ name })
+        .expect(409);
+      expect(missing.body.code).toBe('center_catalog_locale_not_configured');
+      for (const input of [
+        {},
+        { defaultActivityLocale: null },
+        { defaultActivityLocale: 'fr' },
+        { defaultActivityLocale, tenantId: tenantB },
+      ]) {
+        const invalid = await request(app.getHttpServer())
+          .put(path)
+          .set(headers)
+          .send(input)
+          .expect(422);
+        expect(invalid.body.code).toBe('validation_error');
+      }
+      await request(app.getHttpServer())
+        .put(path)
+        .set(headers)
+        .set('content-type', 'application/json')
+        .send('{"defaultActivityLocale":')
+        .expect(400);
+      await request(app.getHttpServer())
+        .put(path)
+        .set(headers)
+        .send({ defaultActivityLocale })
+        .expect(204);
+      await request(app.getHttpServer())
+        .put(path)
+        .set(headers)
+        .send({ defaultActivityLocale })
+        .expect(204);
+      const opposite = defaultActivityLocale === 'es' ? 'en' : 'es';
+      const locked = await request(app.getHttpServer())
+        .put(path)
+        .set(headers)
+        .send({ defaultActivityLocale: opposite })
+        .expect(409);
+      expect(locked.body.code).toBe('center_catalog_locale_locked');
+      expect(locked.headers['content-type']).toMatch(
+        /^application\/problem\+json/,
+      );
+      await request(app.getHttpServer())
+        .get(path)
+        .set(headers)
+        .expect(200)
+        .expect({ defaultActivityLocale });
+      await request(app.getHttpServer())
+        .post(`/v1/centers/${centerA1}/activities`)
+        .set(headers)
+        .send({ name: { [opposite]: 'Wrong language' } })
+        .expect(422);
+      await request(app.getHttpServer())
+        .post(`/v1/centers/${centerA1}/activities`)
+        .set(headers)
+        .send({ name, baseLocale: opposite })
+        .expect(422);
+      const activity = await request(app.getHttpServer())
+        .post(`/v1/centers/${centerA1}/activities`)
+        .set(headers)
+        .send({ name })
+        .expect(201);
+      expect(activity.body).toMatchObject({
+        baseLocale: defaultActivityLocale,
+        name,
+      });
+      expect(activity.body).not.toHaveProperty('description');
+      await request(app.getHttpServer())
+        .patch(`/v1/centers/${centerA1}/activities/${activity.body.id}/publish`)
+        .set(headers)
+        .expect(204);
+      const raw = await admin.query(
+        'SELECT base_locale, name, description FROM booking_app.activities WHERE tenant_id=$1 AND id=$2',
+        [tenantA, activity.body.id],
+      );
+      expect(raw.rows).toEqual([
+        { base_locale: defaultActivityLocale, name, description: null },
+      ]);
+      const list = await request(app.getHttpServer())
+        .get(`/v1/centers/${centerA1}/activities`)
+        .set(headers)
+        .expect(200);
+      expect(list.body.items[0]).toMatchObject({
+        baseLocale: defaultActivityLocale,
+        name,
+        status: 'Published',
+      });
+      const effects = await admin.query(
+        `SELECT (SELECT count(*)::int FROM iam_app.audit_records WHERE resource_type='catalog_settings') AS audit_count, (SELECT count(*)::int FROM iam_app.outbox_events) AS outbox_count`,
+      );
+      expect(effects.rows).toEqual([{ audit_count: 1, outbox_count: 2 }]);
+    },
+  );
+
+  it('enforces catalog settings permissions, current membership and non-disclosing center scope (DIVE-BOOK-REQ-050, 056, MT-REQ-010)', async () => {
+    const path = `/v1/centers/${centerA1}/catalog-settings`;
+    for (const method of ['get', 'put'] as const) {
+      await request(app.getHttpServer())
+        [method](path)
+        .send({ defaultActivityLocale: 'es' })
+        .expect(401);
+      await request(app.getHttpServer())
+        [method](path)
+        .set('authorization', 'Bearer owner-a-token')
+        .send({ defaultActivityLocale: 'es' })
+        .expect(401);
+    }
+    const auditorHeaders = {
+      authorization: 'Bearer auditor-a-token',
+      'x-tenant-context': await contextFor('auditor-a-token'),
+    };
+    await request(app.getHttpServer())
+      .get(path)
+      .set(auditorHeaders)
+      .expect(200);
+    await request(app.getHttpServer())
+      .put(path)
+      .set(auditorHeaders)
+      .send({ defaultActivityLocale: 'es' })
+      .expect(403);
+    const managerHeaders = {
+      authorization: 'Bearer manager-a-token',
+      'x-tenant-context': await contextFor('manager-a-token'),
+    };
+    for (const centerId of [centerA2, centerB1, randomUUID()]) {
+      for (const method of ['get', 'put'] as const) {
+        const denied = await request(app.getHttpServer())
+          [method](`/v1/centers/${centerId}/catalog-settings`)
+          .set(managerHeaders)
+          .send({ defaultActivityLocale: 'es' })
+          .expect(404);
+        expect(denied.body.code).toBe('resource_not_found');
+      }
+    }
+    await request(app.getHttpServer())
+      .put(path)
+      .set(managerHeaders)
+      .send({ defaultActivityLocale: 'en' })
+      .expect(204);
+    await admin.query(
+      `UPDATE iam_app.memberships SET roles=ARRAY['reception_booking_manager'] WHERE tenant_id=$1 AND id=$2`,
+      [tenantA, membershipManagerA],
+    );
+    await request(app.getHttpServer())
+      .get(path)
+      .set(managerHeaders)
+      .expect(200)
+      .expect({ defaultActivityLocale: 'en' });
+    await request(app.getHttpServer())
+      .put(path)
+      .set(managerHeaders)
+      .send({ defaultActivityLocale: 'en' })
+      .expect(403);
+  });
+
+  it.each([
+    ['es', 'es'],
+    ['es', 'en'],
+  ] as const)(
+    'serializes concurrent initial selections %s/%s without duplicate audit (DIVE-BOOK-REQ-009, 050)',
+    async (firstLocale, secondLocale) => {
+      const headers = {
+        authorization: 'Bearer owner-a-token',
+        'x-tenant-context': await contextFor('owner-a-token'),
+      };
+      const blocker = await admin.connect();
+      const pending: Promise<request.Response>[] = [];
+      try {
+        await blocker.query('BEGIN');
+        await blocker.query(
+          'LOCK TABLE booking_app.catalog_settings IN SHARE MODE',
+        );
+        const pid = (await blocker.query('SELECT pg_backend_pid() AS pid'))
+          .rows[0].pid;
+        for (const defaultActivityLocale of [firstLocale, secondLocale]) {
+          pending.push(
+            request(app.getHttpServer())
+              .put(`/v1/centers/${centerA1}/catalog-settings`)
+              .set(headers)
+              .send({ defaultActivityLocale })
+              .then((response) => response),
+          );
+        }
+        await waitForBlockedBackends(pid, 2);
+        await blocker.query('COMMIT');
+        const responses = await Promise.all(pending);
+        expect(responses.map(({ status }) => status).sort()).toEqual(
+          firstLocale === secondLocale ? [204, 204] : [204, 409],
+        );
+        const selected = await admin.query(
+          'SELECT default_activity_locale FROM booking_app.catalog_settings WHERE tenant_id=$1 AND center_id=$2',
+          [tenantA, centerA1],
+        );
+        expect(selected.rows).toEqual([
+          {
+            default_activity_locale:
+              responses[0]?.status === 204 ? firstLocale : secondLocale,
+          },
+        ]);
+        const audits = await admin.query(
+          `SELECT count(*)::int AS count FROM iam_app.audit_records WHERE resource_type='catalog_settings'`,
+        );
+        expect(audits.rows).toEqual([{ count: 1 }]);
+      } finally {
+        await blocker.query('ROLLBACK');
+        await Promise.allSettled(pending);
+        blocker.release();
+      }
+    },
+    10_000,
+  );
+
+  it('rejects creation during uncommitted language selection and allows retry after commit (DIVE-BOOK-REQ-009, 051, MT-REQ-007)', async () => {
+    const headers = {
+      authorization: 'Bearer owner-a-token',
+      'x-tenant-context': await contextFor('owner-a-token'),
+    };
+    const blocker = await admin.connect();
+    let pending: Promise<request.Response> | undefined;
+    await admin.query(
+      `CREATE FUNCTION iam_app.test_block_catalog_selection() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.resource_type='catalog_settings' THEN PERFORM pg_advisory_xact_lock(73910455); END IF; RETURN NEW; END $$; CREATE TRIGGER test_block_catalog_selection BEFORE INSERT ON iam_app.audit_records FOR EACH ROW EXECUTE FUNCTION iam_app.test_block_catalog_selection();`,
+    );
+    try {
+      await blocker.query('BEGIN');
+      await blocker.query('SELECT pg_advisory_xact_lock(73910455)');
+      const pid = (await blocker.query('SELECT pg_backend_pid() AS pid'))
+        .rows[0].pid;
+      pending = request(app.getHttpServer())
+        .put(`/v1/centers/${centerA1}/catalog-settings`)
+        .set(headers)
+        .send({ defaultActivityLocale: 'en' })
+        .then((response) => response);
+      await waitForBlockedBackends(pid, 1);
+      const missing = await request(app.getHttpServer())
+        .post(`/v1/centers/${centerA1}/activities`)
+        .set(headers)
+        .send({ name: { en: 'Diving' } })
+        .expect(409);
+      expect(missing.body.code).toBe('center_catalog_locale_not_configured');
+      await request(app.getHttpServer())
+        .get(`/v1/centers/${centerA1}/catalog-settings`)
+        .set(headers)
+        .expect(200)
+        .expect({ defaultActivityLocale: null });
+      await blocker.query('COMMIT');
+      expect((await pending).status).toBe(204);
+      const created = await request(app.getHttpServer())
+        .post(`/v1/centers/${centerA1}/activities`)
+        .set(headers)
+        .send({ name: { en: 'Diving' } })
+        .expect(201);
+      expect(created.body.baseLocale).toBe('en');
+    } finally {
+      await blocker.query('ROLLBACK');
+      if (pending) await Promise.allSettled([pending]);
+      blocker.release();
+      await admin.query(
+        'DROP TRIGGER test_block_catalog_selection ON iam_app.audit_records; DROP FUNCTION iam_app.test_block_catalog_selection();',
+      );
+    }
+  }, 10_000);
+
+  it('rolls back initial catalog selection when audit fails (DIVE-BOOK-REQ-009, MT-REQ-007)', async () => {
+    const headers = {
+      authorization: 'Bearer owner-a-token',
+      'x-tenant-context': await contextFor('owner-a-token'),
+    };
+    await admin.query(
+      `CREATE FUNCTION iam_app.test_reject_catalog_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.resource_type='catalog_settings' THEN RAISE EXCEPTION 'test audit failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER test_reject_catalog_audit BEFORE INSERT ON iam_app.audit_records FOR EACH ROW EXECUTE FUNCTION iam_app.test_reject_catalog_audit();`,
+    );
+    try {
+      await request(app.getHttpServer())
+        .put(`/v1/centers/${centerA1}/catalog-settings`)
+        .set(headers)
+        .send({ defaultActivityLocale: 'es' })
+        .expect(500);
+      await request(app.getHttpServer())
+        .get(`/v1/centers/${centerA1}/catalog-settings`)
+        .set(headers)
+        .expect(200)
+        .expect({ defaultActivityLocale: null });
+      const effects = await admin.query(
+        `SELECT (SELECT count(*)::int FROM iam_app.audit_records WHERE resource_type='catalog_settings') AS audit_count, (SELECT count(*)::int FROM iam_app.outbox_events) AS outbox_count`,
+      );
+      expect(effects.rows).toEqual([{ audit_count: 0, outbox_count: 0 }]);
+    } finally {
+      await admin.query(
+        'DROP TRIGGER test_reject_catalog_audit ON iam_app.audit_records; DROP FUNCTION iam_app.test_reject_catalog_audit();',
+      );
+    }
+  });
+
   it('implements the center-scoped catalog lifecycle and instant filters (DIVE-BOOK-REQ-049..057)', async () => {
+    await selectCatalogLanguage('owner-a-token', centerA1, 'es');
     const authorization = 'Bearer owner-a-token';
     const tenantContext = await contextFor('owner-a-token');
     const catalogHeaders = {
@@ -1686,11 +2250,10 @@ describe('IAM/API vertical (e2e)', () => {
       .expect(201);
     expect(incomplete.body.status).toBe('Draft');
 
-    const incompletePublish = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .patch(`/v1/centers/${centerA1}/activities/${incomplete.body.id}/publish`)
       .set(catalogHeaders)
-      .expect(422);
-    expect(incompletePublish.body.code).toBe('validation_error');
+      .expect(204);
 
     const activity = await request(app.getHttpServer())
       .post(`/v1/centers/${centerA1}/activities`)
@@ -1723,10 +2286,9 @@ describe('IAM/API vertical (e2e)', () => {
       .set(catalogHeaders)
       .query({ status: 'Draft' })
       .expect(200);
-    expect(draftActivities.body.items).toHaveLength(2);
+    expect(draftActivities.body.items).toHaveLength(1);
     expect(draftActivities.body.items).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: incomplete.body.id, status: 'Draft' }),
         expect.objectContaining({ id: activity.body.id, status: 'Draft' }),
       ]),
     );
@@ -1861,7 +2423,7 @@ describe('IAM/API vertical (e2e)', () => {
        ORDER BY audit.created_at, audit.id`,
       [tenantA],
     );
-    expect(evidence.rows).toHaveLength(7);
+    expect(evidence.rows).toHaveLength(8);
     expect(
       evidence.rows.every(
         (row) => row.audit_correlation === row.outbox_correlation,
@@ -1871,6 +2433,7 @@ describe('IAM/API vertical (e2e)', () => {
   });
 
   it('disables an activity idempotently without cancelling existing slots', async () => {
+    await selectCatalogLanguage('owner-a-token', centerA1, 'es');
     const catalogHeaders = {
       authorization: 'Bearer owner-a-token',
       'x-tenant-context': await contextFor('owner-a-token'),
@@ -1925,6 +2488,7 @@ describe('IAM/API vertical (e2e)', () => {
   });
 
   it('rejects incompatible activity and slot transitions while allowing idempotent commands', async () => {
+    await selectCatalogLanguage('owner-a-token', centerA1, 'es');
     const catalogHeaders = {
       authorization: 'Bearer owner-a-token',
       'x-tenant-context': await contextFor('owner-a-token'),
@@ -1989,6 +2553,7 @@ describe('IAM/API vertical (e2e)', () => {
   });
 
   it('serializes disabling an activity with slot creation (DIVE-BOOK-REQ-052..053)', async () => {
+    await selectCatalogLanguage('owner-a-token', centerA1, 'es');
     const catalogHeaders = {
       authorization: 'Bearer owner-a-token',
       'x-tenant-context': await contextFor('owner-a-token'),
@@ -2039,6 +2604,7 @@ describe('IAM/API vertical (e2e)', () => {
   });
 
   it('enforces catalog context, permission, and date-range validation', async () => {
+    await selectCatalogLanguage('owner-a-token', centerA1, 'es');
     await request(app.getHttpServer())
       .get(`/v1/centers/${centerA1}/activities`)
       .set('authorization', 'Bearer owner-a-token')
@@ -2081,14 +2647,15 @@ describe('IAM/API vertical (e2e)', () => {
   });
 
   it('keeps catalog pagination and resources tenant-scoped', async () => {
+    await selectCatalogLanguage('member-b-token', centerB1, 'es');
     const ownerHeaders = {
       authorization: 'Bearer owner-a-token',
       'x-tenant-context': await contextFor('owner-a-token'),
     };
     await admin.query(
       `INSERT INTO booking_app.activities
-       (id, tenant_id, center_id, name, status)
-       SELECT gen_random_uuid(), $1, $2, jsonb_build_object('es', 'Actividad ' || n), 'Draft'
+      (id, tenant_id, center_id, base_locale, name, status)
+      SELECT gen_random_uuid(), $1, $2, 'es', jsonb_build_object('es', 'Actividad ' || n), 'Draft'
       FROM generate_series(1, 21) AS series(n)`,
       [tenantA, centerA1],
     );

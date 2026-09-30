@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { bookingActivities } from '@dive-center/database';
+import {
+  bookingActivities,
+  bookingCatalogSettings,
+} from '@dive-center/database';
 import type { AuthenticatedPrincipal } from '@dive-center/identity';
 import { Inject, Injectable } from '@nestjs/common';
 import type { InferSelectModel } from 'drizzle-orm';
@@ -37,6 +40,7 @@ export class ActivityCatalogService {
     return {
       id: row.id,
       status: row.status,
+      baseLocale: row.baseLocale,
       name: row.name,
       ...(row.description ? { description: row.description } : {}),
       ...(row.defaultCapacity === null
@@ -57,7 +61,7 @@ export class ActivityCatalogService {
       handle,
       centerId,
       'booking_service.read',
-      async ({ context, db }) => {
+      async ({ context, center, db }) => {
         const { page, pageSize, offset } = pagination(query);
         const status = statusFilter(query.status, [
           'Draft',
@@ -70,7 +74,7 @@ export class ActivityCatalogService {
           .where(
             and(
               eq(bookingActivities.tenantId, context.tenantId),
-              eq(bookingActivities.centerId, centerId),
+              eq(bookingActivities.centerId, center.id),
               status ? eq(bookingActivities.status, status) : undefined,
             ),
           )
@@ -102,7 +106,7 @@ export class ActivityCatalogService {
       handle,
       centerId,
       'booking_service.create',
-      async ({ context, db, recordMutation }) => {
+      async ({ context, center, db, recordMutation }) => {
         rejectUnknownFields(input, ['name', 'description', 'defaultCapacity']);
         const name = localized(input?.name, 'name', true);
         const description = localized(input?.description, 'description', false);
@@ -110,12 +114,36 @@ export class ActivityCatalogService {
           input?.defaultCapacity === undefined
             ? undefined
             : positiveInteger(input.defaultCapacity, 'defaultCapacity');
+        const [settings] = await db
+          .select()
+          .from(bookingCatalogSettings)
+          .where(
+            and(
+              eq(bookingCatalogSettings.tenantId, context.tenantId),
+              eq(bookingCatalogSettings.centerId, center.id),
+            ),
+          )
+          .limit(1);
+        if (!settings) {
+          throw new CatalogProblemException(
+            409,
+            'center_catalog_locale_not_configured',
+          );
+        }
+        if (!name[settings.defaultActivityLocale]?.trim()) {
+          throw new CatalogProblemException(
+            422,
+            'validation_error',
+            'name must contain the center catalog language',
+          );
+        }
         const [row] = await db
           .insert(bookingActivities)
           .values({
             id: randomUUID(),
             tenantId: context.tenantId,
-            centerId,
+            centerId: center.id,
+            baseLocale: settings.defaultActivityLocale,
             name,
             description,
             defaultCapacity,
@@ -128,7 +156,7 @@ export class ActivityCatalogService {
           eventType: ACTIVITY_EVENT_TYPES.created,
           resourceType: 'activity',
           resourceId: row.id,
-          payload: { activityId: row.id, centerId },
+          payload: { activityId: row.id, centerId: center.id },
           idempotencyKey: `booking.activity.created:${row.id}`,
         });
         return this.activityDto(row);
@@ -148,7 +176,7 @@ export class ActivityCatalogService {
       handle,
       centerId,
       'booking_service.publish',
-      async ({ context, db, recordMutation }) => {
+      async ({ context, center, db, recordMutation }) => {
         uuid(activityId, 'activityId');
         const [activity] = await db
           .select()
@@ -156,7 +184,7 @@ export class ActivityCatalogService {
           .where(
             and(
               eq(bookingActivities.tenantId, context.tenantId),
-              eq(bookingActivities.centerId, centerId),
+              eq(bookingActivities.centerId, center.id),
               eq(bookingActivities.id, activityId),
             ),
           )
@@ -167,11 +195,11 @@ export class ActivityCatalogService {
         if (activity.status === target) return;
         if (target === 'Published') {
           const name = localized(activity.name, 'name', true);
-          if (!name?.es || !name.en) {
+          if (!name[activity.baseLocale]?.trim()) {
             throw new CatalogProblemException(
               422,
               'validation_error',
-              'name must contain both es and en before publishing',
+              'name must contain the activity base language before publishing',
             );
           }
         }
@@ -185,7 +213,7 @@ export class ActivityCatalogService {
           .where(
             and(
               eq(bookingActivities.tenantId, context.tenantId),
-              eq(bookingActivities.centerId, centerId),
+              eq(bookingActivities.centerId, center.id),
               eq(bookingActivities.id, activityId),
             ),
           );
@@ -194,7 +222,7 @@ export class ActivityCatalogService {
           eventType: ACTIVITY_EVENT_TYPES.statusChanged,
           resourceType: 'activity',
           resourceId: activityId,
-          payload: { activityId, centerId, status: target },
+          payload: { activityId, centerId: center.id, status: target },
           idempotencyKey: `booking.activity.status:${activityId}:${target}`,
         });
       },

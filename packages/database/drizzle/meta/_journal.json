@@ -50,6 +50,13 @@
       "when": 1790685047583,
       "tag": "0006_keen_silver_fox",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790770270687,
+      "tag": "0007_center_catalog_language",
+      "breakpoints": true
     }
   ]
 }

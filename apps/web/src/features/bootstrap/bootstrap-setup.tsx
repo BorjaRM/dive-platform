@@ -3,6 +3,7 @@
 import { useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useState } from 'react';
+import { centerDashboardUrl } from '../../lib/application-hosts';
 import { BootstrapApiError, completeTenantBootstrap } from './bootstrap-api';
 
 const copy = {
@@ -35,16 +36,35 @@ const copy = {
 export function BootstrapSetup({
   apiBaseUrl,
   clerkConfigured,
-}: Readonly<{ apiBaseUrl: string; clerkConfigured: boolean }>) {
-  if (!clerkConfigured || !apiBaseUrl) {
+  centerAppBaseDomain,
+  navigate = (destination: string) => window.location.replace(destination),
+}: Readonly<{
+  apiBaseUrl: string;
+  clerkConfigured: boolean;
+  centerAppBaseDomain?: string;
+  navigate?: (destination: string) => void;
+}>) {
+  if (!clerkConfigured || !apiBaseUrl || !centerAppBaseDomain) {
     return <SetupStatus title="Setup is unavailable" />;
   }
-  return <AuthenticatedBootstrapSetup apiBaseUrl={apiBaseUrl} />;
+  return (
+    <AuthenticatedBootstrapSetup
+      apiBaseUrl={apiBaseUrl}
+      centerAppBaseDomain={centerAppBaseDomain}
+      navigate={navigate}
+    />
+  );
 }
 
 function AuthenticatedBootstrapSetup({
   apiBaseUrl,
-}: Readonly<{ apiBaseUrl: string }>) {
+  centerAppBaseDomain,
+  navigate,
+}: Readonly<{
+  apiBaseUrl: string;
+  centerAppBaseDomain: string;
+  navigate: (destination: string) => void;
+}>) {
   const router = useRouter();
   const { getToken, isLoaded, isSignedIn } = useAuth();
   const [locale, setLocale] = useState<'en' | 'es'>('en');
@@ -77,7 +97,7 @@ function AuthenticatedBootstrapSetup({
     setSubmitting(true);
     setMessage(null);
     try {
-      await completeTenantBootstrap({
+      const result = await completeTenantBootstrap({
         apiBaseUrl,
         getToken,
         input: {
@@ -89,7 +109,7 @@ function AuthenticatedBootstrapSetup({
           locale,
         },
       });
-      router.replace('/dashboard');
+      navigate(centerDashboardUrl(result.centerKey, centerAppBaseDomain));
     } catch (error) {
       const sessionExpired =
         error instanceof BootstrapApiError && error.status === 401;

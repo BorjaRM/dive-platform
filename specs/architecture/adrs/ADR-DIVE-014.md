@@ -1,7 +1,7 @@
 # ADR-DIVE-014 — Center catalog lists, response DTO, and persistence naming
 
 - **Status:** Ready to start
-- **Version:** 0.7
+- **Version:** 0.9
 - **Date:** 2026-09-27
 - **Deciders:** Product / Architecture / Data / Security
 - **Affected IDs:** `DIVE-BOOK-REQ-001..006`, `009..011`, `017..020`, `029`, `049..057`; `DIVE-IAM-REQ-024`, `029..032`; ADR-DIVE-001; ADR-DIVE-008; ADR-DIVE-009
@@ -21,13 +21,14 @@
 | The dashboard client consumes the catalog response DTOs and lifecycle states without creating a second client-side domain model | `Documented` | `SPEC-DIVE-BOOKING-001` `DIVE-BOOK-REQ-009..011`, `017..020`, `049..057`; `ADR-DIVE-009` § State ownership | Existing normative constraint |
 | Interactive catalog reads and mutations use TanStack Query; pagination and filters are URL-owned; form drafts and dialogs remain local React state | `Documented` | `ADR-DIVE-009` § State ownership | Existing implementation boundary |
 | Catalog query keys may contain center/resource selectors and filters, but never the Clerk token or raw `X-Tenant-Context` handle | `Documented` | `ADR-DIVE-009` § Cache and tenant boundaries; `ADR-DIVE-008` § Credential representation and transport | Existing security constraint |
-| Activity DTO/persistence includes an explicit base language and keeps authored localized objects; fallback belongs to presentation | `Proposed` | `DIVE-BOOK-REQ-009`, `051`, `053`; product-owner approval "aplicalo" on 2026-09-30 in SPEC-DIVE-BOOKING-CATALOG-001 | Approved language-policy revision; legacy backfill/rollout remains open |
+| Activity DTO/persistence includes a base language resolved from center configuration and keeps authored localized objects; fallback belongs to presentation | `Documented` | [SPEC-DIVE-BOOKING-CATALOG-001 language policy](../../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#activity-languages-and-fallback), `DIVE-BOOK-REQ-009`, `051`, `053`; historical "aplicalo" approval and subsequent center-level clarification on 2026-09-30 recorded by that owner | Approved center-level selection supersedes per-activity client selection; reported empty catalog requires no activity backfill |
+| Bounded initial center catalog-language configuration: HTTP, existing permissions, explicit missing/locked behavior, catalog-owned persistence and concurrent selection/creation | `Documented` | [SPEC-DIVE-BOOKING-CATALOG-001 initial-configuration contract](../../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#initial-center-catalog-language-contract), `DIVE-BOOK-REQ-009`, `050..056`; explicit product-owner acceptance "se acepta la propuesta, documentalo" on 2026-09-30 recorded by that owner | Initial configuration contract approved; later language replacement, unrelated Draft clauses and any additional public event contract are not approved by implication |
 
 ## Context
 
 US-08 needs predictable lists for activities and slots. A typical center is expected to manage approximately 15–20 activities, while slots can grow over time. Simple page pagination gives both endpoints one uniform contract without cursor signing, rotation, versioning, or a special “range too broad” failure.
 
-This ADR closes the walking-skeleton contract with limit/offset pagination. It does not change catalog lifecycle, permissions, routes, capacity semantics, public availability, booking creation, or onboarding.
+This ADR closes the walking-skeleton list contract with limit/offset pagination. **Documented:** the subsequent [initial-language configuration contract](../../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#initial-center-catalog-language-contract), `DIVE-BOOK-REQ-009`, `050..056`, adds bounded settings routes and language resolution under existing permissions. It does not change activity/slot lifecycle, role grants, capacity semantics, public booking creation or bootstrap fields.
 
 **Documented:** client state/cache architecture remains owned by ADR-DIVE-009. Increment-specific implementation sequencing belongs in its issue Development Brief, not this ADR. Draft editing and trusted timezone-response questions are owned by SPEC-DIVE-BOOKING-CATALOG-001; backend center-entry coverage and the pending web handoff are distinguished in TRACE-DIVE-MVP-001.
 
@@ -85,7 +86,7 @@ Activity representation:
 }
 ```
 
-`description` and `defaultCapacity` are omitted when unset. `baseLocale` is explicitly `es` or `en`; the example does not select a default. DTOs preserve stored localized objects without filling missing translations. Creation/publication and presentation-only fallback are owned by [the catalog language policy](../../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#activity-languages-and-fallback), not this ADR or a persistence adapter.
+**Documented:** `description` and `defaultCapacity` are omitted when unset. Activity `baseLocale` is `es` or `en`, resolved from the authorized center's selected default at creation rather than selected in each activity request; the example does not select an implicit default. DTOs preserve stored localized objects without filling missing translations. Creation/publication, the center-level selection and presentation-only fallback are owned by [the catalog language policy](../../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#activity-languages-and-fallback), `DIVE-BOOK-REQ-009`, `051`, `053`, not this ADR or a persistence adapter.
 
 Slot representation:
 
@@ -133,7 +134,7 @@ Use PostgreSQL schema `booking_app`.
 
 Both tables use a tenant-qualified primary key on `(tenant_id, id)`. Activities additionally expose a unique key on `(tenant_id, center_id, id)`. Slots reference activities through `(tenant_id, center_id, activity_id)` so a cross-tenant or cross-center relation is structurally impossible. Center relations use the existing tenant-qualified center key. Positive numeric constraints apply to non-null `default_capacity`, `duration_minutes`, and `capacity`; status checks admit only the states defined by the booking SPEC.
 
-The approved target representation requires activity `base_locale` to be non-null and constrained to `es` or `en`, without a database language default. Existing-record backfill, phased constraint enforcement and rollout compatibility require a separate approved migration contract.
+**Documented:** [the catalog language policy](../../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#activity-languages-and-fallback), `DIVE-BOOK-REQ-009`, `051`, `053`, retains a non-null activity `base_locale` constrained to `es` or `en`, without a database language default. Its source is the authorized center's selected language, not a per-activity client input. The owner records the product owner's 2026-09-30 empty-catalog statement; no activity backfill is needed under that premise, but schema migration and checks remain required. The [initial-configuration contract](../../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#initial-center-catalog-language-contract), under the same IDs and `050..056`, owns catalog-schema persistence, the tenant/center key, explicit unconfigured state, routes, existing permissions and transactional initial selection. This ADR does not assign a language to existing unconfigured centers or introduce a dependency on expanded scheduling settings.
 
 Use these explicit index names and orders:
 
@@ -216,7 +217,7 @@ No blocking decision remains for the approved fixed-time list/DTO/schema and tim
 
 Cursor pagination is deferred. If demonstrated volume, deep-page cost, or offset drift later requires it, its scope, cursor format, validation, and compatibility become a new proposed contract change.
 
-The language policy is approved, but existing-activity base-language backfill and rollout compatibility remain implementation gates owned by the catalog contract. This ADR does not select a legacy default.
+**Documented:** the approved center-level language direction, [initial-configuration contract](../../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#initial-center-catalog-language-contract) and reported empty-catalog migration premise are owned by SPEC-DIVE-BOOKING-CATALOG-001, `DIVE-BOOK-REQ-009`, `050..056`. The dated acceptance closes the bounded transport/authorization and concurrent initial-selection/creation questions. Later preference changes and additional public event contracts are not implicitly approved. This ADR does not select a legacy default, assert an inspected database or claim executed implementation coverage.
 
 ## Implementation authority
 

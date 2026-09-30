@@ -6,11 +6,13 @@ import {
 import type {
   CatalogActivityInput,
   CatalogListQueryInput,
+  CatalogSettingsInput,
   CatalogSlotInput,
 } from './catalog.dto.js';
 import {
   parseCatalogActivityInput,
   parseCatalogListQueryInput,
+  parseCatalogSettingsInput,
   parseCatalogSlotInput,
   uuid,
 } from './catalog.validation.js';
@@ -28,6 +30,15 @@ export class CatalogActivityInputPipe
 {
   transform(value: unknown): CatalogActivityInput {
     return parseCatalogActivityInput(value);
+  }
+}
+
+@Injectable()
+export class CatalogSettingsInputPipe
+  implements PipeTransform<unknown, CatalogSettingsInput>
+{
+  transform(value: unknown): CatalogSettingsInput {
+    return parseCatalogSettingsInput(value);
   }
 }
 

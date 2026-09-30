@@ -40,6 +40,10 @@ export class IamService {
     return this.tenantContexts.isCenterOriginAllowed(origin);
   }
 
+  resolveCenterOrigin(origin: string) {
+    return this.tenantContexts.resolveCenterOrigin(origin);
+  }
+
   issueCenterEntryContext(
     principal: AuthenticatedPrincipal,
     origin: string | undefined,

@@ -15,6 +15,9 @@ export class ActivityDto {
   @ApiProperty({ enum: ['Draft', 'Published', 'Disabled'] })
   status: 'Draft' | 'Published' | 'Disabled';
 
+  @ApiProperty({ enum: ['es', 'en'] })
+  baseLocale: 'es' | 'en';
+
   @ApiProperty({ type: LocalizedTextDto })
   name: LocalizedTextDto;
 
@@ -92,6 +95,16 @@ export class CatalogActivityInputDto {
   defaultCapacity?: number;
 }
 
+export class CatalogSettingsDto {
+  @ApiProperty({ enum: ['es', 'en'], nullable: true })
+  defaultActivityLocale: 'es' | 'en' | null;
+}
+
+export class CatalogSettingsInputDto {
+  @ApiProperty({ enum: ['es', 'en'] })
+  defaultActivityLocale: 'es' | 'en';
+}
+
 export class CatalogSlotInputDto {
   @ApiProperty({ description: 'RFC3339 instant' })
   startsAt?: string;
@@ -124,6 +137,10 @@ export type CatalogActivityInput = Readonly<{
   name?: unknown;
   description?: unknown;
   defaultCapacity?: unknown;
+}>;
+
+export type CatalogSettingsInput = Readonly<{
+  defaultActivityLocale: 'es' | 'en';
 }>;
 
 export type CatalogSlotInput = Readonly<{

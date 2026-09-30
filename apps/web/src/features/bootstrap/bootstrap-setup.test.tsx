@@ -10,6 +10,7 @@ import { BootstrapApiError } from './bootstrap-api';
 import { BootstrapSetup } from './bootstrap-setup';
 
 const routerMock = vi.hoisted(() => ({ replace: vi.fn() }));
+const navigateMock = vi.hoisted(() => vi.fn());
 const useAuthMock = vi.hoisted(() => vi.fn());
 const clerkMock = vi.hoisted(() => ({
   getToken: vi.fn<() => Promise<string | null>>(),
@@ -41,10 +42,13 @@ describe('BootstrapSetup', () => {
     clerkMock.getToken.mockResolvedValue('session-token');
     useAuthMock.mockReturnValue(clerkMock);
     apiMock.completeTenantBootstrap.mockResolvedValue({
-      operatorRef: 'operator-ref',
-      centerRef: 'center-ref',
+      tenantId: 'tenant-id',
+      centerId: 'center-id',
+      membershipId: 'membership-id',
+      centerKey: 'harbor-base',
     });
     routerMock.replace.mockReset();
+    navigateMock.mockReset();
     Object.defineProperty(window.navigator, 'language', {
       configurable: true,
       value: 'en-US',
@@ -71,7 +75,12 @@ describe('BootstrapSetup', () => {
     clerkMock.isSignedIn = false;
 
     render(
-      <BootstrapSetup apiBaseUrl="https://api.example.test" clerkConfigured />,
+      <BootstrapSetup
+        apiBaseUrl="https://api.example.test"
+        clerkConfigured
+        centerAppBaseDomain="app.example.test"
+        navigate={navigateMock}
+      />,
     );
 
     await waitFor(() => {
@@ -82,7 +91,12 @@ describe('BootstrapSetup', () => {
 
   it('requires time-zone confirmation and submits only the approved fields', async () => {
     render(
-      <BootstrapSetup apiBaseUrl="https://api.example.test" clerkConfigured />,
+      <BootstrapSetup
+        apiBaseUrl="https://api.example.test"
+        clerkConfigured
+        centerAppBaseDomain="app.example.test"
+        navigate={navigateMock}
+      />,
     );
 
     fireEvent.change(await screen.findByLabelText('Operation name'), {
@@ -126,7 +140,10 @@ describe('BootstrapSetup', () => {
         },
       });
     });
-    expect(routerMock.replace).toHaveBeenCalledWith('/dashboard');
+    expect(navigateMock).toHaveBeenCalledWith(
+      'https://harbor-base.app.example.test/dashboard',
+    );
+    expect(routerMock.replace).not.toHaveBeenCalledWith('/dashboard');
   });
 
   it.each([
@@ -146,6 +163,8 @@ describe('BootstrapSetup', () => {
         <BootstrapSetup
           apiBaseUrl="https://api.example.test"
           clerkConfigured
+          centerAppBaseDomain="app.example.test"
+          navigate={navigateMock}
         />,
       );
       fireEvent.change(await screen.findByLabelText('Operation name'), {
@@ -170,6 +189,7 @@ describe('BootstrapSetup', () => {
 
       expect(await screen.findByRole('alert')).toHaveTextContent(message);
       expect(routerMock.replace).not.toHaveBeenCalledWith('/dashboard');
+      expect(navigateMock).not.toHaveBeenCalled();
     },
   );
 });

@@ -10,6 +10,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseFilters,
   UseGuards,
@@ -31,6 +32,8 @@ import {
   ActivityListDto,
   CatalogActivityInputDto,
   CatalogListQueryDto,
+  CatalogSettingsDto,
+  CatalogSettingsInputDto,
   CatalogSlotInputDto,
   SlotDto,
   SlotListDto,
@@ -39,15 +42,18 @@ import { CatalogProblemFilter } from './catalog.errors.js';
 import {
   CatalogActivityInputPipe,
   CatalogListQueryPipe,
+  CatalogSettingsInputPipe,
   CatalogSlotInputPipe,
   CatalogUuidPipe,
 } from './catalog.validation.pipe.js';
+import { CatalogCenterOriginGuard } from './catalog-center-origin.guard.js';
 import {
   type ChannelPolicyInput,
   ChannelPolicyInputDto,
 } from './channels/channel-policy.dto.js';
 import { ChannelPolicyService } from './channels/channel-policy.service.js';
 import { ChannelPolicyInputPipe } from './channels/channel-policy.validation.pipe.js';
+import { CatalogSettingsService } from './settings/catalog-settings.service.js';
 import { SlotCatalogService } from './slots/slot-catalog.service.js';
 
 @ApiTags('Catalog')
@@ -55,10 +61,11 @@ import { SlotCatalogService } from './slots/slot-catalog.service.js';
 @ApiExtraModels(
   CatalogActivityInputDto,
   CatalogListQueryDto,
+  CatalogSettingsInputDto,
   CatalogSlotInputDto,
 )
 @UseFilters(CatalogProblemFilter)
-@UseGuards(ClerkAuthGuard)
+@UseGuards(ClerkAuthGuard, CatalogCenterOriginGuard)
 @Controller('v1/centers/:centerId')
 export class CatalogController {
   constructor(
@@ -68,6 +75,8 @@ export class CatalogController {
     private readonly channels: ChannelPolicyService,
     @Inject(SlotCatalogService)
     private readonly slots: SlotCatalogService,
+    @Inject(CatalogSettingsService)
+    private readonly settings: CatalogSettingsService,
   ) {}
 
   private async execute<T>(
@@ -75,6 +84,38 @@ export class CatalogController {
     action: (principal: AuthenticatedPrincipal) => Promise<T>,
   ) {
     return action(principal);
+  }
+
+  @Get('catalog-settings')
+  @ApiOperation({ summary: 'Read catalog language for one authorized center' })
+  @ApiOkResponse({ type: CatalogSettingsDto })
+  getCatalogSettings(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Headers('x-tenant-context') handle: string | undefined,
+    @Param('centerId', CatalogUuidPipe) centerId: string,
+  ) {
+    return this.settings.getSettings(principal, handle, centerId);
+  }
+
+  @Put('catalog-settings')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBody({ type: CatalogSettingsInputDto })
+  @ApiOperation({
+    summary: 'Select the initial catalog language for one authorized center',
+  })
+  @ApiNoContentResponse()
+  selectCatalogLanguage(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Headers('x-tenant-context') handle: string | undefined,
+    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @Body(CatalogSettingsInputPipe) input: CatalogSettingsInputDto,
+  ) {
+    return this.settings.selectInitialLanguage(
+      principal,
+      handle,
+      centerId,
+      input,
+    );
   }
 
   @Get('activities')

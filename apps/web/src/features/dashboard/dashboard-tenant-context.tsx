@@ -26,6 +26,9 @@ type DashboardTenantContextProps = {
   requestTimeoutMillis?: number | undefined;
   session?: SessionTokenSource | undefined;
   storage?: TenantContextStorage | undefined;
+  centerKey?: string | undefined;
+  supportEmail?: string | undefined;
+  onSessionExpired?: (() => void) | undefined;
   children?: React.ReactNode;
 };
 
@@ -37,6 +40,9 @@ export function DashboardTenantContext({
   requestTimeoutMillis,
   session = unavailableSession,
   storage,
+  centerKey,
+  supportEmail,
+  onSessionExpired,
   children,
 }: DashboardTenantContextProps) {
   const queryClient = useQueryClient();
@@ -61,6 +67,10 @@ export function DashboardTenantContext({
   const [automaticSelectionAttempted, setAutomaticSelectionAttempted] =
     useState(false);
   const [operatorSelectionVersion, setOperatorSelectionVersion] = useState(0);
+  const [entryCenter, setEntryCenter] = useState<{
+    centerKey: string;
+    centerId: string;
+  } | null>(null);
   const sessionRef = useRef(session);
   const browserStorageRef = useRef<TenantContextStorage | null>(null);
 
@@ -73,6 +83,7 @@ export function DashboardTenantContext({
       if (!contextStorage) return;
       contextStorage.clear();
       setTenantContext(null);
+      setEntryCenter(null);
       clearDashboardCache();
       setRecovery(nextRecovery);
     },
@@ -85,6 +96,10 @@ export function DashboardTenantContext({
   }, [clearContext]);
 
   useEffect(() => {
+    if (sessionState === 'expired') onSessionExpired?.();
+  }, [onSessionExpired, sessionState]);
+
+  useEffect(() => {
     if (!browserStorageRef.current && !storage) {
       browserStorageRef.current = createBrowserTenantContextStorage();
     }
@@ -93,9 +108,10 @@ export function DashboardTenantContext({
     setContextStorage(nextStorage);
     try {
       const storedContext = nextStorage.read();
-      if (sessionState === 'expired') {
+      if (sessionState === 'expired' || centerKey) {
         nextStorage.clear();
         setTenantContext(null);
+        setEntryCenter(null);
         clearDashboardCache();
       } else {
         setTenantContext(storedContext);
@@ -103,7 +119,7 @@ export function DashboardTenantContext({
     } finally {
       setStorageReady(true);
     }
-  }, [clearDashboardCache, sessionState, storage]);
+  }, [centerKey, clearDashboardCache, sessionState, storage]);
 
   // The retry signal intentionally retriggers this effect without rechecking after logout.
   // biome-ignore lint/correctness/useExhaustiveDependencies: sessionCheck is an explicit retry signal
@@ -178,15 +194,76 @@ export function DashboardTenantContext({
     ] as const,
     queryFn: ({ signal }) => api.listOperators(signal),
     enabled:
-      storageReady && sessionState === 'available' && tenantContext === null,
+      !centerKey &&
+      storageReady &&
+      sessionState === 'available' &&
+      tenantContext === null,
     retry: false,
   });
 
-  const centersQuery = useQuery({
-    queryKey: DASHBOARD_QUERY_KEYS.centers,
-    queryFn: ({ signal }) => api.listCenters(tenantContext as string, signal),
+  const centerEntryQuery = useQuery({
+    queryKey: [
+      ...DASHBOARD_QUERY_KEYS.root,
+      'center-entry',
+      centerKey,
+      sessionCheck,
+    ],
+    queryFn: ({ signal }) =>
+      api.issueCenterEntryContext(centerKey as string, signal),
     enabled:
-      storageReady && sessionState === 'available' && tenantContext !== null,
+      Boolean(centerKey) &&
+      storageReady &&
+      sessionState === 'available' &&
+      tenantContext === null &&
+      recovery === null,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+
+  useEffect(() => {
+    if (!centerKey || !centerEntryQuery.data || sessionState !== 'available')
+      return;
+    const issued = centerEntryQuery.data;
+    contextStorage?.write(issued.tenantContext);
+    setTenantContext(issued.tenantContext);
+    setEntryCenter({ centerKey, centerId: issued.center.centerId });
+  }, [centerEntryQuery.data, centerKey, contextStorage, sessionState]);
+
+  useEffect(() => {
+    const error = centerEntryQuery.error;
+    if (!error) return;
+    if (error instanceof DashboardApiError && error.kind === 'session-expired')
+      expireSession();
+    else clearContext('forbidden');
+  }, [centerEntryQuery.error, clearContext, expireSession]);
+
+  const currentEntryCenter =
+    entryCenter?.centerKey === centerKey ? entryCenter : null;
+  const centersQuery = useQuery({
+    queryKey: centerKey
+      ? [
+          ...DASHBOARD_QUERY_KEYS.centers,
+          tenantContext,
+          currentEntryCenter?.centerId,
+        ]
+      : DASHBOARD_QUERY_KEYS.centers,
+    queryFn: async ({ signal }) =>
+      centerKey
+        ? [
+            await api.getCenter(
+              tenantContext as string,
+              currentEntryCenter?.centerId as string,
+              signal,
+            ),
+          ]
+        : api.listCenters(tenantContext as string, signal),
+    enabled:
+      storageReady &&
+      sessionState === 'available' &&
+      tenantContext !== null &&
+      (!centerKey || currentEntryCenter !== null) &&
+      recovery === null,
     retry: false,
   });
 
@@ -227,10 +304,20 @@ export function DashboardTenantContext({
       return;
     }
     if (error.kind === 'forbidden') {
+      if (centerKey) {
+        clearContext('forbidden');
+        return;
+      }
       clearDashboardCache();
       setRecovery('forbidden');
     }
-  }, [centersQuery.error, clearDashboardCache, expireSession]);
+  }, [
+    centerKey,
+    centersQuery.error,
+    clearContext,
+    clearDashboardCache,
+    expireSession,
+  ]);
 
   useEffect(() => {
     const operators = operatorsQuery.data?.operators;
@@ -306,10 +393,14 @@ export function DashboardTenantContext({
     apiBaseUrl: apiBaseUrl ?? '',
     session,
     tenantContext,
-    authorizedCenters: centersQuery.data ?? [],
+    authorizedCenters: recovery === null ? (centersQuery.data ?? []) : [],
     sessionState,
     isReady:
-      storageReady && sessionState === 'available' && tenantContext !== null,
+      storageReady &&
+      sessionState === 'available' &&
+      tenantContext !== null &&
+      recovery === null &&
+      (!centerKey || (currentEntryCenter !== null && centersQuery.isSuccess)),
     invalidateDashboardCache: clearDashboardCache,
     handleSessionExpired: expireSession,
     clearTenantContext: () => clearContext(),
@@ -388,6 +479,41 @@ export function DashboardTenantContext({
     );
   }
 
+  if (centerKey && (recovery === 'forbidden' || centersQuery.error)) {
+    return renderWithDashboardContext(
+      <DashboardShell eyebrow="Dashboard" title="Center unavailable">
+        <StatusPanel
+          title="This center is unavailable"
+          message="Access could not be established. Contact support to continue."
+          action={
+            <div className="dashboard-actions">
+              <button type="button" onClick={() => window.history.back()}>
+                Back
+              </button>
+              <button type="button" onClick={() => void logout()}>
+                Log out
+              </button>
+              {supportEmail && (
+                <a href={`mailto:${supportEmail}`}>Contact support</a>
+              )}
+            </div>
+          }
+        />
+      </DashboardShell>,
+    );
+  }
+
+  if (centerKey && tenantContext === null) {
+    return renderWithDashboardContext(
+      <DashboardShell eyebrow="Dashboard" title="Opening your center">
+        <StatusPanel
+          title="Checking center access"
+          message="Reading current access from the server."
+        />
+      </DashboardShell>,
+    );
+  }
+
   if (recovery === 'forbidden') {
     return renderWithDashboardContext(
       <DashboardShell eyebrow="Dashboard" title="Choose a workspace again">
@@ -427,9 +553,11 @@ export function DashboardTenantContext({
         title="Your dive operation"
         action={
           <div className="dashboard-actions">
-            <button type="button" onClick={() => void changeWorkspace()}>
-              Change workspace
-            </button>
+            {!centerKey && (
+              <button type="button" onClick={() => void changeWorkspace()}>
+                Change workspace
+              </button>
+            )}
             <button type="button" onClick={() => void logout()}>
               Log out
             </button>

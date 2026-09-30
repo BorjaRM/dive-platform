@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClerkDashboardSession } from './clerk-dashboard-session';
 import type { SessionTokenSource } from './tenant-context';
@@ -6,6 +6,8 @@ import type { SessionTokenSource } from './tenant-context';
 type DashboardProps = {
   apiBaseUrl: string;
   session: SessionTokenSource;
+  centerKey?: string;
+  onSessionExpired?: () => void;
 };
 
 const clerkMocks = vi.hoisted(() => ({
@@ -13,6 +15,7 @@ const clerkMocks = vi.hoisted(() => ({
   signOut: vi.fn<() => Promise<void>>(),
   isLoaded: true,
   isSignedIn: true,
+  sessionId: 'sid_alpha',
   redirectRenders: 0,
   redirectProps: [] as Array<Record<string, unknown>>,
 }));
@@ -30,6 +33,7 @@ vi.mock('@clerk/nextjs', () => ({
     getToken: clerkMocks.getToken,
     isLoaded: clerkMocks.isLoaded,
     isSignedIn: clerkMocks.isSignedIn,
+    sessionId: clerkMocks.sessionId,
   }),
   useClerk: () => ({ signOut: clerkMocks.signOut }),
 }));
@@ -42,12 +46,47 @@ vi.mock('./dashboard-tenant-context', () => ({
 }));
 
 describe('ClerkDashboardSession', () => {
+  it('preserves the validated center return on the primary sign-in host (DIVE-IAM-REQ-032)', () => {
+    clerkMocks.isSignedIn = false;
+    render(
+      <ClerkDashboardSession
+        apiBaseUrl="/api"
+        centerKey="alpha"
+        centerReturnUrl="https://alpha.app.example.test/dashboard"
+      />,
+    );
+    expect(clerkMocks.redirectProps).toEqual([
+      { signInForceRedirectUrl: 'https://alpha.app.example.test/dashboard' },
+    ]);
+    expect(dashboardMock.props).toBeNull();
+  });
+
+  it('passes only the origin-derived center key to the existing context owner', () => {
+    render(<ClerkDashboardSession apiBaseUrl="/api" centerKey="alpha" />);
+    expect(dashboardMock.props?.centerKey).toBe('alpha');
+  });
+
+  it('returns an expired center session to sign-in with its destination preserved', async () => {
+    render(
+      <ClerkDashboardSession
+        apiBaseUrl="/api"
+        centerKey="alpha"
+        centerReturnUrl="https://alpha.app.example.test/dashboard"
+      />,
+    );
+    await act(async () => dashboardMock.props?.onSessionExpired?.());
+    expect(clerkMocks.redirectProps).toEqual([
+      { signInForceRedirectUrl: 'https://alpha.app.example.test/dashboard' },
+    ]);
+  });
+
   afterEach(() => {
     dashboardMock.props = null;
     clerkMocks.getToken.mockReset();
     clerkMocks.signOut.mockReset();
     clerkMocks.isLoaded = true;
     clerkMocks.isSignedIn = true;
+    clerkMocks.sessionId = 'sid_alpha';
     clerkMocks.redirectRenders = 0;
     clerkMocks.redirectProps = [];
   });
@@ -93,5 +132,17 @@ describe('ClerkDashboardSession', () => {
 
     view.rerender(<ClerkDashboardSession apiBaseUrl="/api" />);
     expect(dashboardMock.props?.session).toBe(firstSession);
+  });
+
+  it('renews the session source when the Clerk sid changes so the provider clears previous context and cache', () => {
+    const view = render(
+      <ClerkDashboardSession apiBaseUrl="/api" centerKey="alpha" />,
+    );
+    const previousSession = dashboardMock.props?.session;
+    clerkMocks.sessionId = 'sid_beta';
+    view.rerender(
+      <ClerkDashboardSession apiBaseUrl="/api" centerKey="alpha" />,
+    );
+    expect(dashboardMock.props?.session).not.toBe(previousSession);
   });
 });

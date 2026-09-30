@@ -4,12 +4,12 @@ export type BookingCatalogMutation = Readonly<{
   tenantId: string;
   actorIdentityId: string;
   action: 'booking.create' | 'booking.update';
-  resourceType: 'activity' | 'slot' | 'channel';
+  resourceType: 'activity' | 'slot' | 'channel' | 'catalog_settings';
   resourceId: string;
-  eventType: string;
+  eventType: string | null;
   payload: Record<string, unknown>;
   correlationId: string;
-  idempotencyKey: string;
+  idempotencyKey: string | null;
 }>;
 
 export async function recordBookingCatalogMutation(

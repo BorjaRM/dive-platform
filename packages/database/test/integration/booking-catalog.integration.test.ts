@@ -6,6 +6,7 @@ import {
   bookingActivities,
   bookingBookings,
   bookingCapabilityVerifiers,
+  bookingCatalogSettings,
   bookingChannels,
   bookingSlots,
 } from '../../src/booking-schema.js';
@@ -51,7 +52,7 @@ describe('booking catalog persistence controls', () => {
 
   beforeEach(async () => {
     await adminPool.query(
-      'TRUNCATE booking_app.capability_verifiers, booking_app.bookings, booking_app.channels, booking_app.slots, booking_app.activities',
+      'TRUNCATE booking_app.capability_verifiers, booking_app.bookings, booking_app.channels, booking_app.slots, booking_app.activities, booking_app.catalog_settings',
     );
     await adminPool.query(
       `INSERT INTO iam_app.tenants(id, name) VALUES ($1, 'A'), ($2, 'B')
@@ -77,10 +78,10 @@ describe('booking catalog persistence controls', () => {
     );
     await adminPool.query(
       `INSERT INTO booking_app.activities
-       (id, tenant_id, center_id, name, status)
+       (id, tenant_id, center_id, base_locale, name, status)
        VALUES
-         ($1, $2, $3, '{"es":"Actividad A"}'::jsonb, 'Draft'),
-         ($4, $5, $6, '{"es":"Actividad B"}'::jsonb, 'Draft')`,
+         ($1, $2, $3, 'es', '{"es":"Actividad A"}'::jsonb, 'Draft'),
+         ($4, $5, $6, 'es', '{"es":"Actividad B"}'::jsonb, 'Draft')`,
       [activityA, tenantA, centerA1, activityB, tenantB, centerB1],
     );
     await adminPool.query(
@@ -105,6 +106,130 @@ describe('booking catalog persistence controls', () => {
   afterAll(async () => {
     await appPool?.end();
     await adminPool?.end();
+  });
+
+  it('isolates immutable catalog settings and resets pooled context (MT-REQ-001, MT-REQ-004, MT-REQ-005, MT-REQ-010)', async () => {
+    for (const [tenantId, centerId, defaultActivityLocale] of [
+      [tenantA, centerA1, 'es'],
+      [tenantB, centerB1, 'en'],
+    ] as const) {
+      await withTenant(appPool, tenantId, ({ db }) =>
+        db
+          .insert(bookingCatalogSettings)
+          .values({ tenantId, centerId, defaultActivityLocale }),
+      );
+    }
+    for (const [tenantId, defaultActivityLocale] of [
+      [tenantA, 'es'],
+      [tenantB, 'en'],
+      [tenantA, 'es'],
+    ] as const) {
+      const rows = await withTenant(appPool, tenantId, ({ db }) =>
+        db.select().from(bookingCatalogSettings),
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ tenantId, defaultActivityLocale });
+    }
+    await expect(
+      withTenant(appPool, tenantA, ({ db }) =>
+        db.insert(bookingCatalogSettings).values({
+          tenantId: tenantB,
+          centerId: centerB1,
+          defaultActivityLocale: 'es',
+        }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      withTenant(appPool, tenantA, ({ client }) =>
+        client.query(
+          `UPDATE booking_app.catalog_settings SET default_activity_locale='en' WHERE center_id=$1`,
+          [centerA1],
+        ),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      withTenant(appPool, tenantA, ({ client }) =>
+        client.query(
+          `DELETE FROM booking_app.catalog_settings WHERE center_id=$1`,
+          [centerA1],
+        ),
+      ),
+    ).rejects.toThrow();
+    for (const context of ['', 'malformed']) {
+      await expect(
+        withTenant(appPool, context, ({ db }) =>
+          db.select().from(bookingCatalogSettings),
+        ),
+      ).rejects.toThrow();
+    }
+    await expect(
+      appPool.query('SELECT * FROM booking_app.catalog_settings'),
+    ).rejects.toThrow();
+    const context = await appPool.query(
+      `SELECT current_setting('app.tenant_id', true) AS tenant_id`,
+    );
+    expect(context.rows[0]?.tenant_id ?? '').toBe('');
+  });
+
+  it('rolls back catalog settings with failed audit and emits no invented event (DIVE-BOOK-REQ-009, MT-REQ-007)', async () => {
+    const mutation = {
+      tenantId: tenantA,
+      actorIdentityId: rollbackActor,
+      action: 'booking.update' as const,
+      resourceType: 'catalog_settings' as const,
+      resourceId: centerA1,
+      eventType: null,
+      payload: { defaultActivityLocale: 'es' },
+      correlationId: rollbackCorrelation,
+      idempotencyKey: null,
+    };
+    await adminPool.query(
+      `DELETE FROM iam_app.audit_records WHERE tenant_id=$1 AND resource_type='catalog_settings'`,
+      [tenantA],
+    );
+    await expect(
+      withTenant(appPool, tenantA, async ({ db, client }) => {
+        await db.insert(bookingCatalogSettings).values({
+          tenantId: tenantA,
+          centerId: centerA1,
+          defaultActivityLocale: 'es',
+        });
+        await recordBookingCatalogMutation(client, {
+          ...mutation,
+          actorIdentityId: rollbackMembership,
+        });
+      }),
+    ).rejects.toThrow();
+    expect(
+      await withTenant(appPool, tenantA, ({ db }) =>
+        db.select().from(bookingCatalogSettings),
+      ),
+    ).toEqual([]);
+    const before = await adminPool.query(
+      'SELECT count(*)::int AS count FROM iam_app.outbox_events',
+    );
+    await withTenant(appPool, tenantA, async ({ db, client }) => {
+      await db.insert(bookingCatalogSettings).values({
+        tenantId: tenantA,
+        centerId: centerA1,
+        defaultActivityLocale: 'es',
+      });
+      await recordBookingCatalogMutation(client, mutation);
+    });
+    const audit = await adminPool.query(
+      `SELECT action, source_metadata FROM iam_app.audit_records WHERE tenant_id=$1 AND resource_type='catalog_settings'`,
+      [tenantA],
+    );
+    expect(audit.rows).toEqual([
+      {
+        action: 'booking.update',
+        source_metadata: { defaultActivityLocale: 'es' },
+      },
+    ]);
+    const after = await adminPool.query(
+      'SELECT count(*)::int AS count FROM iam_app.outbox_events',
+    );
+    expect(after.rows).toEqual(before.rows);
   });
 
   it('keeps booking rows isolated (MT-REQ-006, MT-REQ-009, MT-REQ-010)', async () => {
@@ -230,6 +355,7 @@ describe('booking catalog persistence controls', () => {
           id: 'aaaaaaaa-1001-4001-8001-000000000002',
           tenantId: tenantB,
           centerId: centerB1,
+          baseLocale: 'es',
           name: { es: 'Spoofed' },
           status: 'Draft',
         }),
@@ -427,6 +553,7 @@ describe('booking catalog persistence controls', () => {
           id: rollbackActivity,
           tenantId: tenantA,
           centerId: centerA1,
+          baseLocale: 'es',
           name: { es: 'Rollback', en: 'Rollback' },
           status: 'Draft',
         });

@@ -3,12 +3,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { type UseFormRegisterReturn, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import type {
   ActivityStatus,
   CatalogActivity,
+  CatalogLocale,
   CatalogSlot,
   CreateCatalogActivityInput,
   CreateCatalogSlotInput,
@@ -22,6 +23,7 @@ const CATALOG_QUERY_KEYS = {
   root: ['dashboard', 'catalog'] as const,
   activities: ['dashboard', 'catalog', 'activities'] as const,
   slots: ['dashboard', 'catalog', 'slots'] as const,
+  settings: ['dashboard', 'catalog', 'settings'] as const,
 };
 
 const PAGE_SIZE = 10;
@@ -80,27 +82,18 @@ function useCatalogNavigation() {
   return { searchParams, updateSearchParams };
 }
 
-const activityFormSchema = z
-  .object({
-    nameEs: z.string(),
-    nameEn: z.string(),
-    descriptionEs: z.string(),
-    descriptionEn: z.string(),
-    defaultCapacity: z
-      .string()
-      .refine(
-        (value) => !value.trim() || validPositiveInteger(value),
-        'Default capacity must be a positive whole number.',
-      ),
-  })
-  .superRefine((value, context) => {
-    if (value.nameEs.trim() || value.nameEn.trim()) return;
-    context.addIssue({
-      code: 'custom',
-      path: ['nameEs'],
-      message: 'Add the activity name in Spanish or English.',
-    });
-  });
+const activityFormSchema = z.object({
+  nameEs: z.string(),
+  nameEn: z.string(),
+  descriptionEs: z.string(),
+  descriptionEn: z.string(),
+  defaultCapacity: z
+    .string()
+    .refine(
+      (value) => !value.trim() || validPositiveInteger(value),
+      'Default capacity must be a positive whole number.',
+    ),
+});
 
 const slotFormSchema = z.object({
   startsAt: z
@@ -125,6 +118,7 @@ type ActivityFormValues = z.infer<typeof activityFormSchema>;
 type SlotFormValues = z.infer<typeof slotFormSchema>;
 
 type CatalogMutation =
+  | { type: 'select-language'; locale: CatalogLocale }
   | { type: 'create-activity'; input: CreateCatalogActivityInput }
   | {
       type: 'activity-command';
@@ -206,9 +200,32 @@ export function CatalogPanel() {
     updateSearchParams,
   ]);
 
+  const settingsQuery = useQuery({
+    queryKey: [...CATALOG_QUERY_KEYS.settings, tenantContext, centerId],
+    queryFn: ({ signal }) =>
+      api.getCatalogSettings(tenantContext as string, centerId, signal),
+    enabled: isReady && Boolean(tenantContext && centerId),
+    retry: false,
+  });
+  const baseLocale = settingsQuery.data?.defaultActivityLocale ?? null;
+  const activityDraftScope = useRef({ centerId, tenantContext });
+
+  useEffect(() => {
+    const previousScope = activityDraftScope.current;
+    if (
+      previousScope.centerId === centerId &&
+      previousScope.tenantContext === tenantContext
+    )
+      return;
+    activityDraftScope.current = { centerId, tenantContext };
+    activityForm.reset();
+    setSuccessNotice(null);
+  }, [centerId, tenantContext, activityForm.reset]);
+
   const activitiesQuery = useQuery({
     queryKey: [
       ...CATALOG_QUERY_KEYS.activities,
+      tenantContext,
       centerId,
       activityPage,
       activityStatus,
@@ -250,6 +267,7 @@ export function CatalogPanel() {
   const slotsQuery = useQuery({
     queryKey: [
       ...CATALOG_QUERY_KEYS.slots,
+      tenantContext,
       centerId,
       selectedActivityId,
       slotPage,
@@ -278,6 +296,12 @@ export function CatalogPanel() {
         throw new Error('A server-authorized center is required.');
       }
       switch (action.type) {
+        case 'select-language':
+          return api.selectCatalogLanguage(
+            tenantContext,
+            centerId,
+            action.locale,
+          );
         case 'create-activity':
           return api.createActivity(tenantContext, centerId, action.input);
         case 'activity-command':
@@ -300,7 +324,21 @@ export function CatalogPanel() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: CATALOG_QUERY_KEYS.root });
     },
+    onError: (error) => {
+      if (
+        error instanceof DashboardApiError &&
+        error.problem?.code === 'center_catalog_locale_locked'
+      ) {
+        void queryClient.invalidateQueries({
+          queryKey: CATALOG_QUERY_KEYS.settings,
+        });
+      }
+    },
   });
+
+  useEffect(() => {
+    if (isSessionExpired(settingsQuery.error)) handleSessionExpired();
+  }, [settingsQuery.error, handleSessionExpired]);
 
   useEffect(() => {
     if (isSessionExpired(catalogMutation.error)) handleSessionExpired();
@@ -325,10 +363,12 @@ export function CatalogPanel() {
     catalogMutation.mutate(action, {
       onSuccess: () => {
         updateSearchParams(
-          action.type === 'create-activity' ||
-            action.type === 'activity-command'
-            ? { [CATALOG_SEARCH_PARAMS.activityPage]: null }
-            : { [CATALOG_SEARCH_PARAMS.slotPage]: null },
+          action.type === 'select-language'
+            ? {}
+            : action.type === 'create-activity' ||
+                action.type === 'activity-command'
+              ? { [CATALOG_SEARCH_PARAMS.activityPage]: null }
+              : { [CATALOG_SEARCH_PARAMS.slotPage]: null },
         );
         setSuccessNotice(message);
         onSuccess?.();
@@ -337,6 +377,18 @@ export function CatalogPanel() {
   };
 
   const submitActivity = (values: ActivityFormValues) => {
+    if (!baseLocale || settingsQuery.isError || settingsQuery.isPending) return;
+    const requiredField = baseLocale === 'es' ? 'nameEs' : 'nameEn';
+    if (!values[requiredField].trim()) {
+      activityForm.setError(
+        requiredField,
+        {
+          message: `Add the activity name in ${baseLocale === 'es' ? 'Spanish' : 'English'}.`,
+        },
+        { shouldFocus: true },
+      );
+      return;
+    }
     const name = localizedValue(values.nameEs, values.nameEn);
     const description = localizedValue(
       values.descriptionEs,
@@ -410,6 +462,7 @@ export function CatalogPanel() {
             <span>Center</span>
             <select
               value={centerId}
+              disabled={catalogMutation.isPending}
               onChange={(event) => {
                 updateSearchParams({
                   [CATALOG_SEARCH_PARAMS.centerId]: event.target.value,
@@ -545,64 +598,135 @@ export function CatalogPanel() {
                     <h3 id="activity-form-heading">Create activity</h3>
                   </div>
                 </div>
+                {settingsQuery.isPending && (
+                  <CatalogNotice title="Loading catalog language" />
+                )}
+                {settingsQuery.error && (
+                  <CatalogNotice
+                    title="Catalog language unavailable"
+                    message={describeError(settingsQuery.error)}
+                  />
+                )}
+                {baseLocale && (
+                  <p className="field-hint">
+                    Catalog language:{' '}
+                    {baseLocale === 'es' ? 'Spanish' : 'English'}
+                  </p>
+                )}
+                {settingsQuery.isSuccess && !baseLocale && (
+                  <form
+                    className="catalog-form"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const locale = new FormData(event.currentTarget).get(
+                        'catalogLocale',
+                      );
+                      if (locale === 'es' || locale === 'en') {
+                        runMutation(
+                          { type: 'select-language', locale },
+                          'Catalog language saved.',
+                        );
+                      }
+                    }}
+                  >
+                    <label className="catalog-field">
+                      <span>Catalog language</span>
+                      <select
+                        key={`${tenantContext}:${centerId}`}
+                        name="catalogLocale"
+                        required
+                        defaultValue=""
+                        disabled={catalogMutation.isPending}
+                      >
+                        <option value="" disabled>
+                          Select language
+                        </option>
+                        <option value="es">Spanish</option>
+                        <option value="en">English</option>
+                      </select>
+                    </label>
+                    <button
+                      type="submit"
+                      className="catalog-primary-action"
+                      disabled={catalogMutation.isPending}
+                    >
+                      Save catalog language
+                    </button>
+                  </form>
+                )}
                 <form
                   className="catalog-form"
                   onSubmit={activityForm.handleSubmit(submitActivity, () => {
                     setSuccessNotice(null);
                   })}
                 >
-                  <div className="form-field-grid">
-                    <Field
-                      id="activity-name-es"
-                      label="Name · ES"
-                      registration={activityForm.register('nameEs')}
-                      error={activityForm.formState.errors.nameEs?.message}
-                    />
-                    <Field
-                      id="activity-name-en"
-                      label="Name · EN"
-                      registration={activityForm.register('nameEn')}
-                      error={activityForm.formState.errors.nameEn?.message}
-                    />
-                  </div>
-                  <p className="field-hint">
-                    At least one language is required.
-                  </p>
-                  <div className="form-field-grid">
-                    <Field
-                      id="activity-description-es"
-                      label="Description · ES"
-                      registration={activityForm.register('descriptionEs')}
-                      error={
-                        activityForm.formState.errors.descriptionEs?.message
-                      }
-                    />
-                    <Field
-                      id="activity-description-en"
-                      label="Description · EN"
-                      registration={activityForm.register('descriptionEn')}
-                      error={
-                        activityForm.formState.errors.descriptionEn?.message
-                      }
-                    />
-                  </div>
-                  <Field
-                    id="activity-capacity"
-                    label="Default capacity"
-                    type="number"
-                    min="1"
-                    registration={activityForm.register('defaultCapacity')}
-                    error={
-                      activityForm.formState.errors.defaultCapacity?.message
+                  <fieldset
+                    className="catalog-form"
+                    style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}
+                    disabled={
+                      !baseLocale ||
+                      settingsQuery.isError ||
+                      settingsQuery.isPending ||
+                      catalogMutation.isPending
                     }
-                  />
-                  <button
-                    className="catalog-primary-action"
-                    type="submit"
-                    disabled={catalogMutation.isPending}
                   >
-                    Create activity
-                  </button>
+                    <div className="form-field-grid">
+                      <Field
+                        id="activity-name-es"
+                        label="Name · ES"
+                        required={baseLocale === 'es'}
+                        registration={activityForm.register('nameEs')}
+                        error={activityForm.formState.errors.nameEs?.message}
+                      />
+                      <Field
+                        id="activity-name-en"
+                        label="Name · EN"
+                        required={baseLocale === 'en'}
+                        registration={activityForm.register('nameEn')}
+                        error={activityForm.formState.errors.nameEn?.message}
+                      />
+                    </div>
+                    <div className="form-field-grid">
+                      <Field
+                        id="activity-description-es"
+                        label="Description · ES"
+                        registration={activityForm.register('descriptionEs')}
+                        error={
+                          activityForm.formState.errors.descriptionEs?.message
+                        }
+                      />
+                      <Field
+                        id="activity-description-en"
+                        label="Description · EN"
+                        registration={activityForm.register('descriptionEn')}
+                        error={
+                          activityForm.formState.errors.descriptionEn?.message
+                        }
+                      />
+                    </div>
+                    <Field
+                      id="activity-capacity"
+                      label="Default capacity"
+                      type="number"
+                      min="1"
+                      registration={activityForm.register('defaultCapacity')}
+                      error={
+                        activityForm.formState.errors.defaultCapacity?.message
+                      }
+                    />
+                    <button
+                      className="catalog-primary-action"
+                      type="submit"
+                      disabled={
+                        !baseLocale ||
+                        settingsQuery.isError ||
+                        settingsQuery.isPending ||
+                        catalogMutation.isPending
+                      }
+                    >
+                      Create activity
+                    </button>
+                  </fieldset>
                 </form>
               </section>
             </div>
@@ -619,7 +743,7 @@ export function CatalogPanel() {
                       Slots for{' '}
                       {localizedText(
                         selectedActivity.name,
-                        selectedActivity.id,
+                        selectedActivity.baseLocale,
                       )}
                     </h3>
                   </div>
@@ -789,12 +913,13 @@ function ActivityRow({
         onClick={onSelect}
       >
         <span>
-          <strong>{localizedText(activity.name, activity.id)}</strong>
-          <small>
-            {activity.description?.es ??
-              activity.description?.en ??
-              activity.id}
-          </small>
+          <strong>{localizedText(activity.name, activity.baseLocale)}</strong>
+          {activity.description &&
+            localizedText(activity.description, activity.baseLocale) && (
+              <small>
+                {localizedText(activity.description, activity.baseLocale)}
+              </small>
+            )}
         </span>
         <StatusBadge status={activity.status} />
       </button>
@@ -874,6 +999,7 @@ function Field({
   type = 'text',
   min,
   placeholder,
+  required,
 }: {
   id: string;
   label: string;
@@ -882,16 +1008,18 @@ function Field({
   type?: 'text' | 'number';
   min?: string;
   placeholder?: string;
+  required?: boolean;
 }) {
   return (
-    <label className="catalog-field" htmlFor={id}>
-      <span>{label}</span>
+    <div className="catalog-field">
+      <label htmlFor={id}>{label}</label>
       <input
         id={id}
         type={type}
         min={min}
         placeholder={placeholder}
         aria-invalid={error ? true : undefined}
+        aria-required={required || undefined}
         aria-describedby={error ? `${id}-error` : undefined}
         {...registration}
       />
@@ -900,7 +1028,7 @@ function Field({
           {error}
         </span>
       )}
-    </label>
+    </div>
   );
 }
 
@@ -958,8 +1086,8 @@ function localizedValue(es: string, en: string): LocalizedText {
   };
 }
 
-function localizedText(value: LocalizedText, fallback: string) {
-  return value.es ?? value.en ?? fallback;
+function localizedText(value: LocalizedText, baseLocale: CatalogLocale) {
+  return value.en ?? value[baseLocale];
 }
 
 function validPositiveInteger(value: string) {

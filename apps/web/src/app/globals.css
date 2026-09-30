@@ -516,6 +516,11 @@ body {
   border-bottom: 1px solid rgba(16, 42, 44, 0.18);
 }
 
+.dashboard-header > div:first-child {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .brand-mark,
 .dashboard-eyebrow,
 .section-kicker {
@@ -540,6 +545,7 @@ body {
   letter-spacing: 0;
   line-height: 0.95;
   text-wrap: balance;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-actions {
@@ -1074,7 +1080,7 @@ body {
   }
 
   .dashboard-header h1 {
-    font-size: 3rem;
+    font-size: 2.5rem;
   }
 
   .dashboard-actions {

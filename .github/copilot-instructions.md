@@ -63,6 +63,7 @@ Docker Compose + integration PostgreSQL exist for MT-SPIKE-001 (`infra/docker/po
 - Reuse inspection and boundary protection are mandatory when adding or moving modules, services, repositories, helpers, contracts, adapters, public exports, shared UI, or cross-feature imports. Use `.github/skills/reuse-boundary-hygiene/SKILL.md`. Force the search and justification, not extraction; boundary violations block completion.
 - Keep `MT-REQ-*` separate from `DIVE-*` results.
 - IAM (`specs/iam/SPEC-DIVE-IAM-001.md`) and outbox/worker (`ADR-DIVE-002`) apply even without a dedicated agent.
+- **Documented:** for current and future dashboard/center-facing work, consult `DIVE-IAM-REQ-030..032`, the confirmed authorization-capability/application-scope policy, and the recorded implementation questions in [SPEC-DIVE-IAM-DASHBOARD-001](../specs/iam/SPEC-DIVE-IAM-DASHBOARD-001.md). Respect the current Documented product restriction and the open enforcement contracts; the SPEC distinguishes those from the derived Draft verification guidance. Do not infer application-wide coverage from catalog-only tests or an enabled administrative surface from future architectural capability. The SPEC owns the rules; do not copy them into agent profiles.
 - `SPEC-DIVE-OPS-001` is Deferred; do not implement it in the walking skeleton.
 - Performance is system-wide (DB, API, worker/outbox, web/widget). Do not invent numeric budgets.
 

@@ -41,10 +41,21 @@ vi.mock('next/navigation', async () => {
 
 function createApi() {
   return {
+    getCatalogSettings: vi
+      .fn<DashboardApi['getCatalogSettings']>()
+      .mockResolvedValue({ defaultActivityLocale: 'es' }),
+    selectCatalogLanguage: vi.fn().mockResolvedValue(undefined),
     listOperators: vi.fn().mockResolvedValue({ operators: [] }),
     issueTenantContext: vi.fn().mockResolvedValue({
       tenantContext: 'ctx_alpha',
     }),
+    issueCenterEntryContext: vi.fn().mockResolvedValue({
+      tenantContext: 'ctx_alpha',
+      center: { centerId: 'center-alpha' },
+    }),
+    getCenter: vi
+      .fn()
+      .mockResolvedValue({ id: 'center-alpha', name: 'Alpha Center' }),
     revokeTenantContext: vi.fn().mockResolvedValue(undefined),
     listCenters: vi.fn().mockResolvedValue([]),
     listActivities: vi.fn().mockResolvedValue({
@@ -52,6 +63,7 @@ function createApi() {
         {
           id: 'activity-alpha',
           status: 'Draft',
+          baseLocale: 'es',
           name: { es: 'Buceo nocturno' },
           createdAt: '2026-09-27T10:00:00Z',
         },
@@ -118,6 +130,150 @@ describe('dashboard catalog panel', () => {
   afterEach(() => {
     cleanup();
     window.history.replaceState(null, '', '/dashboard');
+  });
+
+  it('requires an explicit center language before creating a monolingual activity (DIVE-BOOK-REQ-009, 051)', async () => {
+    const api = createApi();
+    api.getCatalogSettings.mockResolvedValue({
+      defaultActivityLocale: null,
+    } as never);
+    api.selectCatalogLanguage.mockImplementation(async () => {
+      api.getCatalogSettings.mockResolvedValue({ defaultActivityLocale: 'en' });
+    });
+    renderCatalog(api);
+    const language = await screen.findByLabelText('Catalog language');
+    expect(language).toHaveValue('');
+    expect(
+      screen.getByRole('button', { name: 'Create activity' }),
+    ).toBeDisabled();
+    expect(api.selectCatalogLanguage).not.toHaveBeenCalled();
+    fireEvent.change(language, { target: { value: 'en' } });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save catalog language' }),
+    );
+    await screen.findByText('Catalog language: English');
+    expect(api.selectCatalogLanguage).toHaveBeenCalledWith(
+      'ctx_alpha',
+      'center-alpha',
+      'en',
+    );
+    expect(screen.queryByLabelText('Catalog language')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Name · ES'), {
+      target: { value: 'Traduccion' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create activity' }));
+    await screen.findByText('Add the activity name in English.');
+    expect(api.createActivity).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Name · ES'), {
+      target: { value: '' },
+    });
+    fireEvent.change(screen.getByLabelText('Name · EN'), {
+      target: { value: 'Diving' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create activity' }));
+    await waitFor(() =>
+      expect(api.createActivity).toHaveBeenCalledWith(
+        'ctx_alpha',
+        'center-alpha',
+        { name: { en: 'Diving' } },
+      ),
+    );
+  });
+
+  it('refreshes a competing language selection instead of overriding the server (DIVE-BOOK-REQ-056)', async () => {
+    const api = createApi();
+    api.getCatalogSettings.mockResolvedValueOnce({
+      defaultActivityLocale: null,
+    } as never);
+    api.selectCatalogLanguage.mockRejectedValue(
+      new DashboardApiError(409, 'unknown', {
+        code: 'center_catalog_locale_locked',
+      }),
+    );
+    renderCatalog(api);
+    fireEvent.change(await screen.findByLabelText('Catalog language'), {
+      target: { value: 'en' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save catalog language' }),
+    );
+    await screen.findByText('Catalog language: Spanish');
+    expect(screen.queryByLabelText('Catalog language')).not.toBeInTheDocument();
+    expect(api.selectCatalogLanguage).toHaveBeenCalledTimes(1);
+    expect(api.createActivity).not.toHaveBeenCalled();
+  });
+
+  it('does not reuse a previous center language or activity draft (DIVE-BOOK-REQ-050, MT-REQ-010)', async () => {
+    const api = createApi();
+    api.getCatalogSettings.mockImplementation(
+      async (_context, centerId) =>
+        ({
+          defaultActivityLocale: centerId === 'center-alpha' ? 'es' : null,
+        }) as never,
+    );
+    renderCatalog(api);
+    await screen.findByText('Catalog language: Spanish');
+    fireEvent.change(screen.getByLabelText('Name · ES'), {
+      target: { value: 'Old draft' },
+    });
+    fireEvent.change(screen.getByLabelText('Center'), {
+      target: { value: 'center-beta' },
+    });
+    expect(await screen.findByLabelText('Catalog language')).toHaveValue('');
+    expect(screen.getByLabelText('Name · ES')).toHaveValue('');
+    expect(
+      screen.getByRole('button', { name: 'Create activity' }),
+    ).toBeDisabled();
+    expect(api.createActivity).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when catalog configuration cannot be read', async () => {
+    const api = createApi();
+    api.getCatalogSettings.mockRejectedValue(
+      new DashboardApiError(403, 'unknown', { code: 'permission_denied' }),
+    );
+    renderCatalog(api);
+    await screen.findByText('Catalog language unavailable');
+    expect(
+      screen.getByRole('button', { name: 'Create activity' }),
+    ).toBeDisabled();
+    expect(screen.queryByLabelText('Catalog language')).not.toBeInTheDocument();
+  });
+
+  it('resolves fields independently and never fills raw translations (DIVE-BOOK-REQ-009, 053)', async () => {
+    const api = createApi();
+    const items = [
+      {
+        id: 'translated',
+        status: 'Draft' as const,
+        baseLocale: 'es' as const,
+        name: { es: 'Buceo', en: 'Diving' },
+        description: { es: 'Descripcion base' },
+        createdAt: '2026-09-27T10:00:00Z',
+      },
+      {
+        id: 'english',
+        status: 'Draft' as const,
+        baseLocale: 'en' as const,
+        name: { en: 'Freediving' },
+        description: { es: 'Not a third fallback' },
+        createdAt: '2026-09-27T10:00:00Z',
+      },
+    ];
+    const before = structuredClone(items);
+    api.listActivities.mockResolvedValue({
+      items,
+      page: 1,
+      pageSize: 10,
+      hasNext: false,
+    } as never);
+    renderCatalog(api);
+    await screen.findByText('Diving');
+    expect(screen.getByText('Descripcion base')).toBeInTheDocument();
+    expect(screen.queryByText('Not a third fallback')).not.toBeInTheDocument();
+    expect(screen.queryByText('Buceo')).not.toBeInTheDocument();
+    expect(items).toEqual(before);
+    expect(api.createActivity).not.toHaveBeenCalled();
   });
 
   it('loads the selected authorized center and its activity-scoped slots', async () => {
@@ -187,7 +343,7 @@ describe('dashboard catalog panel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create activity' }));
 
     expect(
-      await screen.findByText('Add the activity name in Spanish or English.'),
+      await screen.findByText('Add the activity name in Spanish.'),
     ).toBeInTheDocument();
     expect(api.createActivity).not.toHaveBeenCalled();
 
@@ -208,6 +364,7 @@ describe('dashboard catalog panel', () => {
           {
             id: `activity-page-${query.page ?? 1}`,
             status: query.status ?? 'Draft',
+            baseLocale: 'es',
             name: { es: `Actividad ${query.page ?? 1}` },
             createdAt: '2026-09-27T10:00:00Z',
           },

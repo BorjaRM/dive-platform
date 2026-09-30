@@ -13,6 +13,34 @@ describe('dashboard catalog API boundary', () => {
     vi.restoreAllMocks();
   });
 
+  it('reads and selects explicit center language without additional authority fields (DIVE-BOOK-REQ-009, 050)', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse({ defaultActivityLocale: null }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    const api = createDashboardApi({
+      baseUrl: 'https://api.example.test',
+      session: { getToken: async () => 'session-secret' },
+    });
+    await expect(
+      api.getCatalogSettings('ctx_secret', 'center/alpha'),
+    ).resolves.toEqual({ defaultActivityLocale: null });
+    await expect(
+      api.selectCatalogLanguage('ctx_secret', 'center/alpha', 'en'),
+    ).resolves.toBeUndefined();
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      'https://api.example.test/v1/centers/center%2Falpha/catalog-settings',
+    );
+    const init = fetchMock.mock.calls[1]?.[1];
+    expect(init?.method).toBe('PUT');
+    expect(JSON.parse(String(init?.body))).toEqual({
+      defaultActivityLocale: 'en',
+    });
+    expect(new Headers(init?.headers).get('X-Tenant-Context')).toBe(
+      'ctx_secret',
+    );
+  });
+
   it('builds scoped activity list requests with typed pagination and credentials', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')

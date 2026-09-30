@@ -6,6 +6,7 @@ import {
 import type {
   CatalogActivityInput,
   CatalogListQueryInput,
+  CatalogSettingsInput,
   CatalogSlotInput,
 } from './catalog.dto.js';
 import { CatalogProblemException } from './catalog.errors.js';
@@ -127,6 +128,24 @@ export function parseCatalogActivityInput(
         ? undefined
         : positiveInteger(input.defaultCapacity, 'defaultCapacity'),
   };
+}
+
+export function parseCatalogSettingsInput(
+  value: unknown,
+): CatalogSettingsInput {
+  rejectUnknownFields(value, ['defaultActivityLocale']);
+  const input = value as Record<string, unknown>;
+  if (
+    input.defaultActivityLocale !== 'es' &&
+    input.defaultActivityLocale !== 'en'
+  ) {
+    throw new CatalogProblemException(
+      422,
+      'validation_error',
+      'defaultActivityLocale must be es or en',
+    );
+  }
+  return { defaultActivityLocale: input.defaultActivityLocale };
 }
 
 export function parseCatalogSlotInput(value: unknown): CatalogSlotInput {

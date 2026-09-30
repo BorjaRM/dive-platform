@@ -1,15 +1,20 @@
 import { SignIn } from '@clerk/nextjs';
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
+import { readApplicationHostConfig } from '@/lib/application-hosts';
 
 export const metadata: Metadata = {
   title: 'Sign in | BlueCurrent',
   description: 'Sign in to the BlueCurrent operations console.',
 };
 
-export default function SignInPage() {
+export default async function SignInPage() {
   if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
     return <AuthConfigurationMissing />;
   }
+  const returnUrl =
+    (await headers()).get('x-dive-center-return') ??
+    `${readApplicationHostConfig().authenticationOrigin}/dashboard`;
   return (
     <main className="bootstrap-shell auth-shell">
       <section className="bootstrap-intro" aria-labelledby="sign-in-title">
@@ -27,6 +32,7 @@ export default function SignInPage() {
           routing="path"
           withSignUp={false}
           fallbackRedirectUrl="/dashboard"
+          forceRedirectUrl={returnUrl}
         />
       </section>
     </main>
