@@ -3,6 +3,7 @@ import { CatalogProblemException } from './catalog.errors.js';
 import {
   pagination,
   parseCatalogActivityInput,
+  parseCatalogInputInstant,
   parseCatalogListQueryInput,
   parseCatalogSettingsInput,
   parseCatalogSlotInput,
@@ -11,6 +12,18 @@ import {
 } from './catalog.validation.js';
 
 describe('catalog runtime validation', () => {
+  it.each(['startsAt', 'from', 'to'])(
+    'parses %s and adapts invalid instants to a catalog validation error',
+    (field) => {
+      expect(
+        parseCatalogInputInstant('2030-01-01T11:00:00+01:00', field).toString(),
+      ).toBe('2030-01-01T10:00:00Z');
+      expect(() => parseCatalogInputInstant('not-an-instant', field)).toThrow(
+        CatalogProblemException,
+      );
+    },
+  );
+
   it.each(['es', 'en'] as const)(
     'accepts explicit center catalog language %s (DIVE-BOOK-REQ-009, 050)',
     (defaultActivityLocale) => {

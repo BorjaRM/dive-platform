@@ -77,6 +77,17 @@ Docker Compose + integration PostgreSQL exist for MT-SPIKE-001 (`infra/docker/po
 - Test observable behavior and boundaries, not private implementation details. Scale coverage with the change's risk and blast radius.
 - Refactor only the area needed to deliver the requested behavior; keep unrelated cleanup out of the change.
 
+### Readability and simplicity
+
+**Proposed, explicitly approved:** product-owner authorization on 2026-09-30 for readable agent-generated code and readability-aware review. This is implementation guidance, not a new product contract.
+
+- Prefer code whose intent, control flow and state ownership are easy to follow. When correctness and required performance are equivalent, choose the simpler implementation; fewer lines, effects, hooks, components or files are not goals by themselves.
+- Make decision priorities explicit with guard clauses, ordered `if` statements or `switch` when they clarify the behavior. Avoid chained ternaries for lifecycle, authentication, authorization or scope decisions; a simple two-way ternary remains appropriate.
+- Use names that distinguish requested values, validated values, operation state and derived presentation state. Keep authoritative state in one place; do not add mirrored state just to make a conditional shorter.
+- Keep small decisions local. Introduce a focused helper or component only when its name and boundary make the caller easier to understand or satisfy the existing reuse criteria. Do not replace a dense expression with scattered trivial abstractions or a large hook that merely hides it.
+- Keep cleanup, cancellation, stale-result protection and security boundaries visible. Use advanced React patterns only for a concrete lifecycle or performance need, not as a stylistic default; simplicity does not justify weakening those guarantees.
+- Before completing implementation or review, check readability separately from behavior: can a reader follow state precedence, transitions and side effects without reconstructing hidden rules? Report concrete maintenance risks with a proportionate alternative. Passing tests alone do not establish maintainability.
+
 ## Pull requests
 
 Follow `.github/pull_request_template.md`. An issue-backed product implementation PR links and closes its implementation issue. Under the explicit chat-authorized exception, record the authorization, requirement IDs and validation instead; do not invent an issue or `Closes` reference. Every PR needs a concise `Validation` section. Draft PRs must state what is incomplete and are not merge approval.

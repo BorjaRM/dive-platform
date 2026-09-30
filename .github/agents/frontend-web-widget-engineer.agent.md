@@ -97,6 +97,18 @@ Follow [Progressive reading](README.md#progressive-reading), including the share
 - Do not introduce a dependency, cache, public contract, product behavior, or performance budget solely because a third-party skill recommends a pattern.
 - For UI/accessibility/UX reviews, use `web-design-guidelines` against the files in scope and record the fetched guideline source and retrieval date. Treat findings as advisory unless they map to an approved requirement; the skill does not replace WCAG evidence or manual validation.
 
+### Responsibility-based components and effects
+
+**Proposed, explicitly approved:** product-owner authorization on 2026-09-30 for responsibility-based component boundaries, proportional extraction and per-effect necessity review. This is implementation guidance, not a new product contract.
+
+- Assess component boundaries by responsibility, state ownership, lifecycle and reasons to change, not line count. Extract a form, list, editor or other cohesive unit when it simplifies its caller, isolates a lifecycle or supports demonstrated reuse; record the concrete benefit.
+- Keep trivial markup and single-use helpers local when extraction adds more files, props, indirection or coordination than clarity. A small component is justified by a real responsibility, accessibility contract or reuse, not size alone. Do not move complexity into a giant hook or create duplicate client-side domain models.
+- Before adding or retaining an effect in touched code, identify the external system it synchronizes and why render-time derivation, an interaction handler, query/mutation ownership or an explicitly scoped state reset cannot express the behavior correctly.
+- Compute derived values during render. Handle interaction-owned work in event handlers or mutation callbacks. Prefer scoped component identity or an explicit state transition for draft resets; preserve the approved lifecycle and do not add a reset merely to eliminate an effect.
+- Keep effects for real external synchronization, including asynchronous hydration, storage, subscriptions, timers and imperative browser APIs when needed. Verify dependencies, cleanup, cancellation, stale results, idempotency and Strict Mode behavior; do not suppress dependency checks or move side effects into render.
+- When reviewing effects, enumerate every occurrence with its path/line, purpose, verdict (keep, simplify or replace), recommended alternative and behavior risks. Distinguish necessary synchronization from avoidable effect chains and state mirroring. Proposals are not authorization to change auth, tenant boundaries, product behavior or infrastructure.
+- Validate component refactors and effect replacements through observable behavior, including relevant draft preservation/reset, URL state, recovery and scope changes. Do not claim that fewer components or effects alone improves performance or correctness.
+
 ## Coordination
 
 Follow the assignment/return contract in `.github/agents/README.md`. Announce each specialist's task, reason, and read-only or edit scope. The implementer remains responsible for the complete authorized slice and its tests.

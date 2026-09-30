@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -259,6 +260,58 @@ describe('BootstrapAcceptance', () => {
     expect(routerMock.replace).toHaveBeenCalledWith('/bootstrap/setup');
     expect(clerkMock.signUp.ticket).not.toHaveBeenCalled();
   });
+
+  it.each(['pending', 'failed'] as const)(
+    'preserves a %s acceptance operation when Clerk changes session state',
+    async (state) => {
+      window.history.replaceState(
+        {},
+        '',
+        '/bootstrap/accept?__clerk_status=sign_in&__clerk_ticket=secret-ticket',
+      );
+      clerkMock.signIn.ticket.mockImplementation(async () => {
+        clerkMock.signIn.status = 'complete';
+        return { error: null };
+      });
+      let finishAcceptance = () => {};
+      clerkMock.signIn.finalize.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            finishAcceptance = () => resolve({ error: null });
+          }),
+      );
+      if (state === 'failed') {
+        clerkMock.signIn.finalize.mockRejectedValueOnce(
+          new Error('private-provider-error'),
+        );
+      }
+      const rendered = render(<BootstrapAcceptance />);
+      fireEvent.change(await screen.findByLabelText('Password'), {
+        target: { value: 'existing-password' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+      await waitFor(() =>
+        expect(clerkMock.signIn.finalize).toHaveBeenCalledOnce(),
+      );
+      if (state === 'failed') await screen.findByRole('alert');
+      clerkMock.isSignedIn = true;
+      rendered.rerender(<BootstrapAcceptance />);
+      expect(
+        screen.queryByRole('button', { name: 'Sign out and continue' }),
+      ).not.toBeInTheDocument();
+      if (state === 'pending') {
+        expect(
+          screen.getByRole('button', { name: 'Accepting invitation…' }),
+        ).toBeDisabled();
+        await act(async () => finishAcceptance());
+      } else {
+        expect(screen.getByRole('alert')).toHaveTextContent(
+          'This invitation could not be accepted.',
+        );
+      }
+      expect(window.location.search).toBe('');
+    },
+  );
 
   it('does not start acceptance when Clerk does not classify the invitation (DIVE-ONB-REQ-038)', async () => {
     window.history.replaceState(

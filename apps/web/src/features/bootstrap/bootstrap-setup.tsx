@@ -18,6 +18,10 @@ const copy = {
     confirm: 'I confirm this is the center’s local time zone.',
     submit: 'Create operation',
     submitting: 'Creating operation…',
+    confirmationRequired: 'Confirm the time zone to continue.',
+    sessionExpired: 'Your session expired. Sign in again.',
+    setupFailed:
+      'Setup could not be completed. Check your invitation or contact support.',
   },
   es: {
     kicker: 'Configuración inicial',
@@ -30,6 +34,10 @@ const copy = {
     confirm: 'Confirmo que esta es la zona horaria local del centro.',
     submit: 'Crear operador',
     submitting: 'Creando operador…',
+    confirmationRequired: 'Confirma la zona horaria para continuar.',
+    sessionExpired: 'La sesión ha caducado. Vuelve a iniciar sesión.',
+    setupFailed:
+      'No se pudo completar la configuración. Revisa tu invitación o contacta con soporte.',
   },
 } as const;
 
@@ -86,11 +94,7 @@ function AuthenticatedBootstrapSetup({
   async function submitSetup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!confirmed) {
-      setMessage(
-        locale === 'es'
-          ? 'Confirma la zona horaria para continuar.'
-          : 'Confirm the time zone to continue.',
-      );
+      setMessage(text.confirmationRequired);
       return;
     }
     const formData = new FormData(event.currentTarget);
@@ -111,17 +115,11 @@ function AuthenticatedBootstrapSetup({
       });
       navigate(centerDashboardUrl(result.centerKey, centerAppBaseDomain));
     } catch (error) {
-      const sessionExpired =
-        error instanceof BootstrapApiError && error.status === 401;
-      setMessage(
-        sessionExpired
-          ? locale === 'es'
-            ? 'La sesión ha caducado. Vuelve a iniciar sesión.'
-            : 'Your session expired. Sign in again.'
-          : locale === 'es'
-            ? 'No se pudo completar la configuración. Revisa tu invitación o contacta con soporte.'
-            : 'Setup could not be completed. Check your invitation or contact support.',
-      );
+      if (error instanceof BootstrapApiError && error.status === 401) {
+        setMessage(text.sessionExpired);
+      } else {
+        setMessage(text.setupFailed);
+      }
     } finally {
       setSubmitting(false);
     }

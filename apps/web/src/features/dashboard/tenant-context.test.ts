@@ -80,6 +80,42 @@ function memoryStorage() {
 }
 
 describe('dashboard tenant-context boundary', () => {
+  it('cleans up its deadline and caller listener when request serialization fails', async () => {
+    vi.useFakeTimers();
+    const caller = new AbortController();
+    const removeListener = vi.spyOn(caller.signal, 'removeEventListener');
+    const serializationError = new Error('Cannot serialize activity');
+    const name = {
+      es: 'Activity',
+      toJSON: () => {
+        throw serializationError;
+      },
+    };
+    const api = createDashboardApi({
+      baseUrl: 'https://api.example.test',
+      session: { getToken: async () => 'session-secret' },
+      requestTimeoutMillis: 100,
+    });
+    try {
+      await expect(
+        api.createActivity(
+          'ctx_alpha',
+          'center-alpha',
+          { name },
+          caller.signal,
+        ),
+      ).rejects.toBe(serializationError);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(removeListener).toHaveBeenCalledWith(
+        'abort',
+        expect.any(Function),
+      );
+    } finally {
+      removeListener.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it('issues center entry with a single selector and reads only its returned center (DIVE-IAM-REQ-032)', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')

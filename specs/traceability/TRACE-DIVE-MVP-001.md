@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.77
+- **Version:** 0.78
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -42,7 +42,7 @@
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-004 | `specs/spikes/SPIKE-DIVE-004/` | Draft / executed 2026-09-29 (Documented: spike results and dated provider evidence) | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.77 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.78 |
 | ADR-DIVE-017 | `specs/architecture/adrs/ADR-DIVE-017.md` | Ready to start | 0.4 |
 | SPEC-DIVE-BOOKING-CAPABILITIES-001 | `specs/booking/SPEC-DIVE-BOOKING-CAPABILITIES-001.md` | Draft | 0.2 |
 | SPEC-DIVE-BOOKING-CATALOG-001 | `specs/booking/SPEC-DIVE-BOOKING-CATALOG-001.md` | Draft | 0.9 |
@@ -53,7 +53,7 @@
 | SPEC-DIVE-IAM-INVITATIONS-001 | `specs/iam/SPEC-DIVE-IAM-INVITATIONS-001.md` | Ready to start | 0.1 |
 | SPEC-DIVE-IAM-SUPPORT-001 | `specs/iam/SPEC-DIVE-IAM-SUPPORT-001.md` | Ready to start | 0.1 |
 | SPEC-DIVE-ONBOARDING-ADMIN-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-ADMIN-001.md` | Ready to start | 0.1 |
-| SPEC-DIVE-ONBOARDING-DELIVERY-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-DELIVERY-001.md` | Ready to start | 0.1 |
+| SPEC-DIVE-ONBOARDING-DELIVERY-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-DELIVERY-001.md` | Ready to start | 0.2 |
 | SPEC-DIVE-ONBOARDING-GUIDANCE-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-GUIDANCE-001.md` | Deferred | 0.1 |
 
 **Documented:** the map reflects the structural split and subsequent dated approvals recorded by the owners. Original approvals are retained; the new commercial direction is explicitly approved on 2026-09-30, not inferred from the map. No executed coverage is inferred. Requirement entry points are SPEC-DIVE-BOOKING-001, SPEC-DIVE-IAM-001 and SPEC-DIVE-ONBOARDING-001, each with its ownership table.

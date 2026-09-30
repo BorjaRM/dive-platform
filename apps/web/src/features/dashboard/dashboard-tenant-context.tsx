@@ -1,12 +1,20 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   DashboardContextProvider,
   type DashboardSessionState,
 } from './dashboard-context';
 import {
+  type Center,
   createBrowserTenantContextStorage,
   createDashboardApi,
   DASHBOARD_QUERY_KEYS,
@@ -71,7 +79,9 @@ export function DashboardTenantContext({
     centerKey: string;
     centerId: string;
   } | null>(null);
-  const sessionRef = useRef(session);
+  const [contextSession, setContextSession] = useState(session);
+  const contextIsCurrent = contextSession === session;
+  const sessionExpiredRef = useRef(false);
   const browserStorageRef = useRef<TenantContextStorage | null>(null);
 
   const clearDashboardCache = useCallback(() => {
@@ -80,8 +90,7 @@ export function DashboardTenantContext({
 
   const clearContext = useCallback(
     (nextRecovery: RecoveryState = null) => {
-      if (!contextStorage) return;
-      contextStorage.clear();
+      (contextStorage ?? browserStorageRef.current)?.clear();
       setTenantContext(null);
       setEntryCenter(null);
       clearDashboardCache();
@@ -91,13 +100,12 @@ export function DashboardTenantContext({
   );
 
   const expireSession = useCallback(() => {
+    if (sessionExpiredRef.current) return;
+    sessionExpiredRef.current = true;
     setSessionState('expired');
     clearContext();
-  }, [clearContext]);
-
-  useEffect(() => {
-    if (sessionState === 'expired') onSessionExpired?.();
-  }, [onSessionExpired, sessionState]);
+    onSessionExpired?.();
+  }, [clearContext, onSessionExpired]);
 
   useEffect(() => {
     if (!browserStorageRef.current && !storage) {
@@ -108,7 +116,7 @@ export function DashboardTenantContext({
     setContextStorage(nextStorage);
     try {
       const storedContext = nextStorage.read();
-      if (sessionState === 'expired' || centerKey) {
+      if (sessionExpiredRef.current || centerKey) {
         nextStorage.clear();
         setTenantContext(null);
         setEntryCenter(null);
@@ -119,10 +127,29 @@ export function DashboardTenantContext({
     } finally {
       setStorageReady(true);
     }
-  }, [centerKey, clearDashboardCache, sessionState, storage]);
+  }, [centerKey, clearDashboardCache, storage]);
 
-  // The retry signal intentionally retriggers this effect without rechecking after logout.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: sessionCheck is an explicit retry signal
+  const completeSessionProbe = useEffectEvent(
+    (
+      probeSession: SessionTokenSource,
+      attempt: number,
+      result: { token: string | null } | { error: unknown },
+    ) => {
+      if (probeSession !== session || attempt !== sessionCheck) return;
+      if ('token' in result) {
+        if (result.token) setSessionState('available');
+        else expireSession();
+      } else if (
+        result.error instanceof DashboardApiError &&
+        result.error.kind === 'unavailable'
+      ) {
+        setSessionState('unavailable');
+      } else {
+        expireSession();
+      }
+    },
+  );
+
   useEffect(() => {
     if (!apiBaseUrl) {
       setSessionState('unavailable');
@@ -155,20 +182,11 @@ export function DashboardTenantContext({
     void boundedTokenCheck.then(
       (token) => {
         settleProbe();
-        if (active) {
-          if (token) setSessionState('available');
-          else setSessionState('expired');
-        }
+        if (active) completeSessionProbe(session, sessionCheck, { token });
       },
       (error) => {
         settleProbe();
-        if (active) setSessionState('expired');
-        if (
-          error instanceof DashboardApiError &&
-          error.kind === 'unavailable'
-        ) {
-          if (active) setSessionState('unavailable');
-        }
+        if (active) completeSessionProbe(session, sessionCheck, { error });
       },
     );
     return () => {
@@ -179,13 +197,18 @@ export function DashboardTenantContext({
   }, [apiBaseUrl, requestTimeoutMillis, session, sessionCheck]);
 
   useEffect(() => {
-    if (sessionRef.current === session) return;
-    sessionRef.current = session;
+    if (contextIsCurrent) return;
+    setContextSession(session);
+    sessionExpiredRef.current = false;
     clearContext();
     setAutomaticSelectionAttempted(false);
     setRecovery(null);
     setSessionState('checking');
-  }, [clearContext, session]);
+  }, [clearContext, contextIsCurrent, session]);
+
+  const hasAvailableSession = contextIsCurrent && sessionState === 'available';
+  const canEstablishTenantContext =
+    hasAvailableSession && tenantContext === null && recovery === null;
 
   const operatorsQuery = useQuery({
     queryKey: [
@@ -196,7 +219,7 @@ export function DashboardTenantContext({
     enabled:
       !centerKey &&
       storageReady &&
-      sessionState === 'available' &&
+      hasAvailableSession &&
       tenantContext === null,
     retry: false,
   });
@@ -210,33 +233,27 @@ export function DashboardTenantContext({
     ],
     queryFn: ({ signal }) =>
       api.issueCenterEntryContext(centerKey as string, signal),
-    enabled:
-      Boolean(centerKey) &&
-      storageReady &&
-      sessionState === 'available' &&
-      tenantContext === null &&
-      recovery === null,
+    enabled: Boolean(centerKey) && storageReady && canEstablishTenantContext,
     retry: false,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
 
   useEffect(() => {
-    if (!centerKey || !centerEntryQuery.data || sessionState !== 'available')
-      return;
+    if (!centerKey || !canEstablishTenantContext) return;
+    if (!centerEntryQuery.isSuccess || !centerEntryQuery.data) return;
+    if (!contextStorage) return;
     const issued = centerEntryQuery.data;
-    contextStorage?.write(issued.tenantContext);
+    contextStorage.write(issued.tenantContext);
     setTenantContext(issued.tenantContext);
     setEntryCenter({ centerKey, centerId: issued.center.centerId });
-  }, [centerEntryQuery.data, centerKey, contextStorage, sessionState]);
-
-  useEffect(() => {
-    const error = centerEntryQuery.error;
-    if (!error) return;
-    if (error instanceof DashboardApiError && error.kind === 'session-expired')
-      expireSession();
-    else clearContext('forbidden');
-  }, [centerEntryQuery.error, clearContext, expireSession]);
+  }, [
+    centerEntryQuery.data,
+    centerEntryQuery.isSuccess,
+    centerKey,
+    contextStorage,
+    canEstablishTenantContext,
+  ]);
 
   const currentEntryCenter =
     entryCenter?.centerKey === centerKey ? entryCenter : null;
@@ -259,8 +276,8 @@ export function DashboardTenantContext({
           ]
         : api.listCenters(tenantContext as string, signal),
     enabled:
+      hasAvailableSession &&
       storageReady &&
-      sessionState === 'available' &&
       tenantContext !== null &&
       (!centerKey || currentEntryCenter !== null) &&
       recovery === null,
@@ -286,56 +303,57 @@ export function DashboardTenantContext({
     },
   });
 
+  const querySessionExpired = [
+    centerEntryQuery.error,
+    operatorsQuery.error,
+    centersQuery.error,
+  ].some(
+    (error) =>
+      error instanceof DashboardApiError && error.kind === 'session-expired',
+  );
+  const centerEntryFailed = Boolean(centerKey && centerEntryQuery.error);
+  const centersForbidden =
+    centersQuery.error instanceof DashboardApiError &&
+    centersQuery.error.kind === 'forbidden';
   useEffect(() => {
-    const error = operatorsQuery.error;
-    if (
-      error instanceof DashboardApiError &&
-      error.kind === 'session-expired'
-    ) {
-      expireSession();
-    }
-  }, [expireSession, operatorsQuery.error]);
-
-  useEffect(() => {
-    const error = centersQuery.error;
-    if (!(error instanceof DashboardApiError)) return;
-    if (error.kind === 'session-expired') {
+    if (!contextIsCurrent) return;
+    if (querySessionExpired) {
       expireSession();
       return;
     }
-    if (error.kind === 'forbidden') {
-      if (centerKey) {
-        clearContext('forbidden');
-        return;
-      }
+    if (centerEntryFailed || (centersForbidden && centerKey)) {
+      clearContext('forbidden');
+    } else if (centersForbidden) {
       clearDashboardCache();
       setRecovery('forbidden');
     }
   }, [
     centerKey,
-    centersQuery.error,
+    contextIsCurrent,
+    querySessionExpired,
+    centerEntryFailed,
+    centersForbidden,
     clearContext,
     clearDashboardCache,
     expireSession,
   ]);
 
+  const { mutate: issueContext, isPending: contextIssuancePending } =
+    issueContextMutation;
+  const canAutomaticallySelectOperator =
+    !centerKey &&
+    canEstablishTenantContext &&
+    operatorsQuery.data?.operators?.length === 1 &&
+    !automaticSelectionAttempted &&
+    !contextIssuancePending;
   useEffect(() => {
-    const operators = operatorsQuery.data?.operators;
-    if (
-      operators?.length === 1 &&
-      !automaticSelectionAttempted &&
-      !issueContextMutation.isPending
-    ) {
-      setAutomaticSelectionAttempted(true);
-      issueContextMutation.mutate();
-    }
-  }, [
-    automaticSelectionAttempted,
-    issueContextMutation,
-    operatorsQuery.data?.operators,
-  ]);
+    if (!canAutomaticallySelectOperator) return;
+    setAutomaticSelectionAttempted(true);
+    issueContext();
+  }, [canAutomaticallySelectOperator, issueContext]);
 
   const retrySession = () => {
+    sessionExpiredRef.current = false;
     setSessionState('checking');
     setSessionCheck((current) => current + 1);
   };
@@ -374,7 +392,7 @@ export function DashboardTenantContext({
         error instanceof DashboardApiError &&
         error.kind === 'session-expired'
       ) {
-        setSessionState('expired');
+        expireSession();
       }
     }
     try {
@@ -393,9 +411,11 @@ export function DashboardTenantContext({
     apiBaseUrl: apiBaseUrl ?? '',
     session,
     tenantContext,
-    authorizedCenters: recovery === null ? (centersQuery.data ?? []) : [],
+    authorizedCenters:
+      contextIsCurrent && recovery === null ? (centersQuery.data ?? []) : [],
     sessionState,
     isReady:
+      contextIsCurrent &&
       storageReady &&
       sessionState === 'available' &&
       tenantContext !== null &&
@@ -433,7 +453,7 @@ export function DashboardTenantContext({
     );
   }
 
-  if (sessionState === 'checking') {
+  if (!contextIsCurrent || sessionState === 'checking') {
     return renderWithDashboardContext(
       <DashboardShell eyebrow="Dashboard" title="Opening your workspace">
         <StatusPanel
@@ -564,56 +584,67 @@ export function DashboardTenantContext({
           </div>
         }
       >
-        <section
-          className="dashboard-section"
-          aria-labelledby="centers-heading"
-        >
-          <div className="section-heading">
-            <div>
-              <p className="section-kicker">Tenant-scoped data</p>
-              <h2 id="centers-heading">Centers</h2>
-            </div>
-            <span className="context-badge">Context active</span>
-          </div>
-          {centersQuery.isPending && (
-            <StatusPanel
-              title="Loading centers"
-              message="Reading current access from the server."
-            />
-          )}
-          {centersQuery.error && !centersQuery.isPending && (
-            <StatusPanel
-              title="Centers could not be loaded"
-              message="The dashboard request was denied or unavailable."
-            />
-          )}
-          {!centersQuery.error &&
-            centersQuery.data &&
-            centersQuery.data.length === 0 && (
-              <StatusPanel
-                title="No centers available"
-                message="Your active operator has no readable centers in this context."
-              />
-            )}
-          {!centersQuery.error &&
-            centersQuery.data &&
-            centersQuery.data.length > 0 && (
-              <ul className="center-list">
-                {centersQuery.data.map((center) => (
-                  <li key={center.id} className="center-row">
-                    <span className="center-mark" aria-hidden="true" />
-                    <span>
-                      <strong>{center.name}</strong>
-                      <small>Current server-authorized center</small>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-        </section>
+        <CentersSection
+          centers={centersQuery.data}
+          isLoading={centersQuery.isPending}
+          error={centersQuery.error}
+        />
       </DashboardShell>
       {children}
     </>,
+  );
+}
+
+function CentersSection({
+  centers,
+  isLoading,
+  error,
+}: {
+  centers: Center[] | undefined;
+  isLoading: boolean;
+  error: Error | null;
+}) {
+  return (
+    <section className="dashboard-section" aria-labelledby="centers-heading">
+      <div className="section-heading">
+        <div>
+          <p className="section-kicker">Tenant-scoped data</p>
+          <h2 id="centers-heading">Centers</h2>
+        </div>
+        <span className="context-badge">Context active</span>
+      </div>
+      {isLoading && (
+        <StatusPanel
+          title="Loading centers"
+          message="Reading current access from the server."
+        />
+      )}
+      {error && !isLoading && (
+        <StatusPanel
+          title="Centers could not be loaded"
+          message="The dashboard request was denied or unavailable."
+        />
+      )}
+      {!error && centers && centers.length === 0 && (
+        <StatusPanel
+          title="No centers available"
+          message="Your active operator has no readable centers in this context."
+        />
+      )}
+      {!error && centers && centers.length > 0 && (
+        <ul className="center-list">
+          {centers.map((center) => (
+            <li key={center.id} className="center-row">
+              <span className="center-mark" aria-hidden="true" />
+              <span>
+                <strong>{center.name}</strong>
+                <small>Current server-authorized center</small>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

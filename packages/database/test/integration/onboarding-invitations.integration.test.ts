@@ -760,6 +760,101 @@ describe('bootstrap invitation persistence (DIVE-ONB-REQ-001..009, 013, 039..040
     ).toEqual([{ delivery_state: 'succeeded', attempt_count: 1 }]);
   });
 
+  it('pauses unrepresentable Retry-After without replay and recovers an issued grant through audited reissue (DIVE-ONB-REQ-044..045)', async () => {
+    const principal = await authenticateIdentity(provider, 'platform-token');
+    const issued = await issueBootstrapInvitation(appPool, principal, {
+      destinationEmail: 'owner@example.test',
+      reason: 'Paused provider delivery',
+      idempotencyKey: 'issue-paused-worker',
+      correlationId,
+    });
+    if ('deniedReason' in issued) throw new Error('Expected issued invitation');
+    const client = await workerPool.connect();
+    try {
+      await client.query('BEGIN');
+      const claim = await claimBootstrapOutboxEvent(client);
+      if (!claim) throw new Error('Expected worker claim');
+      await expect(
+        failBootstrapOutboxEvent(client, {
+          eventId: claim.eventId,
+          retryable: true,
+          nextAttemptAt: 'infinity',
+          providerStatus: 'retry_after_out_of_range',
+        }),
+      ).resolves.toBe('retrying');
+      await client.query('COMMIT');
+      await client.query('BEGIN');
+      await expect(claimBootstrapOutboxEvent(client)).resolves.toBeNull();
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    const paused = await adminPool.query(
+      `SELECT event.delivery_state, event.attempt_count,
+              event.next_attempt_at::text AS next_attempt_at,
+              bootstrap_grant.delivery_status, bootstrap_grant.provider_status,
+              (SELECT count(*)::int
+               FROM onboarding_app.bootstrap_invitation_audit_records
+               WHERE action='tenant_bootstrap_invitation.delivery_failed') AS failure_count
+       FROM onboarding_app.tenant_bootstrap_outbox_events event
+       JOIN onboarding_app.tenant_bootstrap_grants bootstrap_grant
+         ON bootstrap_grant.id = event.grant_id`,
+    );
+    expect(paused.rows).toEqual([
+      {
+        delivery_state: 'retrying',
+        attempt_count: 1,
+        next_attempt_at: 'infinity',
+        delivery_status: 'retrying',
+        provider_status: 'retry_after_out_of_range',
+        failure_count: 0,
+      },
+    ]);
+
+    const reissued = await reissueBootstrapInvitation(appPool, principal, {
+      invitationId: issued.invitationId,
+      reason: 'Reviewed unrepresentable provider delay',
+      idempotencyKey: 'reissue-paused-worker',
+      correlationId,
+    });
+    if ('deniedReason' in reissued)
+      throw new Error('Expected reissued invitation');
+    expect(reissued.invitationId).not.toBe(issued.invitationId);
+    const recovered = await adminPool.query(
+      `SELECT event.grant_id, event.command, event.delivery_state,
+              bootstrap_grant.status,
+              (SELECT count(*)::int
+               FROM onboarding_app.bootstrap_invitation_audit_records
+               WHERE action='tenant_bootstrap_invitation.reissued'
+                 AND grant_id=$1) AS reissue_count
+       FROM onboarding_app.tenant_bootstrap_outbox_events event
+       JOIN onboarding_app.tenant_bootstrap_grants bootstrap_grant
+         ON bootstrap_grant.id = event.grant_id
+       ORDER BY event.command`,
+      [reissued.invitationId],
+    );
+    expect(recovered.rows).toEqual([
+      {
+        grant_id: reissued.invitationId,
+        command: 'create',
+        delivery_state: 'pending',
+        status: 'issued',
+        reissue_count: 1,
+      },
+      {
+        grant_id: issued.invitationId,
+        command: 'revoke',
+        delivery_state: 'pending',
+        status: 'superseded',
+        reissue_count: 1,
+      },
+    ]);
+  });
+
   it('expires grants before claim and never delivers their pending create command (DIVE-ONB-REQ-043..044)', async () => {
     const principal = await authenticateIdentity(provider, 'platform-token');
     const issued = await issueBootstrapInvitation(appPool, principal, {

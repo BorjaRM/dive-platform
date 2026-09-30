@@ -136,27 +136,116 @@ describe('bootstrap invitation worker (DIVE-ONB-REQ-043..045)', () => {
     });
   });
 
-  it('dead-letters the eighth retryable failure without scheduling replay', async () => {
+  it.each([
+    '9007199254740991',
+    '9007199254740992',
+    '8640000000000',
+    '9'.repeat(400),
+  ])(
+    'pauses an unrepresentable Retry-After %s without early replay (DIVE-ONB-REQ-044)',
+    async (retryAfter) => {
+      const { client, pool, provider } = harness();
+      vi.mocked(claimBootstrapOutboxEvent).mockResolvedValue(claim);
+      vi.mocked(provider.create).mockRejectedValue(
+        new BootstrapInvitationProviderError(429, retryAfter),
+      );
+      vi.mocked(failBootstrapOutboxEvent).mockResolvedValue('retrying');
+      await expect(
+        processNextBootstrapInvitation(pool, provider, enabledEnvironment, {
+          now: () => new Date('2026-01-01T00:00:00.000Z'),
+          random: () => 0,
+        }),
+      ).resolves.toBe('retrying');
+      expect(failBootstrapOutboxEvent).toHaveBeenCalledWith(client, {
+        eventId: 'event-1',
+        retryable: true,
+        nextAttemptAt: 'infinity',
+        providerStatus: 'retry_after_out_of_range',
+      });
+      expect(client.query).toHaveBeenLastCalledWith('COMMIT');
+      expect(client.release).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each([503, 429])(
+    'dead-letters the eighth HTTP %s failure without scheduling replay',
+    async (statusCode) => {
+      const { client, pool, provider } = harness();
+      vi.mocked(claimBootstrapOutboxEvent).mockResolvedValue({
+        ...claim,
+        attemptCount: 7,
+      });
+      vi.mocked(provider.reconcile).mockResolvedValue(null);
+      vi.mocked(provider.create).mockRejectedValue(
+        new BootstrapInvitationProviderError(
+          statusCode,
+          statusCode === 429 ? '9007199254740991' : null,
+        ),
+      );
+      vi.mocked(failBootstrapOutboxEvent).mockResolvedValue('dead_letter');
+      await expect(
+        processNextBootstrapInvitation(pool, provider, enabledEnvironment),
+      ).resolves.toBe('dead_letter');
+      expect(failBootstrapOutboxEvent).toHaveBeenCalledWith(client, {
+        eventId: 'event-1',
+        retryable: true,
+        nextAttemptAt: null,
+        providerStatus: `http_${statusCode}`,
+      });
+    },
+  );
+
+  it('also pauses revoke commands without attempting another create (DIVE-ONB-REQ-044)', async () => {
     const { client, pool, provider } = harness();
     vi.mocked(claimBootstrapOutboxEvent).mockResolvedValue({
       ...claim,
-      attemptCount: 7,
+      command: 'revoke',
+      providerInvitationRef: 'inv_previous',
     });
-    vi.mocked(provider.reconcile).mockResolvedValue(null);
-    vi.mocked(provider.create).mockRejectedValue(
-      new BootstrapInvitationProviderError(503, null),
+    vi.mocked(provider.revoke).mockRejectedValue(
+      new BootstrapInvitationProviderError(429, '9007199254740991'),
     );
-    vi.mocked(failBootstrapOutboxEvent).mockResolvedValue('dead_letter');
+    vi.mocked(failBootstrapOutboxEvent).mockResolvedValue('retrying');
     await expect(
-      processNextBootstrapInvitation(pool, provider, enabledEnvironment),
-    ).resolves.toBe('dead_letter');
+      processNextBootstrapInvitation(pool, provider, enabledEnvironment, {
+        now: () => new Date('2026-01-01T00:00:00.000Z'),
+        random: () => 0,
+      }),
+    ).resolves.toBe('retrying');
     expect(failBootstrapOutboxEvent).toHaveBeenCalledWith(client, {
       eventId: 'event-1',
       retryable: true,
-      nextAttemptAt: null,
-      providerStatus: 'http_503',
+      nextAttemptAt: 'infinity',
+      providerStatus: 'retry_after_out_of_range',
     });
+    expect(provider.create).not.toHaveBeenCalled();
+    expect(provider.reconcile).not.toHaveBeenCalled();
+    expect(client.query).toHaveBeenLastCalledWith('COMMIT');
   });
+
+  it.each([null, 'invalid', 'Wed, 31 Dec 2025 23:59:59 GMT', '0'])(
+    'retains local jitter when Retry-After %s imposes no later deadline (DIVE-ONB-REQ-044)',
+    async (retryAfter) => {
+      const { client, pool, provider } = harness();
+      vi.mocked(claimBootstrapOutboxEvent).mockResolvedValue(claim);
+      vi.mocked(provider.create).mockRejectedValue(
+        new BootstrapInvitationProviderError(429, retryAfter),
+      );
+      vi.mocked(failBootstrapOutboxEvent).mockResolvedValue('retrying');
+      await expect(
+        processNextBootstrapInvitation(pool, provider, enabledEnvironment, {
+          now: () => new Date('2026-01-01T00:00:00.000Z'),
+          random: () => 0.5,
+        }),
+      ).resolves.toBe('retrying');
+      expect(failBootstrapOutboxEvent).toHaveBeenCalledWith(client, {
+        eventId: 'event-1',
+        retryable: true,
+        nextAttemptAt: '2026-01-01T00:00:02.500Z',
+        providerStatus: 'http_429',
+      });
+    },
+  );
 
   it('persists an ambiguous timeout before asking the process to stop', async () => {
     const { client, pool, provider } = harness();

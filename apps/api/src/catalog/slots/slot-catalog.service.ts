@@ -4,6 +4,7 @@ import {
   bookingBookings,
   bookingCapabilityVerifiers,
   bookingSlots,
+  type TenantUnitOfWork,
 } from '@dive-center/database';
 import type { AuthenticatedPrincipal } from '@dive-center/identity';
 import { Inject, Injectable } from '@nestjs/common';
@@ -14,9 +15,10 @@ import type {
   CatalogSlotInput,
 } from '../catalog.dto.js';
 import { CatalogProblemException } from '../catalog.errors.js';
-import { formatCatalogInstant, parseCatalogInstant } from '../catalog.time.js';
+import { formatCatalogInstant } from '../catalog.time.js';
 import {
   pagination,
+  parseCatalogInputInstant,
   positiveInteger,
   rejectUnknownFields,
   statusFilter,
@@ -85,24 +87,14 @@ export class SlotCatalogService {
           'Closed',
           'Cancelled',
         ]);
-        let from: ReturnType<typeof parseCatalogInstant> | undefined;
-        let to: ReturnType<typeof parseCatalogInstant> | undefined;
-        try {
-          from =
-            query.from === undefined
-              ? undefined
-              : parseCatalogInstant(query.from, 'from');
-          to =
-            query.to === undefined
-              ? undefined
-              : parseCatalogInstant(query.to, 'to');
-        } catch (error) {
-          throw new CatalogProblemException(
-            422,
-            'validation_error',
-            (error as Error).message,
-          );
-        }
+        const from =
+          query.from === undefined
+            ? undefined
+            : parseCatalogInputInstant(query.from, 'from');
+        const to =
+          query.to === undefined
+            ? undefined
+            : parseCatalogInputInstant(query.to, 'to');
         if (from && to && from.epochNanoseconds >= to.epochNanoseconds)
           throw new CatalogProblemException(
             422,
@@ -178,16 +170,7 @@ export class SlotCatalogService {
           throw new CatalogProblemException(404, 'resource_not_found');
         if (activity[0].status !== 'Published')
           throw new CatalogProblemException(409, 'resource_state_conflict');
-        let startsAt: ReturnType<typeof parseCatalogInstant>;
-        try {
-          startsAt = parseCatalogInstant(input?.startsAt, 'startsAt');
-        } catch (error) {
-          throw new CatalogProblemException(
-            422,
-            'validation_error',
-            (error as Error).message,
-          );
-        }
+        const startsAt = parseCatalogInputInstant(input?.startsAt, 'startsAt');
         const durationMinutes = positiveInteger(
           input?.durationMinutes,
           'durationMinutes',
@@ -256,45 +239,7 @@ export class SlotCatalogService {
         )
           throw new CatalogProblemException(409, 'resource_state_conflict');
         if (target === 'Cancelled') {
-          const activeBookings = await db
-            .select({ id: bookingBookings.id })
-            .from(bookingBookings)
-            .where(
-              and(
-                eq(bookingBookings.tenantId, context.tenantId),
-                eq(bookingBookings.centerId, centerId),
-                eq(bookingBookings.slotId, slotId),
-                inArray(bookingBookings.status, ['Pending', 'Confirmed']),
-              ),
-            )
-            .orderBy(asc(bookingBookings.id))
-            .for('update');
-          const bookingIds = activeBookings.map((booking) => booking.id);
-          if (bookingIds.length > 0) {
-            await db
-              .update(bookingBookings)
-              .set({ status: 'Cancelled' })
-              .where(
-                and(
-                  eq(bookingBookings.tenantId, context.tenantId),
-                  eq(bookingBookings.centerId, centerId),
-                  eq(bookingBookings.slotId, slotId),
-                  inArray(bookingBookings.id, bookingIds),
-                  inArray(bookingBookings.status, ['Pending', 'Confirmed']),
-                ),
-              );
-            await db
-              .update(bookingCapabilityVerifiers)
-              .set({ revokedAt: new Date() })
-              .where(
-                and(
-                  eq(bookingCapabilityVerifiers.tenantId, context.tenantId),
-                  inArray(bookingCapabilityVerifiers.bookingId, bookingIds),
-                  eq(bookingCapabilityVerifiers.purpose, 'booking_cancel'),
-                  isNull(bookingCapabilityVerifiers.revokedAt),
-                ),
-              );
-          }
+          await this.cancelActiveBookingsForSlot(db, slot);
         }
         await db
           .update(bookingSlots)
@@ -321,5 +266,50 @@ export class SlotCatalogService {
         });
       },
     );
+  }
+
+  private async cancelActiveBookingsForSlot(
+    db: TenantUnitOfWork['db'],
+    slot: SlotRow,
+  ) {
+    const activeBookings = await db
+      .select({ id: bookingBookings.id })
+      .from(bookingBookings)
+      .where(
+        and(
+          eq(bookingBookings.tenantId, slot.tenantId),
+          eq(bookingBookings.centerId, slot.centerId),
+          eq(bookingBookings.slotId, slot.id),
+          inArray(bookingBookings.status, ['Pending', 'Confirmed']),
+        ),
+      )
+      .orderBy(asc(bookingBookings.id))
+      .for('update');
+    const bookingIds = activeBookings.map((booking) => booking.id);
+    if (bookingIds.length === 0) return;
+
+    await db
+      .update(bookingBookings)
+      .set({ status: 'Cancelled' })
+      .where(
+        and(
+          eq(bookingBookings.tenantId, slot.tenantId),
+          eq(bookingBookings.centerId, slot.centerId),
+          eq(bookingBookings.slotId, slot.id),
+          inArray(bookingBookings.id, bookingIds),
+          inArray(bookingBookings.status, ['Pending', 'Confirmed']),
+        ),
+      );
+    await db
+      .update(bookingCapabilityVerifiers)
+      .set({ revokedAt: new Date() })
+      .where(
+        and(
+          eq(bookingCapabilityVerifiers.tenantId, slot.tenantId),
+          inArray(bookingCapabilityVerifiers.bookingId, bookingIds),
+          eq(bookingCapabilityVerifiers.purpose, 'booking_cancel'),
+          isNull(bookingCapabilityVerifiers.revokedAt),
+        ),
+      );
   }
 }

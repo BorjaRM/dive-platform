@@ -132,6 +132,81 @@ describe('dashboard catalog panel', () => {
     window.history.replaceState(null, '', '/dashboard');
   });
 
+  it('preserves a deep-linked activity and slot page while activities load', async () => {
+    const api = createApi();
+    let releaseActivities = () => {};
+    api.listActivities.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseActivities = () =>
+            resolve({
+              items: ['activity-alpha', 'activity-beta'].map((id) => ({
+                id,
+                status: 'Draft',
+                baseLocale: 'es',
+                name: { es: id },
+                createdAt: '2026-09-27T10:00:00Z',
+              })),
+              page: 1,
+              pageSize: 10,
+              hasNext: false,
+            });
+        }),
+    );
+    window.history.replaceState(
+      null,
+      '',
+      '/dashboard?center=center-alpha&activity=activity-beta&slotPage=3',
+    );
+    renderCatalog(api);
+    await screen.findByText('Loading activities');
+    expect(new URLSearchParams(window.location.search).get('activity')).toBe(
+      'activity-beta',
+    );
+    expect(new URLSearchParams(window.location.search).get('slotPage')).toBe(
+      '3',
+    );
+    expect(api.listSlots).not.toHaveBeenCalled();
+    releaseActivities();
+    await screen.findByText('Slots for activity-beta');
+    await waitFor(() =>
+      expect(api.listSlots).toHaveBeenCalledWith(
+        'ctx_alpha',
+        'center-alpha',
+        'activity-beta',
+        { page: 3, pageSize: 10 },
+        expect.any(AbortSignal),
+      ),
+    );
+  });
+
+  it('normalizes an unauthorized center without querying its deep-linked slots', async () => {
+    const api = createApi();
+    window.history.replaceState(
+      null,
+      '',
+      '/dashboard?center=center-foreign&activity=activity-foreign&activityPage=4&slotPage=3',
+    );
+    renderCatalog(api);
+    await screen.findByText('Slots for Buceo nocturno');
+    await waitFor(() => {
+      const params = new URLSearchParams(window.location.search);
+      expect(params.get('center')).toBe('center-alpha');
+      expect(params.get('activity')).toBe('activity-alpha');
+      expect(params.has('activityPage')).toBe(false);
+      expect(params.has('slotPage')).toBe(false);
+      expect(api.listSlots).toHaveBeenCalled();
+    });
+    for (const call of api.listSlots.mock.calls) {
+      expect(call.slice(0, 3)).toEqual([
+        'ctx_alpha',
+        'center-alpha',
+        'activity-alpha',
+      ]);
+      expect(call[3]).toEqual({ page: 1, pageSize: 10 });
+    }
+  });
+
   it('requires an explicit center language before creating a monolingual activity (DIVE-BOOK-REQ-009, 051)', async () => {
     const api = createApi();
     api.getCatalogSettings.mockResolvedValue({
@@ -333,6 +408,12 @@ describe('dashboard catalog panel', () => {
       );
     });
     expect(await screen.findByText('Activity created.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Name · ES')).toHaveValue('');
+    fireEvent.change(screen.getByLabelText('Center'), {
+      target: { value: 'center-beta' },
+    });
+    await screen.findByText('Catalog language: Spanish');
+    expect(screen.queryByText('Activity created.')).not.toBeInTheDocument();
   });
 
   it('validates activity and slot drafts before sending commands', async () => {
@@ -354,6 +435,89 @@ describe('dashboard catalog panel', () => {
       ),
     ).toBeInTheDocument();
     expect(api.createSlot).not.toHaveBeenCalled();
+  });
+
+  it.each(['Duration · minutes', 'Capacity'])(
+    'rejects an empty required slot field: %s (DIVE-BOOK-REQ-052)',
+    async (label) => {
+      const api = createApi();
+      renderCatalog(api);
+      await screen.findByText('Slots for Buceo nocturno');
+      fireEvent.change(screen.getByLabelText('Starts at · RFC3339'), {
+        target: { value: '2026-10-01T10:00:00Z' },
+      });
+      fireEvent.change(screen.getByLabelText(label), {
+        target: { value: '' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Create slot' }));
+      expect(
+        await screen.findByText(
+          'Duration and capacity must be positive whole numbers.',
+        ),
+      ).toBeInTheDocument();
+      expect(api.createSlot).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['0', '-1', '1.5', '9007199254740992'])(
+    'rejects an invalid slot integer: %s (DIVE-BOOK-REQ-052)',
+    async (value) => {
+      const api = createApi();
+      renderCatalog(api);
+      await screen.findByText('Slots for Buceo nocturno');
+      fireEvent.change(screen.getByLabelText('Starts at · RFC3339'), {
+        target: { value: '2026-10-01T10:00:00Z' },
+      });
+      fireEvent.change(screen.getByLabelText('Duration · minutes'), {
+        target: { value },
+      });
+      fireEvent.change(screen.getByLabelText('Capacity'), {
+        target: { value },
+      });
+      const slotForm = screen
+        .getByRole('button', { name: 'Create slot' })
+        .closest('form');
+      if (!slotForm) throw new Error('Slot form not found.');
+      fireEvent.submit(slotForm);
+      expect(await screen.findAllByRole('alert')).toHaveLength(2);
+      expect(api.createSlot).not.toHaveBeenCalled();
+    },
+  );
+
+  it('clears a slot draft when changing its authorized center', async () => {
+    const api = createApi();
+    renderCatalog(api);
+    await screen.findByText('Slots for Buceo nocturno');
+    fireEvent.change(screen.getByLabelText('Starts at · RFC3339'), {
+      target: { value: '2026-10-01T10:00:00Z' },
+    });
+    fireEvent.change(screen.getByLabelText('Capacity'), {
+      target: { value: '12' },
+    });
+    fireEvent.change(screen.getByLabelText('Center'), {
+      target: { value: 'center-beta' },
+    });
+    await screen.findByText('Slots for Buceo nocturno');
+    expect(screen.getByLabelText('Starts at · RFC3339')).toHaveValue('');
+    expect(screen.getByLabelText('Capacity')).toHaveValue(8);
+    expect(api.createSlot).not.toHaveBeenCalled();
+  });
+
+  it('preserves an activity draft after a failed creation', async () => {
+    const api = createApi();
+    api.createActivity.mockRejectedValue(
+      new DashboardApiError(422, 'unknown', {
+        code: 'validation_error',
+      }),
+    );
+    renderCatalog(api);
+    await screen.findByText('Catalog language: Spanish');
+    fireEvent.change(screen.getByLabelText('Name · ES'), {
+      target: { value: 'Curso de apnea' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create activity' }));
+    await screen.findByText('validation_error');
+    expect(screen.getByLabelText('Name · ES')).toHaveValue('Curso de apnea');
   });
 
   it('keeps pagination and status filters in the activity list request', async () => {
@@ -414,6 +578,11 @@ describe('dashboard catalog panel', () => {
 
   it('renders only the stable problem code for catalog errors', async () => {
     const api = createApi();
+    window.history.replaceState(
+      null,
+      '',
+      '/dashboard?center=center-alpha&activity=activity-linked&slotPage=3',
+    );
     vi.mocked(api.listActivities).mockRejectedValue(
       new DashboardApiError(404, 'unknown', {
         code: 'resource_not_found',
@@ -429,16 +598,38 @@ describe('dashboard catalog panel', () => {
     expect(
       screen.queryByText('activity belongs to another center'),
     ).not.toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).get('activity')).toBe(
+      'activity-linked',
+    );
+    expect(new URLSearchParams(window.location.search).get('slotPage')).toBe(
+      '3',
+    );
+    expect(api.listSlots).not.toHaveBeenCalled();
   });
 
   it('delegates an expired catalog session to the dashboard context', async () => {
     const api = createApi();
     const handleSessionExpired = vi.fn();
+    api.getCatalogSettings.mockRejectedValue(
+      new DashboardApiError(401, 'session-expired'),
+    );
     vi.mocked(api.listActivities).mockRejectedValue(
       new DashboardApiError(401, 'session-expired'),
     );
     renderCatalog(api, handleSessionExpired);
 
+    await waitFor(() => expect(handleSessionExpired).toHaveBeenCalledOnce());
+  });
+
+  it('handles mutation session expiry in the mutation callback', async () => {
+    const api = createApi();
+    const handleSessionExpired = vi.fn();
+    api.publishActivity.mockRejectedValue(
+      new DashboardApiError(401, 'session-expired'),
+    );
+    renderCatalog(api, handleSessionExpired);
+    await screen.findByText('Buceo nocturno');
+    fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
     await waitFor(() => expect(handleSessionExpired).toHaveBeenCalledOnce());
   });
 
@@ -491,5 +682,7 @@ describe('dashboard catalog panel', () => {
         },
       );
     });
+    await screen.findByText('Slot created.');
+    expect(screen.getByLabelText('Starts at · RFC3339')).toHaveValue('');
   });
 });

@@ -122,6 +122,13 @@ async function readDashboardProblemDetails(
   }
 }
 
+function dashboardErrorKind(status: number): DashboardApiErrorKind {
+  if (status === 401) return 'session-expired';
+  if (status === 403) return 'forbidden';
+  if (status >= 500) return 'unavailable';
+  return 'unknown';
+}
+
 export function createDashboardApi({
   baseUrl,
   session,
@@ -162,36 +169,32 @@ export function createDashboardApi({
     const bounded = <Value>(operation: Promise<Value>) =>
       deadline === undefined ? operation : Promise.race([operation, deadline]);
 
-    let token: string | null;
     try {
-      token = await bounded(session.getToken(signal));
-    } catch (error) {
-      cleanup();
-      if (error instanceof DashboardApiError) throw error;
-      if (options.signal?.aborted) throw error;
-      throw new DashboardApiError(401, 'session-expired');
-    }
-    if (!token) {
-      cleanup();
-      throw new DashboardApiError(401, 'session-expired');
-    }
+      let token: string | null;
+      try {
+        token = await bounded(session.getToken(signal));
+      } catch (error) {
+        if (error instanceof DashboardApiError) throw error;
+        if (options.signal?.aborted) throw error;
+        throw new DashboardApiError(401, 'session-expired');
+      }
+      if (!token) throw new DashboardApiError(401, 'session-expired');
 
-    const headers = new Headers({
-      Authorization: `Bearer ${token}`,
-    });
-    if (options.context) headers.set('X-Tenant-Context', options.context);
-    if (options.body !== undefined)
-      headers.set('Content-Type', 'application/json');
+      const headers = new Headers({
+        Authorization: `Bearer ${token}`,
+      });
+      if (options.context) headers.set('X-Tenant-Context', options.context);
+      if (options.body !== undefined)
+        headers.set('Content-Type', 'application/json');
 
-    const requestInit: RequestInit = {
-      method: options.method ?? 'GET',
-      headers,
-      cache: 'no-store',
-    };
-    if (options.body !== undefined)
-      requestInit.body = JSON.stringify(options.body);
+      const requestInit: RequestInit = {
+        method: options.method ?? 'GET',
+        headers,
+        cache: 'no-store',
+      };
+      if (options.body !== undefined)
+        requestInit.body = JSON.stringify(options.body);
 
-    try {
       const response = await bounded(
         fetch(`${baseUrl.replace(/\/$/, '')}${path}`, {
           ...requestInit,
@@ -200,17 +203,9 @@ export function createDashboardApi({
       );
 
       if (!response.ok) {
-        const kind =
-          response.status === 401
-            ? 'session-expired'
-            : response.status === 403
-              ? 'forbidden'
-              : response.status >= 500
-                ? 'unavailable'
-                : 'unknown';
         throw new DashboardApiError(
           response.status,
-          kind,
+          dashboardErrorKind(response.status),
           await bounded(readDashboardProblemDetails(response, signal)),
         );
       }

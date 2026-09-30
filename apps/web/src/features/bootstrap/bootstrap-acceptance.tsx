@@ -12,6 +12,33 @@ type AcceptancePhase =
   | 'missing'
   | 'failed';
 type InvitationFlow = 'sign_in' | 'sign_up';
+type Invitation = { ticket: string; flow: InvitationFlow | null };
+type AcceptanceOperation =
+  | 'idle'
+  | 'reauthenticating'
+  | 'reauthenticated'
+  | 'submitting'
+  | 'failed';
+
+function resolveAcceptancePhase({
+  operation,
+  userLoaded,
+  invitation,
+  isSignedIn,
+}: {
+  operation: AcceptanceOperation;
+  userLoaded: boolean;
+  invitation: Invitation | null;
+  isSignedIn: boolean | undefined;
+}): AcceptancePhase {
+  if (operation === 'submitting' || operation === 'failed') return operation;
+  if (operation === 'reauthenticating' || !userLoaded || !invitation) {
+    return 'loading';
+  }
+  if (!invitation.ticket || !invitation.flow) return 'missing';
+  if (isSignedIn) return 'active-session';
+  return 'ready';
+}
 
 function invitationFlowFromStatus(
   status: string | null,
@@ -30,29 +57,29 @@ export function BootstrapAcceptance() {
   const { signIn } = useSignIn();
   const { signUp } = useSignUp();
   const { signOut } = useClerk();
-  const ticket = useRef<string | null>(null);
-  const flow = useRef<InvitationFlow | null>(null);
-  const [phase, setPhase] = useState<AcceptancePhase>('loading');
+  const invitationRef = useRef<Invitation | null>(null);
+  const [invitation, setInvitation] = useState<Invitation | null>(null);
+  const [operation, setOperation] = useState<AcceptanceOperation>('idle');
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (ticket.current === null) {
+    if (invitationRef.current === null) {
       const params = new URLSearchParams(window.location.search);
-      ticket.current = params.get('__clerk_ticket') ?? '';
-      flow.current = invitationFlowFromStatus(params.get('__clerk_status'));
-      if (ticket.current) removeTicketFromAddressBar();
+      invitationRef.current = {
+        ticket: params.get('__clerk_ticket') ?? '',
+        flow: invitationFlowFromStatus(params.get('__clerk_status')),
+      };
+      if (invitationRef.current.ticket) removeTicketFromAddressBar();
     }
-    if (!userLoaded) return;
-    if (!ticket.current || !flow.current) {
-      setPhase('missing');
-      return;
-    }
-    if (isSignedIn) {
-      setPhase('active-session');
-      return;
-    }
-    setPhase('ready');
-  }, [isSignedIn, userLoaded]);
+    setInvitation(invitationRef.current);
+  }, []);
+
+  const phase = resolveAcceptancePhase({
+    operation,
+    userLoaded,
+    invitation,
+    isSignedIn,
+  });
 
   const navigateToSetup = ({
     decorateUrl,
@@ -69,10 +96,10 @@ export function BootstrapAcceptance() {
 
   async function acceptInvitation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const invitationTicket = ticket.current;
-    const invitationFlow = flow.current;
+    const invitationTicket = invitation?.ticket;
+    const invitationFlow = invitation?.flow;
     if (!invitationTicket || !invitationFlow || !signIn || !signUp) {
-      setPhase('failed');
+      setOperation('failed');
       return;
     }
     const formData = new FormData(event.currentTarget);
@@ -85,7 +112,7 @@ export function BootstrapAcceptance() {
       return;
     }
     setMessage(null);
-    setPhase('submitting');
+    setOperation('submitting');
     try {
       if (invitationFlow === 'sign_up') {
         const ticketResult = await signUp.ticket({ ticket: invitationTicket });
@@ -118,22 +145,22 @@ export function BootstrapAcceptance() {
       setMessage(
         'This invitation could not be accepted. Request a new invitation or try another account.',
       );
-      setPhase('failed');
+      setOperation('failed');
     }
   }
 
   async function confirmReauthentication() {
     setMessage(null);
-    setPhase('loading');
+    setOperation('reauthenticating');
     try {
       await signOut(() => {
-        setPhase(ticket.current && flow.current ? 'ready' : 'missing');
+        setOperation('reauthenticated');
       });
     } catch {
       setMessage(
         'This invitation could not be continued. Try again or request a new invitation.',
       );
-      setPhase('active-session');
+      setOperation('idle');
     }
   }
 
@@ -173,7 +200,7 @@ export function BootstrapAcceptance() {
     );
   }
 
-  const invitationFlow = flow.current;
+  const invitationFlow = invitation?.flow;
   if (invitationFlow !== 'sign_in' && invitationFlow !== 'sign_up') {
     return (
       <AcceptanceStatus

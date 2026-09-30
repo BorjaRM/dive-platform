@@ -67,12 +67,13 @@ export function retryAfterDelayMillis(
   if (value === null) return null;
   const normalized = value.trim();
   if (/^\d+$/.test(normalized)) {
-    const seconds = Number(normalized);
-    return Number.isSafeInteger(seconds) ? seconds * 1_000 : null;
+    const delay = Number(normalized) * 1_000;
+    return Number.isSafeInteger(delay) ? delay : Number.POSITIVE_INFINITY;
   }
   const timestamp = Date.parse(normalized);
   const delay = timestamp - now.getTime();
-  return Number.isFinite(timestamp) && delay > 0 ? delay : null;
+  if (!Number.isFinite(timestamp) || delay <= 0) return null;
+  return Number.isSafeInteger(delay) ? delay : Number.POSITIVE_INFINITY;
 }
 
 function isRetryable(error: BootstrapInvitationProviderError): boolean {
@@ -155,6 +156,7 @@ export async function processNextBootstrapInvitation(
       const retryable = isRetryable(error);
       const attempt = claim.attemptCount + 1;
       let nextAttemptAt: string | null = null;
+      let providerStatus = safeProviderStatus(error);
       if (retryable && attempt < 8) {
         const now = dependencies.now();
         const localDelay = fullJitterDelayMillis(attempt, dependencies.random);
@@ -162,15 +164,21 @@ export async function processNextBootstrapInvitation(
           error.statusCode === 429
             ? retryAfterDelayMillis(error.retryAfter, now)
             : null;
-        nextAttemptAt = new Date(
+        const retryAt = new Date(
           now.getTime() + Math.max(localDelay, providerDelay ?? localDelay),
-        ).toISOString();
+        );
+        if (!Number.isFinite(retryAt.getTime())) {
+          nextAttemptAt = 'infinity';
+          providerStatus = 'retry_after_out_of_range';
+        } else {
+          nextAttemptAt = retryAt.toISOString();
+        }
       }
       const state = await failBootstrapOutboxEvent(client, {
         eventId: claim.eventId,
         retryable,
         nextAttemptAt,
-        providerStatus: safeProviderStatus(error),
+        providerStatus,
       });
       await client.query('COMMIT');
       if (error.timedOut) return 'ambiguous_timeout';

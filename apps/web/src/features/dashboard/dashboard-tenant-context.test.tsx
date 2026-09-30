@@ -1,11 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
+  act,
   cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
 } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useDashboardContext } from './dashboard-context';
 import { DashboardTenantContext } from './dashboard-tenant-context';
@@ -136,6 +138,71 @@ describe('authenticated dashboard tenant-context flow', () => {
       screen.queryByRole('button', { name: 'Change workspace' }),
     ).not.toBeInTheDocument();
     expect(fetchMock.mock.calls).toHaveLength(2);
+  });
+
+  it('does not adopt a late center-entry response after changing the origin center', async () => {
+    let finishOldEntry = () => {};
+    let oldEntrySignal: AbortSignal | null | undefined;
+    const storage = createTenantContextStorage(memoryStorage());
+    const write = vi.spyOn(storage, 'write');
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input, init) => {
+        if (String(input).endsWith('/v1/me/center-entry-contexts')) {
+          const { centerRef } = JSON.parse(String(init?.body));
+          if (centerRef === 'alpha') {
+            oldEntrySignal = init?.signal;
+            return new Promise<Response>((resolve) => {
+              finishOldEntry = () =>
+                resolve(
+                  jsonResponse({
+                    tenantContext: 'ctx_alpha',
+                    center: { centerId: 'center-alpha' },
+                  }),
+                );
+            });
+          }
+          expect(centerRef).toBe('beta');
+          return jsonResponse({
+            tenantContext: 'ctx_beta',
+            center: { centerId: 'center-beta' },
+          });
+        }
+        expect(String(input)).toBe(
+          'https://api.example.test/v1/centers/center-beta',
+        );
+        expect(new Headers(init?.headers).get('X-Tenant-Context')).toBe(
+          'ctx_beta',
+        );
+        return jsonResponse({ id: 'center-beta', name: 'Beta Base' });
+      });
+    const session: SessionTokenSource = {
+      configured: true,
+      getToken: async () => 'session',
+    };
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const dashboard = (centerKey: string) => (
+      <QueryClientProvider client={queryClient}>
+        <DashboardTenantContext
+          apiBaseUrl="https://api.example.test"
+          session={session}
+          storage={storage}
+          centerKey={centerKey}
+        />
+      </QueryClientProvider>
+    );
+    const rendered = render(dashboard('alpha'));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    rendered.rerender(dashboard('beta'));
+    await screen.findByText('Beta Base');
+    expect(oldEntrySignal?.aborted).toBe(true);
+    await act(async () => finishOldEntry());
+    expect(screen.getByText('Beta Base')).toBeInTheDocument();
+    expect(storage.read()).toBe('ctx_beta');
+    expect(write.mock.calls).toEqual([['ctx_beta']]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it.each([403, 404, 500])(
@@ -600,6 +667,108 @@ describe('authenticated dashboard tenant-context flow', () => {
     expect(rawStorage.getItem('dive.dashboard.tenant-context')).toBeNull();
 
     fetchMock.mockRestore();
+  });
+
+  it.each(['missing', 'rejected'] as const)(
+    'notifies %s-token expiry once per attempt without repeating storage hydration',
+    async (failure) => {
+      const storage = createTenantContextStorage(memoryStorage());
+      storage.write('ctx_expiring');
+      const read = vi.spyOn(storage, 'read');
+      const session: SessionTokenSource = {
+        configured: true,
+        getToken: vi.fn(async () => {
+          if (failure === 'rejected') throw new Error('private-provider-error');
+          return null;
+        }),
+      };
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      queryClient.setQueryData(DASHBOARD_QUERY_KEYS.centers, [
+        { id: 'stale', name: 'Stale Tenant' },
+      ]);
+      const firstNotification = vi.fn();
+      const replacementNotification = vi.fn();
+      const dashboard = (onSessionExpired: () => void) => (
+        <QueryClientProvider client={queryClient}>
+          <DashboardTenantContext
+            apiBaseUrl="https://api.example.test"
+            session={session}
+            storage={storage}
+            onSessionExpired={onSessionExpired}
+          />
+        </QueryClientProvider>
+      );
+      const rendered = render(dashboard(firstNotification));
+      await screen.findByText('Your session is no longer available');
+      expect(firstNotification).toHaveBeenCalledOnce();
+      expect(
+        queryClient.getQueryData(DASHBOARD_QUERY_KEYS.centers),
+      ).toBeUndefined();
+      expect(read).toHaveBeenCalledOnce();
+      rendered.rerender(dashboard(replacementNotification));
+      expect(replacementNotification).not.toHaveBeenCalled();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Check session again' }),
+      );
+      await waitFor(() =>
+        expect(replacementNotification).toHaveBeenCalledOnce(),
+      );
+      expect(firstNotification).toHaveBeenCalledOnce();
+      expect(session.getToken).toHaveBeenCalledTimes(2);
+      expect(read).toHaveBeenCalledOnce();
+      expect(storage.read()).toBeNull();
+    },
+  );
+
+  it('ignores an obsolete token probe after changing session source in Strict Mode', async () => {
+    let finishOldProbe = () => {};
+    const oldSession: SessionTokenSource = {
+      configured: true,
+      getToken: () =>
+        new Promise((resolve) => {
+          finishOldProbe = () => resolve(null);
+        }),
+    };
+    const newSession: SessionTokenSource = {
+      configured: true,
+      getToken: async () => 'session-new',
+    };
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({
+        operators: [
+          { operatorRef: 'op_new', displayName: 'New Operator' },
+          { operatorRef: 'op_other', displayName: 'Other Operator' },
+        ],
+      }),
+    );
+    const storage = createTenantContextStorage(memoryStorage());
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const onSessionExpired = vi.fn();
+    const dashboard = (session: SessionTokenSource) => (
+      <StrictMode>
+        <QueryClientProvider client={queryClient}>
+          <DashboardTenantContext
+            apiBaseUrl="https://api.example.test"
+            session={session}
+            storage={storage}
+            onSessionExpired={onSessionExpired}
+          />
+        </QueryClientProvider>
+      </StrictMode>
+    );
+    const rendered = render(dashboard(oldSession));
+    rendered.rerender(dashboard(newSession));
+    await screen.findByText('New Operator');
+    await act(async () => finishOldProbe());
+    expect(screen.getByText('New Operator')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Your session is no longer available'),
+    ).not.toBeInTheDocument();
+    expect(onSessionExpired).not.toHaveBeenCalled();
   });
 
   it('renders a recoverable session-expired state when the provider has no token (DIVE-IAM-REQ-022)', async () => {

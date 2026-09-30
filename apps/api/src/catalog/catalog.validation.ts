@@ -148,11 +148,9 @@ export function parseCatalogSettingsInput(
   return { defaultActivityLocale: input.defaultActivityLocale };
 }
 
-export function parseCatalogSlotInput(value: unknown): CatalogSlotInput {
-  rejectUnknownFields(value, ['startsAt', 'durationMinutes', 'capacity']);
-  const input = value as Record<string, unknown>;
+export function parseCatalogInputInstant(value: unknown, field: string) {
   try {
-    parseCatalogInstant(input.startsAt, 'startsAt');
+    return parseCatalogInstant(value, field);
   } catch (error) {
     throw new CatalogProblemException(
       422,
@@ -160,6 +158,12 @@ export function parseCatalogSlotInput(value: unknown): CatalogSlotInput {
       (error as Error).message,
     );
   }
+}
+
+export function parseCatalogSlotInput(value: unknown): CatalogSlotInput {
+  rejectUnknownFields(value, ['startsAt', 'durationMinutes', 'capacity']);
+  const input = value as Record<string, unknown>;
+  parseCatalogInputInstant(input.startsAt, 'startsAt');
   return {
     startsAt: input.startsAt,
     durationMinutes: positiveInteger(input.durationMinutes, 'durationMinutes'),
