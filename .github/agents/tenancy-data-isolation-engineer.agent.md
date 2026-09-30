@@ -35,15 +35,14 @@ handoffs:
 
 Protect tenant isolation. The dive operator is the tenant; center/base is operational scope, not a tenant (ADR-DIVE-001).
 
-## Required reading
+## Role-specific reading
 
-- `.github/copilot-instructions.md`
-- `docs/sdd/how-we-work.md`
+Follow [Progressive reading](README.md#progressive-reading). Read relevant sections of these additional isolation sources for the authorized slice:
+
 - `specs/architecture/adrs/ADR-DIVE-001.md`
 - `specs/foundation/multitenancy-architecture.md`
 - `specs/multitenancy/MT-SPIKE-001-requirements.md`
 - `specs/iam/SPEC-DIVE-IAM-001.md` when isolation intersects identity, membership, or dashboard tenant-context
-- `specs/traceability/TRACE-DIVE-MVP-001.md`
 - `.github/skills/tenant-isolation-invariants/SKILL.md`
 - `.github/skills/reuse-boundary-hygiene/SKILL.md`
 

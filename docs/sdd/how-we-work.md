@@ -65,6 +65,8 @@ Each normative artifact in `specs/` has its own `Version` header. Do not force e
 - Notion pages may mirror the linked GitHub header. They must not invent a second version sequence.
 - The reusable baseline currently lives in this repository at `specs/foundation/`. It is not extracted to a separate repo. The Spanish Notion Base remains a generic template; GitHub `specs/foundation/` is the executable copy for this product.
 
+**Documented:** the [SDD baseline's reference policy](../../specs/foundation/sdd-specs-traceability.md#artifact-versions) distinguishes current links from pinned historical sources. Use the [task index](../README.md#find-the-task-owner) for progressive reading; current status/version pointers remain in artifact headers and TRACE, not in navigation tables or every reference.
+
 ## States
 
 ```text

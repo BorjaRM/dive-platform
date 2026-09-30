@@ -10,14 +10,14 @@
 - [ ] Spike or evidence
 - [ ] Refactor / maintenance with no intended behavior change
 
-## Implementation issue
+## Implementation authorization
 
-<!-- Required for product implementation PRs. Use `Closes #<issue>`. The Development Brief lives only in that issue; do not copy it here. Delete this section for other PR types. -->
+<!-- Required for product implementation PRs. Issue-backed work uses `Closes #<issue>`; the Development Brief lives only in that issue. Under docs/sdd/development-brief-template.md#explicit-chat-authorization, replace the closure line with the explicit chat authorization (role/date/bounded scope); never invent an issue or copy/create a brief. Delete this section for other PR types. -->
 
 Closes #
 
 - **Implemented IDs:**
-- **Differences from the issue brief:** None |
+- **Differences from the issue brief or authorized chat scope:** None |
 - **New open questions:** None |
 
 ## Normative changes and provenance

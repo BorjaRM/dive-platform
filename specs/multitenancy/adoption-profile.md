@@ -1,7 +1,7 @@
 # Multi-tenant adoption profile — Dive platform
 
 - **Status:** Draft
-- **Version:** 0.4
+- **Version:** 0.5
 - **Product:** Dive platform
 - **solution_name:** Plataforma para centros de buceo
 - **solution_slug:** `dive-platform`
@@ -43,7 +43,7 @@ Booking capacity, booking states, widget behavior, and trip operations remain in
 
 **Provenance:** approved scope decision (product owner, 2026-09-26). This adoption profile remains Draft. The decision does not waive baseline invariants.
 
-Cache, files, search, export, deletion, restore, support access, and noisy-neighbor are **out of MT-SPIKE-001** because those channels do not exist in the current slice. Assignment:
+Cache, files, search, export, deletion, restore, support access, and noisy-neighbor are **out of the executed MT-SPIKE-001 harness**, not necessarily absent from the current product. Each introducing owner must supply isolation evidence; client query caching does not close the baseline cache scenario. Assignment:
 
 | Channel | Owner |
 |---|---|

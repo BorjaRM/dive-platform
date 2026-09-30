@@ -1,7 +1,7 @@
 # MT-SPIKE-001 — Requirements
 
 - **Status:** Accepted with conditions
-- **Version:** 0.3
+- **Version:** 0.4
 
 These ten IDs are unchanged. The bullets under each ID are verifiable criteria unpacked from documented sources. They are not new product requirements.
 
@@ -20,9 +20,9 @@ These ten IDs are unchanged. The bullets under each ID are verifiable criteria u
 | `MT-REQ-009` | `Documented` | baseline §4, §11, §14 (non-leaking errors); specification required scenario 2 | Accepted with conditions; criteria unchanged |
 | `MT-REQ-010` | `Documented` | adoption profile validation scope; specification required scenario 7; baseline §14 | Accepted with conditions; criteria unchanged |
 
-Verifiable criteria below are `Derived` unpackings of those sources. Scenario IDs in `MT-SPIKE-001-traceability.md` are the approved traceability index. Option B and the activation conditions were approved by Borja on 2026-09-26 for this closure.
+Verifiable criteria below are `Derived` unpackings of those sources. Scenario IDs in `MT-SPIKE-001-traceability.md` are the approved traceability index. Option B and the activation conditions were approved by the product owner on 2026-09-26 for this closure.
 
-Drizzle schema-alignment and escaped-handle tests are `Derived` from `ADR-DIVE-002` and the SPIKE-001 `tenant-schema` / application UoW tests. Prototype memberships are `Proposed` tables. Permission strings `center.read` and `booking.create` are `Documented` names from `SPEC-DIVE-IAM-001`, reused here as typical membership payload until product IAM is implemented.
+Drizzle schema-alignment and escaped-handle tests are `Derived` from `ADR-DIVE-002` and the MT-SPIKE-001 `tenant-schema` / application UoW tests. Prototype memberships are `Proposed` harness tables; they do not describe current product persistence. Permission strings `center.read` and `booking.create` are `Documented` names from `SPEC-DIVE-IAM-001`, reused as typical harness payloads.
 
 ## Requirements
 
@@ -91,7 +91,7 @@ Every verifiable criterion maps to a row in `MT-SPIKE-001-traceability.md` with 
 
 A condition does not waive or relocate its parent `MT-REQ-*`. It transfers evidence ownership to the first artifact that introduces the necessary component. Failure to satisfy an activated condition blocks that artifact and full baseline adoption; it does not invalidate the already demonstrated PostgreSQL/Drizzle result.
 
-Evidence lives in `MT-SPIKE-001-results.md` and `evidence/multitenancy/MT-SPIKE-001/`. Closure conditions are `MT-COND-IAM-001` (`MT-SC-027`, `MT-SC-041`, HTTP) and `MT-COND-WORKER-001` (`MT-SC-031`, `MT-SC-036`).
+**Documented:** executed persistence results live in `MT-SPIKE-001-results.md`; reproducible assertions are linked by `MT-SPIKE-001-traceability.md`. No absent evidence directory is claimed. Closure conditions remain `MT-COND-IAM-001` (`MT-SC-027`, `MT-SC-041`, HTTP) and `MT-COND-WORKER-001` (`MT-SC-031`, `MT-SC-036`); existing implementation files alone do not close them.
 
 ## Option B — deferred baseline channels
 

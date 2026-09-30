@@ -1,7 +1,7 @@
 # ADR-DIVE-005 - Public channels and opaque capability tokens
 
-- **Status:** Ready to start
-- **Version:** 0.3
+- **Status:** Draft
+- **Version:** 0.4
 - **Date:** 2026-09-26
 - **Decision date:** 2026-09-26
 - **Revision approval date:** 2026-09-27
@@ -10,13 +10,15 @@
 
 ## Provenance
 
-The decisions were introduced as `Proposed` unless identified as `Documented` below. Sources are `SPEC-DIVE-IAM-001`, `SPEC-DIVE-BOOKING-001`, ADR-DIVE-001, ADR-DIVE-002, and the security/privacy baseline. Product, Security, and Architecture explicitly approved the v0.1 proposals on 2026-09-26 and the v0.2 public capability additions on 2026-09-27; this ADR is now normative implementation authority. Its remaining open questions stay outside the approved decision.
+The decisions were introduced as `Proposed` unless identified as `Documented` below. Sources are `SPEC-DIVE-IAM-001`, `SPEC-DIVE-BOOKING-001`, ADR-DIVE-001, ADR-DIVE-002, and the security/privacy baseline. Product, Security, and Architecture explicitly approved the v0.1 proposals on 2026-09-26 and the v0.2 public capability additions on 2026-09-27. Those historical approvals remain visible; the v0.4 credential/replay reconciliation and remaining open questions are Draft, not new implementation authority.
 
 `Documented`: the public cancellation-token TTL is 72 hours in `SPEC-DIVE-BOOKING-001` and is not changed here.
 
-Version 0.2 added the public capability HTTP contract and resend recovery proposal from the product confirmation on 2026-09-27. Product, Security, and Architecture approved those additions on 2026-09-27; version 0.3 records that approval and this ADR is `Ready to start`.
+Version 0.3 recorded the explicit 2026-09-27 approvals. Version 0.4 retains historical approvals but is Draft for token derivation and consumed-token recovery reconciliation below; no new Security approval is inferred. HTTP requirements are owned by SPEC-DIVE-BOOKING-CAPABILITIES-001, not independently redefined here.
 
 ## Context
+
+**Documented:** original v0.3 implementation authority and approvals are historical. This revision is Draft for the explicitly Proposed replay/derivation changes; they are not authorized by retaining the old approval narrative.
 
 Public users must never receive dashboard roles. Browser-supplied tenant and resource identifiers are not authorization context. Public confirmation-read and cancellation require opaque, purpose-limited credentials, while public booking creation depends on published server-side channel configuration.
 
@@ -33,12 +35,12 @@ Public users must never receive dashboard roles. Browser-supplied tenant and res
 
 ### Token representation
 
-- Generate at least 256 bits of cryptographically secure random material and expose the token once using a transport-safe encoding.
+- **Proposed, Draft:** derive an opaque token with purpose-separated HMAC, a secret key of at least 256 bits and persisted emission/key version. This replaces independently random once-exposed tokens to support complete-create replay; Security must approve derivation, retention and recovery controls.
 - Persist a versioned keyed verifier, purpose, booking reference, issued-at, expires-at, consumed-at, revoked-at, and correlation metadata. Never persist the bearer value.
 - Use distinct token purposes for `booking_confirmation_read` and `booking_cancel`.
 - Tokens contain no tenant ID, internal role, permission list, other booking ID, or customer payload.
 - Confirmation-read tokens may be reused until expiry or revocation.
-- Cancellation tokens become consumed after the first successful cancellation and cannot authorize another action.
+- Cancellation tokens become consumed after successful cancellation and cannot authorize another mutation. **Proposed, Draft:** exact result recovery follows DIVE-BOOK-REQ-071 without renewing expiry or bypassing revocation.
 - Reissuing a token revokes the previous active token for the same booking and purpose.
 
 ### Expiry
@@ -53,7 +55,7 @@ Public users must never receive dashboard roles. Browser-supplied tenant and res
 - Cancellation uses `POST /v1/public/bookings/:bookingId/cancel` with the `booking_cancel` bearer token and an `Idempotency-Key`.
 - Resend uses `POST /v1/public/bookings/:bookingId/tokens/resend` with the booker email, a requested token purpose, and an `Idempotency-Key`.
 - These routes do not use Clerk or `X-Tenant-Context`. The booking identifier is a selector, never authorization.
-- Unknown, mismatched, expired, revoked, consumed, tampered, and wrong-purpose credentials have one indistinguishable non-disclosing response. A verified credential applied to a non-cancellable terminal state returns a stable business-state error instead.
+- Unknown, mismatched, expired, revoked, tampered and wrong-purpose credentials have one indistinguishable non-disclosing response. Consumed credentials fail except the proposed exact result-recovery exception. A fresh valid credential on an incompatible terminal state returns the stable business-state error.
 - A resend response never contains a bearer value. Matching requests queue an email, revoke the previous active token for the requested purpose, and are subject to IP, booking, and email rate limits. Non-matching requests have the same response and do not disclose whether a booking or email matched.
 - Resend accepts only `booking_confirmation_read` or `booking_cancel`. Confirmation-read may be resent for any retained booking; cancellation may be resent only for `Pending` or `Confirmed` bookings.
 
@@ -81,7 +83,7 @@ Public users must never receive dashboard roles. Browser-supplied tenant and res
 
 - Published channel tests derive tenant, center, and resource scope entirely server-side.
 - Disabled, unpublished, mismatched-resource, wrong-origin, and cross-tenant requests fail without disclosure.
-- Wrong-purpose, expired, revoked, consumed, tampered, replayed, and other-booking tokens fail.
+- Wrong-purpose, expired, revoked, tampered, other-booking and differently keyed consumed-token requests fail. Proposed exact replay recovers only the stored result with original expiry and revocation preserved.
 - Token persistence and logs contain no bearer token or unnecessary personal data.
 - Public responses expose no dashboard role or internal authorization data.
 - Public capability contract tests cover non-disclosing read/cancel failures, cancellation idempotency, resend response equivalence, rate limiting, and replacement-token revocation.

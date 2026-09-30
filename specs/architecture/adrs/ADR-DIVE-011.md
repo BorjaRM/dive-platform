@@ -8,7 +8,7 @@
 
 ## Provenance
 
-The existing constraints below are `Documented`. The public-query closures were confirmed by Borja in the US-09 product decisions on 2026-09-27 and remain `Proposed` while this ADR is Draft, except that Product explicitly approved the `Available` + `Full` visibility rule for incorporation into `DIVE-BOOK-REQ-037..038` on 2026-09-27. No new `DIVE-BOOK-REQ-*` IDs are allocated.
+The existing constraints below are `Documented`. The public-query closures were confirmed by the product owner in the US-09 product decisions on 2026-09-27 and remain `Proposed` while this ADR is Draft, except that Product explicitly approved the `Available` + `Full` visibility rule for incorporation into `DIVE-BOOK-REQ-037..038` on 2026-09-27. No new `DIVE-BOOK-REQ-*` IDs are allocated.
 
 | Decision | Provenance | Exact source | Approval / status |
 |---|---|---|---|
@@ -17,15 +17,15 @@ The existing constraints below are `Documented`. The public-query closures were 
 | Hosted page is the widget fallback and the iframe reuses the hosted page | `Documented` | `DIVE-BOOK-REQ-040` | Existing normative constraint |
 | Locale is `es` or `en` and is preserved through the public booking flow | `Documented` | `DIVE-BOOK-REQ-042` | Existing normative constraint |
 | Marketplace / OTA distribution is outside the MVP | `Documented` | `SPEC-DIVE-BOOKING-001` scope; ADR-DIVE-010 | Existing normative constraint |
-| Use one canonical server-side availability result and apply B2C labels only in the hosted/widget presentation adapter | `Proposed` | Product confirmation by Borja on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
-| Hosted route is `/{locale}/book/{channelPublicId}`; an absent or unsupported locale returns the generic `404` before channel lookup | `Proposed` | Product confirmation by Borja on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
-| Public channel lifecycle is `draft`, `published`, `disabled`; unknown, draft, and disabled channels share one non-disclosing `404` | `Proposed` | Product confirmation by Borja on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
-| A published channel with no matching future slots renders a localized “no dates” state | `Proposed` | Product confirmation by Borja on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
-| List future slots with `starts_at > now` in UTC, ordered by `starts_at ASC`, then `id`; no fixed horizon | `Proposed` | Product confirmation by Borja on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
-| A `center_catalog` initially uses one chronological list including the activity name; grouping may change later | `Proposed` | Product confirmation by Borja on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
-| Include `Available` and `Full` slots; render `Full` as non-bookable “Full”; exclude `Closed` and `Cancelled` | `Proposed` | Explicit product approval by Borja on 2026-09-27 | Approved and incorporated into `DIVE-BOOK-REQ-037..038`; implementation authority is the merged SPEC |
-| Availability presentation is configured per channel: status is always shown, low-availability threshold defaults to 3, and exact remaining seats default to hidden | `Proposed` | Product confirmation by Borja on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
-| Public list page size is server-configurable with a hard maximum of 50; the cursor is opaque and internally follows `starts_at`, then `id` | `Proposed` | Product confirmation by Borja on 2026-09-27; aligned with `DIVE-BOOK-REQ-057` | Product-confirmed; Draft; not implementation-authorized |
+| Use one canonical server-side availability result and apply B2C labels only in the hosted/widget presentation adapter | `Proposed` | Product confirmation by the product owner on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
+| Hosted route is `/{locale}/book/{channelPublicId}`; an absent or unsupported locale returns the generic `404` before channel lookup | `Proposed` | Product confirmation by the product owner on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
+| Public channel lifecycle is `draft`, `published`, `disabled`; unknown, draft, and disabled channels share one non-disclosing `404` | `Proposed` | Product confirmation by the product owner on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
+| A published channel with no matching future slots renders a localized “no dates” state | `Proposed` | Product confirmation by the product owner on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
+| List future slots with `starts_at > now` in UTC, ordered by `starts_at ASC`, then `id`; no fixed horizon | `Proposed` | Product confirmation by the product owner on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
+| A `center_catalog` initially uses one chronological list including the activity name; grouping may change later | `Proposed` | Product confirmation by the product owner on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
+| Include `Available` and `Full` slots; render `Full` as non-bookable “Full”; exclude `Closed` and `Cancelled` | `Proposed` | Explicit product approval by the product owner on 2026-09-27 | Approved and incorporated into `DIVE-BOOK-REQ-037..038`; implementation authority is the merged SPEC |
+| Availability presentation is configured per channel: status is always shown, low-availability threshold defaults to 3, and exact remaining seats default to hidden | `Proposed` | Product confirmation by the product owner on 2026-09-27 | Product-confirmed; Draft; not implementation-authorized |
+| Public list page size is server-configurable with a hard maximum of 50; the cursor is opaque and internally follows `starts_at`, then `id` | `Proposed` | Product confirmation by the product owner on 2026-09-27; aligned with `DIVE-BOOK-REQ-057` | Product-confirmed; Draft; not implementation-authorized |
 
 ## Context
 

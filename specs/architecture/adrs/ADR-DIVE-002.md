@@ -1,7 +1,7 @@
 # ADR-DIVE-002 — Stack, topology, and region
 
 - **Status:** Ready to start
-- **Version:** 0.3
+- **Version:** 0.4
 - **Decision date:** 2026-09-26
 
 ## Context
@@ -57,12 +57,13 @@ history; it is not a statement about the current implementation.
 **Documented (current repository status, 2026-09-28):** the repository now
 contains a Nest API whose [root module](../../../apps/api/src/app/app.module.ts)
 composes IAM, catalog, and public booking, a Next
-[dashboard route](../../../apps/web/src/app/dashboard/page.tsx), and a
+[dashboard route](../../../apps/web/src/app/%28application%29/dashboard/page.tsx), and a
 PostgreSQL [product schema](../../../packages/database/src/product-schema.ts)
 with an immutable pre-release
 [baseline](../../../packages/database/drizzle/0000_baseline.sql). The
-[worker entry point](../../../apps/worker/src/main.ts) remains a stub and does
-not demonstrate external outbox delivery. Current implementation details belong
+[worker entry point](../../../apps/worker/src/main.ts) implements restricted,
+flag-controlled pre-tenant invitation dispatch. Existence does not demonstrate
+deployed delivery or close MT-COND-WORKER-001. Current details belong
 in code, tests, and descriptive documentation; this ADR continues to own the
 stack and topology decisions only.
 

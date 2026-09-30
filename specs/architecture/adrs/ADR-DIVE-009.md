@@ -1,13 +1,15 @@
 # ADR-DIVE-009 — Frontend state management
 
-- **Status:** Draft
-- **Version:** 0.3
+- **Status:** Ready to start
+- **Version:** 0.5
 - **Date:** 2026-09-27
 - **Decision date:** 2026-09-27
 - **Deciders:** Product / Frontend Architecture
 - **Affected surfaces:** `apps/web` dashboard, hosted public booking page, and iframe widget; integration boundary with `apps/api`
 
-Revision record: version 0.2 was approved for implementation on 2026-09-27. This semantic refinement was requested by the product owner on 2026-09-27 after reviewing the NestJS/React state strategy. It returns the ADR to Draft until the revised decisions receive explicit approval.
+Revision record: version 0.2 was approved for implementation on 2026-09-27. The semantic refinement requested by the product owner on 2026-09-27 returned the ADR to Draft pending explicit approval.
+
+**Proposed, explicitly approved:** on 2026-09-30 the product owner authorized promotion of decisions meeting the readiness gate with "las decisiones que estan listas para pasarse a ready to start pasalas". This state-ownership decision has no blocking ambiguity within its scope; the endpoint- and feature-specific follow-ups below remain separate decisions.
 
 ## Provenance
 
@@ -20,11 +22,11 @@ Revision record: version 0.2 was approved for implementation on 2026-09-27. This
 | Do not cache application authorization decisions in the MVP | `Documented` | `ADR-DIVE-008` § Authorization path | Existing normative constraint |
 | Use TanStack Query for interactive client-side server state, URL state for navigation, and local React state for component-owned UI | `Documented` | `ADR-DIVE-009` v0.2 § Decision | Previously approved baseline; retained |
 | Do not introduce a general-purpose global store by default; assess Zustand only for demonstrated cross-route browser-owned state | `Documented` | `ADR-DIVE-009` v0.2 § Shared client store | Previously approved baseline; retained |
-| Evaluate URL ownership before Context or Zustand, and include local state explicitly in the decision sequence | `Proposed` | Borja's documentation-update request following the NestJS/React strategy review on 2026-09-27 | Draft pending explicit approval |
-| Prefer server-owned loading when browser cache lifecycle is unnecessary; use TanStack Query only for interactive remote data | `Proposed` | Same review and request | Draft pending explicit approval |
-| Keep forms in React Hook Form with Zod for client validation, without making client validation or persistence authoritative | `Proposed` | Same review and request | Draft pending explicit approval |
-| Keep authorization, invariants, concurrency, idempotency, and final validation authoritative in NestJS/domain/PostgreSQL | `Derived` | `ADR-DIVE-008` § Authorization path; `.github/agents/frontend-web-widget-engineer.agent.md` § Implementation design; `specs/foundation/sdd-specs-traceability.md` § Definition of Ready | Draft pending explicit approval |
-| Do not define global retry, freshness, persistence, or optimistic-update defaults in this ADR | `Proposed` | Same review and request | Draft pending explicit approval |
+| Evaluate URL ownership before Context or Zustand, and include local state explicitly in the decision sequence | `Proposed` | the product owner's documentation-update request following the NestJS/React strategy review on 2026-09-27 | Approved for implementation; explicit promotion authorization on 2026-09-30 above |
+| Prefer server-owned loading when browser cache lifecycle is unnecessary; use TanStack Query only for interactive remote data | `Proposed` | Same review and request | Approved for implementation; explicit promotion authorization on 2026-09-30 above |
+| Keep forms in React Hook Form with Zod for client validation, without making client validation or persistence authoritative | `Proposed` | Same review and request | Approved for implementation; explicit promotion authorization on 2026-09-30 above |
+| Keep authorization, invariants, concurrency, idempotency, and final validation authoritative in NestJS/domain/PostgreSQL | `Derived` | `ADR-DIVE-008` § Authorization path; `.github/agents/frontend-web-widget-engineer.agent.md` § Implementation design; `specs/foundation/sdd-specs-traceability.md` § Definition of Ready | Approved for implementation; explicit promotion authorization on 2026-09-30 above |
+| Do not define global retry, freshness, persistence, or optimistic-update defaults in this ADR | `Proposed` | Same review and request | Approved for implementation; explicit promotion authorization on 2026-09-30 above |
 
 ## Context
 
@@ -39,7 +41,7 @@ Revision record: version 0.2 was approved for implementation on 2026-09-27. This
 
 The dashboard contains authenticated tenant-scoped data. Hosted booking and widget surfaces are public and use server-resolved channel context. Client state must not become a second domain model or an authorization, capacity, or transaction authority.
 
-## Proposed decision
+## Decision
 
 ### Decision sequence
 
@@ -108,7 +110,7 @@ Use the narrowest owner and evaluate state in this order:
 - Client caches and stores cannot become authorization, capacity, or transaction authority.
 - React Hook Form and Zod are documented as the preferred form boundary but are added as dependencies only by an approved implementation PR that needs them.
 - No default retry count, cache TTL, freshness duration, form persistence policy, pagination value, or optimistic-update policy is introduced.
-- ADR-DIVE-009 returns to Draft because this revision changes semantic decisions beyond the approved v0.2 baseline.
+- The revised state-ownership strategy is approved; implementation of a feature still requires its owning Ready-to-start requirements and implementation issue.
 
 ## Expected validation after approval
 
@@ -148,6 +150,8 @@ Not selected. Provider scope, consumer breadth, value identity, and render cost 
 
 ## Open questions
 
+No blocking decision remains for this state-ownership strategy. The following are non-blocking follow-ups for the owning implementation slices; this promotion does not select their answers:
+
 1. Which approved form slice first justifies adding React Hook Form and Zod to `apps/web`?
 2. Should frontend API types be generated from an approved contract or shared through another boundary?
 3. Does any future browser-owned cross-route workflow demonstrate the need for Zustand and an explicit persistence policy?
@@ -155,4 +159,4 @@ Not selected. Provider scope, consumer breadth, value identity, and render cost 
 
 ## Implementation authority
 
-This revision is Draft. The previously approved v0.2 boundary remains the current `main` decision until this revision is explicitly approved and merged. This PR does not authorize new dependencies, persistence mechanisms, retry defaults, or a production pilot.
+Ready to start: the revised strategy authorizes reversible implementation with synthetic data under the owning approved requirements. React Hook Form and Zod may be added only by an approved implementation PR that needs them. This promotion does not authorize Zustand, a shared API-type mechanism, persistence, retry/freshness defaults, real personal data or a pilot. Review and Accepted gates remain separate; merge alone is not approval.

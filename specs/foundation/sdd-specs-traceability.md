@@ -1,7 +1,7 @@
 # SDD, specifications, and traceability (baseline)
 
 - **Status:** Ready to start
-- **Version:** 0.3
+- **Version:** 0.4
 
 ## Source of truth
 
@@ -58,6 +58,12 @@ Rules:
 2. The documentation-map version is `TRACE-DIVE-MVP-001`. Notion must not keep a parallel map version.
 3. Foundation baselines remain in `specs/foundation/` of this product repository until a later ADR extracts them.
 4. Templates must include a `Version` field for SPECs and ADRs.
+
+**Provenance for rules 5-7:** `Proposed`, explicitly approved by the user on 2026-09-30 with "aplica los cambios" for the preceding stable-reference, historical-provenance and task-index proposal. Existing statuses, product approvals and implementation gates are unchanged.
+
+5. Reference a current document by stable path and requirement ID, without repeating its version. Its header and TRACE artifact-map entry own the current version; changing that version does not require rewriting unchanged consumer references.
+6. Pin the applicable revision, PR, commit or date when a reference records historical approval or time-bound evidence. Do not replace it with the latest version or infer that an old approval covers later decisions.
+7. Use [the existing task index](../../docs/README.md#find-the-task-owner) to locate the owner, then read the relevant requirements, sections, decisions and dependencies. Navigation does not copy requirements, statuses or versions. Consult only affected TRACE sections and applicable cross-cutting baselines/skills, unless the authorized task requires a broader review; all mandatory constraints remain in force.
 
 ## Spec lifecycle
 

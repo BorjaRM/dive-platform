@@ -1,9 +1,9 @@
 # Product profile — Dive centers (MVP)
 
 - **Status:** Ready to start
-- **Version:** 0.7
+- **Version:** 0.8
 - **Reference market:** Spain
-- **Repository:** `BorjaRM/dive-platform`
+- **Repository:** `dive-platform`
 - **Package name:** `dive-center-platform`
 - **Solution slug:** `dive-platform`
 
@@ -111,7 +111,7 @@ Sign in
 
 ### Ready to start implementation (synthetic data)
 
-- This profile, ADR-DIVE-001, ADR-DIVE-002, SPEC-DIVE-BOOKING-001, and SPEC-DIVE-IAM-001 are Ready to start
+- This profile and the applicable requirement owners and ADR decisions have explicit Ready-to-start authority for the increment. The Booking index is Draft; unchanged historically approved fixed-time clauses retain their approval, not authority for expanded scheduling or new token proposals.
 - Numbered requirements exist in GitHub
 - Notion pages are indexes, not second contracts
 
@@ -129,9 +129,9 @@ Sign in
 - SPEC and ADR applicable artifacts Accepted or an explicit exception
 - No production copy in non-prod
 
-CI and Docker Compose now exist as development and test infrastructure. They remain outside the gates of this documentation increment. Hosting and production deployment automation do not exist yet and must not be documented as existing.
+**Documented:** CI, PostgreSQL Compose and deployment configuration exist, including `render.yaml` with scheduled invitation dispatch. Configuration is not proof of deployed delivery, backups or production readiness. Intended Vercel/Render EU topology remains ADR-DIVE-002's decision.
 
-Provenance: `Documented` — current implementation in `.github/workflows/ci.yml`, `infra/docker/postgres/docker-compose.yml`, `.env.example`, and the root `package.json`; gate meaning unchanged from version 0.5.
+Provenance: `Documented` for infrastructure existence in `.github/workflows/ci.yml`, `infra/docker/postgres/docker-compose.yml` and `render.yaml`. **Derived:** increment-specific authority follows the existing SDD lifecycle and preserved approvals, not every unrelated Draft's status. New semantics stay blocked pending approval; real-data gates are unchanged.
 
 ## 8) Privacy boundary for the booking MVP
 

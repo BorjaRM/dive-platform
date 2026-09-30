@@ -111,8 +111,8 @@ owns the acceptance probe for the duration of the command. The spike remains
 provider evidence and must not be confused with product E2E coverage.
 
 Issue #72 subsequently implemented the product boundaries in
-`apps/web/src/app/bootstrap/accept`, `apps/web/src/app/bootstrap/setup`, and
-`apps/web/src/app/sign-in`, together with the PostgreSQL bootstrap commands and
+`apps/web/src/app/(application)/bootstrap/accept`, `apps/web/src/app/(application)/bootstrap/setup`, and
+`apps/web/src/app/(application)/sign-in`, together with the PostgreSQL bootstrap commands and
 the pre-tenant worker. Those paths are validated by local component, API,
 database, and deterministic worker tests, but this isolated spike does not
 exercise them.

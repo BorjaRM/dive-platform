@@ -6,7 +6,7 @@ These agents target **VS Code + GitHub Copilot** (`target: vscode`). They are no
 
 ## Coordination (VS Code)
 
-Start with Backend or Frontend and provide the implementation issue URL/number. The default chat does not run this workflow automatically. The user keeps control of phase changes; no coordinator agent or cloud setup is required.
+Start with Backend or Frontend and provide the implementation issue URL/number, or the explicit issue-free chat authorization and its bounded scope. **Documented:** [the workflow exception](../../docs/sdd/development-brief-template.md#explicit-chat-authorization) governs that alternative. The default chat does not run this workflow automatically. The user keeps control of phase changes; no coordinator agent or cloud setup is required.
 
 Two mechanisms:
 
@@ -28,13 +28,13 @@ Everyone else: `agents: []` and no `agent` tool. No nested delegation. Backend, 
 
 Before calling a specialist, announce the task, reason, and permitted actions. Supply a self-contained assignment with:
 
-- the issue URL/number and relevant requirement IDs, with exact SPEC/ADR paths or sections;
+- the issue URL/number or explicit chat authorization and bounded scope, plus relevant requirement IDs and exact SPEC/ADR paths or sections;
 - the focused question or deliverable and relevant code/test paths;
 - in/out boundaries, dependencies already decided, and known blockers;
 - whether the task is read-only or may edit, with the allowed file surface;
 - the expected checks and return format.
 
-Link the Development Brief; do not reproduce it in a separate artifact. Do not assume a subagent inherits the conversation. If it cannot read the issue, it returns that blocker instead of reconstructing the brief.
+For issue-backed work, link the Development Brief; do not reproduce it in a separate artifact. For issue-free work, supply the explicit authorization and scope without creating a replacement brief. Do not assume a subagent inherits the conversation. If it cannot read the required issue or authorization context, it returns that blocker instead of reconstructing it.
 
 The specialist returns: outcome (completed or blocked), findings or changed paths, commands and observed results, remaining risks, and open questions. It does not hand off or publish. The caller checks the result against the actual diff and tests; a subagent's conclusion is not proof. Keep one writer active; do not edit the same worktree while an editing specialist runs.
 
@@ -53,21 +53,24 @@ Read only relevant source sections and skill rules. Use existing focused checks,
 - **Tenant isolation is cross-cutting:** load `tenant-isolation-invariants`. Do not merge Backend with Tenancy.
 - **Reuse and boundary hygiene is cross-cutting:** load `reuse-boundary-hygiene` when modules, helpers, contracts, adapters, exports, shared UI, or cross-feature imports change. Require an explicit reuse decision; do not require extraction without evidence. Boundary violations block completion.
 - **Performance is cross-cutting:** DB, concurrency, API, worker/outbox, web/widget.
-- **Implementation entry:** product work requires an implementation issue with the single Development Brief, the applicable SPEC/ADR(s), and requirement IDs that are Ready to start.
+- **Implementation entry:** product work requires an issue with its single Development Brief or the workflow's explicit chat-authorization exception, plus applicable SPEC/ADR(s) and approved requirement IDs. Review/Accepted does not remove a contract's authority; unapproved subsections and blocking decisions remain gates.
 - **Validation is proportional:** tests are the default proof; Test Engineer is an optional specialist when tests, Validation, or special evidence are missing.
 - **Pause** on missing or contradictory behavior decisions; record an open question. Repair in-scope implementation defects using the established contract. Do not mistake tests still to be written for a reason to abandon the authorized task.
 
-## Required reading for all agents
+## Progressive reading
 
-- `docs/sdd/how-we-work.md`
-- `specs/foundation/sdd-specs-traceability.md`
-- `specs/traceability/TRACE-DIVE-MVP-001.md`
-- Relevant SPEC/ADR/spike files for the task
-- `.github/copilot-instructions.md`
+**Documented:** the [SDD baseline](../../specs/foundation/sdd-specs-traceability.md#artifact-versions) owns the user-approved reference and task-routing policy. Reading fewer unrelated documents does not remove constraints, role restrictions or approval gates.
+
+1. Apply `.github/copilot-instructions.md`, this file's coordination contract and the active profile's role-specific requirements. Use the [task index](../../docs/README.md#find-the-task-owner) to locate the behavior owner.
+2. For product or architecture work, read the applicable sections of `docs/sdd/how-we-work.md` and `specs/foundation/sdd-specs-traceability.md`. Read the target requirement IDs, their approval/provenance, relevant SPEC sections and governing ADR decisions; do not infer authority from an index.
+3. Read only the affected TRACE ownership/map/coverage sections when locating IDs, checking authority or proof, or updating relationships. Load applicable cross-cutting skills and baselines for the surface touched. Follow another document only when it controls an unresolved contract or dependency.
+4. Reuse context already read in the current task while it remains current. Expand reading for contradictory decisions or broader authorized scope, not to cover every document. Do not load full TRACE, all baselines or all SPECs by default.
+
+Profiles list additional reading for their role; those lists are not instructions to load whole files unconditionally. Current references use stable paths/IDs. Historical approval and evidence references retain their pinned revision, PR, commit or date.
 
 ## Workflow (you are the coordinator)
 
-The active agent implements, validates, and may use the two specialists. It asks before changing phase or owner; you advance through a confirmed handoff. A cross-surface issue stays the same issue, not a copied brief per agent.
+The active agent implements, validates, and may use the two specialists. It asks before changing phase or owner; you advance through a confirmed handoff. A cross-surface issue or issue-free authorization retains the same bounded scope, not a copied brief per agent.
 
 ```text
 SPEC change

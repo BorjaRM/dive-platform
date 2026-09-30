@@ -43,11 +43,15 @@ Rules:
 
 ## Requirements
 
-Use one row per atomic requirement. A requirement is not complete without provenance and a source.
+Use one numbered bullet per atomic requirement. Record its source and approval in the provenance table, without repeating the requirement text.
 
-| ID | Normative requirement | Provenance | Source | Decision status |
-|---|---|---|---|---|
-| `<DOMAIN>-REQ-001` |  | `Documented` | `<exact URL and section>` | Approved |
+- **<DOMAIN>-REQ-001:** <verifiable behavior>.
+
+## Requirement provenance
+
+| Requirement IDs | Provenance | Exact source | Decision status |
+|---|---|---|---|
+| `<DOMAIN>-REQ-001` | `Documented` | `<exact URL and section>` | Approved |
 
 For `Derived` requirements, add the derivation immediately below the table:
 

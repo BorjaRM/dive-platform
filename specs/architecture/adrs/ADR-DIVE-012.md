@@ -1,14 +1,14 @@
 # ADR-DIVE-012 — Domain, host, and origin strategy
 
 - **Status:** Draft
-- **Version:** 0.4
+- **Version:** 0.5
 - **Date:** 2026-09-27
 - **Deciders:** Product / Security / Architecture
 - **Affected IDs:** `DIVE-IAM-REQ-006`, `024`, `032`; `DIVE-BOOK-REQ-004`, `040`, `042`; ADR-DIVE-005; ADR-DIVE-008; ADR-DIVE-011
 
 ## Provenance
 
-This ADR separates already approved constraints from new architecture proposals. The Notion page that motivated this draft is context only and is not a normative source. The Draft PR requested on 2026-09-27 did not approve the remaining Proposed decisions. Product confirmation on 2026-09-29 closed the center-entry hosting and lifecycle decisions documented from ADR-DIVE-008 v0.12. A later explicit product confirmation on 2026-09-29 approved the canonical public-product host, the landing boundary, the absence of a login CTA, the email-only contact action, Spanish-only initial content, omission of prices and marketing tracking, and future reconsideration of pricing. This ADR remains Draft because its shared-API, booking-host, wildcard-DNS, proxy, and future-domain proposals are still unapproved.
+This ADR separates already approved constraints from new architecture proposals. The Notion page that motivated this draft is context only and is not a normative source. The Draft PR requested on 2026-09-27 did not approve the remaining Proposed decisions. Product confirmation on 2026-09-29 closed the center-entry hosting and lifecycle decisions documented from ADR-DIVE-008 v0.12. A later explicit product confirmation on 2026-09-29 approved the canonical public-product host, the landing boundary, the absence of a login CTA, the email-only contact action, Spanish-only initial content, omission of prices and marketing tracking, and future reconsideration of pricing. The bounded wildcard-center readiness approval is documented by `DIVE-ONB-REQ-042` and ADR-DIVE-017. This ADR remains Draft for its shared-API, booking-host, DNS/provider configuration beyond that approved boundary, proxy, and future-domain proposals.
 
 | Decision | Provenance | Exact source | Approval / status |
 |---|---|---|---|
@@ -22,13 +22,15 @@ This ADR separates already approved constraints from new architecture proposals.
 | Center bootstrap requires a valid browser `Origin`; clients without `Origin` cannot use it in the MVP | `Documented` | ADR-DIVE-008 v0.12, section “Clients without `Origin`”; `DIVE-IAM-REQ-032` | Ready to start; existing implementation authority |
 | Custom center domains, branded login, and cross-domain session continuity remain outside the MVP | `Documented` | ADR-DIVE-008 v0.12; `SPEC-DIVE-IAM-001` open questions | Existing scope constraint |
 | Hosted public booking uses `/{locale}/book/{channelPublicId}` and resolves tenant, center, and offering scope from published server-side channel configuration | `Documented` | ADR-DIVE-011 v0.3; `DIVE-BOOK-REQ-004`, `040`, `042` | Existing Draft route proposal plus existing channel constraints; this ADR does not promote ADR-DIVE-011 |
-| Keep one shared API surface at `api.<domain>` instead of creating an API host per center | `Proposed` | Architecture proposal in this PR, based on the non-normative Notion context requested for review by Borja on 2026-09-27 | Draft; not approved; no implementation authority |
-| Serve the first-party hosted booking page from `book.<domain>` while retaining the ADR-DIVE-011 route beneath that host | `Proposed` | Architecture proposal in this PR, based on the non-normative Notion context requested for review by Borja on 2026-09-27 | Draft; not approved; no implementation authority |
-| Permit wildcard DNS and TLS coverage for `*.app.<domain>` while requiring unknown, inactive, malformed, and cross-environment hosts to fail closed | `Proposed` | Architecture proposal in this PR, constrained by ADR-DIVE-008 non-disclosure and authorization rules | Draft; not approved; no implementation authority |
+| Keep one shared API surface at `api.<domain>` instead of creating an API host per center | `Proposed` | Architecture proposal in this PR, based on the non-normative Notion context requested for review by the product owner on 2026-09-27 | Draft; not approved; no implementation authority |
+| Serve the first-party hosted booking page from `book.<domain>` while retaining the ADR-DIVE-011 route beneath that host | `Proposed` | Architecture proposal in this PR, based on the non-normative Notion context requested for review by the product owner on 2026-09-27 | Draft; not approved; no implementation authority |
+| Wildcard platform DNS/TLS for canonical center readiness; unknown/inactive/cross-environment mappings fail closed | `Documented` | Approved DIVE-ONB-REQ-042; ADR-DIVE-013 v0.11; entry decisions now in ADR-DIVE-017 | Existing canonical-center readiness approval only; provider/proxy details Draft |
 | Accept `Host`, `Origin`, and forwarded host/protocol data only behind an explicitly trusted proxy boundary; require the resolved host to map to active trusted configuration | `Proposed` | Security proposal in this PR, constrained by `DIVE-IAM-REQ-024`, `032` and ADR-DIVE-008 | Draft; not approved; no implementation authority |
 | Treat future custom domains as verified aliases of the canonical center mapping without changing authorization | `Proposed` | Future architecture proposal in this PR; custom domains are excluded by ADR-DIVE-008 | Draft; outside MVP; no implementation authority |
 
 ## Context
+
+**Documented:** canonical wildcard-center readiness is already approved by DIVE-ONB-REQ-042. The decision-time introduction above must not be read as reopening that bounded approval; only the additional provider/proxy/host proposals remain unapproved. ADR-DIVE-017 now owns the extracted center-entry decisions.
 
 ADR-DIVE-008 already owns authenticated dashboard tenant context and center-application bootstrap. It approves the canonical center subdomain, the exact-origin CORS model, one authentication host per environment, separate environment domains, the MVP requirement for browser `Origin`, and the center-entry lifecycle state and administration boundary.
 
@@ -77,7 +79,7 @@ The hostname does not become a tenant selector. Tenant, center, activity, and ch
 
 ### DNS and TLS
 
-Wildcard DNS and certificate coverage for `*.app.<domain>` are proposed to make issued center hosts reachable without creating a separate DNS and certificate operation for every center.
+**Documented:** DIVE-ONB-REQ-042 already approves wildcard platform DNS/TLS as canonical-center readiness. It does not approve a provider, concrete domain, proxy contract or other host. Those decisions and executed deployed readiness remain open; wildcard reachability never means wildcard authorization.
 
 Wildcard coverage is only an edge-routing and certificate mechanism:
 
@@ -170,4 +172,4 @@ The following are not open in this ADR: the approved reserved `centerKey` set, r
 
 ## Implementation authority
 
-This ADR is Draft. Its remaining new decisions stay Proposed and non-normative. It does not authorize the shared API host, booking host, wildcard DNS, proxy topology, future custom domains, or unrelated DNS/TLS changes. The canonical public product host and landing boundary are implementation-authorized only through `SPEC-DIVE-MARKETING-001` v0.1 and `DIVE-MKT-REQ-001..012`. The center-entry configuration, lifecycle state, exact CORS resolution, single Next.js deployment, and handoff remain implementation-authorized by ADR-DIVE-008 v0.12 and `SPEC-DIVE-IAM-001`; other approved behavior continues to be governed by the cited source artifacts.
+This ADR remains Draft for shared API/booking hosts, proxy topology, future custom domains and unrelated DNS/TLS changes. Canonical wildcard-center readiness retains existing DIVE-ONB-REQ-042 approval only. Product-host authority remains SPEC-DIVE-MARKETING-001; center mapping, origins, deployment and handoff are now owned by ADR-DIVE-017 and SPEC-DIVE-IAM-DASHBOARD-001. No deployed activation, provider decision or unrelated Draft promotion is inferred.

@@ -26,6 +26,6 @@ Do not merge `MT-REQ-*` results with `SPIKE-DIVE-001-REQ-*` or `DIVE-BOOK-REQ-*`
 - `SPIKE-DIVE-003/` — widget integration, security, accessibility, and fallback
 - `SPIKE-DIVE-004/` — Clerk Application Invitation creation, existing-identity acceptance, session states, and ticket cleanup
 
-Each package contains specification, requirements, execution checkpoints, traceability, and results.
+Unexecuted packages contain specification and requirements, with execution checkpoints and relationship mappings consolidated in requirements. Executed packages additionally retain their results and any separate execution/evidence records needed to reproduce them.
 
-Normative product behavior remains in its owning SPEC. `results.md` starts as Not executed and must never contain an untested conclusion.
+Normative product behavior remains in its owning SPEC. Keep requirements, execution criteria and relationships together until execution. Create `results.md` only for executed observations; never create empty results or imply an untested conclusion. Executed MT-SPIKE-001 and SPIKE-DIVE-004 retain their result/evidence files.

@@ -4,7 +4,12 @@
 - Version:
 - Date:
 - Deciders:
-- Context:
+
+## Provenance
+
+Label decisions Documented, Derived, or Proposed and link exact sources. Derived and Proposed decisions remain Draft until explicitly approved.
+
+## Context
 
 ## Decision
 

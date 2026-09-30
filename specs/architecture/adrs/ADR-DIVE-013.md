@@ -1,7 +1,7 @@
 # ADR-DIVE-013 — Controlled self bootstrap and simple first-center setup
 
 - **Status:** Ready to start
-- **Version:** 0.13
+- **Version:** 0.14
 - **Date:** 2026-09-29
 - **Deciders:** Product / Security / Frontend Architecture
 - **Affected IDs:** `DIVE-ONB-REQ-001..050`; `DIVE-IAM-REQ-001..006`, `017`, `020`, `024`, `025`, `029..032`
@@ -77,7 +77,7 @@ The web boundary is split into four routes:
 
 The invitation adapter sets `/bootstrap/accept` as the exact allowlisted `redirectUrl`. The acceptance controller handles new invited identities through Clerk enrollment and existing invited identities through Clerk sign-in. **Proposed and approved 2026-09-29:** if any session is already active, the controller asks for explicit confirmation, removes the ticket from the URL while retaining it only in ephemeral component memory, signs out the active session, and requires Clerk ticket authentication before setup. It does not classify the active account, continue directly to setup, or render `<SignUp />` while that session remains active. Clerk prebuilt components or a custom flow are adapter choices only if they satisfy this matrix.
 
-Clerk’s `__clerk_ticket` is confined to the initial acceptance-route query and ephemeral component memory, removed from the URL with history replacement before active-session sign-out or navigation, and consumed by the Clerk SDK before `/bootstrap/setup`. The acceptance route applies `Referrer-Policy: no-referrer`. The ticket is excluded from setup/dashboard URLs, referrers, logs, audit, traces, analytics, errors, and events. The setup page then completes through `POST /v1/me/tenant-bootstrap` without a provider ticket or application bearer in the request body. The server resolves one pending bootstrap grant from the authenticated `issuer + subject` and verified normalized email. It does not query or consume an ordinary IAM invitation or activate an existing pending membership. Successful completion navigates to `/dashboard`.
+Clerk’s `__clerk_ticket` is confined to the initial acceptance-route query and ephemeral component memory, removed from the URL with history replacement before active-session sign-out or navigation, and consumed by the Clerk SDK before `/bootstrap/setup`. The acceptance route applies `Referrer-Policy: no-referrer`. The ticket is excluded from setup/dashboard URLs, referrers, logs, audit, traces, analytics, errors, and events. Setup completes through `POST /v1/me/tenant-bootstrap` without a provider ticket or application bearer. The server resolves one pending grant from authenticated `issuer + subject` and verified normalized email, never an ordinary invitation or pending membership. **Documented:** success performs the absolute first-center handoff in DIVE-ONB-REQ-035 and ADR-DIVE-017, not relative authentication-host `/dashboard`. Result-recovery resolution remains the explicit Draft follow-up in the onboarding owner.
 
 The invited authenticated identity becomes the initial active Tenant Owner. Assisted provisioning is deferred and requires a separate story, SPEC/ADR decision, explicit approval, and stronger controls before it can enter scope.
 

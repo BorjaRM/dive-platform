@@ -43,4 +43,4 @@ CI runs the same integration scope with a PostgreSQL 18 service: it bootstraps d
 
 ## Source of truth
 
-Requirements live in `specs/`. If a README or Notion page disagrees, stop and fix the SPEC.
+Requirements live in `specs/`. Correct a disagreeing README or Notion page against the approved SPEC. A genuine contract contradiction requires an explicit owner decision; do not silently change the SPEC.
