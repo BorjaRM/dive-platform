@@ -9,6 +9,8 @@
   "scripts": {
     "build": "turbo run build",
     "dev": ". \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" && nvm use --silent && node --env-file=.env.example --env-file-if-exists=.env.local ./node_modules/turbo/bin/turbo run dev",
+    "dev:fresh": "pnpm db:reset:local && pnpm dev",
+    "email:send": "node --env-file=.env.example --env-file-if-exists=.env.local --import tsx apps/worker/src/main.ts",
     "lint": "biome check .",
     "typecheck": "turbo run typecheck",
     "check-types": "turbo run typecheck",
@@ -22,6 +24,7 @@
     "test:clerk:invitations:sandbox": "pnpm --filter @dive-center/clerk-invitation-tests test:e2e",
     "db:bootstrap": "pnpm --filter @dive-center/database db:bootstrap",
     "db:migrate": "pnpm --filter @dive-center/database db:migrate",
+    "db:reset:local": "node --env-file=.env.example --env-file-if-exists=.env.local scripts/reset-local-database.mjs",
     "db:generate": "pnpm --filter @dive-center/database db:generate"
   },
   "devDependencies": {
