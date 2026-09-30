@@ -25,9 +25,9 @@ Select the matching row, then read the relevant sections and requirement IDs in 
 |---|---|---|
 | Requirements, approvals, documentation or PR workflow | [Working agreement](sdd/how-we-work.md) | [SDD baseline](../specs/foundation/sdd-specs-traceability.md); [TRACE](../specs/traceability/TRACE-DIVE-MVP-001.md) ownership, map or coverage section affected by the change |
 | Core booking lifecycle or staff commands | [Booking](../specs/booking/SPEC-DIVE-BOOKING-001.md) | Its requirement ownership map and linked decisions for the affected IDs |
-| Activity catalog, editing, pagination or center time zone | [Catalog](../specs/booking/SPEC-DIVE-BOOKING-CATALOG-001.md) | [Catalog decisions](../specs/architecture/adrs/ADR-DIVE-014.md) |
+| Activity catalog, commercial fields, center public profile, editing, pagination or center time zone | [Catalog](../specs/booking/SPEC-DIVE-BOOKING-CATALOG-001.md) | [Catalog decisions](../specs/architecture/adrs/ADR-DIVE-014.md); [Booking](../specs/booking/SPEC-DIVE-BOOKING-001.md) for accepted conditions/history |
 | Public booking creation or idempotent response | [Public booking](../specs/booking/SPEC-DIVE-BOOKING-PUBLIC-001.md) | [Public-create decisions](../specs/architecture/adrs/ADR-DIVE-010.md); [Capability security](../specs/architecture/adrs/ADR-DIVE-005.md) |
-| Public confirmation, cancellation or resend | [Capabilities](../specs/booking/SPEC-DIVE-BOOKING-CAPABILITIES-001.md) | [Capability security](../specs/architecture/adrs/ADR-DIVE-005.md) |
+| Public confirmation, policy-conditioned cancellation or resend | [Capabilities](../specs/booking/SPEC-DIVE-BOOKING-CAPABILITIES-001.md) | [Capability security](../specs/architecture/adrs/ADR-DIVE-005.md); [Booking](../specs/booking/SPEC-DIVE-BOOKING-001.md) for accepted conditions/history |
 | Embeddable booking widget | [Widget](../specs/booking/SPEC-DIVE-BOOKING-WIDGET-001.md) | [Widget spike](../specs/spikes/SPIKE-DIVE-003/specification.md) |
 | Scheduling, recurrence, date-free bookings or calendar | [Scheduling](../specs/booking/SPEC-DIVE-BOOKING-SCHEDULING-001.md) | [Scheduling direction](../specs/architecture/adrs/ADR-DIVE-015.md) |
 | Identity, memberships, roles or permissions | [IAM](../specs/iam/SPEC-DIVE-IAM-001.md) | [IAM baseline](../specs/foundation/iam-baseline.md) and the permission matrix for the affected operation |

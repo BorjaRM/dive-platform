@@ -1,7 +1,7 @@
 # SPEC-DIVE-ONBOARDING-001 — Controlled self bootstrap and first-center setup
 
 - **Status:** Ready to start
-- **Version:** 0.16
+- **Version:** 0.17
 - **Last reviewed:** 2026-09-29
 - **Approved by:** Product owner for Ready-to-start promotion
 - **Approval reference:** Product confirmation 2026-09-29 after executed `SPIKE-DIVE-004`; Ready-to-start status applied 2026-09-29; guided onboarding deferred and backend-owned invitation administration retained by product confirmation 2026-09-29; platform administration and worker policies approved 2026-09-29; active-session invitation acceptance changed to mandatory ticket-based reauthentication by product confirmation 2026-09-29; absolute first-center handoff approved through `ADR-DIVE-008` v0.12 on 2026-09-29
@@ -135,6 +135,14 @@ Let an explicitly invited future Owner create its own operator tenant and first 
 - Guided onboarding, product tours, Driver.js or another tour library, guide-specific browser state, guide analytics, and guide content infrastructure. A future story must decide whether guidance is needed and which flows justify it.
 - A CMS or external analytics provider for the MVP.
 - A new tenant lifecycle status independent of active Owner membership.
+
+### Post-bootstrap public-profile boundary
+
+**Proposed, explicitly approved:** on 2026-09-30 the product owner requested "aplica los cambios propuestos sobre la documentacion", approving the proposal to keep the existing minimal bootstrap and complete the public center profile afterward. No bootstrap field or existing operability prerequisite is added or removed.
+
+**Documented:** `DIVE-ONB-REQ-020..026` and `041` remain the field/identity authority. Public contacts, social/review links, public location, center language capabilities and commercial presentation do not enter this form. Interface locale remains the user's preference, not a center teaching-language list.
+
+The separate center profile belongs to [SPEC-DIVE-BOOKING-CATALOG-001](../booking/SPEC-DIVE-BOOKING-CATALOG-001.md), `DIVE-BOOK-REQ-073` and `079`. Completing it is optional for dashboard entry. Its public-offer readiness checks belong to that owner and channel publication, not a new bootstrap or tenant lifecycle flag. This is a profile-editing flow for an authorized existing center, not guided onboarding, public signup or creation of another center.
 
 ## Model and definitions
 

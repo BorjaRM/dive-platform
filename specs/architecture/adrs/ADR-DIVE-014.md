@@ -1,7 +1,7 @@
 # ADR-DIVE-014 — Center catalog lists, response DTO, and persistence naming
 
 - **Status:** Ready to start
-- **Version:** 0.6
+- **Version:** 0.7
 - **Date:** 2026-09-27
 - **Deciders:** Product / Architecture / Data / Security
 - **Affected IDs:** `DIVE-BOOK-REQ-001..006`, `009..011`, `017..020`, `029`, `049..057`; `DIVE-IAM-REQ-024`, `029..032`; ADR-DIVE-001; ADR-DIVE-008; ADR-DIVE-009
@@ -21,6 +21,7 @@
 | The dashboard client consumes the catalog response DTOs and lifecycle states without creating a second client-side domain model | `Documented` | `SPEC-DIVE-BOOKING-001` `DIVE-BOOK-REQ-009..011`, `017..020`, `049..057`; `ADR-DIVE-009` § State ownership | Existing normative constraint |
 | Interactive catalog reads and mutations use TanStack Query; pagination and filters are URL-owned; form drafts and dialogs remain local React state | `Documented` | `ADR-DIVE-009` § State ownership | Existing implementation boundary |
 | Catalog query keys may contain center/resource selectors and filters, but never the Clerk token or raw `X-Tenant-Context` handle | `Documented` | `ADR-DIVE-009` § Cache and tenant boundaries; `ADR-DIVE-008` § Credential representation and transport | Existing security constraint |
+| Activity DTO/persistence includes an explicit base language and keeps authored localized objects; fallback belongs to presentation | `Proposed` | `DIVE-BOOK-REQ-009`, `051`, `053`; product-owner approval "aplicalo" on 2026-09-30 in SPEC-DIVE-BOOKING-CATALOG-001 | Approved language-policy revision; legacy backfill/rollout remains open |
 
 ## Context
 
@@ -76,14 +77,15 @@ Activity representation:
 {
   "id": "uuid",
   "status": "Draft | Published | Disabled",
-  "name": { "es": "string", "en": "string" },
+  "baseLocale": "es",
+  "name": { "es": "string" },
   "description": { "es": "string", "en": "string" },
   "defaultCapacity": 8,
   "createdAt": "RFC3339 instant"
 }
 ```
 
-`description` and `defaultCapacity` are omitted when unset. Draft activities may contain incomplete localized `name` / `description` objects as allowed by `DIVE-BOOK-REQ-051` and `053`; no translation fallback is introduced.
+`description` and `defaultCapacity` are omitted when unset. `baseLocale` is explicitly `es` or `en`; the example does not select a default. DTOs preserve stored localized objects without filling missing translations. Creation/publication and presentation-only fallback are owned by [the catalog language policy](../../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#activity-languages-and-fallback), not this ADR or a persistence adapter.
 
 Slot representation:
 
@@ -111,6 +113,7 @@ Use PostgreSQL schema `booking_app`.
 - `tenant_id` uuid;
 - `center_id` uuid;
 - `status` text;
+- `base_locale` text;
 - `name` jsonb;
 - `description` jsonb nullable;
 - `default_capacity` integer nullable;
@@ -129,6 +132,8 @@ Use PostgreSQL schema `booking_app`.
 - `created_at` timestamptz.
 
 Both tables use a tenant-qualified primary key on `(tenant_id, id)`. Activities additionally expose a unique key on `(tenant_id, center_id, id)`. Slots reference activities through `(tenant_id, center_id, activity_id)` so a cross-tenant or cross-center relation is structurally impossible. Center relations use the existing tenant-qualified center key. Positive numeric constraints apply to non-null `default_capacity`, `duration_minutes`, and `capacity`; status checks admit only the states defined by the booking SPEC.
+
+The approved target representation requires activity `base_locale` to be non-null and constrained to `es` or `en`, without a database language default. Existing-record backfill, phased constraint enforcement and rollout compatibility require a separate approved migration contract.
 
 Use these explicit index names and orders:
 
@@ -210,6 +215,8 @@ An implementation PR must link `DIVE-BOOK-REQ-049..057` and include:
 No blocking decision remains for the approved fixed-time list/DTO/schema and time-rendering contract. Draft editing and the center-timezone read projection remain explicit proposals in SPEC-DIVE-BOOKING-CATALOG-001; they are not implied by list approval or this promotion.
 
 Cursor pagination is deferred. If demonstrated volume, deep-page cost, or offset drift later requires it, its scope, cursor format, validation, and compatibility become a new proposed contract change.
+
+The language policy is approved, but existing-activity base-language backfill and rollout compatibility remain implementation gates owned by the catalog contract. This ADR does not select a legacy default.
 
 ## Implementation authority
 

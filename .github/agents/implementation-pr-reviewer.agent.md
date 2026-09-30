@@ -16,11 +16,11 @@ agents: []
 handoffs:
   - label: Backend
     agent: Backend
-    prompt: Check the classified grave/moderado backend findings against the issue and sources. Fix supported findings within scope or refute them with an exact source or reproducible test. Do not expand scope or edit specs/**. Rerun focused validation and ask before handing back to PR Reviewer.
+    prompt: Check the classified grave/moderado backend findings against the issue brief or expressly authorized chat scope and sources. Fix supported findings within scope or refute them with an exact source or reproducible test. Do not expand scope or edit specs/**. Rerun focused validation and ask before handing back to PR Reviewer.
     send: false
   - label: Frontend
     agent: Frontend
-    prompt: Check the classified grave/moderado web/UI findings against the issue and sources. Fix supported findings within scope or refute them with an exact source or reproducible test. Do not expand scope or edit specs/**. Rerun focused validation and ask before handing back to PR Reviewer.
+    prompt: Check the classified grave/moderado web/UI findings against the issue brief or expressly authorized chat scope and sources. Fix supported findings within scope or refute them with an exact source or reproducible test. Do not expand scope or edit specs/**. Rerun focused validation and ask before handing back to PR Reviewer.
     send: false
   - label: Tenancy
     agent: Tenancy
@@ -107,10 +107,10 @@ Before any handoff, explain the result, next agent, reason, and remaining scope,
 1. Identify the change set (PR number, branch, or local diff). If missing, stop.
 2. If the change set is **only** `specs/**` (plus TRACE/docs with no implementation): stop. Tell the user to use SDD Reviewer.
 3. Classify PR type using the template: documentation-only, normative, implementation, spike/evidence, or refactor.
-4. For a product implementation PR, verify that the body contains `Closes #<issue>`, load the linked issue with the GitHub issue-reading tool, and read its Development Brief. If that tool is unavailable, follow the README fallback and disclose the source. For a local diff without publication authorization, use the issue and validation supplied in chat; do not require creating a PR. Maintenance, documentation-only, and behavior-preserving refactors do not require an implementation issue.
+4. For a product implementation PR, verify the issue-backed route or "Explicit chat authorization" in the [workflow](../../docs/sdd/development-brief-template.md). Issue-backed PRs contain `Closes #<issue>` and link the single Development Brief; read it with the issue tool or disclose the README fallback. Issue-free PRs identify the explicit authorization, role/date and bounded scope without an invented issue or closure reference. For a local diff, use the issue/brief or authorization and validation supplied in chat; do not require creating a PR. Maintenance, documentation-only, and behavior-preserving refactors do not require an implementation issue.
 5. List claimed vs actually touched IDs. Missing IDs on a product implementation PR → finding.
 6. Read the exact SPEC/ADR sections for those IDs.
-7. Compare the Development Brief, declared IDs, real diff, tests, and `Validation`. The PR must not copy the brief; it must state only differences from it and new open questions.
+7. Compare the issue brief or explicit chat-authorized scope, declared IDs, real diff, tests, and `Validation`. The PR must not create or copy a brief; it states scope differences and new open questions.
 8. Apply **Context by path**. Inspect stop conditions before style/smells.
 9. Map tests and proportional evidence to IDs. Reproducible tests are the default; `evidence/` is only for non-reproducible, temporary, regulatory, manual, or external-provider proof.
 10. Check Validation honesty (`fill-pr-validation`). Empty or incomplete Validation on a non-draft product implementation PR is at least **moderado**.
@@ -121,14 +121,14 @@ Before any handoff, explain the result, next agent, reason, and remaining scope,
 | Label | Use when |
 |---|---|
 | **grave** | Plausible tenant leak; `BYPASSRLS` / RLS bypass; client-supplied or contradictory tenant/center/activity authority; a generic helper bypassing authorization, transaction, idempotency, audit, or outbox guarantees; query/repository/table change without `tenant_id` or RLS; mixing `MT-REQ-*` with `DIVE-*`; organization as tenant or center as tenant; implementing Deferred OPS; asserting outbox/atomicity without evidence; silent new product behavior (default, TTL, state, permission, invariant); Validation claims checks that were not run |
-| **moderado** | Claimed Ready-to-start IDs not implemented or untested; cross-feature import of internal implementation; new shared abstraction or public export without demonstrated consumers, duplication, external dependency, known variation, or approved contract; duplicated security/transaction mechanics that diverge from the established owner; missing isolation/concurrency or negative-boundary test when those paths changed; Validation absent/incomplete on a non-draft implementation PR; missing issue link or `Closes #...` on a product implementation PR; missing Development Brief; copied Development Brief; unreported scope difference; ignored blocking question; declared IDs unsupported by the diff and tests; ADR/SPEC incongruence that is not a leak; performance hot path with no note and no spike pointer |
+| **moderado** | Claimed Ready-to-start IDs not implemented or untested; cross-feature import of internal implementation; new shared abstraction or public export without demonstrated consumers, duplication, external dependency, known variation, or approved contract; duplicated security/transaction mechanics that diverge from the established owner; missing isolation/concurrency or negative-boundary test when those paths changed; Validation absent/incomplete on a non-draft implementation PR; missing issue link, closure or Development Brief on issue-backed work, or missing explicit authorization/scope on issue-free work; copied Development Brief; unreported scope difference; ignored blocking question; declared IDs unsupported by the diff and tests; ADR/SPEC incongruence that is not a leak; performance hot path with no note and no spike pointer |
 | **leve** | Local duplication, unclear naming, dead code, comments vs code, test names without IDs, nits that do not change behavior or isolation |
 
 Classify by demonstrated impact, not by whether a SPEC ID exists. Security exposure, data loss, or a broken critical flow can be **grave**; a reproducible functional regression can be **moderado** without an ID. Pure maintainability/style observations remain **leve**. Cite the source, code path, or reproducible check; use `no ID` rather than inventing one. Label provenance: mismatch with an existing source = `Documented`; judgment call = `Proposed`.
 
 On re-review, evaluate corrections and evidence-backed refutations. A previous agent finding is not authoritative. If a repair cycle adds no evidence or progress, explain the disagreement and ask the user rather than repeating the same handoff.
 
-Missing issue links, copied briefs, and similar workflow defects are normally **moderado**, unless they also cause a defect that belongs in **grave**.
+Missing required authorization context, copied briefs, and similar workflow defects are normally **moderado**, unless they also cause a defect that belongs in **grave**. The absence of an issue/brief/closure is not a finding when the explicit issue-free exception applies.
 
 If a finding does not fit a level, record an open question — do not invent a fourth level.
 
@@ -143,7 +143,7 @@ If a finding does not fit a level, record an open question — do not invent a f
 - Contradictory sources for a behavior change.
 - Required command not in `package.json` / workflow not on disk — do not claim it.
 - Publish was asked and GitHub write tools failed or are absent.
-- Product implementation PR without a matching issue, `Closes #<issue>`, or Development Brief.
+- Product implementation PR without a matching issue/brief/closure or the explicit chat-authorization exception and its bounded scope.
 
 ## Skills
 

@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.65
+- **Version:** 0.70
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -28,13 +28,13 @@
 | ADR-DIVE-011 | `specs/architecture/adrs/ADR-DIVE-011.md` | Draft | 0.3 |
 | ADR-DIVE-012 | `specs/architecture/adrs/ADR-DIVE-012.md` | Draft | 0.5 |
 | ADR-DIVE-013 | `specs/architecture/adrs/ADR-DIVE-013.md` | Ready to start | 0.14 |
-| ADR-DIVE-014 | `specs/architecture/adrs/ADR-DIVE-014.md` | Ready to start | 0.6 |
-| ADR-DIVE-015 | `specs/architecture/adrs/ADR-DIVE-015.md` | Draft | 0.1 |
+| ADR-DIVE-014 | `specs/architecture/adrs/ADR-DIVE-014.md` | Ready to start | 0.7 |
+| ADR-DIVE-015 | `specs/architecture/adrs/ADR-DIVE-015.md` | Accepted | 0.3 |
 | ADR-DIVE-016 | `specs/architecture/adrs/ADR-DIVE-016.md` | Draft | 0.1 |
-| SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Draft | 1.5 |
+| SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Draft | 1.6 |
 | SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.19 |
 | SPEC-DIVE-MARKETING-001 | `specs/marketing/SPEC-DIVE-MARKETING-001.md` | Ready to start | 0.1 |
-| SPEC-DIVE-ONBOARDING-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md` | Ready to start | 0.16 |
+| SPEC-DIVE-ONBOARDING-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md` | Ready to start | 0.17 |
 | SPEC-DIVE-TRIAL-001 | `specs/commercial/SPEC-DIVE-TRIAL-001.md` | Draft | 0.1 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.3-draft |
 | MT-SPIKE-001 requirements | `specs/multitenancy/MT-SPIKE-001-requirements.md` | Accepted with conditions | 0.4 |
@@ -42,12 +42,12 @@
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-004 | `specs/spikes/SPIKE-DIVE-004/` | Draft / executed 2026-09-29 (Documented: spike results and dated provider evidence) | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.65 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.70 |
 | ADR-DIVE-017 | `specs/architecture/adrs/ADR-DIVE-017.md` | Ready to start | 0.1 |
-| SPEC-DIVE-BOOKING-CAPABILITIES-001 | `specs/booking/SPEC-DIVE-BOOKING-CAPABILITIES-001.md` | Draft | 0.1 |
-| SPEC-DIVE-BOOKING-CATALOG-001 | `specs/booking/SPEC-DIVE-BOOKING-CATALOG-001.md` | Draft | 0.2 |
+| SPEC-DIVE-BOOKING-CAPABILITIES-001 | `specs/booking/SPEC-DIVE-BOOKING-CAPABILITIES-001.md` | Draft | 0.2 |
+| SPEC-DIVE-BOOKING-CATALOG-001 | `specs/booking/SPEC-DIVE-BOOKING-CATALOG-001.md` | Draft | 0.5 |
 | SPEC-DIVE-BOOKING-PUBLIC-001 | `specs/booking/SPEC-DIVE-BOOKING-PUBLIC-001.md` | Draft | 0.1 |
-| SPEC-DIVE-BOOKING-SCHEDULING-001 | `specs/booking/SPEC-DIVE-BOOKING-SCHEDULING-001.md` | Draft | 0.1 |
+| SPEC-DIVE-BOOKING-SCHEDULING-001 | `specs/booking/SPEC-DIVE-BOOKING-SCHEDULING-001.md` | Accepted | 0.5 |
 | SPEC-DIVE-BOOKING-WIDGET-001 | `specs/booking/SPEC-DIVE-BOOKING-WIDGET-001.md` | Draft | 0.1 |
 | SPEC-DIVE-IAM-DASHBOARD-001 | `specs/iam/SPEC-DIVE-IAM-DASHBOARD-001.md` | Ready to start | 0.1 |
 | SPEC-DIVE-IAM-INVITATIONS-001 | `specs/iam/SPEC-DIVE-IAM-INVITATIONS-001.md` | Ready to start | 0.1 |
@@ -56,7 +56,7 @@
 | SPEC-DIVE-ONBOARDING-DELIVERY-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-DELIVERY-001.md` | Ready to start | 0.1 |
 | SPEC-DIVE-ONBOARDING-GUIDANCE-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-GUIDANCE-001.md` | Deferred | 0.1 |
 
-**Documented:** the map reflects the structural split on 2026-09-30. Original approvals are retained; no new approval or executed coverage is inferred. Requirement entry points are SPEC-DIVE-BOOKING-001, SPEC-DIVE-IAM-001 and SPEC-DIVE-ONBOARDING-001, each with its ownership table.
+**Documented:** the map reflects the structural split and subsequent dated approvals recorded by the owners. Original approvals are retained; the new commercial direction is explicitly approved on 2026-09-30, not inferred from the map. No executed coverage is inferred. Requirement entry points are SPEC-DIVE-BOOKING-001, SPEC-DIVE-IAM-001 and SPEC-DIVE-ONBOARDING-001, each with its ownership table.
 
 Notion indexes must show this map’s version. They must not invent an independent version sequence.
 
@@ -66,9 +66,9 @@ Notion pages are indexes only. They are not coverage evidence.
 
 | Owner | Declared IDs |
 |---|---|
-| [SPEC-DIVE-BOOKING-001](../booking/SPEC-DIVE-BOOKING-001.md) | `DIVE-BOOK-REQ-001`, `DIVE-BOOK-REQ-002`, `DIVE-BOOK-REQ-003`, `DIVE-BOOK-REQ-005`, `DIVE-BOOK-REQ-006`, `DIVE-BOOK-REQ-008`, `DIVE-BOOK-REQ-013`, `DIVE-BOOK-REQ-014`, `DIVE-BOOK-REQ-016`, `DIVE-BOOK-REQ-024`, `DIVE-BOOK-REQ-025`, `DIVE-BOOK-REQ-026`, `DIVE-BOOK-REQ-027`, `DIVE-BOOK-REQ-028`, `DIVE-BOOK-REQ-030`, `DIVE-BOOK-REQ-031`, `DIVE-BOOK-REQ-032`, `DIVE-BOOK-REQ-033`, `DIVE-BOOK-REQ-035`, `DIVE-BOOK-REQ-036`, `DIVE-BOOK-REQ-044`, `DIVE-BOOK-REQ-045`, `DIVE-BOOK-REQ-046`, `DIVE-BOOK-REQ-048`, `DIVE-BOOK-REQ-068`, `DIVE-BOOK-REQ-069` |
-| [SPEC-DIVE-BOOKING-CAPABILITIES-001](../booking/SPEC-DIVE-BOOKING-CAPABILITIES-001.md) | `DIVE-BOOK-REQ-007`, `DIVE-BOOK-REQ-023`, `DIVE-BOOK-REQ-070`, `DIVE-BOOK-REQ-071`, `DIVE-BOOK-REQ-072` |
-| [SPEC-DIVE-BOOKING-CATALOG-001](../booking/SPEC-DIVE-BOOKING-CATALOG-001.md) | `DIVE-BOOK-REQ-009`, `DIVE-BOOK-REQ-011`, `DIVE-BOOK-REQ-017`, `DIVE-BOOK-REQ-018`, `DIVE-BOOK-REQ-019`, `DIVE-BOOK-REQ-020`, `DIVE-BOOK-REQ-022`, `DIVE-BOOK-REQ-050`, `DIVE-BOOK-REQ-051`, `DIVE-BOOK-REQ-052`, `DIVE-BOOK-REQ-053`, `DIVE-BOOK-REQ-054`, `DIVE-BOOK-REQ-055`, `DIVE-BOOK-REQ-056`, `DIVE-BOOK-REQ-057` |
+| [SPEC-DIVE-BOOKING-001](../booking/SPEC-DIVE-BOOKING-001.md) | `DIVE-BOOK-REQ-001`, `DIVE-BOOK-REQ-002`, `DIVE-BOOK-REQ-003`, `DIVE-BOOK-REQ-005`, `DIVE-BOOK-REQ-006`, `DIVE-BOOK-REQ-008`, `DIVE-BOOK-REQ-013`, `DIVE-BOOK-REQ-014`, `DIVE-BOOK-REQ-016`, `DIVE-BOOK-REQ-024`, `DIVE-BOOK-REQ-025`, `DIVE-BOOK-REQ-026`, `DIVE-BOOK-REQ-027`, `DIVE-BOOK-REQ-028`, `DIVE-BOOK-REQ-030`, `DIVE-BOOK-REQ-031`, `DIVE-BOOK-REQ-032`, `DIVE-BOOK-REQ-033`, `DIVE-BOOK-REQ-035`, `DIVE-BOOK-REQ-036`, `DIVE-BOOK-REQ-044`, `DIVE-BOOK-REQ-045`, `DIVE-BOOK-REQ-046`, `DIVE-BOOK-REQ-048`, `DIVE-BOOK-REQ-068`, `DIVE-BOOK-REQ-069`, `DIVE-BOOK-REQ-080` |
+| [SPEC-DIVE-BOOKING-CAPABILITIES-001](../booking/SPEC-DIVE-BOOKING-CAPABILITIES-001.md) | `DIVE-BOOK-REQ-007`, `DIVE-BOOK-REQ-023`, `DIVE-BOOK-REQ-070`, `DIVE-BOOK-REQ-071`, `DIVE-BOOK-REQ-072`, `DIVE-BOOK-REQ-081` |
+| [SPEC-DIVE-BOOKING-CATALOG-001](../booking/SPEC-DIVE-BOOKING-CATALOG-001.md) | `DIVE-BOOK-REQ-009`, `DIVE-BOOK-REQ-011`, `DIVE-BOOK-REQ-017`, `DIVE-BOOK-REQ-018`, `DIVE-BOOK-REQ-019`, `DIVE-BOOK-REQ-020`, `DIVE-BOOK-REQ-022`, `DIVE-BOOK-REQ-050`, `DIVE-BOOK-REQ-051`, `DIVE-BOOK-REQ-052`, `DIVE-BOOK-REQ-053`, `DIVE-BOOK-REQ-054`, `DIVE-BOOK-REQ-055`, `DIVE-BOOK-REQ-056`, `DIVE-BOOK-REQ-057`, `DIVE-BOOK-REQ-073`, `DIVE-BOOK-REQ-074`, `DIVE-BOOK-REQ-075`, `DIVE-BOOK-REQ-076`, `DIVE-BOOK-REQ-077`, `DIVE-BOOK-REQ-078`, `DIVE-BOOK-REQ-079` |
 | [SPEC-DIVE-BOOKING-PUBLIC-001](../booking/SPEC-DIVE-BOOKING-PUBLIC-001.md) | `DIVE-BOOK-REQ-004`, `DIVE-BOOK-REQ-015`, `DIVE-BOOK-REQ-039`, `DIVE-BOOK-REQ-047`, `DIVE-BOOK-REQ-058`, `DIVE-BOOK-REQ-059`, `DIVE-BOOK-REQ-060`, `DIVE-BOOK-REQ-061`, `DIVE-BOOK-REQ-062`, `DIVE-BOOK-REQ-063`, `DIVE-BOOK-REQ-064`, `DIVE-BOOK-REQ-065`, `DIVE-BOOK-REQ-066`, `DIVE-BOOK-REQ-067` |
 | [SPEC-DIVE-BOOKING-SCHEDULING-001](../booking/SPEC-DIVE-BOOKING-SCHEDULING-001.md) | `DIVE-BOOK-REQ-010`, `DIVE-BOOK-REQ-012`, `DIVE-BOOK-REQ-021`, `DIVE-BOOK-REQ-029`, `DIVE-BOOK-REQ-034`, `DIVE-BOOK-REQ-037`, `DIVE-BOOK-REQ-038`, `DIVE-BOOK-REQ-043`, `DIVE-BOOK-REQ-049` |
 | [SPEC-DIVE-BOOKING-WIDGET-001](../booking/SPEC-DIVE-BOOKING-WIDGET-001.md) | `DIVE-BOOK-REQ-040`, `DIVE-BOOK-REQ-041`, `DIVE-BOOK-REQ-042` |
@@ -85,7 +85,7 @@ IDs are not renumbered or restated. Draft editing, staff command, token-replay a
 
 ## Requirement groups
 
-### Booking — `DIVE-BOOK-REQ-001` … `072`
+### Booking — `DIVE-BOOK-REQ-001` … `081`
 
 | Group | IDs | Tests (expected) | Evidence |
 |---|---|---|---|
@@ -98,21 +98,24 @@ IDs are not renumbered or restated. Draft editing, staff command, token-replay a
 | Delivery and privacy | 043–048 | outbox, i18n, privacy review | `evidence/` + dated review |
 | Catalog HTTP and center-scoped dashboard catalog | 049–057 | catalog API tests in the implementation PR | implementation PR |
 | Activity-editing endpoint | `DIVE-BOOK-REQ-050`; [catalog editing contract](../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#activity-editing) | proposed contract cases in the owner; unresolved semantics remain Draft | not implemented or demonstrated by this documentation change |
-| Catalog page pagination, response DTO, and physical persistence naming | 049–057; ADR-DIVE-014 Draft | catalog contract and migration tests in the implementation PR | implementation PR |
+| Single-language activity creation/publication and presentation fallback | `DIVE-BOOK-REQ-009`, `051`, `053`; [approved catalog language policy](../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#activity-languages-and-fallback) | base-language, raw DTO, per-field fallback and no-copy cases in the owner; migration/rollout contract pending | approved contract only; current runtime still has the earlier bilingual publication check |
+| Catalog page pagination, response DTO, and physical persistence naming | 049–057; ADR-DIVE-014 | catalog contract and migration tests in the implementation PR | implementation PR |
 | Public booking lifecycle and rejection | 068–069 | booking integration and rejection contract tests | implementation PR |
 | Public booking capabilities | 070–072 | public capability contract tests | implementation PR |
+| Commercial center/activity profiles, language guarantees, price, policies, Published editing and public composition | 073–079; [catalog owner](../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#commercial-profile-contract) | expected scenarios in the owner; detailed implementation contracts remain open | product direction approved 2026-09-30 only; no new executed coverage |
+| Historical commercial conditions and policy-conditioned cancellation | 080–081; [booking conditions](../booking/SPEC-DIVE-BOOKING-001.md#accepted-commercial-conditions) and [cancellation owner](../booking/SPEC-DIVE-BOOKING-CAPABILITIES-001.md#policy-conditioned-cancellation) | expected scenarios in the owners; acceptance, cutoff, state and migration contracts remain open | product direction approved 2026-09-30 only; no new executed coverage |
 | Public availability query and presentation closures | ADR-DIVE-011 Draft; no new SPEC IDs yet | none until ADR approved | none |
 | Public create-booking | 058–067 | public-create API, idempotency, origin, channel-policy, token, and contention tests in implementation PR | implementation PR |
-| Activity scheduling, recurrence, unscheduled booking, calendar, public projection, and staff mutation reconciliation | `ADR-DIVE-015`; affected existing booking IDs in SPEC-DIVE-BOOKING-SCHEDULING-001 Draft | none until the revised contract is approved | none |
+| Activity scheduling, recurrence, unscheduled booking, calendar, public projection, and staff mutation reconciliation | `ADR-DIVE-015`; affected existing booking IDs in SPEC-DIVE-BOOKING-SCHEDULING-001; accepted configuration model | expanded-behavior tests require closure of the owner's open implementation contracts | none; model acceptance is not implementation evidence |
 
 `DIVE-BOOK-REQ-003` is the capacity invariant. `DIVE-BOOK-REQ-029` states that capacity lives on the slot.
-`ADR-DIVE-015` governs the expanded scheduling direction. `SPEC-DIVE-BOOKING-001` is the Draft entry point for its declared owners while fixed-time slot assumptions are reconciled with recurrence, date-free booking, public projection, calendar, and staff mutation. Existing fixed-time implementation coverage remains valid but is not coverage of the expanded model.
+**Documented:** `ADR-DIVE-015` and `SPEC-DIVE-BOOKING-SCHEDULING-001` own the explicitly accepted configuration model and architectural boundaries. `SPEC-DIVE-BOOKING-001` remains the Draft entry point for its own declared requirements; it does not make the accepted scheduling owner Draft. Open implementation contracts remain in that owner. Existing fixed-time implementation coverage remains valid but is not coverage of the expanded model.
 
 ### IAM — `DIVE-IAM-REQ-001` … `032`
 
 Coverage is recorded in the current-coverage table below. Cross-tenant cases also map to `MT-REQ-*` and remain separate from `DIVE-*` results. Public-token and support-access evidence is not yet available in this vertical.
 
-Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` remain Ready to start. `ADR-DIVE-008` and `ADR-DIVE-017` close reserved keys, database-resolved exact CORS, mandatory environment host configuration, `center.read`, the Owner/Admin-only active/disabled center-entry lifecycle with immutable keys, idempotent transitions, scoped disablement, fail-closed resolver errors, and audit, the absolute post-bootstrap center handoff, one Next.js deployment for canonical authentication and center hosts, and the MVP ban on center-entry without `Origin`. `SPEC-DIVE-BOOKING-001` and its declared owners keep the implemented US-08 fixed-time catalog contract but is Draft for ADR-DIVE-015 reconciliation; ADR-DIVE-014 remains the Draft catalog decision record. Backend coverage for `DIVE-IAM-REQ-032` is recorded below; the web handoff and deployed-host activation evidence remain incomplete.
+Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` remain Ready to start. `ADR-DIVE-008` and `ADR-DIVE-017` close reserved keys, database-resolved exact CORS, mandatory environment host configuration, `center.read`, the Owner/Admin-only active/disabled center-entry lifecycle with immutable keys, idempotent transitions, scoped disablement, fail-closed resolver errors, and audit, the absolute post-bootstrap center handoff, one Next.js deployment for canonical authentication and center hosts, and the MVP ban on center-entry without `Origin`. `SPEC-DIVE-BOOKING-001` and its declared owners keep the implemented US-08 fixed-time catalog contract; each owner's header and the artifact map define its status. ADR-DIVE-014 owns the fixed-time catalog decisions, while the accepted expanded model is owned by ADR-DIVE-015 and SPEC-DIVE-BOOKING-SCHEDULING-001. Backend coverage for `DIVE-IAM-REQ-032` is recorded below; the web handoff and deployed-host activation evidence remain incomplete.
 
 ### Onboarding — `DIVE-ONB-REQ-001` … `050`
 

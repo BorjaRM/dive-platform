@@ -1,7 +1,7 @@
 # SPEC-DIVE-BOOKING-001 — Bookings, widget, and calendar
 
 - **Status:** Draft
-- **Version:** 1.5
+- **Version:** 1.6
 - **Last reviewed:** 2026-09-30
 - **Approved by:** Product owner
 - **Approval reference:** PR #1, provenance migration PR, product confirmations 2026-09-27 for catalog HTTP, slot time representation, public visibility of full slots, ADR-DIVE-010 public create closures, and explicit approval by Product, Security, and Architecture on 2026-09-27 of the point 1 rejection contract and public capability contract; PR #35 product-owner confirmations on 2026-09-27 for simple page pagination on activity and slot lists, catalog DTOs, and persistence naming; merged ADR-DIVE-015 and explicit product-owner confirmation on 2026-09-30 that its decisions govern the booking-model reconciliation
@@ -14,7 +14,7 @@
 
 | Contract | Requirement owner |
 |---|---|
-| Fixed-time catalog and HTTP | [SPEC-DIVE-BOOKING-CATALOG-001](SPEC-DIVE-BOOKING-CATALOG-001.md) |
+| Activity catalog, center public profiles and HTTP | [SPEC-DIVE-BOOKING-CATALOG-001](SPEC-DIVE-BOOKING-CATALOG-001.md) |
 | Published channels and public creation | [SPEC-DIVE-BOOKING-PUBLIC-001](SPEC-DIVE-BOOKING-PUBLIC-001.md) |
 | Public booking credentials and recovery | [SPEC-DIVE-BOOKING-CAPABILITIES-001](SPEC-DIVE-BOOKING-CAPABILITIES-001.md) |
 | Widget integration and hosted fallback | [SPEC-DIVE-BOOKING-WIDGET-001](SPEC-DIVE-BOOKING-WIDGET-001.md) |
@@ -37,6 +37,7 @@
 | `DIVE-BOOK-REQ-044..DIVE-BOOK-REQ-046` | `Derived` | `specs/foundation/security-privacy-baseline.md`; `specs/foundation/operations-quality-recovery.md`; `specs/product/dive-mvp-profile.md`; PR #1 | Approved by product owner |
 | `DIVE-BOOK-REQ-048` | `Derived` | `specs/foundation/security-privacy-baseline.md`; `specs/foundation/operations-quality-recovery.md`; `specs/product/dive-mvp-profile.md`; PR #1 | Approved by product owner |
 | `DIVE-BOOK-REQ-068..DIVE-BOOK-REQ-069` | `Proposed` | Product, Security, and Architecture approval on 2026-09-27 of the rejected-booking state and internal rejection contract | Approved; Ready to start |
+| `DIVE-BOOK-REQ-080` | `Proposed` | Product-owner request on 2026-09-30: "aplica los cambios propuestos sobre la documentacion", approving the preceding proposal to retain the price and conditions accepted by each booking | Approved historical-conditions direction; exact snapshot, acceptance, revision, migration and HTTP contracts remain open |
 
 ## Requirements
 
@@ -92,6 +93,8 @@
 
 - **DIVE-BOOK-REQ-069:** Authorized staff reject a booking through `POST /v1/centers/:centerId/bookings/:bookingId/reject` with Clerk authentication, `X-Tenant-Context`, current center scope, and `booking.reject`. The request has no required body or free-text reason. A `Pending` booking returns `204`, transitions to `Rejected`, releases held seats exactly once, and atomically records the booking change, audit event, and `booking.rejected` outbox event. Repeating the command for an already `Rejected` booking returns `204` without duplicating effects. A command for `Confirmed`, `Cancelled`, or `Expired` returns `409 booking_state_conflict`; missing authentication/context returns `401`, a missing capability returns `403`, and an out-of-scope resource returns the existing non-disclosing `404` contract. A competing confirmation, cancellation, or expiry has one observable order and only the winning transition applies its side effects.
 
+- **DIVE-BOOK-REQ-080:** A booking preserves the price and versioned commercial/cancellation conditions presented and accepted for that booking. Later center, activity, template or policy edits do not replace them retroactively. Any agreed modification, including applicable conditions when an initially undated booking receives an agreed date, requires an explicit flow retaining the earlier accepted conditions and the newly accepted revision. Snapshot and acceptance must commit within the existing booking transaction boundary; exact representation and change/acceptance contracts remain open.
+
 ## Goal
 
 Let a dive center publish availability, accept online bookings, and manage a simple internal calendar that combines online and manual bookings, without overselling and without storing medical or operational-trip data.
@@ -113,7 +116,7 @@ Out of scope:
 
 - Payments, deposits, invoicing, refunds
 - Check-in, manifest, departure, return, incidents
-- Certifications, eligibility, emergency contacts, medical answers or document images
+- Participant certification records/evidence, operational eligibility verification, emergency contacts, medical answers or document images; published activity prerequisites belong to the catalog and do not collect this information
 - Waitlists, dynamic pricing, multi-center public catalogs
 - Marketplace / OTA distribution
 - Offline operation
@@ -133,6 +136,20 @@ The command uses `application/problem+json` for failures. A repeated command aga
 Authorization follows `SPEC-DIVE-IAM-001`. Isolation, RLS, pooling, and async propagation follow `specs/foundation/multitenancy-architecture.md` and `specs/multitenancy/adoption-profile.md`.
 
 No real personal data in development, preview, or staging for this increment.
+
+## Accepted commercial conditions
+
+**Proposed, explicitly approved:** `DIVE-BOOK-REQ-080` owns booking history. [SPEC-DIVE-BOOKING-CATALOG-001](SPEC-DIVE-BOOKING-CATALOG-001.md), `DIVE-BOOK-REQ-074..077`, owns authored offer content, language commitments, fixed price and reusable center policy versions. [SPEC-DIVE-BOOKING-CAPABILITIES-001](SPEC-DIVE-BOOKING-CAPABILITIES-001.md), `DIVE-BOOK-REQ-081`, owns policy-conditioned cancellation. This separation reuses Booking as the conditions-history owner rather than introducing an order/payment subsystem.
+
+Capture the accepted price amount, currency, per-person unit and tax presentation; policy version and the applicable accepted commercial conditions, including included/excluded items and any agreed language commitment. Keep authored current catalog data separate from that historical record. No price or condition is reconstructed from the latest activity when reading an existing booking.
+
+An initially undated booking must not be assigned a fabricated time to evaluate cancellation. Agreed date assignment communicates the applicable conditions and records acceptance of the agreed revision without erasing creation-time history. It does not silently recalculate price or authorize automatic fees.
+
+Offer changes, quotation/acceptance and booking creation need one defined concurrency order. Idempotent recovery returns the committed booking and its original conditions, not a new quotation from changed catalog data. Booking, term history, audit and required outbox effects preserve the existing atomic owner and tenant/center boundary under `DIVE-BOOK-REQ-028` and `045`.
+
+Implementation gates: what establishes acceptance and any quote validity; exact snapshot/revision fields and historical access; which condition changes require explicit agreement; dated/day-only/date-free compatibility; existing-record backfill without fabricated historical consent; amount precision and bounds; API/errors, replay/concurrency and notification rules; privacy retention and legal/tax meaning of the displayed price. No payment, refund, new booking state or unilateral price-change mechanism is introduced.
+
+Expected checks, not executed proof: activity/template/policy edits leave committed booking conditions unchanged; exact retry returns the same historical terms; catalog edits racing with acceptance have one outcome; agreed date assignment preserves both revisions; policy references and snapshots cannot cross tenant/center; rollback leaves no partial acceptance/audit/outbox; and migration never attributes current conditions as historically accepted without evidence.
 
 ## Dependencies
 

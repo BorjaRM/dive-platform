@@ -2,7 +2,7 @@
 
 This is the single workflow for product implementation work.
 
-## Required flow
+## Default flow
 
 ```text
 Ready-to-start SPEC/ADR
@@ -24,11 +24,22 @@ Ready-to-start SPEC/ADR
 | Coverage relationships | TRACE, only when they change |
 | Visible navigation and status | Notion, only when they change |
 
-The Development Brief lives **exactly once**, in the implementation issue created from `.github/ISSUE_TEMPLATE/implementation-increment.md`.
+The Development Brief lives **exactly once**, in the implementation issue created from `.github/ISSUE_TEMPLATE/implementation-increment.md`. The only issue-entry exception is [explicit chat authorization](#explicit-chat-authorization) below.
 
-The pull request must use `Closes #<issue>` and must not copy the brief. It records implementation differences only. If implementation discovers a missing or contradictory decision, stop, record the open question in the issue, and use SDD Writer for the smallest SPEC/ADR change.
+When an implementation issue exists, the pull request must use `Closes #<issue>` and must not copy the brief. It records implementation differences only. If implementation discovers a missing or contradictory decision, stop, record the open question in its owning artifact, and use SDD Writer for the smallest SPEC/ADR change.
 
 Documentation-only, normative-only, spike/evidence-only, and maintenance changes do not use an implementation issue unless they also deliver product behavior.
+
+## Explicit chat authorization
+
+**Proposed, explicitly approved:** on 2026-09-30 the product owner requested "modifica la regla para permitir autorizacion por chat", following the explicit instruction "se autoriza expresamente la actualizacion aunque no existe issue. no generes issue". This exception changes the issue/brief entry gate, not product authority or implementation readiness.
+
+- The user may explicitly authorize a bounded product implementation without an issue. An ordinary implementation request is not an implicit waiver: the authorization must clearly permit working without the issue and identify the requested slice.
+- Use the authorized chat scope, exact approved requirement IDs and owning SPEC/ADR(s) as the entry context. Do not create an issue, a synthetic issue number, a duplicate Development Brief or a new evidence file to replace the waived issue. If scope or verification expectations remain ambiguous, ask before coding.
+- Missing issue or issue-owned brief is not a blocker for that explicitly authorized slice. Missing product decisions, unapproved contracts, tenant isolation, IAM, outbox/idempotency, required tests and validation remain gates. Scope changes still require explicit approval.
+- Chat authorization does not approve a default, migration/backfill policy, unresolved state, artifact promotion, real-data pilot, agent phase change or remote operation by implication.
+- Report local validation in chat. If a PR is separately authorized, identify this exception with the role, date and relevant authorization, requirement IDs, scope differences, checks and known gaps. Omit `Closes #<issue>` when no issue exists; do not claim an issue or copy the chat into a Development Brief.
+- All consumers of the workflow use this exception consistently. Existing issue-backed increments retain their issue-owned brief and closure semantics.
 
 ## Development Brief fields
 

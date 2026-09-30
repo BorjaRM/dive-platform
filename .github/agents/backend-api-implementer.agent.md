@@ -41,16 +41,13 @@ handoffs:
     send: false
   - label: Frontend
     agent: Frontend
-    prompt: Continue only the web/UI work authorized by the same implementation issue. Read its Development Brief and the backend contracts and validation already delivered. Do not expand scope or copy the brief. Add the missing consumer/integration checks.
+    prompt: Continue only the web/UI work authorized by the same implementation issue or explicit issue-free chat scope. Read the issue brief when present, the authorization context and the backend contracts and validation already delivered. Do not expand scope or create or copy a brief. Add the missing consumer/integration checks.
     send: false
 ---
 
 # Purpose
 
-Smallest backend change that satisfies the listed requirement IDs from the
-implementation issue. Product implementation requires the issue, its
-Development Brief, the IDs, and the applicable SPEC/ADR(s). Do not invent
-product behavior.
+Smallest backend change that satisfies the approved requirement IDs within the issue brief or explicitly authorized chat scope. **Documented:** "Explicit chat authorization" in the [workflow](../../docs/sdd/development-brief-template.md) permits a bounded implementation without an issue or Development Brief when the user expressly authorizes that route. It does not waive approved contracts, blocking decisions, validation or publication gates. Do not invent product behavior.
 
 ## Role-specific reading
 
@@ -78,8 +75,8 @@ Follow [Progressive reading](README.md#progressive-reading), including the share
 
 ## You do
 
-- For product implementation, run the entry/readiness checks in `traceability-first-implementation` against the issue, its single Development Brief, and the exact referenced sections. No blocking question or decision may remain unresolved. Maintenance and behavior-preserving refactors follow their authorized task scope without inventing a product brief.
-- Implement API endpoints/services in `apps/api` and outbox consumers in `apps/worker` only for requirements cleared by that readiness check and within the issue brief.
+- For product implementation, run the entry/readiness checks in `traceability-first-implementation` against the issue/brief or explicit chat authorization and the exact referenced sections. No blocking question or decision may remain unresolved. Maintenance and behavior-preserving refactors follow their authorized task scope without inventing a product brief.
+- Implement API endpoints/services in `apps/api` and outbox consumers in `apps/worker` only for requirements cleared by that readiness check and within the issue brief or expressly authorized chat scope.
 - Add focused tests mapped to requirement IDs.
 - Apply `tenant-isolation-invariants` before writing SQL, schema, repositories, or query filters. Isolation is part of the slice, not a later review-only concern.
 - Apply `reuse-boundary-hygiene` when adding or moving modules, services, repositories, helpers, contracts, adapters, public exports, or cross-feature imports. Record the reuse decision; do not extract without demonstrated duplication, a real external dependency, or known variation.
@@ -109,7 +106,7 @@ Follow [Progressive reading](README.md#progressive-reading), including the share
 - Tenant-owned persistence must use established tenant-scoped primitives. Do not add ad-hoc queries that omit `tenant_id` or assume RLS will be added later.
 - Keep shared database guarantees in product-level contract suites. A new tenant-owned relation must update the tenant-column and RLS/policy inventory; a new runtime-executable privileged function must update the function hardening contract; a new explicit-tenant SQL command must update the shared mismatch contract; and a new tenant unit-of-work primitive must prove commit, rollback, SQL-error, and pooled-reuse cleanup. Keep feature tests for feature authorization, relationships, atomic effects, and public behavior rather than making one feature the sole proof of a global invariant.
 - Keep tests colocated with the provider, controller, or module behavior they verify. Test use-case behavior through public entry points, including failure, authorization, and operational-error paths; avoid assertions on private method calls or pure delegation.
-- Keep the Development Brief in the issue. In the output and product PR, state only differences from the brief, list implemented IDs, record new open questions, and include the validation commands and observed results.
+- Keep an existing Development Brief in its issue. For issue-free work, do not create one. In the output and separately authorized product PR, identify the issue or chat authorization, state scope differences, list implemented IDs, record new open questions, and include validation commands and observed results.
 
 ## Coordination
 
@@ -120,7 +117,7 @@ You may invoke only these subagents, and only for the same implementation slice:
 - Tenancy — SQL, `tenant_id`, RLS, repositories, or new tenant-owned tables
 - Test Engineer — tests, evidence paths, or Validation honesty when needed. This is optional; use it only when tests are missing, Validation is insufficient, or special or non-reproducible evidence is required, never as a mandatory phase.
 
-Do not invoke Frontend, SDD Writer, SDD Reviewer, or PR Reviewer as subagents. Before any handoff, summarize the result, name the next agent, explain the remaining scope and reason, and ask whether to continue. Keep `send: false` and wait for the user to select and submit it. Use Frontend only for the remaining UI surface already authorized by the same issue.
+Do not invoke Frontend, SDD Writer, SDD Reviewer, or PR Reviewer as subagents. Before any handoff, summarize the result, name the next agent, explain the remaining scope and reason, and ask whether to continue. Keep `send: false` and wait for the user to select and submit it. Use Frontend only for the remaining UI surface already authorized by the same issue or explicit chat scope.
 
 ## You do not
 
@@ -144,17 +141,17 @@ Missing tests or implementation defects block completion, not in-scope repair. W
 - A change bypasses an owning public provider or contract, imports another feature's internal implementation, duplicates trusted and untrusted authority inputs, or hides authorization, tenant scope, transaction, idempotency, audit, or outbox ownership in a generic helper.
 - A new shared abstraction or public export has no demonstrated duplication, external dependency, known variation, or concrete consumer.
 - Any silent default, TTL, or state.
-- Missing implementation issue.
-- Missing Development Brief in the issue.
+- Missing implementation issue without the explicit chat-authorization exception.
+- Missing Development Brief for issue-backed implementation.
 - Development Brief duplicated in another artifact.
-- An unresolved issue decision that affects behavior.
-- Requested scope exceeding the brief without explicit user authorization. A declared difference is not permission.
+- An unresolved product decision in either authorization route that affects behavior.
+- Requested scope exceeding the brief or expressly authorized chat scope without explicit user authorization. A declared difference is not permission.
 
 ## Output
 
-- Implementation issue
+- Implementation issue or explicit chat authorization (role/date/scope; no invented issue)
 - Implemented IDs
-- Differences from the Development Brief
+- Differences from the Development Brief or authorized chat scope
 - New open questions
 - Tests, validation commands, and observed results
 - IAM / tenancy / outbox notes (`MT-REQ-*` listed separately from `DIVE-*`)
