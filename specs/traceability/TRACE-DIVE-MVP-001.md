@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.64
+- **Version:** 0.65
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -23,12 +23,12 @@
 | ADR-DIVE-006 | `specs/architecture/adrs/ADR-DIVE-006.md` | Ready to start | 0.1 |
 | ADR-DIVE-007 | `specs/architecture/adrs/ADR-DIVE-007.md` | Ready to start | 0.2 |
 | ADR-DIVE-008 | `specs/architecture/adrs/ADR-DIVE-008.md` | Ready to start | 0.15 |
-| ADR-DIVE-009 | `specs/architecture/adrs/ADR-DIVE-009.md` | Draft | 0.4 |
+| ADR-DIVE-009 | `specs/architecture/adrs/ADR-DIVE-009.md` | Ready to start | 0.5 |
 | ADR-DIVE-010 | `specs/architecture/adrs/ADR-DIVE-010.md` | Draft | 0.4 |
 | ADR-DIVE-011 | `specs/architecture/adrs/ADR-DIVE-011.md` | Draft | 0.3 |
 | ADR-DIVE-012 | `specs/architecture/adrs/ADR-DIVE-012.md` | Draft | 0.5 |
 | ADR-DIVE-013 | `specs/architecture/adrs/ADR-DIVE-013.md` | Ready to start | 0.14 |
-| ADR-DIVE-014 | `specs/architecture/adrs/ADR-DIVE-014.md` | Draft | 0.5 |
+| ADR-DIVE-014 | `specs/architecture/adrs/ADR-DIVE-014.md` | Ready to start | 0.6 |
 | ADR-DIVE-015 | `specs/architecture/adrs/ADR-DIVE-015.md` | Draft | 0.1 |
 | ADR-DIVE-016 | `specs/architecture/adrs/ADR-DIVE-016.md` | Draft | 0.1 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Draft | 1.5 |
@@ -42,7 +42,7 @@
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-004 | `specs/spikes/SPIKE-DIVE-004/` | Draft / executed 2026-09-29 (Documented: spike results and dated provider evidence) | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.64 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.65 |
 | ADR-DIVE-017 | `specs/architecture/adrs/ADR-DIVE-017.md` | Ready to start | 0.1 |
 | SPEC-DIVE-BOOKING-CAPABILITIES-001 | `specs/booking/SPEC-DIVE-BOOKING-CAPABILITIES-001.md` | Draft | 0.1 |
 | SPEC-DIVE-BOOKING-CATALOG-001 | `specs/booking/SPEC-DIVE-BOOKING-CATALOG-001.md` | Draft | 0.2 |

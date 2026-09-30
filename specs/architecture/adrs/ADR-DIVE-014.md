@@ -1,21 +1,23 @@
 # ADR-DIVE-014 — Center catalog lists, response DTO, and persistence naming
 
-- **Status:** Draft
-- **Version:** 0.5
+- **Status:** Ready to start
+- **Version:** 0.6
 - **Date:** 2026-09-27
 - **Deciders:** Product / Architecture / Data / Security
 - **Affected IDs:** `DIVE-BOOK-REQ-001..006`, `009..011`, `017..020`, `029`, `049..057`; `DIVE-IAM-REQ-024`, `029..032`; ADR-DIVE-001; ADR-DIVE-008; ADR-DIVE-009
 
 ## Provenance
 
+**Proposed, explicitly approved:** on 2026-09-30 the product owner authorized promotion of decisions meeting the readiness gate with "las decisiones que estan listas para pasarse a ready to start pasalas". The previously approved fixed-time pagination, DTO, persistence and time-rendering decisions below have no blocking question within their scope. Editing, expanded scheduling and new timezone-response fields remain outside this approval.
+
 | Decision | Provenance | Exact source | Approval / status |
 |---|---|---|---|
 | Dashboard catalog is scoped to one authorized center; path identifiers are selectors, never authorization | `Documented` | `SPEC-DIVE-BOOKING-001` `DIVE-BOOK-REQ-001..006`, `050`; ADR-DIVE-008 | Existing normative constraint |
 | Activity and slot request fields, lifecycle, HTTP status/error contract, filters, and stable ordering | `Documented` | `SPEC-DIVE-BOOKING-001` `DIVE-BOOK-REQ-009..011`, `017..020`, `029`, `049..057` | Existing normative constraint |
-| Activities and slots use one-based page pagination; cursor pagination is deferred | `Proposed` | Product-owner confirmation by the product owner for PR #35 on 2026-09-27 | Approved for incorporation into `SPEC-DIVE-BOOKING-001` v1.3; ADR remains Draft |
-| Minimal activity/slot representations | `Proposed` | Product-owner confirmation by the product owner for PR #35 on 2026-09-27 | Approved for incorporation into the booking contract; ADR remains Draft |
-| `booking_app.activities` / `booking_app.slots`, physical columns, constraints, and catalog indexes | `Proposed` | Existing `iam_app` PostgreSQL/Drizzle conventions; product-owner confirmation by the product owner for PR #35 on 2026-09-27 | Approved for incorporation into the booking contract; ADR remains Draft |
-| RFC3339 instants are persisted as `timestamptz`; slot responses render with the center's confirmed IANA time zone; missing or invalid center time zones fail closed | `Proposed` | Product-owner confirmation by the product owner for PR #35 on 2026-09-27; `DIVE-BOOK-REQ-049`; `DIVE-ONB-REQ-022` | Approved for incorporation into the booking contract; ADR remains Draft |
+| Activities and slots use one-based page pagination; cursor pagination is deferred | `Proposed` | Product-owner confirmation by the product owner for PR #35 on 2026-09-27 | Approved for incorporation into `SPEC-DIVE-BOOKING-001` v1.3; approved for implementation by explicit promotion authorization on 2026-09-30 above |
+| Minimal activity/slot representations | `Proposed` | Product-owner confirmation by the product owner for PR #35 on 2026-09-27 | Approved for incorporation into the booking contract; approved for implementation by explicit promotion authorization on 2026-09-30 above |
+| `booking_app.activities` / `booking_app.slots`, physical columns, constraints, and catalog indexes | `Proposed` | Existing `iam_app` PostgreSQL/Drizzle conventions; product-owner confirmation by the product owner for PR #35 on 2026-09-27 | Approved for incorporation into the booking contract; approved for implementation by explicit promotion authorization on 2026-09-30 above |
+| RFC3339 instants are persisted as `timestamptz`; slot responses render with the center's confirmed IANA time zone; missing or invalid center time zones fail closed | `Proposed` | Product-owner confirmation by the product owner for PR #35 on 2026-09-27; `DIVE-BOOK-REQ-049`; `DIVE-ONB-REQ-022` | Approved for incorporation into the booking contract; approved for implementation by explicit promotion authorization on 2026-09-30 above |
 | The dashboard client consumes the catalog response DTOs and lifecycle states without creating a second client-side domain model | `Documented` | `SPEC-DIVE-BOOKING-001` `DIVE-BOOK-REQ-009..011`, `017..020`, `049..057`; `ADR-DIVE-009` § State ownership | Existing normative constraint |
 | Interactive catalog reads and mutations use TanStack Query; pagination and filters are URL-owned; form drafts and dialogs remain local React state | `Documented` | `ADR-DIVE-009` § State ownership | Existing implementation boundary |
 | Catalog query keys may contain center/resource selectors and filters, but never the Clerk token or raw `X-Tenant-Context` handle | `Documented` | `ADR-DIVE-009` § Cache and tenant boundaries; `ADR-DIVE-008` § Credential representation and transport | Existing security constraint |
@@ -205,10 +207,10 @@ An implementation PR must link `DIVE-BOOK-REQ-049..057` and include:
 
 ## Open questions
 
-The approved fixed-time list/DTO/schema decisions are closed. Draft editing and the center-timezone read projection remain explicit proposals in SPEC-DIVE-BOOKING-CATALOG-001; they are not implied by list approval.
+No blocking decision remains for the approved fixed-time list/DTO/schema and time-rendering contract. Draft editing and the center-timezone read projection remain explicit proposals in SPEC-DIVE-BOOKING-CATALOG-001; they are not implied by list approval or this promotion.
 
 Cursor pagination is deferred. If demonstrated volume, deep-page cost, or offset drift later requires it, its scope, cursor format, validation, and compatibility become a new proposed contract change.
 
 ## Implementation authority
 
-The unchanged approved fixed-time clauses are now owned by SPEC-DIVE-BOOKING-CATALOG-001, with time representation in SPEC-DIVE-BOOKING-SCHEDULING-001 and historical approvals retained. This ADR remains Draft; neither merge nor the split approves editing, expanded scheduling or new timezone DTO fields.
+Ready to start: the unchanged approved fixed-time clauses authorize reversible implementation with synthetic data under their owning requirements in SPEC-DIVE-BOOKING-CATALOG-001, with time representation in SPEC-DIVE-BOOKING-SCHEDULING-001 and historical approvals retained. Neither this promotion, merge nor the split approves editing, expanded scheduling or new timezone DTO fields. Review, Accepted, real personal data and pilot gates remain separate.
