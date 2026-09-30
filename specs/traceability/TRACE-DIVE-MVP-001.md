@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.59
+- **Version:** 0.60
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -30,10 +30,12 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` are Ready to start
 | ADR-DIVE-012 | `specs/architecture/adrs/ADR-DIVE-012.md` | Draft | 0.4 |
 | ADR-DIVE-013 | `specs/architecture/adrs/ADR-DIVE-013.md` | Ready to start | 0.13 |
 | ADR-DIVE-014 | `specs/architecture/adrs/ADR-DIVE-014.md` | Draft | 0.4 |
+| ADR-DIVE-015 | `specs/architecture/adrs/ADR-DIVE-015.md` | Draft | 0.1 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Ready to start | 1.3 |
 | SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.18 |
 | SPEC-DIVE-MARKETING-001 | `specs/marketing/SPEC-DIVE-MARKETING-001.md` | Ready to start | 0.1 |
 | SPEC-DIVE-ONBOARDING-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md` | Ready to start | 0.15 |
+| SPEC-DIVE-TRIAL-001 | `specs/commercial/SPEC-DIVE-TRIAL-001.md` | Draft | 0.1 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.2-draft |
 | MT-SPIKE-001 | `specs/multitenancy/` | Accepted with conditions | 0.3 |
 | SPIKE-DIVE-001 | `specs/spikes/SPIKE-DIVE-001/` | Draft / not executed | see spike files |
@@ -91,6 +93,10 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` remain Ready to st
 **Issue #73 reconciliation (Derived, 2026-09-29):** PR #78 contains the core self-bootstrap command and its persistence path. Residual integration tests represent induced transaction rollback and rejection of terminal or ordinary IAM grants without tenant side effects, and the existing IAM/dashboard paths plus the neutral no-access test cover `DIVE-ONB-REQ-048..050`. The backend now resolves exact center origins from trusted mappings, implements `POST /v1/me/center-entry-contexts` with current membership, `center.read`, and center-scope checks, and implements the approved Owner/Admin-only active/disabled lifecycle with immutable keys and audit. The setup client still lacks the absolute first-center navigation, which remains outside the issue #73 backend brief. This note records coverage only; it does not change requirement text or promote an artifact.
 
 `SPEC-DIVE-ONBOARDING-001` and `ADR-DIVE-013` are Ready to start for `DIVE-ONB-REQ-001..026` and `035..050`; guided-onboarding requirements `027..034` are Deferred. Current US-19 uses a simple setup form and selects no tour library, guide state, guide analytics, or guidance rollout. Option B replaces the application-owned bearer/email design with Clerk Application Invitations plus a PostgreSQL bootstrap grant. Production invitation administration remains application-owned through the protected platform API, authoritative grant transaction, pre-tenant outbox, and post-commit worker; no dedicated administration UI is required initially. Clerk Dashboard is diagnostic/provider tooling rather than the ordinary issuance channel and cannot create bootstrap authority. Platform capability assignment, administration abuse/idempotency/rollout, and worker retry/dead-letter/reconciliation are approved implementation relationships. MFA is out of scope for issue #72; future step-up remains governed by `ADR-DIVE-006`. US-19 remains limited to invited self bootstrap; assisted provisioning and Clerk Organizations remain outside the story. The bootstrap-grant relationship is explicitly separate from ordinary tenant invitations governed by `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-017` and `ADR-DIVE-004`; neither flow can consume or activate the other. `specs/spikes/SPIKE-DIVE-004/results.md` owns the bounded Clerk Development evidence for `ignoreExisting`, new/existing identities, active-session states, invite-only behavior, and redirect/ticket cleanup. Its direct provider calls are measurement-only; production invitation delivery remains assigned to the post-commit pre-tenant outbox worker. Remaining provider lifecycle behavior stays in implementation tests unless the spike exposes an architectural contradiction. `SPEC-DIVE-IAM-001` v0.14 only clarifies the authority boundary; this TRACE relationship is not implementation coverage. Implementation authority is active for reversible work, subject to the onboarding activation gates.
+
+### Trial access — `DIVE-TRIAL-REQ-001` … `018`
+
+`SPEC-DIVE-TRIAL-001` v0.1 and `ADR-DIVE-015` v0.1 are Draft. They record the product-owner-approved direction from issue #84 for an invite-only, platform-configured trial beginning after successful bootstrap. Exact duration representation and bounds, expiry handling for already-committed effects, rights/export execution, persistence labels, API/events, and privacy validation remain open; no implementation authority or coverage is claimed.
 
 ### Public product landing — `DIVE-MKT-REQ-001` … `012`
 
