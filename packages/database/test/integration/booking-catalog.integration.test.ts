@@ -232,6 +232,76 @@ describe('booking catalog persistence controls', () => {
     expect(after.rows).toEqual(before.rows);
   });
 
+  it('keeps activity revisions scoped and rolls back failed edit audit (DIVE-BOOK-REQ-078, MT-REQ-005, MT-REQ-007, MT-REQ-010)', async () => {
+    for (const tenantId of [tenantA, tenantB, tenantA]) {
+      const rows = await withTenant(appPool, tenantId, ({ db }) =>
+        db
+          .select({
+            tenantId: bookingActivities.tenantId,
+            revision: bookingActivities.revision,
+          })
+          .from(bookingActivities),
+      );
+      expect(rows).toEqual([{ tenantId, revision: 1n }]);
+    }
+    await expect(
+      appPool.query('SELECT revision FROM booking_app.activities'),
+    ).rejects.toThrow();
+    await expect(
+      withTenant(appPool, tenantA, async ({ client }) => {
+        await client.query(
+          'UPDATE booking_app.activities SET default_capacity=6, revision=revision+1 WHERE tenant_id=$1 AND id=$2',
+          [tenantA, activityA],
+        );
+        await recordBookingCatalogMutation(client, {
+          tenantId: tenantA,
+          actorIdentityId: rollbackMembership,
+          action: 'booking.activity.updated',
+          resourceType: 'activity',
+          resourceId: activityA,
+          eventType: null,
+          payload: { group: 'common' },
+          correlationId: rollbackCorrelation,
+          idempotencyKey: null,
+        });
+      }),
+    ).rejects.toThrow();
+    const preserved = await withTenant(appPool, tenantA, ({ db }) =>
+      db
+        .select({
+          revision: bookingActivities.revision,
+          capacity: bookingActivities.defaultCapacity,
+        })
+        .from(bookingActivities),
+    );
+    expect(preserved).toEqual([{ revision: 1n, capacity: null }]);
+    await withTenant(appPool, tenantA, async ({ client }) => {
+      expect(
+        (
+          await client.query(
+            'UPDATE booking_app.activities SET revision=revision+1 WHERE id=$1',
+            [activityB],
+          )
+        ).rowCount,
+      ).toBe(0);
+    });
+    await expect(
+      withTenant(appPool, tenantA, ({ client }) =>
+        client.query(
+          'UPDATE booking_app.activities SET revision=0 WHERE id=$1',
+          [activityA],
+        ),
+      ),
+    ).rejects.toThrow();
+    expect(
+      (
+        await appPool.query(
+          `SELECT current_setting('app.tenant_id', true) AS tenant_id`,
+        )
+      ).rows[0]?.tenant_id ?? '',
+    ).toBe('');
+  });
+
   it('keeps booking rows isolated (MT-REQ-006, MT-REQ-009, MT-REQ-010)', async () => {
     await expect(
       appPool.query('SELECT id FROM booking_app.activities'),

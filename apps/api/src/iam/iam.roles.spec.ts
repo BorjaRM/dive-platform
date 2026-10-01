@@ -25,6 +25,7 @@ describe('IAM role permissions (DIVE-IAM-REQ-003, DIVE-IAM-REQ-010..014, DIVE-IA
         'booking.confirm',
         'booking.cancel',
         'calendar.read',
+        'customer_contact.read',
         'audit.read',
         'membership.invite',
         'membership.disable',
@@ -50,6 +51,7 @@ describe('IAM role permissions (DIVE-IAM-REQ-003, DIVE-IAM-REQ-010..014, DIVE-IA
         'booking.confirm',
         'booking.cancel',
         'calendar.read',
+        'customer_contact.read',
         'audit.read',
         'membership.invite',
         'membership.disable',
@@ -74,6 +76,7 @@ describe('IAM role permissions (DIVE-IAM-REQ-003, DIVE-IAM-REQ-010..014, DIVE-IA
         'booking.confirm',
         'booking.cancel',
         'calendar.read',
+        'customer_contact.read',
         'audit.read',
       ],
     ],
@@ -85,6 +88,7 @@ describe('IAM role permissions (DIVE-IAM-REQ-003, DIVE-IAM-REQ-010..014, DIVE-IA
         'availability.read',
         'booking.read',
         'calendar.read',
+        'customer_contact.read',
         'audit.read',
         'membership.read',
         'channel.read',
@@ -106,6 +110,7 @@ describe('IAM role permissions (DIVE-IAM-REQ-003, DIVE-IAM-REQ-010..014, DIVE-IA
         'booking.confirm',
         'booking.cancel',
         'calendar.read',
+        'customer_contact.read',
         'audit.read',
         'channel.read',
         'channel.manage',
@@ -124,6 +129,7 @@ describe('IAM role permissions (DIVE-IAM-REQ-003, DIVE-IAM-REQ-010..014, DIVE-IA
         'booking.confirm',
         'booking.cancel',
         'calendar.read',
+        'customer_contact.read',
       ],
     ],
     [IAM_ROLES.externalCollaborator, []],
@@ -404,9 +410,12 @@ describe('IAM role permissions (DIVE-IAM-REQ-003, DIVE-IAM-REQ-010..014, DIVE-IA
     IAM_ROLES.auditorCompliance,
     IAM_ROLES.centerManager,
     IAM_ROLES.receptionBookingManager,
-  ])('withholds purpose-limited customer contact access from %s', (role) => {
-    expect(permissionsForRoles([role])).not.toContain('customer_contact.read');
-  });
+  ])(
+    'grants purpose-limited customer contact access to %s (DIVE-IAM-REQ-015)',
+    (role) => {
+      expect(permissionsForRoles([role])).toContain('customer_contact.read');
+    },
+  );
 
   it.each([
     IAM_ROLES.tenantOwner,

@@ -1,0 +1,250 @@
+.page {
+  container: calendar-panel / inline-size;
+  min-width: 0;
+  padding-block: var(--space-6);
+  color: var(--color-text);
+}
+
+.header,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.header h2,
+.header h3 {
+  margin: 0;
+  font-size: var(--text-section-title);
+  font-weight: var(--weight-section-title);
+  overflow-wrap: anywhere;
+}
+
+.page a {
+  color: var(--color-action);
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+
+.page a:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  align-items: end;
+  gap: var(--space-4);
+  margin-block: var(--space-6);
+}
+
+.filter,
+.viewControl {
+  composes: label from "../../components/ui/primitives.module.css";
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.viewControl {
+  max-width: 12rem;
+  margin-bottom: var(--space-4);
+}
+
+.timeZone {
+  composes: helper from "../../components/ui/primitives.module.css";
+  overflow-wrap: anywhere;
+}
+
+.calendar {
+  --fc-border-color: var(--color-border);
+  --fc-page-bg-color: var(--color-surface);
+  --fc-neutral-bg-color: var(--color-input);
+  --fc-neutral-text-color: var(--color-text-muted);
+  --fc-button-text-color: var(--color-on-action);
+  --fc-button-bg-color: var(--color-action);
+  --fc-button-border-color: var(--color-action);
+  --fc-button-hover-bg-color: var(--color-action-hover);
+  --fc-button-hover-border-color: var(--color-action-hover);
+  --fc-button-active-bg-color: var(--color-action-hover);
+  --fc-button-active-border-color: var(--color-action-hover);
+  --fc-event-bg-color: var(--color-action);
+  --fc-event-border-color: var(--color-action);
+  --fc-event-text-color: var(--color-on-action);
+  --fc-today-bg-color: var(--color-success-surface);
+  min-width: 0;
+  font-size: var(--text-input);
+}
+
+.calendar [class~="fc-toolbar"] {
+  flex-wrap: wrap;
+  justify-content: start;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.calendar [class~="fc-toolbar-title"] {
+  font-size: var(--text-section-title);
+  overflow-wrap: anywhere;
+}
+
+.calendar [class~="fc-button"] {
+  min-height: var(--control-height);
+  padding: var(--control-padding-block) var(--control-padding-inline);
+  border-radius: var(--radius-control);
+  font: inherit;
+}
+
+.calendar [class~="fc-button"]:disabled {
+  opacity: var(--opacity-disabled);
+}
+
+.calendar [class~="fc-button"]:focus-visible,
+.calendar [class~="fc-event"]:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.calendar [class~="fc-view-harness"] {
+  overflow-x: auto;
+}
+
+.calendar [class~="fc-timeGridWeek-view"] {
+  min-width: 42rem;
+}
+
+.calendar [class~="fc-timegrid-event"] {
+  overflow-y: auto;
+}
+
+.calendar [class~="fc-daygrid-day-frame"] {
+  min-height: 5rem;
+}
+
+.calendar [class~="fc-daygrid-day-events"] {
+  margin: 0;
+}
+
+.calendar [class~="fc-daygrid-event"] {
+  white-space: normal;
+}
+
+.calendar [class~="fc-col-header-cell-cushion"],
+.calendar [class~="fc-daygrid-day-number"] {
+  padding: var(--space-2);
+  text-decoration: none;
+}
+
+.event {
+  display: grid;
+  min-width: 0;
+  gap: 0;
+  padding: var(--space-1);
+  font-size: var(--text-sm);
+  line-height: var(--line-height-helper);
+  overflow-wrap: anywhere;
+}
+
+.event[data-status="Full"] strong,
+.event[data-status="Closed"] strong {
+  text-decoration: underline;
+}
+
+.event[data-status="Cancelled"] strong {
+  text-decoration: line-through;
+}
+
+.detail {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.detail p {
+  margin-block: var(--space-3);
+}
+
+.actions {
+  justify-content: start;
+}
+
+.bookings {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.bookings h4 {
+  margin: 0;
+  font-size: var(--text-base);
+}
+
+.bookingList {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bookingRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-block: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.bookingSummary {
+  display: grid;
+  flex: 1 1 18rem;
+  min-width: 0;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.contact {
+  min-width: 0;
+  padding-block: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.contactFields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  margin-block: var(--space-4);
+  overflow-wrap: anywhere;
+}
+
+.contactLabel {
+  composes: label from "../../components/ui/primitives.module.css";
+}
+
+.contactFields dd {
+  margin: 0 0 var(--space-2);
+}
+
+@container calendar-panel (max-width: 36rem) {
+  .calendar [class~="fc-toolbar-title"] {
+    font-size: var(--text-base);
+  }
+
+  .calendar [class~="fc-daygrid-day-frame"] {
+    min-height: 4rem;
+  }
+
+  .calendar [class~="fc-col-header-cell-cushion"],
+  .calendar [class~="fc-daygrid-day-number"] {
+    padding: var(--space-1);
+    font-size: var(--text-sm);
+  }
+}

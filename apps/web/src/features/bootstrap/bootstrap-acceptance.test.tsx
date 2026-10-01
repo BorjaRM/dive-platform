@@ -79,6 +79,10 @@ describe('BootstrapAcceptance', () => {
         name: 'This invitation cannot be opened',
       }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Invitation access');
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Request a new invitation or contact support.',
+    );
     expect(clerkMock.signIn.ticket).not.toHaveBeenCalled();
     expect(clerkMock.signUp.ticket).not.toHaveBeenCalled();
   });

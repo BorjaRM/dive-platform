@@ -1,8 +1,8 @@
 # SPEC-DIVE-BOOKING-001 — Bookings, widget, and calendar
 
 - **Status:** Draft
-- **Version:** 1.6
-- **Last reviewed:** 2026-09-30
+- **Version:** 1.7
+- **Last reviewed:** 2026-10-01
 - **Approved by:** Product owner
 - **Approval reference:** PR #1, provenance migration PR, product confirmations 2026-09-27 for catalog HTTP, slot time representation, public visibility of full slots, ADR-DIVE-010 public create closures, and explicit approval by Product, Security, and Architecture on 2026-09-27 of the point 1 rejection contract and public capability contract; PR #35 product-owner confirmations on 2026-09-27 for simple page pagination on activity and slot lists, catalog DTOs, and persistence naming; merged ADR-DIVE-015 and explicit product-owner confirmation on 2026-09-30 that its decisions govern the booking-model reconciliation
 - **Owner:** Product / Booking
@@ -38,6 +38,7 @@
 | `DIVE-BOOK-REQ-048` | `Derived` | `specs/foundation/security-privacy-baseline.md`; `specs/foundation/operations-quality-recovery.md`; `specs/product/dive-mvp-profile.md`; PR #1 | Approved by product owner |
 | `DIVE-BOOK-REQ-068..DIVE-BOOK-REQ-069` | `Proposed` | Product, Security, and Architecture approval on 2026-09-27 of the rejected-booking state and internal rejection contract | Approved; Ready to start |
 | `DIVE-BOOK-REQ-080` | `Proposed` | Product-owner request on 2026-09-30: "aplica los cambios propuestos sobre la documentacion", approving the preceding proposal to retain the price and conditions accepted by each booking | Approved historical-conditions direction; exact snapshot, acceptance, revision, migration and HTTP contracts remain open |
+| Price and acceptance refinements under `DIVE-BOOK-REQ-080` | `Proposed` | Product-owner acceptance in this chat on 2026-10-01 of the preceding seven-block recommendations, followed by documentation authorization | Explicitly approved unit/total snapshot, offer-revision confirmation and legacy-history distinction below; exact representation, transport, legal and migration gates remain open; no implementation or status promotion |
 
 ## Requirements
 
@@ -147,7 +148,15 @@ An initially undated booking must not be assigned a fabricated time to evaluate 
 
 Offer changes, quotation/acceptance and booking creation need one defined concurrency order. Idempotent recovery returns the committed booking and its original conditions, not a new quotation from changed catalog data. Booking, term history, audit and required outbox effects preserve the existing atomic owner and tenant/center boundary under `DIVE-BOOK-REQ-028` and `045`.
 
-Implementation gates: what establishes acceptance and any quote validity; exact snapshot/revision fields and historical access; which condition changes require explicit agreement; dated/day-only/date-free compatibility; existing-record backfill without fabricated historical consent; amount precision and bounds; API/errors, replay/concurrency and notification rules; privacy retention and legal/tax meaning of the displayed price. No payment, refund, new booking state or unilateral price-change mechanism is introduced.
+### Accepted price and offer revision
+
+**Proposed, explicitly approved:** the seven-block acceptance in the provenance table requires an atomic snapshot of accepted per-person amount, seat total, explicit currency, tax presentation, policy version and accepted conditions. [Catalog](SPEC-DIVE-BOOKING-CATALOG-001.md#accepted-commercial-refinements) owns initial explicit EUR/cents and tax-included public-offer scope. Validate nonnegative integer amounts and representability of both seat multiplication and total before commit; no business amount cap is selected here.
+
+**Proposed, explicitly approved:** customer confirmation is tied to the offered revision. If the offer changes before booking commits, return a conflict and present the revised conditions for confirmation rather than silently accepting them. Offer revision is not assumed to be the activity-only revision: exact composition across price, policy, execution and readiness dependencies remains to be closed. Preserve existing idempotent recovery of already committed results, not fresh acceptance against changed terms.
+
+**Proposed, explicitly approved:** preserve legacy bookings and distinguish missing commercial history from accepted terms. Do not backfill invented consent or reconstruct historical terms from the current catalog. New bookings through the expanded flow require complete accepted conditions; this does not retroactively invalidate legacy bookings or silently disable the existing unaffected flow. Exact legacy representation and deployment/migration sequencing remain open.
+
+Implementation gates: exact acceptance evidence and quote validity; snapshot/revision composition, fields and historical access; which later condition changes require explicit agreement; dated/day-only/date-free compatibility; legacy representation and additive migration; amount wire/storage bounds; API/error codes, replay/concurrency and notification rules; privacy retention and fiscal/legal review. Initial EUR precision, atomic unit/total capture, stale-offer conflict and non-fabricated legacy history are selected, not open defaults. No payment, refund, new booking state or unilateral price-change mechanism is introduced.
 
 Expected checks, not executed proof: activity/template/policy edits leave committed booking conditions unchanged; exact retry returns the same historical terms; catalog edits racing with acceptance have one outcome; agreed date assignment preserves both revisions; policy references and snapshots cannot cross tenant/center; rollback leaves no partial acceptance/audit/outbox; and migration never attributes current conditions as historically accepted without evidence.
 

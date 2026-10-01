@@ -6,10 +6,10 @@ import {
   bookingSlots,
   type TenantUnitOfWork,
 } from '@dive-center/database';
-import type { AuthenticatedPrincipal } from '@dive-center/identity';
 import { Inject, Injectable } from '@nestjs/common';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, asc, eq, gte, inArray, isNull, lt } from 'drizzle-orm';
+import type { ResolvedCenterApplicationScope } from '../../common/auth/http-admission.js';
 import type {
   CatalogListQueryInput,
   CatalogSlotInput,
@@ -53,16 +53,13 @@ export class SlotCatalogService {
   }
 
   async listSlots(
-    principal: AuthenticatedPrincipal,
-    handle: string | undefined,
-    centerId: string,
+    applicationScope: ResolvedCenterApplicationScope,
     activityId: string,
     query: CatalogListQueryInput,
   ) {
+    const centerId = applicationScope.centerId;
     return this.access.authorized(
-      principal,
-      handle,
-      centerId,
+      applicationScope,
       'availability.read',
       async ({ context, center, db }) => {
         uuid(activityId, 'activityId');
@@ -140,16 +137,13 @@ export class SlotCatalogService {
   }
 
   async createSlot(
-    principal: AuthenticatedPrincipal,
-    handle: string | undefined,
-    centerId: string,
+    applicationScope: ResolvedCenterApplicationScope,
     activityId: string,
     input: CatalogSlotInput,
   ) {
+    const centerId = applicationScope.centerId;
     return this.access.authorized(
-      principal,
-      handle,
-      centerId,
+      applicationScope,
       'availability.manage',
       async ({ context, center, db, recordMutation }) => {
         rejectUnknownFields(input, ['startsAt', 'durationMinutes', 'capacity']);
@@ -204,16 +198,13 @@ export class SlotCatalogService {
   }
 
   async setSlotStatus(
-    principal: AuthenticatedPrincipal,
-    handle: string | undefined,
-    centerId: string,
+    applicationScope: ResolvedCenterApplicationScope,
     slotId: string,
     target: 'Closed' | 'Cancelled',
   ) {
+    const centerId = applicationScope.centerId;
     return this.access.authorized(
-      principal,
-      handle,
-      centerId,
+      applicationScope,
       'availability.manage',
       async ({ context, db, recordMutation }) => {
         uuid(slotId, 'slotId');

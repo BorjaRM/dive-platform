@@ -1,8 +1,8 @@
-import type { AuthenticatedPrincipal } from '@dive-center/identity';
 import {
   Body,
   Controller,
   Get,
+  Header,
   Headers,
   HttpCode,
   HttpStatus,
@@ -12,6 +12,7 @@ import {
   Post,
   Put,
   Query,
+  Res,
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
@@ -20,21 +21,31 @@ import {
   ApiBody,
   ApiCreatedResponse,
   ApiExtraModels,
+  ApiHeader,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  getSchemaPath,
 } from '@nestjs/swagger';
-import { ClerkAuthGuard, Principal } from '../common/auth/auth.guard.js';
+import type { Response } from 'express';
+import {
+  CenterApplicationScope,
+  HttpAdmission,
+  type ResolvedCenterApplicationScope,
+} from '../common/auth/http-admission.js';
 import { ActivityCatalogService } from './activities/activity-catalog.service.js';
 import {
   ActivityDto,
   ActivityListDto,
   CatalogActivityInputDto,
+  CatalogCommonEditDto,
   CatalogListQueryDto,
   CatalogSettingsDto,
   CatalogSettingsInputDto,
   CatalogSlotInputDto,
+  CatalogTranslationEditDto,
+  DashboardCapabilitiesDto,
   SlotDto,
   SlotListDto,
 } from './catalog.dto.js';
@@ -46,7 +57,8 @@ import {
   CatalogSlotInputPipe,
   CatalogUuidPipe,
 } from './catalog.validation.pipe.js';
-import { CatalogCenterOriginGuard } from './catalog-center-origin.guard.js';
+import { CatalogAccessService } from './catalog-access.service.js';
+import { CatalogCenterScopeGuard } from './catalog-center-origin.guard.js';
 import {
   type ChannelPolicyInput,
   ChannelPolicyInputDto,
@@ -60,15 +72,20 @@ import { SlotCatalogService } from './slots/slot-catalog.service.js';
 @ApiBearerAuth()
 @ApiExtraModels(
   CatalogActivityInputDto,
+  CatalogCommonEditDto,
+  CatalogTranslationEditDto,
   CatalogListQueryDto,
   CatalogSettingsInputDto,
   CatalogSlotInputDto,
 )
 @UseFilters(CatalogProblemFilter)
-@UseGuards(ClerkAuthGuard, CatalogCenterOriginGuard)
+@HttpAdmission({ kind: 'center-data' })
+@UseGuards(CatalogCenterScopeGuard)
 @Controller('v1/centers/:centerId')
 export class CatalogController {
   constructor(
+    @Inject(CatalogAccessService)
+    private readonly access: CatalogAccessService,
     @Inject(ActivityCatalogService)
     private readonly activities: ActivityCatalogService,
     @Inject(ChannelPolicyService)
@@ -79,22 +96,25 @@ export class CatalogController {
     private readonly settings: CatalogSettingsService,
   ) {}
 
-  private async execute<T>(
-    principal: AuthenticatedPrincipal,
-    action: (principal: AuthenticatedPrincipal) => Promise<T>,
+  @Get('dashboard-capabilities')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({
+    summary: 'Read current dashboard permissions for one center',
+  })
+  @ApiOkResponse({ type: DashboardCapabilitiesDto })
+  getDashboardCapabilities(
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
   ) {
-    return action(principal);
+    return this.access.getDashboardCapabilities(scope);
   }
 
   @Get('catalog-settings')
   @ApiOperation({ summary: 'Read catalog language for one authorized center' })
   @ApiOkResponse({ type: CatalogSettingsDto })
   getCatalogSettings(
-    @Principal() principal: AuthenticatedPrincipal,
-    @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
   ) {
-    return this.settings.getSettings(principal, handle, centerId);
+    return this.settings.getSettings(scope);
   }
 
   @Put('catalog-settings')
@@ -105,31 +125,20 @@ export class CatalogController {
   })
   @ApiNoContentResponse()
   selectCatalogLanguage(
-    @Principal() principal: AuthenticatedPrincipal,
-    @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
     @Body(CatalogSettingsInputPipe) input: CatalogSettingsInputDto,
   ) {
-    return this.settings.selectInitialLanguage(
-      principal,
-      handle,
-      centerId,
-      input,
-    );
+    return this.settings.selectInitialLanguage(scope, input);
   }
 
   @Get('activities')
   @ApiOperation({ summary: 'List activities for one authorized center' })
   @ApiOkResponse({ type: ActivityListDto })
   listActivities(
-    @Principal() principal: AuthenticatedPrincipal,
-    @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
     @Query(CatalogListQueryPipe) query: CatalogListQueryDto,
   ) {
-    return this.execute(principal, (principal) =>
-      this.activities.listActivities(principal, handle, centerId, query),
-    );
+    return this.activities.listActivities(scope, query);
   }
 
   @Post('activities')
@@ -137,14 +146,59 @@ export class CatalogController {
   @ApiOperation({ summary: 'Create a draft activity' })
   @ApiCreatedResponse({ type: ActivityDto })
   createActivity(
-    @Principal() principal: AuthenticatedPrincipal,
-    @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
     @Body(CatalogActivityInputPipe) input: CatalogActivityInputDto,
   ) {
-    return this.execute(principal, (principal) =>
-      this.activities.createActivity(principal, handle, centerId, input),
+    return this.activities.createActivity(scope, input);
+  }
+
+  @Get('activities/:activityId')
+  @ApiOperation({
+    summary: 'Read authored activity values and current revision',
+  })
+  @ApiOkResponse({
+    type: ActivityDto,
+    headers: { ETag: { schema: { type: 'string' } } },
+  })
+  async getActivity(
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
+    @Param('activityId', CatalogUuidPipe) activityId: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.activities.getActivity(scope, activityId);
+    response.setHeader('ETag', result.etag);
+    return result.activity;
+  }
+
+  @Put('activities/:activityId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Replace one complete activity form without changing other groups',
+  })
+  @ApiHeader({ name: 'If-Match', required: true })
+  @ApiBody({
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(CatalogTranslationEditDto) },
+        { $ref: getSchemaPath(CatalogCommonEditDto) },
+      ],
+    },
+  })
+  @ApiNoContentResponse({ headers: { ETag: { schema: { type: 'string' } } } })
+  async updateActivity(
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
+    @Param('activityId', CatalogUuidPipe) activityId: string,
+    @Body() input: unknown,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const etag = await this.activities.updateActivity(
+      scope,
+      activityId,
+      input,
+      ifMatch,
     );
+    response.setHeader('ETag', etag);
   }
 
   @Patch('activities/:activityId/publish')
@@ -152,20 +206,10 @@ export class CatalogController {
   @ApiOperation({ summary: 'Publish an activity' })
   @ApiNoContentResponse()
   publishActivity(
-    @Principal() principal: AuthenticatedPrincipal,
-    @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
     @Param('activityId', CatalogUuidPipe) activityId: string,
   ) {
-    return this.execute(principal, (principal) =>
-      this.activities.setActivityStatus(
-        principal,
-        handle,
-        centerId,
-        activityId,
-        'Published',
-      ),
-    );
+    return this.activities.setActivityStatus(scope, activityId, 'Published');
   }
 
   @Patch('activities/:activityId/disable')
@@ -173,20 +217,10 @@ export class CatalogController {
   @ApiOperation({ summary: 'Disable an activity' })
   @ApiNoContentResponse()
   disableActivity(
-    @Principal() principal: AuthenticatedPrincipal,
-    @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
     @Param('activityId', CatalogUuidPipe) activityId: string,
   ) {
-    return this.execute(principal, (principal) =>
-      this.activities.setActivityStatus(
-        principal,
-        handle,
-        centerId,
-        activityId,
-        'Disabled',
-      ),
-    );
+    return this.activities.setActivityStatus(scope, activityId, 'Disabled');
   }
 
   @Patch('channels/:channelId')
@@ -195,30 +229,22 @@ export class CatalogController {
   @ApiNoContentResponse()
   @ApiOperation({ summary: 'Update a hosted booking channel policy' })
   updateChannelPolicy(
-    @Principal() principal: AuthenticatedPrincipal,
-    @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
     @Param('channelId', CatalogUuidPipe) channelId: string,
     @Body(ChannelPolicyInputPipe) input: ChannelPolicyInput,
   ) {
-    return this.execute(principal, (principal) =>
-      this.channels.updatePolicy(principal, handle, centerId, channelId, input),
-    );
+    return this.channels.updatePolicy(scope, channelId, input);
   }
 
   @Get('activities/:activityId/slots')
   @ApiOperation({ summary: 'List slots for one authorized activity' })
   @ApiOkResponse({ type: SlotListDto })
   listSlots(
-    @Principal() principal: AuthenticatedPrincipal,
-    @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
     @Param('activityId', CatalogUuidPipe) activityId: string,
     @Query(CatalogListQueryPipe) query: CatalogListQueryDto,
   ) {
-    return this.execute(principal, (principal) =>
-      this.slots.listSlots(principal, handle, centerId, activityId, query),
-    );
+    return this.slots.listSlots(scope, activityId, query);
   }
 
   @Post('activities/:activityId/slots')
@@ -226,15 +252,11 @@ export class CatalogController {
   @ApiOperation({ summary: 'Create an available slot' })
   @ApiCreatedResponse({ type: SlotDto })
   createSlot(
-    @Principal() principal: AuthenticatedPrincipal,
-    @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
     @Param('activityId', CatalogUuidPipe) activityId: string,
     @Body(CatalogSlotInputPipe) input: CatalogSlotInputDto,
   ) {
-    return this.execute(principal, (principal) =>
-      this.slots.createSlot(principal, handle, centerId, activityId, input),
-    );
+    return this.slots.createSlot(scope, activityId, input);
   }
 
   @Patch('slots/:slotId/close')
@@ -242,14 +264,10 @@ export class CatalogController {
   @ApiOperation({ summary: 'Close a slot' })
   @ApiNoContentResponse()
   closeSlot(
-    @Principal() principal: AuthenticatedPrincipal,
-    @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
     @Param('slotId', CatalogUuidPipe) slotId: string,
   ) {
-    return this.execute(principal, (principal) =>
-      this.slots.setSlotStatus(principal, handle, centerId, slotId, 'Closed'),
-    );
+    return this.slots.setSlotStatus(scope, slotId, 'Closed');
   }
 
   @Patch('slots/:slotId/cancel')
@@ -257,19 +275,9 @@ export class CatalogController {
   @ApiOperation({ summary: 'Cancel a slot' })
   @ApiNoContentResponse()
   cancelSlot(
-    @Principal() principal: AuthenticatedPrincipal,
-    @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId', CatalogUuidPipe) centerId: string,
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
     @Param('slotId', CatalogUuidPipe) slotId: string,
   ) {
-    return this.execute(principal, (principal) =>
-      this.slots.setSlotStatus(
-        principal,
-        handle,
-        centerId,
-        slotId,
-        'Cancelled',
-      ),
-    );
+    return this.slots.setSlotStatus(scope, slotId, 'Cancelled');
   }
 }

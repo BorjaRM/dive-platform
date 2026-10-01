@@ -13,6 +13,7 @@ import type {
   LocalizedText,
 } from './catalog-api';
 import { CatalogNotice, describeCatalogError } from './catalog-feedback';
+import { slotStartFromLocal } from './catalog-time';
 
 function validPositiveInteger(value: string) {
   if (!value.trim()) return false;
@@ -34,10 +35,7 @@ const activityFormSchema = z.object({
 });
 
 const slotFormSchema = z.object({
-  startsAt: z
-    .string()
-    .trim()
-    .min(1, 'Add an RFC3339 start instant, including its offset.'),
+  startsAt: z.string().trim().min(1, 'Choose a start date and time.'),
   durationMinutes: z
     .string()
     .refine(
@@ -247,10 +245,12 @@ function CreateActivityForm({
 
 export function CreateSlotForm({
   disabled,
+  timeZone,
   onCreate,
   onInvalid,
 }: {
   disabled: boolean;
+  timeZone: string | null;
   onCreate: (input: CreateCatalogSlotInput, onSuccess: () => void) => void;
   onInvalid: () => void;
 }) {
@@ -260,10 +260,22 @@ export function CreateSlotForm({
   });
 
   const submit = (values: SlotFormValues) => {
-    if (disabled) return;
+    if (disabled || !timeZone) return;
+    let startsAt: string;
+    try {
+      startsAt = slotStartFromLocal(values.startsAt, timeZone);
+    } catch {
+      onInvalid();
+      form.setError('startsAt', {
+        type: 'validate',
+        message:
+          'Choose a valid, unambiguous time in the center time zone. Times skipped or repeated by daylight saving are not accepted.',
+      });
+      return;
+    }
     onCreate(
       {
-        startsAt: values.startsAt.trim(),
+        startsAt,
         durationMinutes: Number(values.durationMinutes),
         capacity: Number(values.capacity),
       },
@@ -285,8 +297,9 @@ export function CreateSlotForm({
       <div className={`${styles.formFieldGrid} ${styles.formFieldGridWide}`}>
         <Field
           id="slot-starts-at"
-          label="Starts at · RFC3339"
-          placeholder="2026-10-01T10:00:00Z"
+          label="Start date and time"
+          type="datetime-local"
+          disabled={disabled || !timeZone}
           registration={form.register('startsAt')}
           error={form.formState.errors.startsAt?.message}
         />
@@ -295,6 +308,7 @@ export function CreateSlotForm({
           label="Duration · minutes"
           type="number"
           min="1"
+          disabled={disabled || !timeZone}
           registration={form.register('durationMinutes')}
           error={form.formState.errors.durationMinutes?.message}
         />
@@ -303,11 +317,12 @@ export function CreateSlotForm({
           label="Capacity"
           type="number"
           min="1"
+          disabled={disabled || !timeZone}
           registration={form.register('capacity')}
           error={form.formState.errors.capacity?.message}
         />
       </div>
-      <Button type="submit" disabled={disabled}>
+      <Button type="submit" disabled={disabled || !timeZone}>
         Create slot
       </Button>
     </form>
@@ -323,15 +338,17 @@ function Field({
   min,
   placeholder,
   required,
+  disabled,
 }: {
   id: string;
   label: string;
   registration: UseFormRegisterReturn;
   error: string | undefined;
-  type?: 'text' | 'number';
+  type?: 'text' | 'number' | 'datetime-local';
   min?: string;
   placeholder?: string;
   required?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div className={styles.field}>
@@ -341,6 +358,7 @@ function Field({
         type={type}
         min={min}
         placeholder={placeholder}
+        disabled={disabled}
         aria-invalid={error ? true : undefined}
         aria-required={required || undefined}
         aria-describedby={error ? `${id}-error` : undefined}

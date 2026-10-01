@@ -23,13 +23,14 @@ export default async function ApplicationLayout({
     hostConfig,
   );
   if (surface.kind === 'unknown') notFound();
-  const centerReturnUrl =
+  const applicationReturnUrl =
     surface.kind === 'center'
       ? `${surface.origin}/dashboard`
-      : requestHeaders.get('x-dive-center-return');
+      : (requestHeaders.get('x-dive-platform-return') ??
+        requestHeaders.get('x-dive-center-return'));
   const allowedRedirectOrigins = [hostConfig.authenticationOrigin];
-  if (centerReturnUrl)
-    allowedRedirectOrigins.push(new URL(centerReturnUrl).origin);
+  if (applicationReturnUrl)
+    allowedRedirectOrigins.push(new URL(applicationReturnUrl).origin);
   return (
     <html
       lang="en"
@@ -41,7 +42,8 @@ export default async function ApplicationLayout({
             publishableKey={clerkPublishableKey}
             signInUrl={`${hostConfig.authenticationOrigin}/sign-in`}
             signInForceRedirectUrl={
-              centerReturnUrl ?? `${hostConfig.authenticationOrigin}/dashboard`
+              applicationReturnUrl ??
+              `${hostConfig.authenticationOrigin}/dashboard`
             }
             allowedRedirectOrigins={allowedRedirectOrigins}
             {...(surface.kind === 'center'

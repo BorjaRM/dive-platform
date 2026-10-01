@@ -22,6 +22,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ClerkAuthGuard, Principal } from '../common/auth/auth.guard.js';
+import { HttpAdmission } from '../common/auth/http-admission.js';
 import { ApiProblemFilter } from '../common/http/problem-details.js';
 import {
   type BootstrapInvitationIssueInput,
@@ -49,6 +50,7 @@ export class BootstrapInvitationsController {
   ) {}
 
   @Post()
+  @HttpAdmission({ kind: 'exception', exception: 'bootstrapInvitationIssue' })
   @ApiOperation({ summary: 'Issue a tenant bootstrap invitation' })
   @ApiBody({ type: BootstrapInvitationIssueInputDto })
   @ApiCreatedResponse({ type: BootstrapInvitationStateDto })
@@ -67,6 +69,7 @@ export class BootstrapInvitationsController {
   }
 
   @Get(':invitationId')
+  @HttpAdmission({ kind: 'exception', exception: 'bootstrapInvitationRead' })
   @ApiOperation({ summary: 'Read safe bootstrap invitation state' })
   @ApiOkResponse({ type: BootstrapInvitationStateDto })
   read(
@@ -77,6 +80,7 @@ export class BootstrapInvitationsController {
   }
 
   @Post(':invitationId/reissue')
+  @HttpAdmission({ kind: 'exception', exception: 'bootstrapInvitationReissue' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Supersede and reissue a bootstrap invitation' })
   @ApiBody({ type: BootstrapInvitationMutationInputDto })
@@ -98,6 +102,7 @@ export class BootstrapInvitationsController {
   }
 
   @Post(':invitationId/revoke')
+  @HttpAdmission({ kind: 'exception', exception: 'bootstrapInvitationRevoke' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Revoke a bootstrap invitation' })
   @ApiBody({ type: BootstrapInvitationMutationInputDto })

@@ -1,7 +1,7 @@
 # ADR-DIVE-008 — Internal tenant-scoped dashboard context
 
 - **Status:** Ready to start
-- **Version:** 0.15
+- **Version:** 0.16
 - **Date:** 2026-09-27
 - **Decision date:** 2026-09-29
 - **Deciders:** Product / Security / Architecture
@@ -16,7 +16,7 @@ The path and credential decisions were introduced as `Proposed` on 2026-09-27. P
 | Clerk authenticates identity; PostgreSQL owns memberships, roles, permissions, and center scopes | `Documented` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-001..006`; ADR-DIVE-001 | Existing normative constraint |
 | One identity may belong to several tenants; the operator is the tenant and center/base is operational scope | `Documented` | `DIVE-IAM-REQ-002`; ADR-DIVE-001 | Existing normative constraint |
 | Revocation must prevent further authorized calls and ordinary revocation takes effect within five minutes | `Documented` | `DIVE-IAM-REQ-016`, `DIVE-IAM-REQ-022` | Existing normative constraint |
-| Do not cache application authorization decisions in the MVP; re-resolve membership, roles, and scopes per authorized use case; validate the provider session on every dashboard request | `Documented` | ADR-DIVE-007 revocation and session boundary | Existing normative constraint |
+| Do not cache application authorization decisions; re-resolve membership, roles and scopes per authorized use case; authenticate each dashboard request through the expiry-based JWT boundary, without session/user-status lookups | `Documented` | [ADR-DIVE-007](ADR-DIVE-007.md#revocation-and-session-boundary); [IAM JWT clarification](../../iam/SPEC-DIVE-IAM-001.md#dashboard-jwt-validity-boundary), product-owner authorization 2026-10-01 | JWT policy supersedes per-request provider-status validation; local authorization unchanged, implementation/provider verification pending |
 | Client-supplied tenant IDs are never authoritative | `Documented` | `DIVE-IAM-REQ-006` | Existing normative constraint |
 | Replace tenant identifiers in dashboard API paths with an internal tenant-scoped context credential | `Proposed` | Product direction requested by the product owner on 2026-09-27; constrained by `DIVE-IAM-REQ-006` | Approved by product owner 2026-09-27; Ready to start |
 | Dashboard product and context endpoints MUST NOT include `/tenants/:tenantId` in their paths | `Proposed` | Same product direction; closes the path-contract question | Approved by product owner 2026-09-27; Ready to start |
@@ -27,7 +27,7 @@ The path and credential decisions were introduced as `Proposed` on 2026-09-27. P
 | Keep the raw Clerk `sid` backend-internal; do not return it, log it, trace it, or include it in the context credential | `Proposed` | Product acceptance of the implementation proposal by the product owner on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | Use `sessionStorage` for browser context persistence; do not use `localStorage` | `Proposed` | Product acceptance of the implementation proposal by the product owner on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | Limit issuance to 10 requests per identity and Clerk `sid` per minute and 20 live handles per identity and session; do not revoke handles automatically to enforce the cap | `Proposed` | Product acceptance of the implementation proposal by the product owner on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
-| Mark handles revoked for idempotently processed `session.revoked`, `session.ended`, and `session.removed` events; request-time Clerk validation remains authoritative | `Proposed` | Product acceptance of the implementation proposal by the product owner on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| Mark handles revoked for idempotently processed `session.revoked`, `session.ended`, and `session.removed` events; JWT validity and current local context/authorization checks govern request admission | `Documented` | Original handle-event decision approved by product owner 2026-09-27; JWT policy update authorized 2026-10-01 in [IAM](../../iam/SPEC-DIVE-IAM-001.md#dashboard-jwt-validity-boundary) | Handle-event behavior preserved; per-request provider-status validation superseded, no status promotion |
 | Delete revoked handles after 30 days; do not expire active handles through an independent product TTL | `Proposed` | Product acceptance of the implementation proposal by the product owner on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | Configure dashboard CORS with exact origins, without wildcard origins or cookie credentials, and allow `Authorization`, `X-Tenant-Context`, and `Content-Type` | `Proposed` | Product acceptance of the implementation proposal by the product owner on 2026-09-27; center-origin source refined by the approved 2026-09-29 decision below | Approved by product owner; Ready to start |
 | Use `operators`, `operatorRef`, `displayName`, and `tenantContext` in the context API response shapes; operator references use the opaque `op_...` form | `Proposed` | Product acceptance of the implementation proposal by the product owner on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
@@ -111,13 +111,15 @@ Conceptual stored fields (physical table and index names remain implementation d
 
 ### Lifetime, renewal, and revocation
 
-- The handle has no independent product TTL. It remains usable only while the Clerk session is valid, the row is not revoked, and the membership remains active.
+**Documented -- Historical approvals:** the 2026-09-27 handle lifecycle remains selected. **Documented -- Current authentication policy:** the product-owner contract-update authorization on 2026-10-01 applies the [IAM JWT validity boundary](../../iam/SPEC-DIVE-IAM-001.md#dashboard-jwt-validity-boundary) below without introducing a handle TTL or removing local revocation. This is contract authority, not implementation or provider evidence.
+
+- **Documented:** the handle has no independent product TTL. It remains usable only with a valid unexpired Clerk JWT for the same identity/session, an unrevoked row and current active membership. Provider-status lookup is not a prerequisite.
 - There is no sliding renewal. A revoked, unknown, or session-mismatched handle requires a new `POST /v1/me/tenant-contexts`.
 - Selecting another operator issues another handle. It does not rewrite the previous handle unless the client revokes it.
 - The server limits issuance to 10 requests per identity and Clerk `sid` per minute and 20 live handles per identity and session. Reaching the live-handle cap does not revoke an existing handle automatically.
 - Membership disable, role/scope change, and authorization decisions are read from PostgreSQL on the request, as required by ADR-DIVE-007. Disable takes effect on the next request even if the handle row still exists.
-- Clerk logout, session expiry, or adapter failure to confirm an active session deny the request. Request validation does not wait for webhook delivery; processing the approved session events below remains required defense in depth.
-- Idempotently processed `session.revoked`, `session.ended`, and `session.removed` events mark handles bound to that session as revoked. Request-time Clerk validation remains authoritative.
+- **Documented:** invalid or expired JWTs deny the request without waiting for webhook delivery. External logout, session revocation, user blocking or deletion alone does not invalidate an already issued unexpired JWT at request time; local context revocation may deny earlier. Preserve browser logout and explicit context revocation, without claiming immediate global token invalidation.
+- **Documented:** idempotently processed `session.revoked`, `session.ended`, and `session.removed` events mark handles bound to that session as revoked. JWT verification authenticates identity/session claims; current local context and authorization checks still decide access. Webhooks never grant access and are not the sole guarantee of the five-minute session-invalidation bound.
 - Session webhook processing receives the provider session identifier internally, hashes it with the same HMAC-SHA-256 procedure, and never persists or emits the raw identifier.
 - Explicit `DELETE /v1/me/tenant-contexts` revokes the presented handle.
 - Revoked handles are deleted after 30 days. Active handles have no independent product TTL.
@@ -242,7 +244,7 @@ The design does not remove Clerk session theft as the primary dashboard credenti
 
 ### Mitigated if implemented as specified
 
-- A handle without a matching live Clerk session is unusable.
+- **Documented:** a handle without a valid unexpired Clerk JWT for the bound identity/session is unusable; request-time provider-status confirmation is not required under the 2026-10-01 policy.
 - A handle bound to identity A cannot be replayed with identity B.
 - A handle for tenant A cannot authorize tenant B.
 - Stale roles, centers, or membership state inside the handle cannot occur because those claims are not stored in the handle.
@@ -253,7 +255,7 @@ The design does not remove Clerk session theft as the primary dashboard credenti
 
 ### Residual risks that remain
 
-- **Stolen Clerk session token.** An attacker who has the Bearer token can call `GET /v1/me/operators` and mint a new handle. Protecting the handle does not compensate for session theft. Session validation, logout, and short-lived Clerk session tokens remain the main control.
+- **Documented -- Stolen Clerk session token:** an attacker with a valid Bearer token may list operators and mint a new handle while current local authorization permits it. Protecting or revoking one handle does not invalidate that JWT. The selected policy permits residual access until token expiry after external revocation or blocking; verified provider renewal cessation and local authorization/application-scope checks remain essential. This policy does not claim immediate token-theft recovery through logout.
 - **Dashboard XSS.** Script in the dashboard origin can read JS-held Clerk tokens and the handle. HttpOnly cookies for the handle would not fix XSS of the Clerk Bearer token. Treat XSS as a full dashboard compromise.
 - **Handle leakage in logs and traces.** Proxies, APM, and exception reports often capture headers. Raw `X-Tenant-Context` and `Authorization` values must be redacted. A leaked handle is still insufficient without the session, but leakage plus session theft extends attacker window until revoke.
 - **Issuance pressure.** A valid session can create handle rows. The approved limit of 10 issuances per minute and 20 live handles per identity and session bounds that pressure, but a forgotten live handle can still occupy a slot until revocation. This remains a resource-exhaustion and cleanup concern, not a tenant-escape by itself.
@@ -348,7 +350,7 @@ Rejected as the general mechanism because list/create operations have no existin
 
 ### Signed internal JWT context
 
-Not selected. Immediate logout/disable already requires server-side session and membership checks; a signed token would still need revocation state or would invite treating claims as authorization.
+**Documented:** not selected. Local handle revocation and current membership checks remain server-side; an additional signed context would still need local revocation state or invite treating claims as authorization. The expiry-based Clerk JWT policy does not replace the opaque tenant handle.
 
 ### Cookie-stored tenant context
 

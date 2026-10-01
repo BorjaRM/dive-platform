@@ -2,6 +2,7 @@ import {
   ClerkIdentityAdapter,
   IDENTITY_PROVIDER,
   IDENTITY_WEBHOOK_VERIFIER,
+  VERIFIED_ADDRESS_PROVIDER,
 } from '@dive-center/identity';
 import { Global, Module } from '@nestjs/common';
 import { ClerkAuthGuard } from './auth/auth.guard.js';
@@ -31,6 +32,7 @@ import {
         ),
     },
     { provide: IDENTITY_PROVIDER, useExisting: ClerkIdentityAdapter },
+    { provide: VERIFIED_ADDRESS_PROVIDER, useExisting: ClerkIdentityAdapter },
     { provide: IDENTITY_WEBHOOK_VERIFIER, useExisting: ClerkIdentityAdapter },
     {
       provide: SECURITY_LOGGER,
@@ -59,6 +61,7 @@ import {
     ClerkAuthGuard,
     ClerkIdentityAdapter,
     IDENTITY_PROVIDER,
+    VERIFIED_ADDRESS_PROVIDER,
     IDENTITY_WEBHOOK_VERIFIER,
     SECURITY_LOGGER,
     CENTER_APP_BASE_DOMAIN,

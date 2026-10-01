@@ -25,14 +25,17 @@ describe('product tenant unit of work', () => {
     const client = await appPool.connect();
     try {
       const result = await client.query<{
+        center_key: string | null;
         pid: number;
         tenant_id: string | null;
       }>(
         `SELECT pg_backend_pid() AS pid,
-                current_setting('app.tenant_id', true) AS tenant_id`,
+                current_setting('app.tenant_id', true) AS tenant_id,
+                current_setting('app.center_entry_key', true) AS center_key`,
       );
       expect(result.rows[0]?.pid).toBe(expectedPid);
       expect(result.rows[0]?.tenant_id ?? '').toBe('');
+      expect(result.rows[0]?.center_key ?? '').toBe('');
     } finally {
       client.release();
     }
@@ -43,6 +46,9 @@ describe('product tenant unit of work', () => {
       appPool,
       tenantA,
       async ({ client }) => {
+        await client.query(
+          "SELECT set_config('app.center_entry_key', 'probe', true)",
+        );
         const result = await client.query<{
           pid: number;
           tenant_id: string;
@@ -61,6 +67,9 @@ describe('product tenant unit of work', () => {
     let transactionPid: number | undefined;
     await expect(
       withTenant(appPool, tenantA, async ({ client }) => {
+        await client.query(
+          "SELECT set_config('app.center_entry_key', 'probe', true)",
+        );
         transactionPid = await client
           .query<{ pid: number }>('SELECT pg_backend_pid() AS pid')
           .then((result) => result.rows[0]?.pid);
@@ -74,6 +83,9 @@ describe('product tenant unit of work', () => {
     let transactionPid: number | undefined;
     await expect(
       withTenant(appPool, tenantA, async ({ client }) => {
+        await client.query(
+          "SELECT set_config('app.center_entry_key', 'probe', true)",
+        );
         transactionPid = await client
           .query<{ pid: number }>('SELECT pg_backend_pid() AS pid')
           .then((result) => result.rows[0]?.pid);

@@ -1,5 +1,7 @@
 export type { BookingCatalogMutation } from './booking-catalog-commands.js';
 export { recordBookingCatalogMutation } from './booking-catalog-commands.js';
+export type { BookingReadResource } from './booking-read-audit.js';
+export { recordBookingReadAudit } from './booking-read-audit.js';
 export { bookingChannels } from './booking-schema.js';
 export { bootstrapRoles } from './bootstrap-roles.js';
 export {

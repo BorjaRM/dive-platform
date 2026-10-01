@@ -1,7 +1,7 @@
 # SPEC-DIVE-BOOKING-PUBLIC-001 - Published channels and public creation
 
 - **Status:** Draft
-- **Version:** 0.1
+- **Version:** 0.2
 - **Last reviewed:** 2026-09-30
 - **Owner:** Product / Booking
 - **Approval reference:** Unchanged requirements and approval records extracted from SPEC-DIVE-BOOKING-001 at commit `86e9d97`; documentation split requested 2026-09-30. No new semantic approval or status promotion is inferred.
@@ -51,6 +51,27 @@
 - **DIVE-BOOK-REQ-066:** First-party hosted create accepts only its exact configured origin and MUST NOT use wildcard CORS. Origin checking constrains browser use and never replaces channel authorization. Widget origins and `frame-ancestors` remain governed by ADR-DIVE-005, `DIVE-BOOK-REQ-041`, and SPIKE-DIVE-003.
 
 - **DIVE-BOOK-REQ-067:** Marketplace / OTA transport is outside the MVP. A future adapter requires a separately approved channel, authentication, idempotency/reconciliation, response/token transport, mapping, and operational contract; it may reuse the booking aggregate and invariants but MUST NOT infer authority from the hosted page or `channelPublicId` as a credential.
+
+## Proposed public-operation scope contract
+
+**Documented -- Drafting authority:** product-owner chat request on 2026-09-30 to document scope contracts for center-data surfaces, including the widget rather than dashboard only. This is drafting authority, not approval of the new design below. Existing channel and public-operation authority remains in `DIVE-BOOK-REQ-004`, `039`, `058`, `064`, `066..067`; booking-specific credentials retain their [capability owner](SPEC-DIVE-BOOKING-CAPABILITIES-001.md).
+
+**Proposed, Draft:** public hosted-page and widget operations establish an operation scope through their own server-side resolver before querying or mutating center-owned resources. The conceptual result associates tenant, center, authorizing channel and permitted activity/resource scope with the requested public operation. It is not a browser-selected mode, a dashboard role, a new public bearer or an approved wire format.
+
+| Boundary | Proposed, Draft contract |
+|---|---|
+| Channel operations | Resolve the channel selector through published server configuration and validate the applicable publication, resource and origin policy before admitting the operation. A public channel identifier remains a selector, not a secret or credential. |
+| Resource ownership | Compare each selected or indirectly resolved activity, slot and booking resource with the resolved scope before effects. Constrain public lists and aggregates to that scope; a resource selector cannot substitute another center or channel. |
+| Credential separation | Do not reuse Clerk authentication, dashboard roles or `X-Tenant-Context` to authorize public customers. Booking-capability operations use their own purpose/resource verifier and lifecycle, not a dashboard or channel-publication shortcut. |
+| Failures | Failed resolution grants no scope or side effects. Wrong-center, cross-tenant and out-of-channel selections retain the non-disclosing behavior of the owning public operation; no new response code or lifecycle is selected here. |
+| Lifecycle | Channel publication, center-entry mapping state, and already issued booking capabilities remain distinct. This proposal does not make center-entry disablement a public-channel shutdown or revoke booking capabilities when a channel is disabled. |
+| Future clients | Other public or integration clients need their own approved admission and scope resolver. The present hosted-page or widget configuration does not authorize a marketplace/OTA transport or a multi-center channel. |
+
+**Proposed, Draft -- Reuse boundary:** dashboard and public operations may reuse focused tenant/center/resource ownership checks where semantics match. Their admission and scope resolvers remain separate. The [dashboard proposal](../iam/SPEC-DIVE-IAM-DASHBOARD-001.md#proposed-application-scope-contract) does not become public authentication authority, and the [widget proposal](SPEC-DIVE-BOOKING-WIDGET-001.md#proposed-widget-scope-and-embedding-contract) does not define another booking engine. No shared module or new credential is selected solely by this documentation.
+
+**Proposed, Draft -- Planned verification:** prove same-tenant A-to-B and cross-tenant denial for public reads, availability, lists/aggregates and booking creation, including manipulated channel/resource selectors and indirect resource ownership. Check disabled/unpublished channels and resolver failure without writes or disclosure. Exercise booking-specific capabilities under their separate lifecycle contract. These are planned checks, not new executed coverage.
+
+**Proposed, Draft -- Remaining decisions:** inventory affected public routes and their existing owners; close the iframe/hosted origin boundary through `SPIKE-DIVE-003` before widget activation; select any new resolver/result interface only when implementation demonstrates suitable reuse. Existing token derivation, recovery and retention questions below remain independent security gates.
 
 ## Dependencies and verification
 

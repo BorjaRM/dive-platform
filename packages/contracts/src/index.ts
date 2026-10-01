@@ -6,6 +6,7 @@ export const IAM_AUDIT_ACTIONS = [
   'booking.create',
   'booking.read',
   'booking.update',
+  'booking.activity.updated',
   'booking.confirm',
   'booking.cancel',
   'customer_contact.read',

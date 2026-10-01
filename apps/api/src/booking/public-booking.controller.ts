@@ -17,6 +17,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { HttpAdmission } from '../common/auth/http-admission.js';
 import { ApiProblemFilter } from '../common/http/problem-details.js';
 import {
   type PublicBookingInput,
@@ -36,6 +37,7 @@ export class PublicBookingController {
   ) {}
 
   @Post(':channelPublicId/bookings')
+  @HttpAdmission({ kind: 'exception', exception: 'publicBooking' })
   @HttpCode(HttpStatus.CREATED)
   @ApiBody({ type: PublicBookingInputDto })
   @ApiOperation({

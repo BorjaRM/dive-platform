@@ -2,11 +2,6 @@ import type { IamDenialReason } from '@dive-center/contracts';
 import type { Pool } from 'pg';
 import type { IamAccessContext } from './iam-authorize.js';
 
-type Principal = Readonly<{
-  issuer: string;
-  subject: string;
-}>;
-
 type CenterEntryStatus = 'active' | 'disabled';
 
 type CenterEntryStatusCommandResult =
@@ -15,8 +10,7 @@ type CenterEntryStatusCommandResult =
 
 export async function setIamCenterEntryStatus(
   pool: Pool,
-  principal: Principal,
-  context: Pick<IamAccessContext, 'tenantId'>,
+  context: Pick<IamAccessContext, 'tenantId' | 'issuer' | 'subject'>,
   input: Readonly<{
     centerId: string;
     status: CenterEntryStatus;
@@ -31,8 +25,8 @@ export async function setIamCenterEntryStatus(
       $1, $2, $3::uuid, $4::uuid, $5, $6, $7::uuid
     ) AS outcome`,
     [
-      principal.issuer,
-      principal.subject,
+      context.issuer,
+      context.subject,
       context.tenantId,
       input.centerId,
       input.status,

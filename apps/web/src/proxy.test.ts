@@ -14,7 +14,7 @@ describe('public product proxy', () => {
     vi.stubEnv('PUBLIC_PRODUCT_INDEXABLE', 'false');
     vi.stubEnv('AUTHENTICATION_ORIGIN', 'https://auth.example.test');
     vi.stubEnv('CENTER_APP_BASE_DOMAIN', 'app.example.test');
-    vi.stubEnv('NEXT_PUBLIC_DASHBOARD_API_URL', 'https://api.example.test');
+    vi.stubEnv('BFF_API_ORIGIN', 'https://api.example.test');
     vi.stubEnv('NEXT_PUBLIC_DASHBOARD_REQUEST_TIMEOUT_MS', '5000');
     vi.stubEnv('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY', '');
   });
@@ -58,6 +58,44 @@ describe('public product proxy', () => {
     ).toBe(404);
   });
 
+  it.each(['https://alpha.app.example.test', 'https://unknown.example'])(
+    'denies platform pages on %s before fetching center data',
+    async (origin) => {
+      const upstream = vi.spyOn(globalThis, 'fetch');
+      expect(
+        (await proxy(new NextRequest(`${origin}/platform/invitations`))).status,
+      ).toBe(404);
+      expect(upstream).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    '/platform/invitations',
+    '/sign-in?redirect_url=https://auth.example.test/platform/invitations',
+  ])('preserves the canonical platform login destination %s', async (path) => {
+    const response = await proxy(
+      new NextRequest(`https://auth.example.test${path}`, {
+        headers: { 'x-dive-platform-return': 'https://evil.test' },
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(
+      response.headers.get('x-middleware-request-x-dive-platform-return'),
+    ).toBe('https://auth.example.test/platform/invitations');
+  });
+
+  it('discards a forged platform return outside the approved route', async () => {
+    const response = await proxy(
+      new NextRequest(
+        'https://auth.example.test/sign-in?redirect_url=https://evil.test',
+        { headers: { 'x-dive-platform-return': 'https://evil.test' } },
+      ),
+    );
+    expect(
+      response.headers.has('x-middleware-request-x-dive-platform-return'),
+    ).toBe(false);
+  });
+
   it('returns a configuration error instead of selecting a host default', async () => {
     vi.stubEnv('PUBLIC_PRODUCT_ORIGIN', '');
 
@@ -66,7 +104,7 @@ describe('public product proxy', () => {
     ).toBe(500);
   });
 
-  it('admits only active exact center origins and sends their root to the dashboard', async () => {
+  it('uses active entry for roots but leaves existing dashboard handles to API revalidation', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(null, {
         status: 204,
@@ -88,6 +126,9 @@ describe('public product proxy', () => {
     expect(
       (await proxy(new NextRequest('https://alpha.app.example.test/dashboard')))
         .status,
+    ).toBe(200);
+    expect(
+      (await proxy(new NextRequest('https://alpha.app.example.test/'))).status,
     ).toBe(404);
   });
 
@@ -165,7 +206,7 @@ describe('public product proxy', () => {
       ).toBe(404);
       fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
       expect((await proxy(new NextRequest(`${origin}/dashboard`))).status).toBe(
-        404,
+        200,
       );
     },
   );
@@ -192,7 +233,7 @@ describe('public product proxy', () => {
   });
 
   it.each([
-    'https://alpha.app.example.test/dashboard',
+    'https://alpha.app.example.test/',
     'https://auth.example.test/sign-in?redirect_url=https://alpha.app.example.test/dashboard',
   ])(
     'reports resolver failure as unavailable for %s without mounting Clerk',
@@ -221,8 +262,7 @@ describe('public product proxy', () => {
       new DOMException('aborted', 'TimeoutError'),
     );
     expect(
-      (await proxy(new NextRequest('https://alpha.app.example.test/dashboard')))
-        .status,
+      (await proxy(new NextRequest('https://alpha.app.example.test/'))).status,
     ).toBe(503);
   });
 
@@ -250,14 +290,14 @@ describe('public product proxy', () => {
     ).toBe(404);
   });
 
-  it('mounts the same Clerk middleware only after active mapping validation', async () => {
+  it('mounts Clerk only for canonical hosts and leaves dashboard mapping authorization to API', async () => {
     vi.mocked(clerkMiddleware).mockClear();
     vi.stubEnv('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY', 'pk_test_fixture');
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValue(new Response(null, { status: 204 }));
     expect(
-      (await proxy(new NextRequest('https://alpha.app.example.test/dashboard')))
+      (await proxy(new NextRequest('https://unknown.example.test/dashboard')))
         .status,
     ).toBe(404);
     expect(clerkMiddleware).not.toHaveBeenCalled();
@@ -278,5 +318,6 @@ describe('public product proxy', () => {
       domain: 'alpha.app.example.test',
       signInUrl: 'https://auth.example.test/sign-in',
     });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
