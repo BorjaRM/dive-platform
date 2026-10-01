@@ -45,7 +45,7 @@ function renderDashboard(
   render(
     <QueryClientProvider client={queryClient}>
       <DashboardTenantContext
-        apiBaseUrl="https://api.example.test"
+        apiBaseUrl="/api/dashboard"
         requestTimeoutMillis={requestTimeoutMillis}
         session={session}
         storage={storage}
@@ -62,10 +62,7 @@ function renderDashboardWithoutInjectedStorage(session: SessionTokenSource) {
   });
   render(
     <QueryClientProvider client={queryClient}>
-      <DashboardTenantContext
-        apiBaseUrl="https://api.example.test"
-        session={session}
-      />
+      <DashboardTenantContext apiBaseUrl="/api/dashboard" session={session} />
     </QueryClientProvider>,
   );
   return queryClient;
@@ -100,29 +97,17 @@ function DashboardContextProbe() {
 }
 
 describe('authenticated dashboard tenant-context flow', () => {
-  it('discards a stale handle, bootstraps the origin center and never lists other workspaces (DIVE-IAM-REQ-032)', async () => {
+  it('revalidates an existing tenant handle for only the BFF-associated center without new bootstrap (DIVE-IAM-REQ-032)', async () => {
     const storage = createTenantContextStorage(memoryStorage());
-    storage.write('ctx_old_other_center');
+    storage.write('ctx_existing_tenant');
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockImplementation(async (input, init) => {
-        if (String(input).endsWith('/v1/me/center-entry-contexts')) {
-          expect(JSON.parse(String(init?.body))).toEqual({
-            centerRef: 'alpha',
-          });
-          expect(new Headers(init?.headers).has('X-Tenant-Context')).toBe(
-            false,
-          );
-          return jsonResponse({
-            tenantContext: 'ctx_alpha',
-            center: { centerId: 'center-alpha' },
-          });
-        }
-        if (String(input).endsWith('/v1/centers/center-alpha')) {
+        if (String(input).endsWith('/v1/centers')) {
           expect(new Headers(init?.headers).get('X-Tenant-Context')).toBe(
-            'ctx_alpha',
+            'ctx_existing_tenant',
           );
-          return jsonResponse({ id: 'center-alpha', name: 'Harbor Base' });
+          return jsonResponse([{ id: 'center-alpha', name: 'Harbor Base' }]);
         }
         throw new Error(`Unexpected request: ${String(input)}`);
       });
@@ -133,11 +118,11 @@ describe('authenticated dashboard tenant-context flow', () => {
       'alpha',
     );
     expect(await screen.findByText('Harbor Base')).toBeInTheDocument();
-    expect(storage.read()).toBe('ctx_alpha');
+    expect(storage.read()).toBe('ctx_existing_tenant');
     expect(
       screen.queryByRole('button', { name: 'Change workspace' }),
     ).not.toBeInTheDocument();
-    expect(fetchMock.mock.calls).toHaveLength(2);
+    expect(fetchMock.mock.calls).toHaveLength(1);
   });
 
   it('does not adopt a late center-entry response after changing the origin center', async () => {
@@ -168,9 +153,7 @@ describe('authenticated dashboard tenant-context flow', () => {
             center: { centerId: 'center-beta' },
           });
         }
-        expect(String(input)).toBe(
-          'https://api.example.test/v1/centers/center-beta',
-        );
+        expect(String(input)).toBe('/api/dashboard/v1/centers/center-beta');
         expect(new Headers(init?.headers).get('X-Tenant-Context')).toBe(
           'ctx_beta',
         );
@@ -186,7 +169,7 @@ describe('authenticated dashboard tenant-context flow', () => {
     const dashboard = (centerKey: string) => (
       <QueryClientProvider client={queryClient}>
         <DashboardTenantContext
-          apiBaseUrl="https://api.example.test"
+          apiBaseUrl="/api/dashboard"
           session={session}
           storage={storage}
           centerKey={centerKey}
@@ -236,7 +219,7 @@ describe('authenticated dashboard tenant-context flow', () => {
       expect(
         screen.getByRole('button', { name: 'Log out' }),
       ).toBeInTheDocument();
-      expect(storage.read()).toBeNull();
+      expect(storage.read()).toBe(status === 403 ? null : 'ctx_stale');
       expect(fetchMock).toHaveBeenCalledOnce();
     },
   );
@@ -693,7 +676,7 @@ describe('authenticated dashboard tenant-context flow', () => {
       const dashboard = (onSessionExpired: () => void) => (
         <QueryClientProvider client={queryClient}>
           <DashboardTenantContext
-            apiBaseUrl="https://api.example.test"
+            apiBaseUrl="/api/dashboard"
             session={session}
             storage={storage}
             onSessionExpired={onSessionExpired}
@@ -752,7 +735,7 @@ describe('authenticated dashboard tenant-context flow', () => {
       <StrictMode>
         <QueryClientProvider client={queryClient}>
           <DashboardTenantContext
-            apiBaseUrl="https://api.example.test"
+            apiBaseUrl="/api/dashboard"
             session={session}
             storage={storage}
             onSessionExpired={onSessionExpired}
@@ -867,7 +850,7 @@ describe('authenticated dashboard tenant-context flow', () => {
     render(
       <QueryClientProvider client={unavailableQueryClient}>
         <DashboardTenantContext
-          apiBaseUrl="https://api.example.test"
+          apiBaseUrl="/api/dashboard"
           session={{ configured: false, getToken: async () => null }}
         />
       </QueryClientProvider>,
@@ -950,7 +933,7 @@ describe('authenticated dashboard tenant-context flow', () => {
     const rendered = render(
       <QueryClientProvider client={queryClient}>
         <DashboardTenantContext
-          apiBaseUrl="https://api.example.test"
+          apiBaseUrl="/api/dashboard"
           session={firstSession}
           storage={storage}
         />
@@ -964,7 +947,7 @@ describe('authenticated dashboard tenant-context flow', () => {
     rendered.rerender(
       <QueryClientProvider client={queryClient}>
         <DashboardTenantContext
-          apiBaseUrl="https://api.example.test"
+          apiBaseUrl="/api/dashboard"
           session={secondSession}
           storage={storage}
         />
@@ -1059,7 +1042,7 @@ describe('authenticated dashboard tenant-context flow', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <DashboardTenantContext
-          apiBaseUrl="https://api.example.test"
+          apiBaseUrl="/api/dashboard"
           session={{ configured: true, getToken: async () => 'session-alpha' }}
           storage={storage}
         >
@@ -1068,16 +1051,18 @@ describe('authenticated dashboard tenant-context flow', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByText('Harbor Base')).toBeInTheDocument();
-    expect(screen.getByTestId('dashboard-context-value')).toHaveTextContent(
-      JSON.stringify({
-        apiBaseUrl: 'https://api.example.test',
-        authorizedCenters: [{ id: 'center-alpha', name: 'Harbor Base' }],
-        isReady: true,
-        sessionState: 'available',
-        tenantContext: 'ctx_alpha',
-      }),
-    );
+    await waitFor(() => {
+      expect(screen.getByTestId('dashboard-context-value')).toHaveTextContent(
+        JSON.stringify({
+          apiBaseUrl: '/api/dashboard',
+          authorizedCenters: [{ id: 'center-alpha', name: 'Harbor Base' }],
+          isReady: true,
+          sessionState: 'available',
+          tenantContext: 'ctx_alpha',
+        }),
+      );
+    });
+    expect(screen.queryByText('Harbor Base')).not.toBeInTheDocument();
     queryClient.setQueryData(['dashboard', 'catalog', 'activities'], {
       items: [{ id: 'activity-alpha' }],
     });

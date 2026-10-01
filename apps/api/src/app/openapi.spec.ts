@@ -16,6 +16,12 @@ import {
   TENANT_CONTEXT_CRYPTO,
 } from '../common/tenant-context/tenant-context.tokens.js';
 import { IamModule } from '../iam/iam.module.js';
+import {
+  createLocalSwaggerViewer,
+  generateLocalOpenApi,
+  listenLocalSwagger,
+} from '../local-openapi/local-openapi.js';
+import { AppModule } from './app.module.js';
 
 @Global()
 @Module({
@@ -45,6 +51,119 @@ import { IamModule } from '../iam/iam.module.js';
 class OpenApiSharedTestModule {}
 
 describe('OpenAPI document generation', () => {
+  it('binds the documentation viewer only to loopback and rejects invalid ports', async () => {
+    const document = await generateLocalOpenApi(IamModule);
+    await expect(listenLocalSwagger(document, -1)).rejects.toThrow(
+      'Local Swagger port',
+    );
+    await expect(listenLocalSwagger(document, 65536)).rejects.toThrow(
+      'Local Swagger port',
+    );
+    await expect(listenLocalSwagger(document, 1.5)).rejects.toThrow(
+      'Local Swagger port',
+    );
+    const viewer = await listenLocalSwagger(document, 0);
+    try {
+      expect(viewer.getHttpServer().address()).toMatchObject({
+        address: '127.0.0.1',
+      });
+      expect(
+        (await request(viewer.getHttpServer()).get('/docs-json')).status,
+      ).toBe(200);
+    } finally {
+      await viewer.close();
+    }
+  });
+
+  it('generates the full local document without infrastructure or business HTTP handlers', async () => {
+    const document = await generateLocalOpenApi(AppModule);
+    expect(document.paths['/v1/me/operators']?.get).toBeDefined();
+    expect(
+      document.paths['/v1/centers/{centerId}/calendar/slots']?.get,
+    ).toBeDefined();
+    expect(
+      document.paths['/v1/centers/{centerId}/slots/{slotId}/bookings']?.get,
+    ).toBeDefined();
+    expect(
+      document.paths['/v1/centers/{centerId}/bookings/{bookingId}/contact']
+        ?.get,
+    ).toBeDefined();
+    expect(document.paths['/v1/webhooks/clerk']?.post).toBeDefined();
+    expect(
+      document.paths['/v1/public/channels/{channelPublicId}/bookings']?.post,
+    ).toBeDefined();
+    expect(
+      Object.keys(document.paths).some((path) => path.includes('catalog')),
+    ).toBe(true);
+    expect(document.paths['/v1/me/tenant-bootstrap']?.post).toBeDefined();
+    expect(
+      document.paths['/v1/centers/{centerId}/dashboard-capabilities']?.get,
+    ).toBeDefined();
+    expect(
+      document.components?.schemas?.DashboardCapabilitiesDto,
+    ).toMatchObject({
+      properties: {
+        canReadActivities: { type: 'boolean' },
+        canReadSessions: { type: 'boolean' },
+        canCreateActivity: { type: 'boolean' },
+        canScheduleSession: { type: 'boolean' },
+      },
+      required: [
+        'canReadActivities',
+        'canReadSessions',
+        'canCreateActivity',
+        'canScheduleSession',
+      ],
+    });
+    const activityPath =
+      document.paths['/v1/centers/{centerId}/activities/{activityId}'];
+    expect(activityPath?.get).toBeDefined();
+    expect(activityPath?.put?.requestBody).toMatchObject({
+      content: {
+        'application/json': {
+          schema: {
+            oneOf: [
+              { $ref: '#/components/schemas/CatalogTranslationEditDto' },
+              { $ref: '#/components/schemas/CatalogCommonEditDto' },
+            ],
+          },
+        },
+      },
+    });
+    expect(activityPath?.put?.parameters).toContainEqual(
+      expect.objectContaining({
+        name: 'If-Match',
+        in: 'header',
+        required: true,
+      }),
+    );
+
+    const viewer = await createLocalSwaggerViewer(document);
+    await viewer.init();
+    try {
+      const response = await request(viewer.getHttpServer()).get('/docs-json');
+      expect(response.status).toBe(200);
+      expect(response.body.paths).toEqual(document.paths);
+      expect((await request(viewer.getHttpServer()).get('/docs/')).status).toBe(
+        200,
+      );
+      const initializer = await request(viewer.getHttpServer()).get(
+        '/docs/swagger-ui-init.js',
+      );
+      expect(initializer.text).toContain('"supportedSubmitMethods": []');
+      expect(initializer.text).toContain('"tryItOutEnabled": false');
+      expect(
+        (await request(viewer.getHttpServer()).get('/v1/me/operators')).status,
+      ).toBe(404);
+      expect(
+        (await request(viewer.getHttpServer()).post('/v1/me/tenant-bootstrap'))
+          .status,
+      ).toBe(404);
+    } finally {
+      await viewer.close();
+    }
+  });
+
   it('includes the IAM and webhook routes with a bearer security scheme', async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [OpenApiSharedTestModule, IamModule],
@@ -69,6 +188,12 @@ describe('OpenAPI document generation', () => {
     expect(document.paths['/v1/me/tenant-contexts']?.delete).toBeDefined();
     expect(document.paths['/v1/centers']?.get).toBeDefined();
     expect(document.paths['/v1/centers/{centerId}']?.get).toBeDefined();
+    expect(document.components?.schemas?.CenterDto).toMatchObject({
+      properties: {
+        timeZone: { type: 'string', nullable: true },
+      },
+      required: ['id', 'name', 'timeZone'],
+    });
     expect(
       document.paths['/v1/centers/{centerId}/entry-status']?.patch,
     ).toBeDefined();

@@ -2,8 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Notice, Select } from '../../components/ui/controls';
+import { Button, Notice, Select } from '../../components/ui/controls';
 import styles from './catalog.module.css';
+import { EditCatalogActivity } from './catalog-activity-edit';
 import type {
   CatalogLocale,
   CreateCatalogActivityInput,
@@ -28,6 +29,12 @@ const CATALOG_QUERY_KEYS = {
 
 const PAGE_SIZE = 10;
 
+const CATALOG_VIEW_TITLES = {
+  list: 'Activities',
+  create: 'New activity',
+  edit: 'Edit activity',
+};
+
 type CatalogMutation =
   | { type: 'select-language'; locale: CatalogLocale }
   | { type: 'create-activity'; input: CreateCatalogActivityInput }
@@ -47,7 +54,16 @@ type CatalogMutation =
       slotId: string;
     };
 
-export function CatalogPanel() {
+export type CatalogView =
+  | { kind: 'list' }
+  | { kind: 'create' }
+  | { kind: 'edit'; activityId: string };
+
+export function CatalogPanel({
+  view = { kind: 'list' },
+}: {
+  view?: CatalogView;
+}) {
   const { authorizedCenters, isReady, tenantContext } = useDashboardContext();
   const navigation = useCatalogNavigation();
   const centerId = authorizedCenters.some(
@@ -61,6 +77,7 @@ export function CatalogPanel() {
       key={`${tenantContext}:${centerId}`}
       centerId={centerId}
       navigation={navigation}
+      view={view}
     />
   );
 }
@@ -68,9 +85,11 @@ export function CatalogPanel() {
 function CatalogCenterPanel({
   centerId,
   navigation,
+  view,
 }: {
   centerId: string;
   navigation: ReturnType<typeof useCatalogNavigation>;
+  view: CatalogView;
 }) {
   const {
     api,
@@ -82,20 +101,24 @@ function CatalogCenterPanel({
   const queryClient = useQueryClient();
   const {
     requestedCenterId,
-    selectedActivityId,
     activityStatus,
     slotStatus,
     activityPage,
     slotPage,
     updateSearchParams,
+    navigate,
   } = navigation;
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
+  const timeZone =
+    authorizedCenters.find((center) => center.id === centerId)?.timeZone ??
+    null;
 
   const settingsQuery = useQuery({
     queryKey: [...CATALOG_QUERY_KEYS.settings, tenantContext, centerId],
     queryFn: ({ signal }) =>
       api.getCatalogSettings(tenantContext as string, centerId, signal),
-    enabled: isReady && Boolean(tenantContext && centerId),
+    enabled:
+      view.kind === 'create' && isReady && Boolean(tenantContext && centerId),
     retry: false,
   });
 
@@ -118,16 +141,36 @@ function CatalogCenterPanel({
         },
         signal,
       ),
-    enabled: isReady && Boolean(tenantContext && centerId),
+    enabled:
+      view.kind === 'list' && isReady && Boolean(tenantContext && centerId),
     retry: false,
   });
 
-  const activities = activitiesQuery.data?.items ?? [];
-  const selectedActivity =
-    activities.find((activity) => activity.id === selectedActivityId) ??
-    activities[0] ??
-    null;
-  const effectiveActivityId = selectedActivity?.id ?? null;
+  const activityId = view.kind === 'edit' ? view.activityId : null;
+  const activityQuery = useQuery({
+    queryKey: [
+      ...CATALOG_QUERY_KEYS.activities,
+      tenantContext,
+      centerId,
+      activityId,
+    ],
+    queryFn: ({ signal }) =>
+      api.getActivity(
+        tenantContext as string,
+        centerId,
+        activityId as string,
+        signal,
+      ),
+    enabled:
+      view.kind === 'edit' &&
+      isReady &&
+      centerId === requestedCenterId &&
+      Boolean(tenantContext && centerId),
+    gcTime: 0,
+    retry: false,
+  });
+  const selectedActivity = activityQuery.data?.activity ?? null;
+  const effectiveActivityId = activityId;
 
   useEffect(() => {
     if (authorizedCenters.length === 0) return;
@@ -140,24 +183,14 @@ function CatalogCenterPanel({
       });
       return;
     }
-    if (!activitiesQuery.isSuccess) return;
-    if (effectiveActivityId === selectedActivityId) return;
-    updateSearchParams({
-      [CATALOG_SEARCH_PARAMS.activityId]: effectiveActivityId,
-      [CATALOG_SEARCH_PARAMS.slotPage]: null,
-    });
   }, [
     authorizedCenters.length,
     centerId,
     requestedCenterId,
-    activitiesQuery.isSuccess,
-    effectiveActivityId,
-    selectedActivityId,
     updateSearchParams,
   ]);
 
-  const effectiveSlotPage =
-    effectiveActivityId === selectedActivityId ? slotPage : 1;
+  const effectiveSlotPage = slotPage;
 
   const slotsQuery = useQuery({
     queryKey: [
@@ -182,7 +215,8 @@ function CatalogCenterPanel({
       ),
     enabled:
       isReady &&
-      activitiesQuery.isSuccess &&
+      view.kind === 'edit' &&
+      activityQuery.isSuccess &&
       centerId === requestedCenterId &&
       Boolean(tenantContext && centerId && effectiveActivityId),
     retry: false,
@@ -239,6 +273,7 @@ function CatalogCenterPanel({
     settingsQuery.error,
     activitiesQuery.error,
     slotsQuery.error,
+    activityQuery.error,
   ].some(isSessionExpired);
   useEffect(() => {
     if (querySessionExpired) handleSessionExpired();
@@ -253,12 +288,19 @@ function CatalogCenterPanel({
   ) => {
     setSuccessNotice(null);
     catalogMutation.mutate(action, {
-      onSuccess: () => {
+      onSuccess: (result) => {
         switch (action.type) {
           case 'select-language':
             updateSearchParams({});
             break;
           case 'create-activity':
+            if (result && 'id' in result) {
+              navigate(
+                `/dashboard/activities/${encodeURIComponent(result.id)}/edit`,
+                { [CATALOG_SEARCH_PARAMS.centerId]: centerId },
+              );
+            }
+            break;
           case 'activity-command':
             updateSearchParams({ [CATALOG_SEARCH_PARAMS.activityPage]: null });
             break;
@@ -285,16 +327,49 @@ function CatalogCenterPanel({
     pendingMutationType === 'slot-command';
 
   return (
-    <section className={styles.page} aria-labelledby="catalog-heading">
+    <section className={styles.page} aria-label="Activity catalog">
       <div className={styles.frame}>
         <header className={styles.header}>
           <div>
-            <p className={styles.sectionKicker}>US-08 · Catalog</p>
-            <h2 id="catalog-heading">Activities and availability</h2>
-            <p>
-              Manage the published experiences and their bookable time slots for
-              one authorized center.
-            </p>
+            <p className={styles.sectionKicker}>Catalog</p>
+            <h2 id="catalog-heading">{CATALOG_VIEW_TITLES[view.kind]}</h2>
+            <div className={styles.navigation}>
+              {view.kind !== 'list' && (
+                <Button
+                  variant="secondary"
+                  onClick={() => navigate('/dashboard/activities')}
+                >
+                  Back to activities
+                </Button>
+              )}
+              {view.kind === 'list' && (
+                <Button
+                  variant="secondary"
+                  onClick={() => navigate('/dashboard')}
+                >
+                  Home
+                </Button>
+              )}
+              {view.kind === 'list' && (
+                <Button
+                  variant="secondary"
+                  onClick={() => navigate('/dashboard/calendar')}
+                >
+                  Calendar
+                </Button>
+              )}
+              {view.kind === 'list' && (
+                <Button
+                  onClick={() =>
+                    navigate('/dashboard/activities/new', {
+                      [CATALOG_SEARCH_PARAMS.centerId]: centerId,
+                    })
+                  }
+                >
+                  Create activity
+                </Button>
+              )}
+            </div>
           </div>
           <label className={styles.control} htmlFor="catalog-center">
             <span>Center</span>
@@ -303,6 +378,13 @@ function CatalogCenterPanel({
               value={centerId}
               disabled={catalogMutation.isPending}
               onChange={(event) => {
+                if (view.kind === 'edit') {
+                  navigate('/dashboard/activities', {
+                    [CATALOG_SEARCH_PARAMS.centerId]: event.target.value,
+                    [CATALOG_SEARCH_PARAMS.activityPage]: null,
+                  });
+                  return;
+                }
                 updateSearchParams({
                   [CATALOG_SEARCH_PARAMS.centerId]: event.target.value,
                   [CATALOG_SEARCH_PARAMS.activityId]: null,
@@ -327,10 +409,10 @@ function CatalogCenterPanel({
           />
         ) : (
           <>
-            <div className={styles.grid}>
+            {view.kind === 'list' && (
               <ActivitiesSection
                 query={activitiesQuery}
-                selectedActivityId={effectiveActivityId}
+                selectedActivityId={null}
                 status={activityStatus}
                 page={activityPage}
                 isUpdating={activityMutationPending}
@@ -348,10 +430,10 @@ function CatalogCenterPanel({
                   })
                 }
                 onSelect={(activityId) =>
-                  updateSearchParams({
-                    [CATALOG_SEARCH_PARAMS.activityId]: activityId,
-                    [CATALOG_SEARCH_PARAMS.slotPage]: null,
-                  })
+                  navigate(
+                    `/dashboard/activities/${encodeURIComponent(activityId)}/edit`,
+                    { [CATALOG_SEARCH_PARAMS.centerId]: centerId },
+                  )
                 }
                 onCommand={(activityId, command) =>
                   runMutation(
@@ -362,7 +444,8 @@ function CatalogCenterPanel({
                   )
                 }
               />
-
+            )}
+            {view.kind === 'create' && (
               <CatalogActivityEditor
                 settings={settingsQuery}
                 isBusy={catalogMutation.isPending}
@@ -381,11 +464,38 @@ function CatalogCenterPanel({
                   )
                 }
               />
-            </div>
+            )}
 
-            {selectedActivity && (
+            {view.kind === 'edit' && (
+              <>
+                {activityQuery.isPending && (
+                  <CatalogNotice title="Loading activity" />
+                )}
+                {activityQuery.error && (
+                  <CatalogNotice
+                    title="Activity could not be loaded"
+                    message={describeCatalogError(activityQuery.error)}
+                  />
+                )}
+                {activityQuery.data && (
+                  <EditCatalogActivity
+                    key={activityId}
+                    detail={activityQuery.data}
+                    centerId={centerId}
+                    onReload={async () => {
+                      const result = await activityQuery.refetch();
+                      if (result.error) throw result.error;
+                      return result.data ?? null;
+                    }}
+                  />
+                )}
+              </>
+            )}
+
+            {view.kind === 'edit' && selectedActivity && (
               <ActivitySlotsSection
                 activity={selectedActivity}
+                timeZone={timeZone}
                 query={slotsQuery}
                 status={slotStatus}
                 page={effectiveSlotPage}
@@ -411,6 +521,7 @@ function CatalogCenterPanel({
               >
                 <CreateSlotForm
                   key={selectedActivity.id}
+                  timeZone={timeZone}
                   disabled={catalogMutation.isPending}
                   onInvalid={() => setSuccessNotice(null)}
                   onCreate={(input, onSuccess) => {

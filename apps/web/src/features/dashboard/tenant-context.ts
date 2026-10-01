@@ -1,6 +1,8 @@
+import { createCalendarApi } from './calendar-api';
 import { createCatalogApi } from './catalog-api';
 
 export const TENANT_CONTEXT_STORAGE_KEY = 'dive.dashboard.tenant-context';
+export const DASHBOARD_BFF_BASE_PATH = '/api/dashboard';
 
 export const DASHBOARD_QUERY_KEYS = {
   root: ['dashboard'] as const,
@@ -16,6 +18,7 @@ export type Operator = {
 export type Center = {
   id: string;
   name: string;
+  timeZone: string | null;
 };
 
 export type SessionTokenSource = {
@@ -67,7 +70,7 @@ export class DashboardApiError extends Error {
 }
 
 type DashboardApiOptions = {
-  baseUrl: string;
+  baseUrl?: string;
   session: SessionTokenSource;
   requestTimeoutMillis?: number | undefined;
 };
@@ -76,7 +79,11 @@ export function dashboardRequestTimeoutFromEnvironment(
   value: string | undefined,
 ) {
   const timeout = Number(value);
-  if (!Number.isSafeInteger(timeout) || timeout <= 0) {
+  if (
+    !Number.isSafeInteger(timeout) ||
+    timeout <= 0 ||
+    timeout > 2_147_483_647
+  ) {
     throw new Error('Invalid NEXT_PUBLIC_DASHBOARD_REQUEST_TIMEOUT_MS');
   }
   return timeout;
@@ -87,6 +94,8 @@ export type DashboardRequestOptions = {
   context?: string;
   body?: unknown;
   signal?: AbortSignal | undefined;
+  ifMatch?: string;
+  onResponseHeaders?: (headers: Headers) => void;
 };
 
 export type DashboardRequest = <Value>(
@@ -122,7 +131,15 @@ async function readDashboardProblemDetails(
   }
 }
 
-function dashboardErrorKind(status: number): DashboardApiErrorKind {
+function dashboardErrorKind(
+  status: number,
+  problem?: DashboardProblemDetails,
+): DashboardApiErrorKind {
+  if (
+    problem?.code === 'bff_service_authentication_failed' ||
+    problem?.code === 'bff_service_unavailable'
+  )
+    return 'unavailable';
   if (status === 401) return 'session-expired';
   if (status === 403) return 'forbidden';
   if (status >= 500) return 'unavailable';
@@ -130,13 +147,17 @@ function dashboardErrorKind(status: number): DashboardApiErrorKind {
 }
 
 export function createDashboardApi({
-  baseUrl,
+  baseUrl = DASHBOARD_BFF_BASE_PATH,
   session,
   requestTimeoutMillis,
 }: DashboardApiOptions) {
+  if (baseUrl.replace(/\/$/, '') !== DASHBOARD_BFF_BASE_PATH)
+    throw new Error('Invalid dashboard BFF path');
   if (
     requestTimeoutMillis !== undefined &&
-    (!Number.isSafeInteger(requestTimeoutMillis) || requestTimeoutMillis <= 0)
+    (!Number.isSafeInteger(requestTimeoutMillis) ||
+      requestTimeoutMillis <= 0 ||
+      requestTimeoutMillis > 2_147_483_647)
   ) {
     throw new Error('Invalid dashboard request timeout');
   }
@@ -184,6 +205,7 @@ export function createDashboardApi({
         Authorization: `Bearer ${token}`,
       });
       if (options.context) headers.set('X-Tenant-Context', options.context);
+      if (options.ifMatch) headers.set('If-Match', options.ifMatch);
       if (options.body !== undefined)
         headers.set('Content-Type', 'application/json');
 
@@ -203,13 +225,17 @@ export function createDashboardApi({
       );
 
       if (!response.ok) {
+        const problem = await bounded(
+          readDashboardProblemDetails(response, signal),
+        );
         throw new DashboardApiError(
           response.status,
-          dashboardErrorKind(response.status),
-          await bounded(readDashboardProblemDetails(response, signal)),
+          dashboardErrorKind(response.status, problem),
+          problem,
         );
       }
 
+      options.onResponseHeaders?.(response.headers);
       if (response.status === 204) return undefined as T;
       return (await bounded(response.json())) as T;
     } finally {
@@ -247,6 +273,7 @@ export function createDashboardApi({
     listCenters: (context: string, signal?: AbortSignal) =>
       request<Center[]>('/v1/centers', { context, signal }),
     ...createCatalogApi({ request }),
+    ...createCalendarApi({ request }),
   };
 }
 

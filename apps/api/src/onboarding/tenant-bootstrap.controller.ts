@@ -16,6 +16,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ClerkAuthGuard, Principal } from '../common/auth/auth.guard.js';
+import { HttpAdmission } from '../common/auth/http-admission.js';
 import { ApiProblemFilter } from '../common/http/problem-details.js';
 import {
   type TenantBootstrapInput,
@@ -37,6 +38,7 @@ export class TenantBootstrapController {
   ) {}
 
   @Post()
+  @HttpAdmission({ kind: 'exception', exception: 'tenantBootstrap' })
   @ApiOperation({
     summary: 'Complete the authenticated identity tenant bootstrap',
   })

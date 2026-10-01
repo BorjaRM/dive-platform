@@ -1,7 +1,7 @@
 # ADR-DIVE-007 - IAM audit and revocation boundaries
 
 - **Status:** Ready to start
-- **Version:** 0.2
+- **Version:** 0.3
 - **Date:** 2026-09-26
 - **Decision date:** 2026-09-26
 - **Deciders:** Product / Security / Architecture
@@ -12,6 +12,8 @@
 The decisions were introduced as `Proposed` from `SPEC-DIVE-IAM-001`, `specs/foundation/iam-baseline.md`, `specs/foundation/security-privacy-baseline.md`, ADR-DIVE-001, and ADR-DIVE-002. Product, Security, and Architecture explicitly approved all proposals on 2026-09-26; this ADR is now normative implementation authority. Its open questions remain outside the approved decision.
 
 The version 0.2 Clerk token-profile and deletion-signal clarifications are `Derived` from `DIVE-IAM-REQ-004`, `018`, `021`, `022` and the approved rule that webhooks do not authorize. They were approved on 2026-09-26 under the explicit delegated decision instruction for this implementation session.
+
+**Documented -- JWT validity boundary:** source: product-owner selection of acceptance until JWT expiry and explicit contract-update authorization in the authentication/BFF planning conversation on 2026-10-01. This supersedes provider-confirmed session/user status on every dashboard request, not local authorization or the existing five-minute revocation requirement. It authorizes this contract change, not implementation, publication, activation, artifact status promotion or a claim of provider verification. The owning clarification is [SPEC-DIVE-IAM-001](../../iam/SPEC-DIVE-IAM-001.md#dashboard-jwt-validity-boundary).
 
 ## Context
 
@@ -50,11 +52,11 @@ Sensitive allow and deny decisions need durable audit, while failures before tru
 
 - Do not cache application authorization decisions in the MVP.
 - Re-resolve active membership, roles, and scopes for every authorized use case and again inside sensitive mutation transactions.
-- The identity adapter validates the provider session for every dashboard request. If it cannot establish validity, authentication fails closed.
+- **Documented, approved 2026-10-01:** the identity adapter cryptographically validates the Clerk standard session JWT on every protected dashboard request, including signature, expiry, temporal validity, exact issuer, approved `azp` and required identity/session claims. It does not query Clerk session or user status for request-time revocation, deletion or blocking checks. Invalid credentials or inability to establish token validity fail closed; signing-key retrieval may still require provider access.
 - Verified Clerk webhooks are idempotent synchronization signals. They never grant authorization by themselves.
-- The MVP accepts Clerk standard session tokens with exact issuer validation, an approved `azp` value, and a provider-confirmed active session. Custom JWT templates and tokens carrying an application audience are not accepted; adding an audience profile requires a later approved decision.
-- A verified `user.deleted` webhook records an idempotent synchronization signal but does not disable internal identities or memberships. Clerk session/user validation already denies subsequent requests, while automatic membership mutation could bypass ownership transfer. Restoring ownership after external deletion remains an explicit operational recovery question.
-- Measure revocation from membership/role commit, session termination, or accepted webhook event to the first denied request. The observed duration must not exceed the existing five-minute requirement.
+- **Documented, approved 2026-10-01:** a previously issued JWT remains eligible for authentication until expiry after external logout, session revocation, user blocking or deletion. This does not override local membership, permission, resource or tenant-context denials. No session-status cache, revocation list, custom JWT template or application audience is introduced; the existing standard-token profile remains selected.
+- **Documented, approved 2026-10-01:** a verified `user.deleted` webhook remains an idempotent synchronization signal and does not automatically disable internal identities or memberships. An already issued JWT is governed by the validity boundary above, rather than a request-time user lookup. Restoring ownership after external deletion remains an explicit operational recovery question.
+- **Documented:** measure revocation from membership/role commit, session termination, or accepted webhook event to the first denied request. The observed duration must not exceed `DIVE-IAM-REQ-016`; the activation checks in the owning JWT clarification must establish that expiry-based session invalidation meets this unchanged limit without relying exclusively on webhook delivery.
 
 ## Consequences
 
@@ -74,6 +76,7 @@ Sensitive allow and deny decisions need durable audit, while failures before tru
 ## Open questions
 
 - Clerk session termination, webhook event inventory, timestamp tolerance, retry behavior, and event-ID retention require verification against the selected Clerk integration contract.
+- **Documented -- Activation gate, approved 2026-10-01:** verify actual JWT lifetime and verifier clock tolerance, and that Clerk stops issuing or renewing tokens after session revocation, user blocking or deletion. If the effective residual-access window does not meet `DIVE-IAM-REQ-016`, activation is blocked pending an explicit configuration or requirement decision; no new token lifetime or exception is selected here.
 - Booking states that permit customer-contact access and the minimum returned field set remain owned by the booking/privacy contract.
 - Audit, security-event, and idempotency-record retention require approved operations and privacy policy.
 - Audit visibility and export authorization require a dedicated implementation slice for the existing `audit.read` and `audit.export` permissions.
@@ -83,5 +86,6 @@ Sensitive allow and deny decisions need durable audit, while failures before tru
 - Allow, deny, pre-resolution, redaction, correlation, atomic rollback, and direct-mutation tests cover the audit boundary.
 - Customer-contact tests cover valid purpose, wrong purpose, excess fields, wrong center, wrong tenant, and audit.
 - Membership disable and role removal are denied on the next request.
-- Session expiry, logout, duplicate/out-of-order webhook, invalid signature, and provider-failure tests fail closed.
+- **Documented, approved 2026-10-01:** test valid JWT authentication without session/user-status lookups; reject expired tokens, invalid signatures, temporal claims, issuer and unauthorized `azp`. External session revocation or user blocking alone does not reject an otherwise valid unexpired JWT; local revocation still denies access. Verifier/key failures grant no authority; status-endpoint availability is no longer an ordinary authentication dependency.
+- **Documented:** duplicate/out-of-order webhook and invalid webhook-signature checks remain required. Dashboard logout stops client calls, removes browser context and preserves explicit handle revocation; it does not prove immediate invalidation of every previously issued JWT.
 - A documented measurement demonstrates the five-minute revocation requirement.

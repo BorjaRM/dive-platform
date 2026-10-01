@@ -1,10 +1,13 @@
 import type { AuthenticatedPrincipal } from '@dive-center/identity';
 import { Inject, Injectable } from '@nestjs/common';
+import type { ResolvedCenterApplicationScope } from '../common/auth/http-admission.js';
 import { CenterEntriesService } from './center-entries/center-entries.service.js';
 import { CentersService } from './centers/centers.service.js';
 import { InvitationsService } from './invitations/invitations.service.js';
 import { MembershipsService } from './memberships/memberships.service.js';
 import { TenantContextService } from './tenant-context/tenant-context.service.js';
+
+export type { ResolvedCenterApplicationScope } from '../common/auth/http-admission.js';
 
 @Injectable()
 export class IamService {
@@ -44,6 +47,12 @@ export class IamService {
     return this.tenantContexts.resolveCenterOrigin(origin);
   }
 
+  resolveCenterApplicationScope(
+    ...input: Parameters<TenantContextService['resolveCenterApplicationScope']>
+  ) {
+    return this.tenantContexts.resolveCenterApplicationScope(...input);
+  }
+
   issueCenterEntryContext(
     principal: AuthenticatedPrincipal,
     origin: string | undefined,
@@ -59,16 +68,14 @@ export class IamService {
   }
 
   setCenterEntryStatus(
-    principal: AuthenticatedPrincipal,
-    handle: string | undefined,
-    centerId: string,
-    input: Parameters<CenterEntriesService['setStatus']>[3],
+    scope: ResolvedCenterApplicationScope,
+    requestedCenterId: string,
+    input: Parameters<CenterEntriesService['setStatus']>[2],
     correlationId: string,
   ) {
     return this.centerEntries.setStatus(
-      principal,
-      handle,
-      centerId,
+      scope,
+      requestedCenterId,
       input,
       correlationId,
     );
@@ -86,21 +93,16 @@ export class IamService {
     );
   }
 
-  readCenters(
-    principal: AuthenticatedPrincipal,
-    handle: string | undefined,
-    correlationId: string,
-  ) {
-    return this.centers.readCenters(principal, handle, correlationId);
+  readCenters(scope: ResolvedCenterApplicationScope, correlationId: string) {
+    return this.centers.readCenters(scope, correlationId);
   }
 
   readCenter(
-    principal: AuthenticatedPrincipal,
-    handle: string | undefined,
-    centerId: string,
+    scope: ResolvedCenterApplicationScope,
+    requestedCenterId: string,
     correlationId: string,
   ) {
-    return this.centers.readCenter(principal, handle, centerId, correlationId);
+    return this.centers.readCenter(scope, requestedCenterId, correlationId);
   }
 
   disableMembership(

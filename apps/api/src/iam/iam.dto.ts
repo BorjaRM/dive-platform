@@ -6,6 +6,14 @@ export class CenterDto {
 
   @ApiProperty({ description: 'Center display name' })
   name: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Configured IANA time zone; null when not configured',
+    example: 'Europe/Madrid',
+  })
+  timeZone: string | null;
 }
 
 export class DisableMembershipResultDto {

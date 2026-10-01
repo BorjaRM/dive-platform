@@ -13,8 +13,10 @@ export default async function SignInPage() {
   if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
     return <AuthConfigurationMissing />;
   }
+  const requestHeaders = await headers();
   const returnUrl =
-    (await headers()).get('x-dive-center-return') ??
+    requestHeaders.get('x-dive-platform-return') ??
+    requestHeaders.get('x-dive-center-return') ??
     `${readApplicationHostConfig().authenticationOrigin}/dashboard`;
   return (
     <main className={styles.shell}>

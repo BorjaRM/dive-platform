@@ -13,13 +13,15 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
+    "swagger:local": "pnpm --filter @dive-center/api... build && node dist/local-openapi/main.js",
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "pnpm --filter @dive-center/database build && pnpm --filter @dive-center/identity build && pnpm --filter @dive-center/observability build && node --env-file=../../.env.example ./node_modules/vitest/vitest.mjs run --config ./vitest.config.e2e.ts --no-file-parallelism",
-    "test:e2e:clerk:sandbox": "pnpm --filter @dive-center/database build && pnpm --filter @dive-center/identity build && pnpm --filter @dive-center/observability build && node ./node_modules/vitest/vitest.mjs run --config ./vitest.config.clerk.sandbox.e2e.ts"
+    "test:e2e:clerk:sandbox": "pnpm --filter @dive-center/database build && pnpm --filter @dive-center/identity build && pnpm --filter @dive-center/observability build && node ./node_modules/vitest/vitest.mjs run --config ./vitest.config.clerk.sandbox.e2e.ts",
+    "test:e2e:bff:clerk:sandbox": "node ./node_modules/vitest/vitest.mjs run --config ./vitest.config.bff.clerk.sandbox.e2e.ts"
   },
   "dependencies": {
     "@dive-center/contracts": "workspace:*",

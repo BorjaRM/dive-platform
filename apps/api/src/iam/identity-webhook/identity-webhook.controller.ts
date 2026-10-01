@@ -26,6 +26,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Pool } from 'pg';
+import { HttpAdmission } from '../../common/auth/http-admission.js';
 import { DATABASE_POOL } from '../../common/database/database.tokens.js';
 import {
   IAM_ACTIONS,
@@ -61,6 +62,7 @@ export class IdentityWebhookController {
     description: 'Webhook verified but could not be applied',
   })
   @Post('clerk')
+  @HttpAdmission({ kind: 'exception', exception: 'clerkWebhook' })
   @HttpCode(200)
   async receiveClerkWebhook(
     @RawBody() rawBody: Buffer | undefined,

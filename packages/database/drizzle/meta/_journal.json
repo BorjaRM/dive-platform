@@ -57,6 +57,34 @@
       "when": 1790770270687,
       "tag": "0007_center_catalog_language",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790798111532,
+      "tag": "0008_bff_retained_center_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790816400000,
+      "tag": "0009_activity_revision",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790816400001,
+      "tag": "0010_activity_edit_permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790816400002,
+      "tag": "0011_booking_read_audit",
+      "breakpoints": true
     }
   ]
 }

@@ -21,7 +21,12 @@ import {
   ClerkIdentityAdapter,
   type ClerkIdentityAdapterDependencies,
 } from './clerk.js';
-import { authenticateIdentity } from './index.js';
+import {
+  authenticateIdentity,
+  IdentityProviderUnavailableError,
+  InvalidIdentityCredentialsError,
+  resolveVerifiedIdentity,
+} from './index.js';
 
 const config = {
   secretKey: 'sk_test_not-a-real-secret',
@@ -33,7 +38,6 @@ const config = {
 
 const dependencies: ClerkIdentityAdapterDependencies = {
   verifyToken: clerk.verifyToken,
-  getSession: clerk.getSession,
   getUser: clerk.getUser,
   verifyWebhook: clerk.verifyWebhook,
 };
@@ -90,7 +94,19 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
     });
   });
 
-  it('accepts an audience-free token and returns only provider-verified identity data', async () => {
+  it('authenticates a verified JWT without session or user lookups', async () => {
+    await expect(
+      authenticateIdentity(createAdapter(), 'session-token'),
+    ).resolves.toMatchObject({
+      subject: 'user_123',
+      sessionId: 'sess_123',
+      verifiedAddresses: [],
+    });
+    expect(clerk.getSession).not.toHaveBeenCalled();
+    expect(clerk.getUser).not.toHaveBeenCalled();
+  });
+
+  it('accepts an audience-free token and returns only verified token identity data', async () => {
     const adapter = createAdapter();
 
     await expect(
@@ -99,7 +115,7 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
       issuer: config.issuer,
       subject: 'user_123',
       sessionId: 'sess_123',
-      verifiedAddresses: ['verified@example.test'],
+      verifiedAddresses: [],
       assurance: {
         level: 'single_factor',
         verifiedAt: new Date((1_800_000_000 - 120) * 1_000).toISOString(),
@@ -113,14 +129,8 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
       },
       expect.any(AbortSignal),
     );
-    expect(clerk.getSession).toHaveBeenCalledWith(
-      'sess_123',
-      expect.any(AbortSignal),
-    );
-    expect(clerk.getUser).toHaveBeenCalledWith(
-      'user_123',
-      expect.any(AbortSignal),
-    );
+    expect(clerk.getSession).not.toHaveBeenCalled();
+    expect(clerk.getUser).not.toHaveBeenCalled();
   });
 
   it('uses the default Clerk SDK wiring for authentication', async () => {
@@ -139,8 +149,8 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
       authorizedParties: config.authorizedParties,
       secretKey: config.secretKey,
     });
-    expect(clerk.getSession).toHaveBeenCalledWith('sess_123');
-    expect(clerk.getUser).toHaveBeenCalledWith('user_123');
+    expect(clerk.getSession).not.toHaveBeenCalled();
+    expect(clerk.getUser).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -190,14 +200,20 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
     ).resolves.toMatchObject({ verifiedAddresses: [] });
   });
 
-  it('accepts numeric Clerk session expiry timestamps expressed in seconds', async () => {
-    clerk.getSession.mockResolvedValue(
-      activeSession({ expireAt: Math.floor(Date.now() / 1_000) + 60 }),
+  it('resolves verified addresses explicitly for the authenticated identity', async () => {
+    const adapter = createAdapter();
+    const principal = await authenticateIdentity(adapter, 'session-token');
+    const verified = await resolveVerifiedIdentity(adapter, principal);
+    expect(verified).toEqual({
+      ...principal,
+      verifiedAddresses: ['verified@example.test'],
+    });
+    expect(principal.verifiedAddresses).toEqual([]);
+    expect(clerk.getUser).toHaveBeenCalledWith(
+      'user_123',
+      expect.any(AbortSignal),
     );
-
-    await expect(
-      createAdapter().authenticate('session-token'),
-    ).resolves.toMatchObject({ subject: 'user_123' });
+    expect(clerk.getSession).not.toHaveBeenCalled();
   });
 
   it('maps second-factor verification into provider-neutral assurance', async () => {
@@ -306,15 +322,29 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
       'locked user',
       () => clerk.getUser.mockResolvedValue(activeUser({ locked: true })),
     ],
-  ])('fails closed for %s', async (_name, arrange) => {
-    arrange();
-    await expect(createAdapter().authenticate('session-token')).rejects.toThrow(
-      'Unauthenticated',
-    );
-  });
+  ])(
+    'uses token validity rather than provider status for %s',
+    async (_name, arrange) => {
+      arrange();
+      if (_name === 'invalid or expired token') {
+        await expect(
+          createAdapter().authenticate('session-token'),
+        ).rejects.toThrow('Unauthenticated');
+      } else {
+        await expect(
+          createAdapter().authenticate('session-token'),
+        ).resolves.toMatchObject({
+          subject: 'user_123',
+          verifiedAddresses: [],
+        });
+      }
+      expect(clerk.getSession).not.toHaveBeenCalled();
+      expect(clerk.getUser).not.toHaveBeenCalled();
+    },
+  );
 
   it('classifies provider outages separately from invalid credentials', async () => {
-    clerk.getSession.mockRejectedValue(new Error('unavailable'));
+    clerk.verifyToken.mockRejectedValue(new Error('unavailable'));
 
     await expect(createAdapter().authenticate('session-token')).rejects.toThrow(
       'Identity provider unavailable',
@@ -326,13 +356,12 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
     const dependencies: ClerkIdentityAdapterDependencies = {
       ...({
         verifyToken: clerk.verifyToken,
-        getSession: clerk.getSession,
         getUser: clerk.getUser,
         verifyWebhook: clerk.verifyWebhook,
       } satisfies ClerkIdentityAdapterDependencies),
-      getSession: async (_sessionId, signal) => {
+      verifyToken: async (token, options, signal) => {
         receivedSignal = signal;
-        return activeSession();
+        return clerk.verifyToken(token, options, signal);
       },
     };
 
@@ -355,7 +384,6 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
             { once: true },
           );
         }),
-      getSession: clerk.getSession,
       getUser: clerk.getUser,
       verifyWebhook: clerk.verifyWebhook,
     };
@@ -369,19 +397,137 @@ describe('ClerkIdentityAdapter (DIVE-IAM-REQ-004, DIVE-IAM-REQ-005, DIVE-IAM-REQ
     expect(aborted).toBe(true);
   });
 
-  it('revalidates the token, session, and user on every call', async () => {
+  it('revalidates the token on every call without consulting revoked provider state', async () => {
     const adapter = createAdapter();
     await expect(adapter.authenticate('session-token')).resolves.toMatchObject({
       subject: 'user_123',
     });
     clerk.getSession.mockResolvedValue(activeSession({ status: 'ended' }));
 
-    await expect(adapter.authenticate('session-token')).rejects.toThrow(
+    await expect(adapter.authenticate('session-token')).resolves.toMatchObject({
+      subject: 'user_123',
+    });
+    expect(clerk.verifyToken).toHaveBeenCalledTimes(2);
+    expect(clerk.getSession).not.toHaveBeenCalled();
+    expect(clerk.getUser).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['wrong provider user', { id: 'user_other' }],
+    ['missing addresses', { emailAddresses: null }],
+    ['malformed address', { emailAddresses: [{ emailAddress: 1 }] }],
+    [
+      'malformed verification',
+      {
+        emailAddresses: [
+          { emailAddress: 'a@example.test', verification: false },
+        ],
+      },
+    ],
+  ])('rejects verified-address lookup with %s', async (_name, overrides) => {
+    const adapter = createAdapter();
+    const principal = await authenticateIdentity(adapter, 'session-token');
+    clerk.getUser.mockResolvedValue(activeUser(overrides));
+    await expect(resolveVerifiedIdentity(adapter, principal)).rejects.toThrow(
       'Unauthenticated',
     );
-    expect(clerk.verifyToken).toHaveBeenCalledTimes(2);
-    expect(clerk.getSession).toHaveBeenCalledTimes(2);
-    expect(clerk.getUser).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not use blocking state as a condition for verified-address lookup', async () => {
+    const adapter = createAdapter();
+    const principal = await authenticateIdentity(adapter, 'session-token');
+    clerk.getUser.mockResolvedValue(activeUser({ banned: true, locked: true }));
+    await expect(
+      resolveVerifiedIdentity(adapter, principal),
+    ).resolves.toMatchObject({
+      verifiedAddresses: ['verified@example.test'],
+    });
+    expect(clerk.getSession).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when verified-address lookup is unavailable', async () => {
+    const adapter = createAdapter();
+    const principal = await authenticateIdentity(adapter, 'session-token');
+    clerk.getUser.mockRejectedValue(new Error('unavailable'));
+    await expect(resolveVerifiedIdentity(adapter, principal)).rejects.toThrow(
+      'Identity provider unavailable',
+    );
+    await expect(adapter.authenticate('session-token')).resolves.toMatchObject({
+      subject: 'user_123',
+    });
+  });
+
+  it.each([400, 401, 403, 429, 500])(
+    'classifies rejected server credentials or user-endpoint failures (%s) as operational',
+    async (status) => {
+      const adapter = createAdapter();
+      const principal = await authenticateIdentity(adapter, 'session-token');
+      clerk.getUser.mockRejectedValue(
+        Object.assign(new Error('provider failure'), { status }),
+      );
+      await expect(
+        resolveVerifiedIdentity(adapter, principal),
+      ).rejects.toBeInstanceOf(IdentityProviderUnavailableError);
+    },
+  );
+
+  it('denies verified-address lookup when the provider user no longer exists', async () => {
+    const adapter = createAdapter();
+    const principal = await authenticateIdentity(adapter, 'session-token');
+    clerk.getUser.mockRejectedValue(
+      Object.assign(new Error('missing user'), { status: 404 }),
+    );
+    await expect(
+      resolveVerifiedIdentity(adapter, principal),
+    ).rejects.toBeInstanceOf(InvalidIdentityCredentialsError);
+  });
+
+  it.each([
+    { iat: 1_800_000_000, fva: [Number.MAX_VALUE, -1] },
+    { iat: Number.MAX_VALUE, fva: [0, -1] },
+    { iat: 1_800_000_000, fva: [200_000_000_000, -1] },
+  ])(
+    'rejects unrepresentable factor-age dates without a RangeError %#',
+    async (claims) => {
+      clerk.verifyToken.mockResolvedValue({
+        iss: config.issuer,
+        sub: 'user_123',
+        sid: 'sess_123',
+        azp: config.authorizedParties[0],
+        ...claims,
+      });
+      await expect(
+        createAdapter().authenticate('session-token'),
+      ).rejects.toBeInstanceOf(InvalidIdentityCredentialsError);
+    },
+  );
+
+  it('rejects an untrusted principal before looking up its addresses', async () => {
+    const adapter = createAdapter();
+    const principal = await authenticateIdentity(adapter, 'session-token');
+    await expect(
+      resolveVerifiedIdentity(adapter, { ...principal }),
+    ).rejects.toThrow('Untrusted identity assertion');
+    expect(clerk.getUser).not.toHaveBeenCalled();
+  });
+
+  it('rejects a principal from another issuer before looking up its addresses', async () => {
+    const principal = await authenticateIdentity(
+      {
+        authenticate: async () => ({
+          issuer: 'https://other.example.test',
+          subject: 'user_123',
+          sessionId: 'sess_123',
+          verifiedAddresses: [],
+          assurance: { level: 'single_factor', verifiedAt: null },
+        }),
+      },
+      'other-token',
+    );
+    await expect(
+      resolveVerifiedIdentity(createAdapter(), principal),
+    ).rejects.toThrow('Unauthenticated');
+    expect(clerk.getUser).not.toHaveBeenCalled();
   });
 
   it('rejects missing configuration at startup', () => {

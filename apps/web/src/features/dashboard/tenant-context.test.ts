@@ -5,6 +5,7 @@ import {
   createTenantContextStorage,
   DASHBOARD_QUERY_KEYS,
   DashboardApiError,
+  dashboardRequestTimeoutFromEnvironment,
   TENANT_CONTEXT_STORAGE_KEY,
 } from './tenant-context';
 
@@ -80,6 +81,49 @@ function memoryStorage() {
 }
 
 describe('dashboard tenant-context boundary', () => {
+  it('rejects timeouts outside the timer range in configuration and client options', () => {
+    expect(() => dashboardRequestTimeoutFromEnvironment('2147483648')).toThrow(
+      'Invalid NEXT_PUBLIC_DASHBOARD_REQUEST_TIMEOUT_MS',
+    );
+    expect(() =>
+      createDashboardApi({
+        session: { getToken: async () => 'session-secret' },
+        requestTimeoutMillis: 2_147_483_648,
+      }),
+    ).toThrow('Invalid dashboard request timeout');
+    expect(dashboardRequestTimeoutFromEnvironment('2147483647')).toBe(
+      2_147_483_647,
+    );
+  });
+
+  it('rejects a direct API URL instead of falling back outside same-origin BFF', () => {
+    expect(() =>
+      createDashboardApi({
+        baseUrl: 'https://api.example.test',
+        session: { getToken: async () => 'session-secret' },
+      }),
+    ).toThrow('Invalid dashboard BFF path');
+  });
+
+  it('does not expire the user session for a BFF service authentication failure', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({ code: 'bff_service_authentication_failed' }),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/problem+json' },
+        },
+      ),
+    );
+    const api = createDashboardApi({
+      session: { getToken: async () => 'session-secret' },
+    });
+    await expect(api.listCenters('ctx_handle')).rejects.toMatchObject({
+      kind: 'unavailable',
+      status: 401,
+    });
+  });
+
   it('cleans up its deadline and caller listener when request serialization fails', async () => {
     vi.useFakeTimers();
     const caller = new AbortController();
@@ -92,7 +136,7 @@ describe('dashboard tenant-context boundary', () => {
       },
     };
     const api = createDashboardApi({
-      baseUrl: 'https://api.example.test',
+      baseUrl: '/api/dashboard',
       session: { getToken: async () => 'session-secret' },
       requestTimeoutMillis: 100,
     });
@@ -131,13 +175,13 @@ describe('dashboard tenant-context boundary', () => {
         new Response(JSON.stringify({ id: 'center-alpha', name: 'Harbor' })),
       );
     const api = createDashboardApi({
-      baseUrl: 'https://api.example.test',
+      baseUrl: '/api/dashboard',
       session: { getToken: async () => 'session-secret' },
     });
     const issued = await api.issueCenterEntryContext('alpha');
     await api.getCenter(issued.tenantContext, issued.center.centerId);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      'https://api.example.test/v1/me/center-entry-contexts',
+      '/api/dashboard/v1/me/center-entry-contexts',
     );
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
       centerRef: 'alpha',
@@ -148,7 +192,7 @@ describe('dashboard tenant-context boundary', () => {
       ),
     ).toBe(false);
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      'https://api.example.test/v1/centers/center-alpha',
+      '/api/dashboard/v1/centers/center-alpha',
     );
     expect(
       new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get(
@@ -191,7 +235,7 @@ describe('dashboard tenant-context boundary', () => {
       }),
     );
     const api = createDashboardApi({
-      baseUrl: 'https://api.example.test/',
+      baseUrl: '/api/dashboard/',
       session: { getToken: async () => 'session-secret' },
     });
 
@@ -199,7 +243,7 @@ describe('dashboard tenant-context boundary', () => {
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const headers = new Headers(init.headers);
-    expect(url).toBe('https://api.example.test/v1/centers');
+    expect(url).toBe('/api/dashboard/v1/centers');
     expect(url).not.toContain('session-secret');
     expect(url).not.toContain('ctx_secret');
     expect(headers.get('Authorization')).toBe('Bearer session-secret');
@@ -219,7 +263,7 @@ describe('dashboard tenant-context boundary', () => {
         new Response('sensitive server detail', { status: 403 }),
       );
     const api = createDashboardApi({
-      baseUrl: 'https://api.example.test',
+      baseUrl: '/api/dashboard',
       session: { getToken: async () => 'session-secret' },
     });
 
@@ -245,7 +289,7 @@ describe('dashboard tenant-context boundary', () => {
       }),
     );
     const api = createDashboardApi({
-      baseUrl: 'https://api.example.test',
+      baseUrl: '/api/dashboard',
       session: { getToken: async () => 'session-secret' },
     });
 
@@ -261,7 +305,7 @@ describe('dashboard tenant-context boundary', () => {
   it('aborts and classifies a request that exceeds its configured deadline', async () => {
     let aborted = false;
     const api = createDashboardApi({
-      baseUrl: 'https://api.example.test',
+      baseUrl: '/api/dashboard',
       requestTimeoutMillis: 10,
       session: {
         getToken: (signal) =>
@@ -302,7 +346,7 @@ describe('dashboard tenant-context boundary', () => {
 
     try {
       const api = createDashboardApi({
-        baseUrl: 'https://api.example.test',
+        baseUrl: '/api/dashboard',
         requestTimeoutMillis: 10,
         session: { getToken: async () => 'session-secret' },
       });
@@ -357,7 +401,7 @@ describe('dashboard tenant-context boundary', () => {
 
     try {
       const api = createDashboardApi({
-        baseUrl: 'https://api.example.test',
+        baseUrl: '/api/dashboard',
         session: { getToken: async () => 'session-secret' },
       });
       const caller = new AbortController();
@@ -421,7 +465,7 @@ describe('dashboard tenant-context boundary', () => {
 
     try {
       const api = createDashboardApi({
-        baseUrl: 'https://api.example.test',
+        baseUrl: '/api/dashboard',
         session: { getToken: async () => 'session-secret' },
       });
       const caller = new AbortController();
@@ -484,7 +528,7 @@ describe('dashboard tenant-context boundary', () => {
 
     try {
       const api = createDashboardApi({
-        baseUrl: 'https://api.example.test',
+        baseUrl: '/api/dashboard',
         requestTimeoutMillis: 10,
         session: { getToken: async () => 'session-secret' },
       });

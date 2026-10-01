@@ -11,6 +11,13 @@ export type CatalogSettings = {
   defaultActivityLocale: CatalogLocale | null;
 };
 
+export type DashboardCapabilities = {
+  canReadActivities: boolean;
+  canReadSessions: boolean;
+  canCreateActivity: boolean;
+  canScheduleSession: boolean;
+};
+
 export type ActivityStatus = 'Draft' | 'Published' | 'Disabled';
 
 export type SlotStatus = 'Available' | 'Full' | 'Closed' | 'Cancelled';
@@ -72,6 +79,22 @@ export type CreateCatalogSlotInput = {
   capacity: number;
 };
 
+export type UpdateCatalogActivityInput =
+  | {
+      group: 'translation';
+      locale: CatalogLocale;
+      values: { name: string; description: string };
+    }
+  | { group: 'common'; values: { defaultCapacity: number | null } };
+
+export type CatalogActivityDetail = { activity: CatalogActivity; etag: string };
+
+function requireActivityEtag(etag: string | null) {
+  if (!etag)
+    throw new Error('Activity revision is unavailable. Reload before saving.');
+  return etag;
+}
+
 function withListQuery(
   path: string,
   query: CatalogActivityListQuery | CatalogSlotListQuery,
@@ -118,6 +141,26 @@ function slotInputBody(input: CreateCatalogSlotInput) {
 
 export function createCatalogApi({ request }: { request: DashboardRequest }) {
   return {
+    getDashboardCapabilities: async (
+      tenantContext: string,
+      centerId: string,
+      signal?: AbortSignal,
+    ): Promise<DashboardCapabilities> => {
+      const capabilities = await request<DashboardCapabilities | null>(
+        `/v1/centers/${encodeURIComponent(centerId)}/dashboard-capabilities`,
+        { context: tenantContext, signal },
+      );
+      if (
+        !capabilities ||
+        typeof capabilities.canReadActivities !== 'boolean' ||
+        typeof capabilities.canReadSessions !== 'boolean' ||
+        typeof capabilities.canCreateActivity !== 'boolean' ||
+        typeof capabilities.canScheduleSession !== 'boolean'
+      ) {
+        throw new Error('Dashboard permissions are unavailable.');
+      }
+      return capabilities;
+    },
     getCatalogSettings: (
       tenantContext: string,
       centerId: string,
@@ -164,6 +207,49 @@ export function createCatalogApi({ request }: { request: DashboardRequest }) {
         body: activityInputBody(input),
         signal,
       }),
+    getActivity: async (
+      tenantContext: string,
+      centerId: string,
+      activityId: string,
+      signal?: AbortSignal,
+    ): Promise<CatalogActivityDetail> => {
+      let etag: string | null = null;
+      const activity = await request<CatalogActivity>(
+        `${activityPath(centerId)}/${encodeURIComponent(activityId)}`,
+        {
+          context: tenantContext,
+          signal,
+          onResponseHeaders: (headers) => {
+            etag = headers.get('etag');
+          },
+        },
+      );
+      return { activity, etag: requireActivityEtag(etag) };
+    },
+    updateActivity: async (
+      tenantContext: string,
+      centerId: string,
+      activityId: string,
+      input: UpdateCatalogActivityInput,
+      ifMatch: string,
+      signal?: AbortSignal,
+    ): Promise<string> => {
+      let etag: string | null = null;
+      await request<void>(
+        `${activityPath(centerId)}/${encodeURIComponent(activityId)}`,
+        {
+          method: 'PUT',
+          context: tenantContext,
+          body: input,
+          ifMatch,
+          signal,
+          onResponseHeaders: (headers) => {
+            etag = headers.get('etag');
+          },
+        },
+      );
+      return requireActivityEtag(etag);
+    },
     publishActivity: (
       tenantContext: string,
       centerId: string,

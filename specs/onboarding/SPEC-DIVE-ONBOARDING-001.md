@@ -1,10 +1,10 @@
 # SPEC-DIVE-ONBOARDING-001 — Controlled self bootstrap and first-center setup
 
 - **Status:** Ready to start
-- **Version:** 0.17
-- **Last reviewed:** 2026-09-29
+- **Version:** 0.19
+- **Last reviewed:** 2026-10-01
 - **Approved by:** Product owner for Ready-to-start promotion
-- **Approval reference:** Product confirmation 2026-09-29 after executed `SPIKE-DIVE-004`; Ready-to-start status applied 2026-09-29; guided onboarding deferred and backend-owned invitation administration retained by product confirmation 2026-09-29; platform administration and worker policies approved 2026-09-29; active-session invitation acceptance changed to mandatory ticket-based reauthentication by product confirmation 2026-09-29; absolute first-center handoff approved through `ADR-DIVE-008` v0.12 on 2026-09-29
+- **Approval reference:** Product confirmation 2026-09-29 after executed `SPIKE-DIVE-004`; Ready-to-start status applied 2026-09-29; guided onboarding deferred and backend-owned invitation administration retained by product confirmation 2026-09-29; platform administration and worker policies approved 2026-09-29; active-session invitation acceptance changed to mandatory ticket-based reauthentication by product confirmation 2026-09-29; absolute first-center handoff approved through `ADR-DIVE-008` v0.12 on 2026-09-29; time-zone selector initially approved with browser-native data on 2026-10-01, then server-generated Intl options approved by the product owner on the same date, as recorded under Time-zone selection approval; artifact status unchanged
 - **Owner:** Product / Security / Frontend Architecture
 - **IDs:** Only the requirements declared below; moved IDs retain their identifiers in the ownership map.
 
@@ -26,7 +26,8 @@
 | `DIVE-ONB-REQ-003` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-006` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-008..DIVE-ONB-REQ-020` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
-| `DIVE-ONB-REQ-022..DIVE-ONB-REQ-026` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
+| `DIVE-ONB-REQ-022` | `Documented` | Original requirement: PR #36 product-owner revision record; `ADR-DIVE-013` Draft; selector and server-generated data refinements: [Time-zone selection approval](#time-zone-selection-approval), successive product-owner chat approvals 2026-10-01 | Original requirement approved 2026-09-28 after merged PR #62; selector and subsequent server-generated options explicitly approved 2026-10-01; no status promotion |
+| `DIVE-ONB-REQ-023..DIVE-ONB-REQ-026` | `Proposed` | PR #36 product-owner revision record; `ADR-DIVE-013` Draft | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-035` | `Proposed` | Product confirmations 2026-09-28 and 2026-09-29; `ADR-DIVE-013` v0.11; `ADR-DIVE-008` v0.12 | Approved for implementation; the relative dashboard redirect in PR #78 must be replaced by the approved first-center host/origin handoff |
 | `DIVE-ONB-REQ-002` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-001..006`; PR #36 product-owner revision record | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
 | `DIVE-ONB-REQ-004` | `Derived` | `SPEC-DIVE-IAM-001` `DIVE-IAM-REQ-002..006`; `ADR-DIVE-008` § Authorization path | Approved for implementation; Product owner confirmation 2026-09-28 after merged PR #62 |
@@ -79,7 +80,7 @@
 
 - **DIVE-ONB-REQ-021:** Operator and center display names MUST normalize to Unicode NFC, trim outer whitespace, contain at least one Unicode code point, allow at most 120 Unicode code points, and MUST NOT be globally unique or act as authorization identifiers. This closure was confirmed by the product owner on 2026-09-28.
 
-- **DIVE-ONB-REQ-022:** The first center's IANA time zone MUST be required; the browser MAY suggest it, but the user MUST confirm it before submission.
+- **DIVE-ONB-REQ-022:** **Documented:** the first center's IANA time zone MUST be required and selected through a searchable selector, not submitted as free text. Options MUST be generated on the server with `Intl.supportedValuesOf('timeZone')` and passed to the form; browser support for that function MUST NOT be required to populate the selector or submit a valid selection. Its absence in the browser MUST NOT block submission or require a browser update. The browser zone from `Intl.DateTimeFormat().resolvedOptions().timeZone` MUST be preselected when available and included if absent from that list. Without a detected zone, the selector MUST remain unselected until the user chooses an option from the server-provided list. Labels MUST be readable while retaining the IANA identifier visibly; the submitted and stored value MUST be the IANA identifier, not a fixed UTC offset. The user MUST explicitly confirm that the selection is the center's local zone before submission, because the browser may be in another location; changing the selection MUST clear that confirmation. The server MUST independently validate the submitted IANA zone. Source: [Time-zone selection approval](#time-zone-selection-approval).
 
 - **DIVE-ONB-REQ-023:** The interface language MUST support `es` and `en`, MAY be suggested from browser or profile, MUST remain editable, and MUST be stored as an identity/user preference rather than tenant or center authority.
 
@@ -144,6 +145,14 @@ Let an explicitly invited future Owner create its own operator tenant and first 
 
 The separate center profile belongs to [SPEC-DIVE-BOOKING-CATALOG-001](../booking/SPEC-DIVE-BOOKING-CATALOG-001.md), `DIVE-BOOK-REQ-073` and `079`. Completing it is optional for dashboard entry. Its public-offer readiness checks belong to that owner and channel publication, not a new bootstrap or tenant lifecycle flag. This is a profile-editing flow for an authorized existing center, not guided onboarding, public signup or creation of another center.
 
+### Time-zone selection approval
+
+**Documented:** on 2026-10-01, the product owner explicitly approved in chat replacing manual time-zone entry with a searchable selection of valid IANA options, using browser-native `Intl` data, a browser suggestion and explicit confirmation of the center's zone. Source: VS Code Copilot session `8d775374-6754-40f1-b44c-72da83399c30`, time-zone UX and data-source discussion followed by product-owner approval to document the change. This approval refines `DIVE-ONB-REQ-022`; it does not promote the artifact status or authorize product implementation or publication.
+
+**Documented:** later in the same session on 2026-10-01, the product owner rejected blocking submission or requiring a browser update when `Intl.supportedValuesOf` is unavailable in the browser, then explicitly approved generating the list with that function on the server and passing it to the form. Source: VS Code Copilot session `8d775374-6754-40f1-b44c-72da83399c30`, browser-compatibility constraint followed by approval to document the server-generated list proposal. This supersedes only the initial browser-side option-generation decision; browser detection remains an optional suggestion and server validation remains mandatory. The earlier bounded implementation authorization is not revoked; this documentation request does not itself implement the change, authorize publication, or promote status.
+
+**Documented:** the selected approach uses readable labels with visible IANA identifiers and retains server validation. It does not add an external API, a time-zone database, geolocation permissions, location fields, or new dependencies, including CLDR localization. Country-based search and translated city labels were discussed as a richer alternative, not selected for this increment. Server-generated options resolve the specific dependency on browser `Intl.supportedValuesOf`; they do not establish a general browser/version support matrix or a legacy-browser guarantee. Sources: the initial and subsequent product-owner approvals recorded above.
+
 ## Model and definitions
 
 - **Bootstrap invitation:** platform-issued, pre-tenant capability authorizing one invited identity to create its own tenant, first center, and initial Owner membership. It is represented by `tenant_bootstrap_grants`, not by a tenant membership invitation.
@@ -197,6 +206,7 @@ The mandatory acceptance matrix is:
 18. An authenticated identity without an active membership receives the neutral no-access state and no tenant or resource disclosure.
 19. A bootstrap grant can create only a new tenant, first center, and initial Owner; an ordinary IAM invitation can activate only its existing tenant’s pending membership. Cross-kind replay, route substitution, provider-reference collision, and credential confusion fail without disclosure and create neither tenant nor membership side effects.
 20. A Clerk Dashboard invitation with no matching PostgreSQL bootstrap grant cannot bootstrap a tenant; it fails neutrally and creates no domain effects. Provider-side diagnostic or emergency operations do not replace the authoritative application command or database state.
+21. **Documented:** for `DIVE-ONB-REQ-022`, validate server-side option generation and delivery to the form, browser-zone preselection, inclusion of a detected zone absent from the enumerated list, explicit selection from server-provided options when detection is unavailable, search without free-text submission, readable labels with visible IANA identifiers, and confirmation reset after a change. With browser `Intl.supportedValuesOf` unavailable, selection, confirmation and valid submission remain possible without an update prompt; include a case where browser-zone detection is also unavailable. Submission without selection or confirmation is blocked; the API independently rejects invalid zones. Selection and persistence retain the IANA identifier rather than a fixed UTC offset, including zones with seasonal offset changes. Source: [Time-zone selection approval](#time-zone-selection-approval). These are required checks, not a claim of executed coverage.
 
 ## Security, privacy, isolation, and operations
 

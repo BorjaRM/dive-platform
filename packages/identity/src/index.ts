@@ -1,6 +1,7 @@
 import type { IamDenialReason } from '@dive-center/contracts';
 
 export const IDENTITY_PROVIDER = Symbol('IDENTITY_PROVIDER');
+export const VERIFIED_ADDRESS_PROVIDER = Symbol('VERIFIED_ADDRESS_PROVIDER');
 export const IDENTITY_WEBHOOK_VERIFIER = Symbol('IDENTITY_WEBHOOK_VERIFIER');
 
 export class InvalidIdentityCredentialsError extends Error {
@@ -56,9 +57,19 @@ export interface IdentityProviderPort {
   authenticate(bearerToken: string): Promise<IdentityProviderPrincipal>;
 }
 
+export interface VerifiedAddressProviderPort {
+  getVerifiedAddresses(
+    principal: AuthenticatedPrincipal,
+  ): Promise<readonly string[]>;
+}
+
 export class RejectingIdentityProvider implements IdentityProviderPort {
   async authenticate(): Promise<IdentityProviderPrincipal> {
     throw new Error('Unauthenticated');
+  }
+
+  async getVerifiedAddresses(): Promise<readonly string[]> {
+    throw new InvalidIdentityCredentialsError();
   }
 }
 
@@ -87,6 +98,19 @@ export class DeterministicIdentityProvider implements IdentityProviderPort {
         },
       ),
     });
+  }
+
+  async getVerifiedAddresses(
+    principal: AuthenticatedPrincipal,
+  ): Promise<readonly string[]> {
+    assertAuthenticatedPrincipal(principal);
+    const identity = [...this.principals.values()].find(
+      (candidate) =>
+        candidate.issuer === principal.issuer &&
+        candidate.subject === principal.subject,
+    );
+    if (!identity) throw new InvalidIdentityCredentialsError();
+    return Object.freeze([...identity.verifiedAddresses]);
   }
 }
 
@@ -153,6 +177,28 @@ export async function authenticateIdentity(
   }) as AuthenticatedPrincipal;
   authenticatedPrincipals.add(principal);
   return principal;
+}
+
+export async function resolveVerifiedIdentity(
+  provider: VerifiedAddressProviderPort,
+  principal: AuthenticatedPrincipal,
+): Promise<AuthenticatedPrincipal> {
+  assertAuthenticatedPrincipal(principal);
+  const addresses = await provider.getVerifiedAddresses(principal);
+  if (
+    !Array.isArray(addresses) ||
+    addresses.some((address) => typeof address !== 'string' || !address.trim())
+  ) {
+    throw new InvalidIdentityCredentialsError();
+  }
+  const verifiedPrincipal = Object.freeze({
+    ...principal,
+    verifiedAddresses: Object.freeze(
+      addresses.map((address) => address.trim()),
+    ),
+  });
+  authenticatedPrincipals.add(verifiedPrincipal);
+  return verifiedPrincipal;
 }
 
 export type {
@@ -228,6 +274,7 @@ const tenantAdministratorPermissions: readonly IamPermission[] = [
   'booking.confirm',
   'booking.cancel',
   'calendar.read',
+  'customer_contact.read',
   'audit.read',
   'membership.invite',
   'membership.disable',
@@ -255,6 +302,7 @@ const permissionsByRole: Readonly<
     'booking.confirm',
     'booking.cancel',
     'calendar.read',
+    'customer_contact.read',
     'audit.read',
   ],
   [IAM_ROLES.auditorCompliance]: [
@@ -263,6 +311,7 @@ const permissionsByRole: Readonly<
     'availability.read',
     'booking.read',
     'calendar.read',
+    'customer_contact.read',
     'audit.read',
     'membership.read',
     'channel.read',
@@ -281,6 +330,7 @@ const permissionsByRole: Readonly<
     'booking.confirm',
     'booking.cancel',
     'calendar.read',
+    'customer_contact.read',
     'audit.read',
     'channel.read',
     'channel.manage',
@@ -296,6 +346,7 @@ const permissionsByRole: Readonly<
     'booking.confirm',
     'booking.cancel',
     'calendar.read',
+    'customer_contact.read',
   ],
 });
 

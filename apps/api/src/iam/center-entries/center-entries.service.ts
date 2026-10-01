@@ -1,8 +1,8 @@
 import type { CenterEntryStatus } from '@dive-center/database';
 import { setIamCenterEntryStatus } from '@dive-center/database';
-import type { AuthenticatedPrincipal } from '@dive-center/identity';
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import type { Pool } from 'pg';
+import type { ResolvedCenterApplicationScope } from '../../common/auth/http-admission.js';
 import { DATABASE_POOL } from '../../common/database/database.tokens.js';
 import {
   IAM_ACTIONS,
@@ -10,7 +10,6 @@ import {
   type SecurityLoggerPort,
 } from '../../common/security/security.tokens.js';
 import { denied } from '../iam-denied.js';
-import { TenantContextService } from '../tenant-context/tenant-context.service.js';
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -20,14 +19,11 @@ export class CenterEntriesService {
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool,
     @Inject(SECURITY_LOGGER) private readonly logger: SecurityLoggerPort,
-    @Inject(TenantContextService)
-    private readonly tenantContexts: TenantContextService,
   ) {}
 
   async setStatus(
-    principal: AuthenticatedPrincipal,
-    handle: string | undefined,
-    centerId: string,
+    scope: ResolvedCenterApplicationScope,
+    requestedCenterId: string,
     input: unknown,
     correlationId: string,
   ) {
@@ -45,30 +41,28 @@ export class CenterEntriesService {
     const purpose =
       typeof request?.purpose === 'string' ? request.purpose.trim() : '';
     if (
-      !uuidPattern.test(centerId) ||
+      !uuidPattern.test(requestedCenterId) ||
       status === null ||
       purpose.length === 0
     ) {
       throw new BadRequestException('Invalid center entry lifecycle request');
     }
 
-    const context = await this.tenantContexts.resolveAuthorizedContext(
-      principal,
-      handle,
-      IAM_ACTIONS.centerEntryManage,
-      correlationId,
-    );
-    const outcome = await setIamCenterEntryStatus(
-      this.pool,
-      principal,
-      context,
-      {
-        centerId,
-        status: status as CenterEntryStatus,
-        purpose,
+    if (requestedCenterId.toLowerCase() !== scope.centerId) {
+      this.logger.warn({
+        event: 'iam_security_event',
+        action: IAM_ACTIONS.centerEntryManage,
+        reason: 'scope_mismatch',
         correlationId,
-      },
-    );
+      });
+      denied();
+    }
+    const outcome = await setIamCenterEntryStatus(this.pool, scope.access, {
+      centerId: scope.centerId,
+      status: status as CenterEntryStatus,
+      purpose,
+      correlationId,
+    });
     if ('deniedReason' in outcome) {
       this.logger.warn({
         event: 'iam_security_event',

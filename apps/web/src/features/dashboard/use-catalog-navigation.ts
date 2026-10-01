@@ -57,6 +57,20 @@ export function useCatalogNavigation() {
   );
 
   return {
+    navigate: (
+      path: string,
+      updates: Record<string, string | number | null> = {},
+    ) => {
+      const nextSearchParams = new URLSearchParams(searchParamsValue);
+      for (const [key, value] of Object.entries(updates)) {
+        if (value === null || value === '') nextSearchParams.delete(key);
+        else nextSearchParams.set(key, String(value));
+      }
+      nextSearchParams.delete(CATALOG_SEARCH_PARAMS.activityId);
+      nextSearchParams.delete(CATALOG_SEARCH_PARAMS.slotPage);
+      const query = nextSearchParams.toString();
+      router.push(query ? `${path}?${query}` : path);
+    },
     requestedCenterId: searchParams.get(CATALOG_SEARCH_PARAMS.centerId) ?? '',
     selectedActivityId: searchParams.get(CATALOG_SEARCH_PARAMS.activityId),
     activityStatus: parseActivityStatus(

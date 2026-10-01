@@ -37,7 +37,7 @@ export class ApiProblemFilter
       .getRequest<{ originalUrl?: string; url?: string }>();
     const path = request.originalUrl ?? request.url ?? '';
     const isCatalogPath =
-      /^\/v1\/centers\/[^/]+\/(activities|slots|channels|catalog-settings)(\/|$)/.test(
+      /^\/v1\/centers\/[^/]+\/(activities|slots|channels|catalog-settings|dashboard-capabilities|calendar|bookings)(\/|$)/.test(
         path,
       );
     const isPublicBookingPath =

@@ -36,7 +36,10 @@ async function assertWorkerRole(pool: Pool): Promise<void> {
 
 async function bootstrap(): Promise<void> {
   assertBootstrapWorkerRollout(process.env);
-  if (!bootstrapInvitationDeliveryEnabled(process.env)) return;
+  if (!bootstrapInvitationDeliveryEnabled(process.env)) {
+    console.info('Bootstrap invitation delivery is disabled');
+    return;
+  }
 
   const pool = new Pool(workerDatabasePoolConfig());
   try {
@@ -55,6 +58,11 @@ async function bootstrap(): Promise<void> {
         provider,
         process.env,
       );
+      if (result === 'idle') {
+        console.info('No eligible bootstrap invitation events remain');
+      } else {
+        console.info(`Bootstrap invitation operation: ${result}`);
+      }
       if (result === 'ambiguous_timeout') {
         throw new Error('Bootstrap invitation provider request timed out');
       }

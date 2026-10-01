@@ -9,6 +9,7 @@ import type {
   LocalizedText,
 } from './catalog-api';
 import { CatalogNotice, describeCatalogError } from './catalog-feedback';
+import { formatSlotStart } from './catalog-time';
 import type {
   ActivityStatusFilter,
   SlotStatusFilter,
@@ -111,6 +112,7 @@ export function ActivitiesSection({
 
 export function ActivitySlotsSection({
   activity,
+  timeZone,
   query,
   status,
   page,
@@ -122,6 +124,7 @@ export function ActivitySlotsSection({
   children,
 }: ListControls & {
   activity: CatalogActivity;
+  timeZone: string | null;
   query: CatalogListState<CatalogSlot>;
   status: SlotStatusFilter;
   onStatusChange: (status: string) => void;
@@ -162,10 +165,14 @@ export function ActivitySlotsSection({
             <option value="Cancelled">Cancelled</option>
           </Select>
         </label>
-        <span className={styles.fieldHint}>
-          Starts at accepts an RFC3339 instant such as 2026-10-01T10:00:00Z.
-        </span>
+        {timeZone && <span className={styles.fieldHint}>{timeZone}</span>}
       </div>
+      {!timeZone && (
+        <CatalogNotice
+          title="Center time zone is not configured"
+          message="Start times are unavailable and new slots cannot be created."
+        />
+      )}
       {query.isPending && <CatalogNotice title="Loading slots" />}
       {query.error && (
         <CatalogNotice
@@ -184,6 +191,7 @@ export function ActivitySlotsSection({
           <SlotRow
             key={slot.id}
             slot={slot}
+            timeZone={timeZone}
             isBusy={isBusy}
             onCommand={(command) => onCommand(slot.id, command)}
           />
@@ -257,10 +265,12 @@ function ActivityRow({
 
 function SlotRow({
   slot,
+  timeZone,
   isBusy,
   onCommand,
 }: {
   slot: CatalogSlot;
+  timeZone: string | null;
   isBusy: boolean;
   onCommand: (command: 'close' | 'cancel') => void;
 }) {
@@ -268,7 +278,12 @@ function SlotRow({
     <li className={styles.row}>
       <div className={`${styles.rowSelect} ${styles.rowStatic}`}>
         <span>
-          <strong>{slot.startsAt}</strong>
+          <strong>
+            <time dateTime={slot.startsAt}>
+              {formatSlotStart(slot.startsAt, 'en', timeZone) ??
+                'Start time unavailable'}
+            </time>
+          </strong>
           <small>
             {slot.durationMinutes} min · capacity {slot.capacity}
           </small>

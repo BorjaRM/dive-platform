@@ -1,7 +1,7 @@
 # ADR-DIVE-014 — Center catalog lists, response DTO, and persistence naming
 
 - **Status:** Ready to start
-- **Version:** 0.9
+- **Version:** 0.11
 - **Date:** 2026-09-27
 - **Deciders:** Product / Architecture / Data / Security
 - **Affected IDs:** `DIVE-BOOK-REQ-001..006`, `009..011`, `017..020`, `029`, `049..057`; `DIVE-IAM-REQ-024`, `029..032`; ADR-DIVE-001; ADR-DIVE-008; ADR-DIVE-009
@@ -30,7 +30,7 @@ US-08 needs predictable lists for activities and slots. A typical center is expe
 
 This ADR closes the walking-skeleton list contract with limit/offset pagination. **Documented:** the subsequent [initial-language configuration contract](../../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#initial-center-catalog-language-contract), `DIVE-BOOK-REQ-009`, `050..056`, adds bounded settings routes and language resolution under existing permissions. It does not change activity/slot lifecycle, role grants, capacity semantics, public booking creation or bootstrap fields.
 
-**Documented:** client state/cache architecture remains owned by ADR-DIVE-009. Increment-specific implementation sequencing belongs in its issue Development Brief, not this ADR. Draft editing and trusted timezone-response questions are owned by SPEC-DIVE-BOOKING-CATALOG-001; backend center-entry coverage and the pending web handoff are distinguished in TRACE-DIVE-MVP-001.
+**Documented:** client state/cache architecture remains owned by ADR-DIVE-009. Increment-specific implementation sequencing belongs in its issue Development Brief, not this ADR. The separately accepted 2026-10-01 [activity-editing decisions](../../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#activity-editing) and [storage/migration closure](../../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#accepted-revision-storage-and-migration), together with the remaining trusted timezone-response questions, are owned by SPEC-DIVE-BOOKING-CATALOG-001. That acceptance is not implementation coverage or promotion of the Draft editing artifact; backend center-entry coverage and the pending web handoff are distinguished in TRACE-DIVE-MVP-001.
 
 ## Decision
 
@@ -213,7 +213,7 @@ An implementation PR must link `DIVE-BOOK-REQ-049..057` and include:
 
 ## Open questions
 
-No blocking decision remains for the approved fixed-time list/DTO/schema and time-rendering contract. Draft editing and the center-timezone read projection remain explicit proposals in SPEC-DIVE-BOOKING-CATALOG-001; they are not implied by list approval or this promotion.
+**Documented:** no blocking decision remains for the approved fixed-time list/DTO/schema and time-rendering contract. [Activity editing](../../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#activity-editing) records its separate 2026-10-01 acceptance and [bounded technical closure](../../booking/SPEC-DIVE-BOOKING-CATALOG-001.md#accepted-revision-storage-and-migration); implementation and validation remain pending. The center-timezone read projection remains a proposal. Neither contract is approved by implication from list approval or this ADR's historical promotion.
 
 Cursor pagination is deferred. If demonstrated volume, deep-page cost, or offset drift later requires it, its scope, cursor format, validation, and compatibility become a new proposed contract change.
 

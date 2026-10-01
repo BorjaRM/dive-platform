@@ -14,6 +14,7 @@ describe('IAM audit contracts (DIVE-IAM-REQ-023, DIVE-IAM-REQ-025)', () => {
       'booking.create',
       'booking.read',
       'booking.update',
+      'booking.activity.updated',
       'booking.confirm',
       'booking.cancel',
       'customer_contact.read',

@@ -4,11 +4,14 @@ import {
 } from '@clerk/backend';
 import { verifyWebhook as clerkVerifyWebhook } from '@clerk/backend/webhooks';
 import type {
+  AuthenticatedPrincipal,
   IdentityAssurance,
   IdentityProviderPort,
   IdentityProviderPrincipal,
+  VerifiedAddressProviderPort,
 } from './index.js';
 import {
+  assertAuthenticatedPrincipal,
   IdentityProviderUnavailableError,
   InvalidIdentityCredentialsError,
 } from './index.js';
@@ -30,7 +33,6 @@ export type ClerkIdentityAdapterDependencies = Readonly<{
     }>,
     signal?: AbortSignal,
   ) => Promise<unknown>;
-  getSession: (sessionId: string, signal?: AbortSignal) => Promise<unknown>;
   getUser: (userId: string, signal?: AbortSignal) => Promise<unknown>;
   verifyWebhook: (
     request: Request,
@@ -86,7 +88,7 @@ async function withDeadline<T>(
   }
 }
 
-function providerFailure(error: unknown): Error {
+function providerFailure(error: unknown, operation: 'token' | 'user'): Error {
   if (
     error instanceof InvalidIdentityCredentialsError ||
     error instanceof IdentityProviderUnavailableError
@@ -97,6 +99,29 @@ function providerFailure(error: unknown): Error {
     typeof error === 'object' && error !== null && 'status' in error
       ? (error as { status?: unknown }).status
       : undefined;
+  if (operation === 'user') {
+    if (status === 404) return new InvalidIdentityCredentialsError();
+    return new IdentityProviderUnavailableError();
+  }
+  const reason =
+    typeof error === 'object' && error !== null && 'reason' in error
+      ? (error as { reason?: unknown }).reason
+      : undefined;
+  if (
+    typeof reason === 'string' &&
+    [
+      'token-expired',
+      'token-invalid',
+      'token-invalid-algorithm',
+      'token-invalid-authorized-parties',
+      'token-invalid-signature',
+      'token-not-active-yet',
+      'token-iat-in-the-future',
+      'token-verification-failed',
+    ].includes(reason)
+  ) {
+    return new InvalidIdentityCredentialsError();
+  }
   return status === 400 || status === 401 || status === 403 || status === 404
     ? new InvalidIdentityCredentialsError()
     : new IdentityProviderUnavailableError();
@@ -127,11 +152,17 @@ function assuranceFromClaims(claims: {
   const assuranceAgeMinutes = secondFactorVerified
     ? Math.min(factorAges[0], factorAges[1])
     : factorAges[0];
+  const verifiedAtMillis = (issuedAt - assuranceAgeMinutes * 60) * 1_000;
+  const verifiedAt = new Date(verifiedAtMillis);
+  if (
+    !Number.isFinite(verifiedAtMillis) ||
+    Number.isNaN(verifiedAt.getTime())
+  ) {
+    throw new InvalidIdentityCredentialsError();
+  }
   return Object.freeze({
     level: secondFactorVerified ? 'multi_factor' : 'single_factor',
-    verifiedAt: new Date(
-      (issuedAt - assuranceAgeMinutes * 60) * 1_000,
-    ).toISOString(),
+    verifiedAt: verifiedAt.toISOString(),
   });
 }
 
@@ -140,19 +171,6 @@ function record(value: unknown): Record<string, unknown> {
     throw new InvalidIdentityCredentialsError();
   }
   return value as Record<string, unknown>;
-}
-
-function sessionExpiresAtMs(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    if (value >= 1_000_000_000_000) return value;
-    if (value >= 1_000_000_000 && value < 10_000_000_000) {
-      return value * 1_000;
-    }
-    return null;
-  }
-  if (typeof value !== 'string') return null;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? null : parsed;
 }
 
 function defaultDependencies(
@@ -165,7 +183,6 @@ function defaultDependencies(
         authorizedParties: [...options.authorizedParties],
         secretKey: options.secretKey,
       }),
-    getSession: (sessionId) => client.sessions.getSession(sessionId),
     getUser: (userId) => client.users.getUser(userId),
     verifyWebhook: (request, options) =>
       clerkVerifyWebhook(request, { signingSecret: options.signingSecret }),
@@ -232,7 +249,10 @@ function requestHeaders(
 }
 
 export class ClerkIdentityAdapter
-  implements IdentityProviderPort, IdentityWebhookVerifierPort
+  implements
+    IdentityProviderPort,
+    VerifiedAddressProviderPort,
+    IdentityWebhookVerifierPort
 {
   private readonly config: ClerkIdentityAdapterConfig;
   private readonly dependencies: ClerkIdentityAdapterDependencies;
@@ -280,7 +300,7 @@ export class ClerkIdentityAdapter
         ),
       );
     } catch (error) {
-      throw providerFailure(error);
+      throw providerFailure(error, 'token');
     }
 
     if (
@@ -294,35 +314,34 @@ export class ClerkIdentityAdapter
       throw new InvalidIdentityCredentialsError();
     }
 
-    let session: unknown;
+    return Object.freeze({
+      issuer: claims.iss as string,
+      subject: claims.sub as string,
+      sessionId: claims.sid as string,
+      verifiedAddresses: Object.freeze([]),
+      assurance: assuranceFromClaims(claims),
+    });
+  }
+
+  async getVerifiedAddresses(
+    principal: AuthenticatedPrincipal,
+  ): Promise<readonly string[]> {
+    assertAuthenticatedPrincipal(principal);
+    if (principal.issuer !== this.config.issuer) {
+      throw new InvalidIdentityCredentialsError();
+    }
     let user: unknown;
     try {
-      [session, user] = await withDeadline(
-        this.config.requestTimeoutMillis,
-        (signal) =>
-          Promise.all([
-            this.dependencies.getSession(claims.sid as string, signal),
-            this.dependencies.getUser(claims.sub as string, signal),
-          ]),
+      user = await withDeadline(this.config.requestTimeoutMillis, (signal) =>
+        this.dependencies.getUser(principal.subject, signal),
       );
     } catch (error) {
-      throw providerFailure(error);
+      throw providerFailure(error, 'user');
     }
 
-    const sessionRecord = record(session);
     const userRecord = record(user);
-    const expiresAtMs = sessionExpiresAtMs(sessionRecord.expireAt);
     if (
-      sessionRecord.id !== claims.sid ||
-      sessionRecord.userId !== claims.sub ||
-      sessionRecord.status !== 'active' ||
-      expiresAtMs === null ||
-      expiresAtMs <= Date.now() ||
-      userRecord.id !== claims.sub ||
-      typeof userRecord.banned !== 'boolean' ||
-      typeof userRecord.locked !== 'boolean' ||
-      userRecord.banned ||
-      userRecord.locked ||
+      userRecord.id !== principal.subject ||
       !Array.isArray(userRecord.emailAddresses)
     ) {
       throw new InvalidIdentityCredentialsError();
@@ -348,17 +367,11 @@ export class ClerkIdentityAdapter
         : null;
     });
 
-    return Object.freeze({
-      issuer: claims.iss as string,
-      subject: claims.sub as string,
-      sessionId: claims.sid as string,
-      verifiedAddresses: Object.freeze(
-        verifiedAddresses.filter(
-          (address): address is string => address !== null,
-        ),
+    return Object.freeze(
+      verifiedAddresses.filter(
+        (address): address is string => address !== null,
       ),
-      assurance: assuranceFromClaims(claims),
-    });
+    );
   }
 
   async verify(

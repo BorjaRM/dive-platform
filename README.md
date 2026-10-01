@@ -16,29 +16,34 @@ GitHub `specs/` is the source of truth. Notion is navigation and status only.
 
 ## What exists today
 
-The repository is a TypeScript monorepo skeleton:
+**Documented -- Implementation navigation:** this TypeScript monorepo contains
+local product slices, not a complete or activated product. The sources below own
+their implementation details; [TRACE](specs/traceability/TRACE-DIVE-MVP-001.md)
+locates contracts, proof and remaining gaps.
 
-- `apps/web` — Next.js starter
-- `apps/api` — NestJS starter (Vitest)
-- `apps/worker` — package stub
-- `packages/*` — `@dive-center/*` workspace packages; most are empty shells
-- `packages/typescript-config` — shared TypeScript presets
-- `specs/` — normative SDD artifacts
-- Tooling: pnpm, Turborepo, Biome, Node `22.22.3`, TypeScript `6.0.3`
-- CI: `.github/workflows/ci.yml` (`pnpm check:fix` on same-repo PRs, then `pnpm check`, `pnpm test`) and `.github/workflows/spec-governance.yml`
+- [Web](apps/web/README.md): Next.js center home, catalog editing, calendar and
+  booking/contact reads, tenant context, bootstrap and platform invitation
+  console, using enumerated same-origin BFF operations.
+- [API](apps/api/README.md): NestJS IAM/Clerk adapter, global BFF admission,
+  center-scoped catalog/booking reads, public booking and controlled onboarding.
+- [Worker entry point](apps/worker/src/main.ts): one-shot processing of the
+  existing bootstrap invitation outbox; delivery activation is separate.
+- [Database](packages/database/README.md): product schemas/migrations and
+  tenant-scoped runtime operations, plus the separate MT-SPIKE-001 harness.
+- [Local PostgreSQL](infra/docker/postgres/README.md): PostgreSQL 18 Compose
+  recipe for synthetic integration work.
+- `packages/*`: `@dive-center/*` workspace boundaries with differing maturity;
+  some remain placeholders. Shared TypeScript presets live in
+  `packages/typescript-config`.
+- [Tooling](package.json) and [CI](.github/workflows/ci.yml): build, read-only
+  check/test, schema-artifact verification and PostgreSQL integration. Spec
+  governance has its [own workflow](.github/workflows/spec-governance.yml).
 
-Present for MT-SPIKE-001 (synthetic data only):
-
-- `infra/docker/postgres` — PostgreSQL 18 Compose recipe
-- `.env.example` — `SPIKE_*` URLs
-- `pnpm test:integration` — isolation/outbox tests against real PostgreSQL
-- `@dive-center/database` — product migrations (`iam_app`, Drizzle Kit) and the MT-SPIKE-001 test harness (`mt_spike`)
-
-Not in the repository yet (planned, do not assume they exist):
-
-- Product booking schema, seeds, `pnpm db:*`
-- `pnpm specs:validate` as a root alias (spec CI uses `scripts/validate-spec-governance.mjs`)
-- Clerk, production outbox worker, e2e
+Real Clerk/provider checks, deployed ingress/TLS, effective credential revocation,
+rollout and real-data readiness are not established by local code, unit/DOM tests
+or builds. Consult the owning SPEC activation gates before use outside the
+synthetic increment. There is still no root `pnpm specs:validate` alias; use the
+existing governance script below.
 
 ## First product slice
 
@@ -62,7 +67,9 @@ Ready to start means reversible implementation with **synthetic data**. It does 
 - Transactional outbox
 - OpenTelemetry
 - Biome for lint/format
-- API tests: Vitest (current starter). Additional runners only if a later ADR requires them
+- API tests: Vitest unit and HTTP/PostgreSQL suites; deterministic BFF integration
+  and separately configured Clerk sandbox runners are documented in
+  [the API README](apps/api/README.md).
 
 ## Normative docs
 
@@ -86,23 +93,37 @@ pnpm typecheck
 pnpm test
 pnpm format
 pnpm check
+pnpm swagger
+node scripts/validate-spec-governance.mjs --all
 ```
 
 Workspace packages are scoped as `@dive-center/*`. TypeScript options live in `packages/typescript-config` (ADR-DIVE-003). `pnpm check-types` remains an alias of `pnpm typecheck`.
 
-GitHub Actions:
+Configure the local environment before starting the applications; example Clerk
+and BFF placeholders are not usable credentials. Follow the
+[quickstart](docs/onboarding/quickstart.md), [web BFF configuration](apps/web/README.md#server-side-bff-configuration)
+and [API admission configuration](apps/api/README.md#bff-admission).
 
-- `.github/workflows/ci.yml` — on same-repo PRs, `pnpm check:fix` (commit if needed), then `pnpm check` and `pnpm test`; on `main`, `pnpm check` and `pnpm test`
-- `.github/workflows/spec-governance.yml` — SPEC validator on `specs/**` paths
+**Documented -- GitHub Actions:** source is the current workflows, not a claim
+that CI has run for this branch.
+
+- [App CI](.github/workflows/ci.yml): build, generated schema metadata check,
+  `pnpm check` and `pnpm test`, with a separate PostgreSQL 18 integration job.
+  It does not auto-fix or commit source changes.
+- [Spec CI](.github/workflows/spec-governance.yml): governance validation for
+  normative artifacts.
 
 ```bash
 docker compose -f infra/docker/postgres/docker-compose.yml up -d --wait
 pnpm test:integration
 ```
 
-E2E commands will be documented when those tools land.
+`pnpm test:integration` includes database tests and API e2e, including the
+deterministic Next.js/API/PostgreSQL harness. It is not a complete browser or
+real-provider journey. Use the documented disposable synthetic database, not a
+database containing local work or real personal data.
 
-## Scope
+## Planned scope
 
 Included: tenant/center, activities, slots, hosted page, iframe widget, public availability, online and manual booking, basic calendar, confirmation email via outbox, cancellation, tenant/center authorization, audit, idempotency, `es`/`en`.
 

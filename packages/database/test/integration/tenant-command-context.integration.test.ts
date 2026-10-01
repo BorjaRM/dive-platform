@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { recordBookingCatalogMutation } from '../../src/booking-catalog-commands.js';
+import { recordBookingReadAudit } from '../../src/booking-read-audit.js';
 import { bootstrapRoles } from '../../src/bootstrap-roles.js';
 import { migrateProduct } from '../../src/migrate.js';
 import { recordPublicBookingCreated } from '../../src/public-booking-commands.js';
@@ -12,6 +13,28 @@ const commands: ReadonlyArray<{
   execute(client: PoolClient): Promise<void>;
   name: string;
 }> = [
+  {
+    name: 'booking read audit',
+    correlationId: 'aaaaaaaa-1001-4001-8001-000000000028',
+    execute: (client) =>
+      recordBookingReadAudit(
+        client,
+        {
+          centerId: 'aaaaaaaa-1001-4001-8001-000000000022',
+          access: {
+            tenantId: tenantB,
+            identityId: 'aaaaaaaa-1001-4001-8001-000000000031',
+            membershipId: 'aaaaaaaa-1001-4001-8001-000000000032',
+            issuer: 'test',
+            subject: 'test',
+            roles: ['tenant_owner'],
+            centerIds: null,
+          },
+        },
+        { type: 'center' },
+        'aaaaaaaa-1001-4001-8001-000000000028',
+      ),
+  },
   {
     name: 'catalog mutation',
     correlationId: 'aaaaaaaa-1001-4001-8001-000000000023',
@@ -52,6 +75,22 @@ const commands: ReadonlyArray<{
         tenantId: tenantB,
         bookingId: 'aaaaaaaa-1001-4001-8001-000000000025',
         correlationId: 'aaaaaaaa-1001-4001-8001-000000000024',
+      }),
+  },
+  {
+    name: 'audit-only activity update',
+    correlationId: 'aaaaaaaa-1001-4001-8001-000000000027',
+    execute: (client) =>
+      recordBookingCatalogMutation(client, {
+        tenantId: tenantB,
+        actorIdentityId: 'aaaaaaaa-1001-4001-8001-000000000031',
+        action: 'booking.activity.updated',
+        resourceType: 'activity',
+        resourceId: 'aaaaaaaa-1001-4001-8001-000000000022',
+        eventType: null,
+        payload: { group: 'common' },
+        correlationId: 'aaaaaaaa-1001-4001-8001-000000000027',
+        idempotencyKey: null,
       }),
   },
 ];

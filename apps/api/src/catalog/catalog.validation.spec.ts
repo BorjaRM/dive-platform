@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { CatalogProblemException } from './catalog.errors.js';
 import {
+  activityEtag,
   pagination,
+  parseActivityPrecondition,
+  parseCatalogActivityEditInput,
   parseCatalogActivityInput,
   parseCatalogInputInstant,
   parseCatalogListQueryInput,
@@ -12,6 +15,78 @@ import {
 } from './catalog.validation.js';
 
 describe('catalog runtime validation', () => {
+  it('accepts complete independent activity forms (DIVE-BOOK-REQ-050, 078)', () => {
+    const translation = {
+      group: 'translation',
+      locale: 'en',
+      values: { name: '', description: '  ' },
+    };
+    expect(parseCatalogActivityEditInput(translation)).toEqual(translation);
+    expect(
+      parseCatalogActivityEditInput({
+        group: 'common',
+        values: { defaultCapacity: null },
+      }),
+    ).toEqual({ group: 'common', values: { defaultCapacity: null } });
+  });
+
+  it.each([
+    null,
+    {},
+    {
+      group: 'translation',
+      locale: 'fr',
+      values: { name: 'Dive', description: '' },
+    },
+    { group: 'translation', locale: 'en', values: { name: 'Dive' } },
+    {
+      group: 'translation',
+      locale: 'en',
+      values: { name: null, description: '' },
+    },
+    {
+      group: 'translation',
+      locale: 'en',
+      values: { name: 'Dive', description: '', defaultCapacity: 5 },
+    },
+    { group: 'common', locale: 'es', values: { defaultCapacity: 5 } },
+    { group: 'common', values: {} },
+    { group: 'common', values: { defaultCapacity: 0 } },
+    { group: 'common', values: { defaultCapacity: 2_147_483_648 } },
+    { group: 'common', values: { defaultCapacity: 5 }, tenantId: 'untrusted' },
+  ])(
+    'rejects incomplete or mixed activity forms (DIVE-BOOK-REQ-056)',
+    (input) => {
+      expect(() => parseCatalogActivityEditInput(input)).toThrow(
+        CatalogProblemException,
+      );
+    },
+  );
+
+  it('preserves BIGINT revision precision in ETags (DIVE-BOOK-REQ-078)', () => {
+    const activityId = 'aaaaaaaa-1001-4001-8001-000000000001';
+    const revision = 9_223_372_036_854_775_807n;
+    expect(
+      parseActivityPrecondition(activityEtag(activityId, revision)),
+    ).toEqual({ activityId, revision });
+    expect(() => parseActivityPrecondition(undefined)).toThrow(
+      expect.objectContaining({ status: 428 }),
+    );
+  });
+
+  it.each([
+    '*',
+    '',
+    'W/"activity-aaaaaaaa-1001-4001-8001-000000000001-r1"',
+    '"activity-aaaaaaaa-1001-4001-8001-000000000001-r0"',
+    '"activity-aaaaaaaa-1001-4001-8001-000000000001-r9223372036854775808"',
+    '"activity-aaaaaaaa-1001-4001-8001-000000000001-r1", "other"',
+  ])('rejects unsupported preconditions (DIVE-BOOK-REQ-056)', (input) => {
+    expect(() => parseActivityPrecondition(input)).toThrow(
+      expect.objectContaining({ status: 400 }),
+    );
+  });
+
   it.each(['startsAt', 'from', 'to'])(
     'parses %s and adapts invalid instants to a catalog validation error',
     (field) => {

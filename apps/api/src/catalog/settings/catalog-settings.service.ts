@@ -1,7 +1,7 @@
 import { bookingCatalogSettings } from '@dive-center/database';
-import type { AuthenticatedPrincipal } from '@dive-center/identity';
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
+import type { ResolvedCenterApplicationScope } from '../../common/auth/http-admission.js';
 import type { CatalogSettingsInput } from '../catalog.dto.js';
 import { CatalogProblemException } from '../catalog.errors.js';
 import { parseCatalogSettingsInput } from '../catalog.validation.js';
@@ -14,15 +14,9 @@ export class CatalogSettingsService {
     private readonly access: CatalogAccessService,
   ) {}
 
-  async getSettings(
-    principal: AuthenticatedPrincipal,
-    handle: string | undefined,
-    requestedCenterId: string,
-  ) {
+  async getSettings(applicationScope: ResolvedCenterApplicationScope) {
     return this.access.authorized(
-      principal,
-      handle,
-      requestedCenterId,
+      applicationScope,
       'booking_service.read',
       async ({ context, center, db }) => {
         const [settings] = await db
@@ -43,15 +37,11 @@ export class CatalogSettingsService {
   }
 
   async selectInitialLanguage(
-    principal: AuthenticatedPrincipal,
-    handle: string | undefined,
-    requestedCenterId: string,
+    applicationScope: ResolvedCenterApplicationScope,
     input: CatalogSettingsInput,
   ) {
     return this.access.authorized(
-      principal,
-      handle,
-      requestedCenterId,
+      applicationScope,
       'booking_service.update',
       async ({ context, center, db, recordMutation }) => {
         const { defaultActivityLocale } = parseCatalogSettingsInput(input);

@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   check,
   foreignKey,
   index,
@@ -93,6 +94,7 @@ export const bookingActivities = bookingApp.table(
     name: jsonb('name').$type<LocalizedText>().notNull(),
     description: jsonb('description').$type<LocalizedText>(),
     defaultCapacity: integer('default_capacity'),
+    revision: bigint('revision', { mode: 'bigint' }).notNull().default(sql`1`),
     status: text('status').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
@@ -114,6 +116,7 @@ export const bookingActivities = bookingApp.table(
       sql`status IN ('Draft', 'Published', 'Disabled')`,
     ),
     check('activities_base_locale_known', sql`base_locale IN ('es', 'en')`),
+    check('activities_revision_positive', sql`revision > 0`),
     check(
       'activities_default_capacity_positive',
       sql`default_capacity IS NULL OR default_capacity > 0`,
