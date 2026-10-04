@@ -46,6 +46,7 @@ async function bootstrap(): Promise<void> {
     await assertWorkerRole(pool);
     const provider = new ClerkBootstrapInvitationAdapter({
       allowInsecureLocalRedirect: process.env.NODE_ENV !== 'production',
+      authenticationOrigin: requiredEnvironment('AUTHENTICATION_ORIGIN'),
       secretKey: requiredEnvironment('CLERK_SECRET_KEY'),
       redirectUrl: requiredEnvironment('BOOTSTRAP_INVITATION_REDIRECT_URL'),
       requestTimeoutMillis: positiveIntegerEnvironment(

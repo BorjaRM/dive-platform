@@ -36,6 +36,7 @@ describe('invitation worker command output', () => {
     vi.stubEnv('BOOTSTRAP_INVITATION_WRITES_ENABLED', 'true');
     vi.stubEnv('BOOTSTRAP_INVITATION_DELIVERY_ENABLED', 'true');
     vi.stubEnv('CLERK_SECRET_KEY', 'test-secret');
+    vi.stubEnv('AUTHENTICATION_ORIGIN', 'http://localhost:3000');
     vi.stubEnv(
       'BOOTSTRAP_INVITATION_REDIRECT_URL',
       'http://localhost:3000/bootstrap/accept',
@@ -58,6 +59,19 @@ describe('invitation worker command output', () => {
       'Bootstrap invitation delivery is disabled',
     );
     expect(mocks.processNext).not.toHaveBeenCalled();
+  });
+
+  it('fails before processing the queue when the canonical authentication origin is missing', async () => {
+    vi.stubEnv('AUTHENTICATION_ORIGIN', '');
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    await import('./main.js');
+    await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(1));
+    expect(mocks.processNext).not.toHaveBeenCalled();
+    expect(mocks.end).toHaveBeenCalledOnce();
+    expect(console.error).toHaveBeenCalledExactlyOnceWith(
+      'Bootstrap invitation worker failed',
+    );
   });
 
   it('reports an idle queue without claiming an email was sent', async () => {

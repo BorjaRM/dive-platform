@@ -132,6 +132,42 @@ describe('public product proxy', () => {
     ).toBe(404);
   });
 
+  it('rejects an internal HTTP origin without an ingress protocol', async () => {
+    const response = await proxy(
+      new NextRequest('http://next-internal.local/dashboard', {
+        headers: { host: 'alpha.app.example.test' },
+      }),
+    );
+
+    expect(response.status).toBe(404);
+  });
+
+  it('uses the ingress protocol when TLS terminates before the framework', async () => {
+    const response = await proxy(
+      new NextRequest('http://next-internal.local/dashboard', {
+        headers: {
+          host: 'alpha.app.example.test',
+          'x-forwarded-proto': 'https',
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+  });
+
+  it('rejects an ambiguous ingress protocol instead of choosing one', async () => {
+    const response = await proxy(
+      new NextRequest('https://next-internal.local/dashboard', {
+        headers: {
+          host: 'alpha.app.example.test',
+          'x-forwarded-proto': 'https, http',
+        },
+      }),
+    );
+
+    expect(response.status).toBe(404);
+  });
+
   it('strips forged return headers and validates only active canonical return destinations', async () => {
     const denied = await proxy(
       new NextRequest(

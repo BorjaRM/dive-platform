@@ -92,6 +92,20 @@
       "when": 1791107458349,
       "tag": "0012_small_kabuki",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791107458350,
+      "tag": "0013_bootstrap_delivery_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791107458351,
+      "tag": "0014_bootstrap_revocation_chain",
+      "breakpoints": true
     }
   ]
 }

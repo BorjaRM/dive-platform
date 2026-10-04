@@ -685,6 +685,7 @@ describe('real Next BFF / AppModule / PostgreSQL (DIVE-IAM-REQ-030..032)', () =>
     const state = (await issued.json()) as IssuedInvitation;
     expect(state).toEqual({
       invitationId: expect.any(String),
+      destinationEmail: 'owner@example.test',
       status: 'issued',
       deliveryStatus: 'pending',
     });

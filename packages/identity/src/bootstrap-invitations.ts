@@ -32,6 +32,7 @@ export class BootstrapInvitationProviderError extends Error {
 
 export type ClerkBootstrapInvitationConfig = Readonly<{
   allowInsecureLocalRedirect?: boolean;
+  authenticationOrigin: string;
   secretKey: string;
   redirectUrl: string;
   requestTimeoutMillis: number;
@@ -95,12 +96,19 @@ async function withDeadline<T>(
 
 function redirectUrl(
   value: string,
+  authenticationOrigin: string,
   allowInsecureLocalRedirect: boolean,
 ): string {
   const normalized = required(value, 'BOOTSTRAP_INVITATION_REDIRECT_URL');
+  const canonicalOrigin = required(
+    authenticationOrigin,
+    'AUTHENTICATION_ORIGIN',
+  );
   let parsed: URL;
+  let authenticationUrl: URL;
   try {
     parsed = new URL(normalized);
+    authenticationUrl = new URL(canonicalOrigin);
   } catch {
     throw new Error('Invalid BOOTSTRAP_INVITATION_REDIRECT_URL');
   }
@@ -109,6 +117,10 @@ function redirectUrl(
     parsed.protocol === 'http:' &&
     (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1');
   if (
+    authenticationUrl.origin !== canonicalOrigin ||
+    parsed.origin !== canonicalOrigin ||
+    parsed.username !== '' ||
+    parsed.password !== '' ||
     (parsed.protocol !== 'https:' && !isAllowedLocalHttp) ||
     parsed.pathname !== '/bootstrap/accept' ||
     parsed.search !== '' ||
@@ -179,6 +191,7 @@ export class ClerkBootstrapInvitationAdapter
     const secretKey = required(config.secretKey, 'CLERK_SECRET_KEY');
     this.redirect = redirectUrl(
       config.redirectUrl,
+      config.authenticationOrigin,
       config.allowInsecureLocalRedirect ?? false,
     );
     this.requestTimeoutMillis = positiveInteger(

@@ -317,6 +317,141 @@ SELECT id FROM iam_app.tenants;
     }
   });
 
+  it.each([false, true])(
+    'upgrades legacy bootstrap receipts without rewriting audits (invalid reason: %s; DIVE-ONB-REQ-039..040)',
+    async (invalidReason) => {
+      const databaseName = `dive_migrate_bootstrap_${invalidReason ? 'invalid' : 'valid'}`;
+      const tempFolder = mkdtempSync(join(tmpdir(), 'dive-migrate-bootstrap-'));
+      const journal = JSON.parse(
+        readFileSync(
+          join(productMigrationsFolder, 'meta/_journal.json'),
+          'utf8',
+        ),
+      ) as { entries: Array<{ tag: string }> };
+      const reasonMigrationIndex = journal.entries.findIndex(
+        (entry) => entry.tag === '0012_small_kabuki',
+      );
+      if (reasonMigrationIndex < 0)
+        throw new Error('Missing bootstrap reason migration');
+      journal.entries = journal.entries.slice(0, reasonMigrationIndex);
+      mkdirSync(join(tempFolder, 'meta'));
+      writeFileSync(
+        join(tempFolder, 'meta/_journal.json'),
+        JSON.stringify(journal),
+      );
+      for (const entry of journal.entries) {
+        writeFileSync(
+          join(tempFolder, `${entry.tag}.sql`),
+          readFileSync(
+            join(productMigrationsFolder, `${entry.tag}.sql`),
+            'utf8',
+          ),
+        );
+      }
+      const maintenance = new Pool({
+        connectionString: spikeAdminDatabaseUrl(),
+        max: 1,
+      });
+      let priorAdmin: Pool | undefined;
+      try {
+        await maintenance.query(`DROP DATABASE IF EXISTS ${databaseName}`);
+        await maintenance.query(`CREATE DATABASE ${databaseName}`);
+        await maintenance.query(
+          `GRANT CONNECT, CREATE ON DATABASE ${databaseName} TO dive_migration`,
+        );
+        const migrationUrl = urlForDatabase(
+          migrationDatabaseUrl(),
+          databaseName,
+        );
+        await migrateProduct(tempFolder, migrationUrl);
+        priorAdmin = new Pool({
+          connectionString: urlForDatabase(
+            spikeAdminDatabaseUrl(),
+            databaseName,
+          ),
+          max: 1,
+        });
+        for (const capability of ['issue', 'reissue']) {
+          await priorAdmin.query(
+            `SELECT onboarding_app.set_platform_capability($1, $2, $3, true)`,
+            [
+              'https://identity.example.test',
+              'platform-operator',
+              `bootstrap_invitation.${capability}`,
+            ],
+          );
+        }
+        const issueParameters = [
+          'https://identity.example.test',
+          'platform-operator',
+          'owner@example.test',
+          'Original reason',
+          'legacy-issue',
+          'a'.repeat(64),
+          tenantA,
+        ];
+        const issueSql = `SELECT onboarding_app.issue_bootstrap_invitation_command(
+          $1, $2, $3, $4, $5, $6, $7::uuid
+        ) AS outcome`;
+        const issued = await priorAdmin.query<{
+          outcome: { invitationId: string };
+        }>(issueSql, issueParameters);
+        await priorAdmin.query(
+          `SELECT onboarding_app.reissue_bootstrap_invitation_command(
+            $1, $2, $3::uuid, $4, $5, $6, $7::uuid
+          )`,
+          [
+            issueParameters[0],
+            issueParameters[1],
+            issued.rows[0]?.outcome.invitationId,
+            invalidReason ? '' : 'Replacement reason',
+            'legacy-reissue',
+            'b'.repeat(64),
+            tenantA,
+          ],
+        );
+        const auditSql = `SELECT id, action, reason FROM onboarding_app.bootstrap_invitation_audit_records ORDER BY id`;
+        const originalAudits = await priorAdmin.query(auditSql);
+        if (invalidReason) {
+          await expect(
+            migrateProduct(productMigrationsFolder, migrationUrl),
+          ).rejects.toThrow(/VALIDATE CONSTRAINT/);
+          const receipts = await priorAdmin.query(
+            `SELECT result FROM onboarding_app.bootstrap_invitation_command_receipts`,
+          );
+          for (const receipt of receipts.rows)
+            expect(receipt.result).not.toHaveProperty('destinationEmail');
+        } else {
+          await migrateProduct(productMigrationsFolder, migrationUrl);
+          const receipts = await priorAdmin.query(
+            `SELECT result FROM onboarding_app.bootstrap_invitation_command_receipts`,
+          );
+          expect(receipts.rows).toHaveLength(2);
+          for (const receipt of receipts.rows)
+            expect(receipt.result.destinationEmail).toBe('owner@example.test');
+          const replay = await priorAdmin.query(issueSql, issueParameters);
+          expect(replay.rows[0]?.outcome).toEqual({
+            ...issued.rows[0]?.outcome,
+            destinationEmail: 'owner@example.test',
+          });
+          const constraints =
+            await priorAdmin.query(`SELECT convalidated FROM pg_constraint
+            WHERE conname='bootstrap_invitation_audit_mutation_reason_required'
+              AND conrelid='onboarding_app.bootstrap_invitation_audit_records'::regclass`);
+          expect(constraints.rows).toEqual([{ convalidated: true }]);
+        }
+        expect((await priorAdmin.query(auditSql)).rows).toEqual(
+          originalAudits.rows,
+        );
+      } finally {
+        await priorAdmin?.end();
+        await maintenance.query(`DROP DATABASE IF EXISTS ${databaseName}`);
+        await maintenance.end();
+        rmSync(tempFolder, { recursive: true, force: true });
+      }
+    },
+  );
+
   it('upgrades existing activities with revision 1 and preserves data on schema rollback (DIVE-BOOK-REQ-078)', async () => {
     const databaseName = 'dive_migrate_activity_revision';
     const tempFolder = mkdtempSync(join(tmpdir(), 'dive-migrate-revision-'));

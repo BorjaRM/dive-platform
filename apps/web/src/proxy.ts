@@ -15,6 +15,15 @@ import {
 
 const publicProductPaths = ['/', '/robots.txt', '/sitemap.xml'];
 
+function requestProtocol(request: NextRequest): string | null {
+  const forwardedProtocolHeader = request.headers.get('x-forwarded-proto');
+  if (forwardedProtocolHeader === null) return request.nextUrl.protocol;
+  const forwardedProtocol = forwardedProtocolHeader.trim().toLowerCase();
+  if (forwardedProtocol === 'http' || forwardedProtocol === 'https')
+    return `${forwardedProtocol}:`;
+  return null;
+}
+
 export async function proxy(request: NextRequest, event?: NextFetchEvent) {
   try {
     return await routeRequest(request, event);
@@ -30,6 +39,7 @@ export async function proxy(request: NextRequest, event?: NextFetchEvent) {
 
 async function routeRequest(request: NextRequest, event?: NextFetchEvent) {
   const path = request.nextUrl.pathname;
+  const requestHost = request.headers.get('host') ?? request.nextUrl.host;
   const isApplicationPath = [
     '/dashboard',
     '/bootstrap',
@@ -46,10 +56,7 @@ async function routeRequest(request: NextRequest, event?: NextFetchEvent) {
       if (isApplicationPath) return new NextResponse(null, { status: 500 });
     }
     if (applicationConfig) {
-      const surface = classifyApplicationHost(
-        request.nextUrl.host,
-        applicationConfig,
-      );
+      const surface = classifyApplicationHost(requestHost, applicationConfig);
       if (surface.kind === 'unknown') {
         if (isApplicationPath) return new NextResponse(null, { status: 404 });
       } else {
@@ -60,7 +67,10 @@ async function routeRequest(request: NextRequest, event?: NextFetchEvent) {
               process.env.NEXT_PUBLIC_DASHBOARD_REQUEST_TIMEOUT_MS,
             ),
           );
-        if (request.nextUrl.origin !== surface.origin)
+        const protocol = requestProtocol(request);
+        if (!protocol) return new NextResponse(null, { status: 404 });
+        const requestOrigin = new URL(`${protocol}//${requestHost}`).origin;
+        if (requestOrigin !== surface.origin)
           return new NextResponse(null, { status: 404 });
         if (path.startsWith('/platform') && surface.kind !== 'authentication')
           return new NextResponse(null, { status: 404 });
@@ -136,7 +146,7 @@ async function routeRequest(request: NextRequest, event?: NextFetchEvent) {
     return new NextResponse(null, { status: 500 });
   }
 
-  const decision = classifyProductHost(request.nextUrl.host, config);
+  const decision = classifyProductHost(requestHost, config);
 
   if (decision.kind === 'serve') {
     return NextResponse.next();

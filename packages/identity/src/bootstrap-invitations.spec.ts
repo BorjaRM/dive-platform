@@ -23,6 +23,7 @@ describe('ClerkBootstrapInvitationAdapter (DIVE-ONB-REQ-038, 043..045)', () => {
     });
     const adapter = new ClerkBootstrapInvitationAdapter(
       {
+        authenticationOrigin: 'https://auth.example.test',
         secretKey: 'sk_test_not-real',
         redirectUrl: 'https://auth.example.test/bootstrap/accept',
         requestTimeoutMillis: 15_000,
@@ -64,6 +65,7 @@ describe('ClerkBootstrapInvitationAdapter (DIVE-ONB-REQ-038, 043..045)', () => {
       });
     const adapter = new ClerkBootstrapInvitationAdapter(
       {
+        authenticationOrigin: 'https://auth.example.test',
         secretKey: 'sk_test_not-real',
         redirectUrl: 'https://auth.example.test/bootstrap/accept',
         requestTimeoutMillis: 15_000,
@@ -92,6 +94,7 @@ describe('ClerkBootstrapInvitationAdapter (DIVE-ONB-REQ-038, 043..045)', () => {
     });
     const adapter = new ClerkBootstrapInvitationAdapter(
       {
+        authenticationOrigin: 'https://auth.example.test',
         secretKey: 'sk_test_not-real',
         redirectUrl: 'https://auth.example.test/bootstrap/accept',
         requestTimeoutMillis: 15_000,
@@ -115,6 +118,7 @@ describe('ClerkBootstrapInvitationAdapter (DIVE-ONB-REQ-038, 043..045)', () => {
       );
       const adapter = new ClerkBootstrapInvitationAdapter(
         {
+          authenticationOrigin: 'https://auth.example.test',
           secretKey: 'sk_test_not-real',
           redirectUrl: 'https://auth.example.test/bootstrap/accept',
           requestTimeoutMillis: 15_000,
@@ -139,18 +143,53 @@ describe('ClerkBootstrapInvitationAdapter (DIVE-ONB-REQ-038, 043..045)', () => {
     }
   });
 
-  it('rejects redirect URLs outside the exact HTTPS acceptance path', () => {
+  it.each([
+    'https://attacker.example.test/bootstrap/accept',
+    'https://auth.example.test:444/bootstrap/accept',
+    'https://user:password@auth.example.test/bootstrap/accept',
+    'https://auth.example.test/bootstrap/accept?next=x',
+    'https://auth.example.test/bootstrap/accept#ticket',
+    'https://auth.example.test/sign-in',
+    'http://auth.example.test/bootstrap/accept',
+  ])(
+    'rejects a redirect outside the canonical acceptance URL: %s',
+    (redirectUrl) => {
+      expect(
+        () =>
+          new ClerkBootstrapInvitationAdapter(
+            {
+              authenticationOrigin: 'https://auth.example.test',
+              secretKey: 'sk_test_not-real',
+              redirectUrl,
+              requestTimeoutMillis: 15_000,
+            },
+            dependencies(),
+          ),
+      ).toThrow('Invalid BOOTSTRAP_INVITATION_REDIRECT_URL');
+    },
+  );
+
+  it.each([
+    '',
+    'not-a-url',
+    'https://auth.example.test/',
+    'https://auth.example.test/path',
+    'https://user:password@auth.example.test',
+    'https://auth.example.test?next=x',
+    'https://auth.example.test#fragment',
+  ])('rejects invalid authentication origins: %s', (authenticationOrigin) => {
     expect(
       () =>
         new ClerkBootstrapInvitationAdapter(
           {
+            authenticationOrigin,
             secretKey: 'sk_test_not-real',
-            redirectUrl: 'https://auth.example.test/bootstrap/accept?next=x',
+            redirectUrl: 'https://auth.example.test/bootstrap/accept',
             requestTimeoutMillis: 15_000,
           },
           dependencies(),
         ),
-    ).toThrow('Invalid BOOTSTRAP_INVITATION_REDIRECT_URL');
+    ).toThrow();
   });
 
   it('allows localhost HTTP only when explicitly enabled for local development', () => {
@@ -159,6 +198,7 @@ describe('ClerkBootstrapInvitationAdapter (DIVE-ONB-REQ-038, 043..045)', () => {
         new ClerkBootstrapInvitationAdapter(
           {
             allowInsecureLocalRedirect: true,
+            authenticationOrigin: 'http://localhost:3000',
             secretKey: 'sk_test_not-real',
             redirectUrl: 'http://localhost:3000/bootstrap/accept',
             requestTimeoutMillis: 15_000,
@@ -171,6 +211,7 @@ describe('ClerkBootstrapInvitationAdapter (DIVE-ONB-REQ-038, 043..045)', () => {
       () =>
         new ClerkBootstrapInvitationAdapter(
           {
+            authenticationOrigin: 'http://localhost:3000',
             secretKey: 'sk_test_not-real',
             redirectUrl: 'http://localhost:3000/bootstrap/accept',
             requestTimeoutMillis: 15_000,

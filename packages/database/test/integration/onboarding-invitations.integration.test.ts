@@ -302,6 +302,49 @@ describe('bootstrap invitation persistence (DIVE-ONB-REQ-001..009, 013, 039..040
     });
   });
 
+  it.each([
+    ['reissue', null],
+    ['reissue', '   '],
+    ['revoke', null],
+    ['revoke', '   '],
+  ] as const)(
+    'rejects %s with reason %s atomically at the SQL boundary (DIVE-ONB-REQ-039)',
+    async (command, reason) => {
+      const principal = await authenticateIdentity(provider, 'platform-token');
+      const issued = await issueBootstrapInvitation(appPool, principal, {
+        destinationEmail: 'owner@example.test',
+        idempotencyKey: 'mutation-reason-issue',
+        correlationId,
+      });
+      if ('deniedReason' in issued)
+        throw new Error('Expected issued invitation');
+      const snapshotSql = `SELECT
+      (SELECT jsonb_agg(to_jsonb(bootstrap_grant) ORDER BY id) FROM onboarding_app.tenant_bootstrap_grants bootstrap_grant) AS grants,
+      (SELECT jsonb_agg(to_jsonb(audit) ORDER BY id) FROM onboarding_app.bootstrap_invitation_audit_records audit) AS audit,
+      (SELECT jsonb_agg(to_jsonb(event) ORDER BY id) FROM onboarding_app.tenant_bootstrap_outbox_events event) AS events,
+      (SELECT jsonb_agg(to_jsonb(receipt) ORDER BY command) FROM onboarding_app.bootstrap_invitation_command_receipts receipt) AS receipts`;
+      const before = await adminPool.query(snapshotSql);
+      await expect(
+        appPool.query(
+          `SELECT onboarding_app.${command}_bootstrap_invitation_command($1, $2, $3::uuid, $4, $5, $6, $7::uuid)`,
+          [
+            principal.issuer,
+            principal.subject,
+            issued.invitationId,
+            reason,
+            'invalid-mutation',
+            'b'.repeat(64),
+            correlationId,
+          ],
+        ),
+      ).rejects.toMatchObject({
+        code: '23514',
+        constraint: 'bootstrap_invitation_audit_mutation_reason_required',
+      });
+      expect((await adminPool.query(snapshotSql)).rows).toEqual(before.rows);
+    },
+  );
+
   it('serializes concurrent administrative idempotency to one issued result (DIVE-ONB-REQ-039..040)', async () => {
     const principal = await authenticateIdentity(provider, 'platform-token');
     const input = {
@@ -807,6 +850,153 @@ describe('bootstrap invitation persistence (DIVE-ONB-REQ-001..009, 013, 039..040
         correlationId,
       }),
     ).toMatchObject({ status: 'revoked' });
+  });
+
+  it.each(['retrying', 'dead_letter'] as const)(
+    'blocks replacement delivery while revocation is %s (DIVE-ONB-REQ-045)',
+    async (deliveryState) => {
+      const principal = await authenticateIdentity(provider, 'platform-token');
+      const previousId = await issueDeliveredGrant('ordered-delivery');
+      const replacement = await reissueBootstrapInvitation(appPool, principal, {
+        invitationId: previousId,
+        reason: 'Replace invitation',
+        idempotencyKey: 'ordered-reissue',
+        correlationId,
+      });
+      if ('deniedReason' in replacement)
+        throw new Error('Expected replacement');
+      const first = await workerPool.connect();
+      const second = await workerPool.connect();
+      try {
+        await first.query('BEGIN');
+        const revocation = await claimBootstrapOutboxEvent(first);
+        expect(revocation).toMatchObject({
+          command: 'revoke',
+          grantId: previousId,
+        });
+        if (!revocation) throw new Error('Expected revocation');
+        await second.query('BEGIN');
+        await expect(claimBootstrapOutboxEvent(second)).resolves.toBeNull();
+        await second.query('COMMIT');
+        await failBootstrapOutboxEvent(first, {
+          eventId: revocation.eventId,
+          retryable: deliveryState === 'retrying',
+          nextAttemptAt: deliveryState === 'retrying' ? 'infinity' : null,
+          providerStatus: 'http_429',
+        });
+        await first.query('COMMIT');
+        await second.query('BEGIN');
+        await expect(claimBootstrapOutboxEvent(second)).resolves.toBeNull();
+        await second.query('COMMIT');
+        const independent = await issueBootstrapInvitation(appPool, principal, {
+          destinationEmail: 'independent@example.test',
+          idempotencyKey: 'independent-delivery',
+          correlationId,
+        });
+        if ('deniedReason' in independent)
+          throw new Error('Expected independent grant');
+        await second.query('BEGIN');
+        const independentClaim = await claimBootstrapOutboxEvent(second);
+        expect(independentClaim).toMatchObject({
+          command: 'create',
+          grantId: independent.invitationId,
+        });
+        await second.query('ROLLBACK');
+      } finally {
+        await first.query('ROLLBACK');
+        await second.query('ROLLBACK');
+        first.release();
+        second.release();
+      }
+    },
+  );
+
+  it('does not bypass an ancestor revocation through another reissue (DIVE-ONB-REQ-045)', async () => {
+    const principal = await authenticateIdentity(provider, 'platform-token');
+    const originalId = await issueDeliveredGrant('ancestor-delivery');
+    const replacement = await reissueBootstrapInvitation(appPool, principal, {
+      invitationId: originalId,
+      reason: 'First replacement',
+      idempotencyKey: 'ancestor-reissue-1',
+      correlationId,
+    });
+    if ('deniedReason' in replacement) throw new Error('Expected replacement');
+    const client = await workerPool.connect();
+    try {
+      await client.query('BEGIN');
+      const originalRevocation = await claimBootstrapOutboxEvent(client);
+      if (!originalRevocation) throw new Error('Expected original revocation');
+      await failBootstrapOutboxEvent(client, {
+        eventId: originalRevocation.eventId,
+        retryable: true,
+        nextAttemptAt: 'infinity',
+        providerStatus: 'retry_after_out_of_range',
+      });
+      await client.query('COMMIT');
+      await reissueBootstrapInvitation(appPool, principal, {
+        invitationId: replacement.invitationId,
+        reason: 'Second replacement',
+        idempotencyKey: 'ancestor-reissue-2',
+        correlationId,
+      });
+      await client.query('BEGIN');
+      const replacementRevocation = await claimBootstrapOutboxEvent(client);
+      expect(replacementRevocation).toMatchObject({
+        command: 'revoke',
+        grantId: replacement.invitationId,
+      });
+      if (!replacementRevocation)
+        throw new Error('Expected replacement revocation');
+      await completeBootstrapOutboxEvent(client, {
+        eventId: replacementRevocation.eventId,
+        providerInvitationRef: null,
+        providerStatus: 'not_found',
+      });
+      await client.query('COMMIT');
+      await client.query('BEGIN');
+      await expect(claimBootstrapOutboxEvent(client)).resolves.toBeNull();
+      await client.query('ROLLBACK');
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+  });
+
+  it('delivers a replacement only after committed revocation (DIVE-ONB-REQ-045)', async () => {
+    const principal = await authenticateIdentity(provider, 'platform-token');
+    const previousId = await issueDeliveredGrant('successful-revocation');
+    const replacement = await reissueBootstrapInvitation(appPool, principal, {
+      invitationId: previousId,
+      reason: 'Replace invitation',
+      idempotencyKey: 'successful-reissue',
+      correlationId,
+    });
+    if ('deniedReason' in replacement) throw new Error('Expected replacement');
+    const client = await workerPool.connect();
+    try {
+      await client.query('BEGIN');
+      const revocation = await claimBootstrapOutboxEvent(client);
+      expect(revocation).toMatchObject({
+        command: 'revoke',
+        grantId: previousId,
+      });
+      if (!revocation) throw new Error('Expected revocation');
+      await completeBootstrapOutboxEvent(client, {
+        eventId: revocation.eventId,
+        providerInvitationRef: 'clerk_successful-revocation',
+        providerStatus: 'revoked',
+      });
+      await client.query('COMMIT');
+      await client.query('BEGIN');
+      await expect(claimBootstrapOutboxEvent(client)).resolves.toMatchObject({
+        command: 'create',
+        grantId: replacement.invitationId,
+      });
+      await client.query('ROLLBACK');
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
   });
 
   it('holds the claim lock across provider work and finalizes exactly one event', async () => {
