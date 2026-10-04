@@ -16,10 +16,12 @@ import { DashboardApiError } from './tenant-context';
 export function EditCatalogActivity({
   detail,
   centerId,
+  canEditActivity,
   onReload,
 }: {
   detail: CatalogActivityDetail;
   centerId: string;
+  canEditActivity: boolean;
   onReload: () => Promise<CatalogActivityDetail | null>;
 }) {
   const [loadedDetail, setLoadedDetail] = useState(detail);
@@ -28,37 +30,72 @@ export function EditCatalogActivity({
   const [reloadError, setReloadError] = useState<Error | null>(null);
   return (
     <>
-      <ActivityEditForms
-        key={reloadVersion}
-        detail={loadedDetail}
-        centerId={centerId}
-        isReloading={isReloading}
-        onReload={async () => {
-          setIsReloading(true);
-          setReloadError(null);
-          try {
-            const result = await onReload();
-            if (!result)
-              throw new Error(
-                'Activity could not be reloaded. Your draft has been preserved.',
-              );
-            setLoadedDetail(result);
-            setReloadVersion((version) => version + 1);
-          } catch (error) {
-            setReloadError(
-              error instanceof Error
-                ? error
-                : new Error('Activity could not be reloaded.'),
-            );
-          } finally {
-            setIsReloading(false);
-          }
-        }}
-      />
+      {canEditActivity ? (
+        <ActivityEditForms
+          key={reloadVersion}
+          detail={loadedDetail}
+          centerId={centerId}
+          isReloading={isReloading}
+          onReload={reload}
+        />
+      ) : (
+        <ReadOnlyActivity detail={loadedDetail} />
+      )}
       {reloadError && (
         <Notice role="alert">{describeCatalogError(reloadError)}</Notice>
       )}
     </>
+  );
+
+  async function reload() {
+    setIsReloading(true);
+    setReloadError(null);
+    try {
+      const result = await onReload();
+      if (!result)
+        throw new Error(
+          'Activity could not be reloaded. Your draft has been preserved.',
+        );
+      setLoadedDetail(result);
+      setReloadVersion((version) => version + 1);
+    } catch (error) {
+      setReloadError(
+        error instanceof Error
+          ? error
+          : new Error('Activity could not be reloaded.'),
+      );
+    } finally {
+      setIsReloading(false);
+    }
+  }
+}
+
+function ReadOnlyActivity({ detail }: { detail: CatalogActivityDetail }) {
+  const { activity } = detail;
+  return (
+    <section
+      className={styles.section}
+      aria-labelledby="activity-details-heading"
+    >
+      <div className={styles.sectionHeading}>
+        <h3 id="activity-details-heading">Activity details</h3>
+        <span>{activity.status}</span>
+      </div>
+      <p>
+        <strong>Name</strong>:{' '}
+        {activity.name.es ?? activity.name.en ?? 'Unnamed activity'}
+      </p>
+      <p>
+        <strong>Description</strong>:{' '}
+        {activity.description?.es ??
+          activity.description?.en ??
+          'No description'}
+      </p>
+      <p>
+        <strong>Default capacity</strong>:{' '}
+        {activity.defaultCapacity ?? 'Not set'}
+      </p>
+    </section>
   );
 }
 

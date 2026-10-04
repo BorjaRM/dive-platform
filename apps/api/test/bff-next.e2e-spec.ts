@@ -874,6 +874,8 @@ describe('real Next BFF / AppModule / PostgreSQL (DIVE-IAM-REQ-030..032)', () =>
       canReadActivities: true,
       canReadSessions: true,
       canCreateActivity: true,
+      canUpdateActivity: true,
+      canPublishActivity: true,
       canScheduleSession: true,
     });
     for (const centerId of [centerA2, centerB1]) {
@@ -904,6 +906,8 @@ describe('real Next BFF / AppModule / PostgreSQL (DIVE-IAM-REQ-030..032)', () =>
       canReadActivities: true,
       canReadSessions: true,
       canCreateActivity: false,
+      canUpdateActivity: false,
+      canPublishActivity: false,
       canScheduleSession: false,
     });
   }, 30_000);

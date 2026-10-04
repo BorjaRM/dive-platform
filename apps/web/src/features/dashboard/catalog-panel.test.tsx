@@ -55,6 +55,8 @@ function createApi() {
       canReadActivities: true,
       canReadSessions: true,
       canCreateActivity: true,
+      canUpdateActivity: true,
+      canPublishActivity: true,
       canScheduleSession: true,
     }),
     getCatalogSettings: vi
@@ -238,6 +240,35 @@ describe('dashboard catalog panel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Back to activities' }));
     await screen.findByText('Buceo nocturno');
     expect(window.location.pathname).toBe('/dashboard/activities');
+  });
+
+  it('shows activity details without mutation controls for a read-only membership', async () => {
+    const api = createApi();
+    api.getDashboardCapabilities.mockResolvedValue({
+      canReadActivities: true,
+      canReadSessions: true,
+      canCreateActivity: false,
+      canUpdateActivity: false,
+      canPublishActivity: false,
+      canScheduleSession: false,
+    });
+    renderSlotCatalog(api);
+
+    await screen.findByText('Activity details');
+    expect(screen.queryByRole('form')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Save translation' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Save common facts' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Close' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Cancel' }),
+    ).not.toBeInTheDocument();
+    expect(api.updateActivity).not.toHaveBeenCalled();
   });
 
   it('waits for current values and revision when reopening a saved activity', async () => {

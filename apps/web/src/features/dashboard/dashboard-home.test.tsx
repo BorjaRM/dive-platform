@@ -15,6 +15,8 @@ const capabilities = {
   canReadActivities: true,
   canReadSessions: true,
   canCreateActivity: true,
+  canUpdateActivity: true,
+  canPublishActivity: true,
   canScheduleSession: true,
 };
 

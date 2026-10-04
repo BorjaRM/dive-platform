@@ -14,6 +14,8 @@ describe('dashboard catalog API boundary', () => {
       canReadActivities: true,
       canReadSessions: true,
       canCreateActivity: false,
+      canUpdateActivity: true,
+      canPublishActivity: false,
       canScheduleSession: true,
     };
     const fetchMock = vi
@@ -43,6 +45,8 @@ describe('dashboard catalog API boundary', () => {
       canReadActivities: true,
       canReadSessions: true,
       canCreateActivity: 'true',
+      canUpdateActivity: true,
+      canPublishActivity: false,
       canScheduleSession: true,
     },
   ])(

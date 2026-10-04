@@ -43,6 +43,8 @@ function createApi() {
       canReadActivities: true,
       canReadSessions: true,
       canCreateActivity: true,
+      canUpdateActivity: true,
+      canPublishActivity: true,
       canScheduleSession: true,
     }),
     listActivities: vi.fn().mockResolvedValue({
@@ -426,6 +428,8 @@ describe('main dashboard calendar (DIVE-BOOK-REQ-043 fixed-time phase)', () => {
       canReadActivities: true,
       canReadSessions: true,
       canCreateActivity: false,
+      canUpdateActivity: false,
+      canPublishActivity: false,
       canScheduleSession: false,
     });
     const { container } = renderCalendar(api);

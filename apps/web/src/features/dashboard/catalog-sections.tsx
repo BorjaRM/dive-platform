@@ -35,6 +35,7 @@ export function ActivitiesSection({
   page,
   isUpdating,
   isBusy,
+  canPublishActivity,
   onStatusChange,
   onPageChange,
   onSelect,
@@ -43,6 +44,7 @@ export function ActivitiesSection({
   query: CatalogListState<CatalogActivity>;
   selectedActivityId: string | null;
   status: ActivityStatusFilter;
+  canPublishActivity: boolean;
   onStatusChange: (status: string) => void;
   onSelect: (activityId: string) => void;
   onCommand: (activityId: string, command: 'publish' | 'disable') => void;
@@ -96,6 +98,7 @@ export function ActivitiesSection({
             activity={activity}
             isSelected={activity.id === selectedActivityId}
             isBusy={isBusy}
+            canPublishActivity={canPublishActivity}
             onSelect={() => onSelect(activity.id)}
             onCommand={(command) => onCommand(activity.id, command)}
           />
@@ -118,6 +121,7 @@ export function ActivitySlotsSection({
   page,
   isUpdating,
   isBusy,
+  canManageSlots,
   onStatusChange,
   onPageChange,
   onCommand,
@@ -127,6 +131,7 @@ export function ActivitySlotsSection({
   timeZone: string | null;
   query: CatalogListState<CatalogSlot>;
   status: SlotStatusFilter;
+  canManageSlots: boolean;
   onStatusChange: (status: string) => void;
   onCommand: (slotId: string, command: 'close' | 'cancel') => void;
   children: ReactNode;
@@ -193,6 +198,7 @@ export function ActivitySlotsSection({
             slot={slot}
             timeZone={timeZone}
             isBusy={isBusy}
+            canManageSlots={canManageSlots}
             onCommand={(command) => onCommand(slot.id, command)}
           />
         ))}
@@ -211,12 +217,14 @@ function ActivityRow({
   activity,
   isSelected,
   isBusy,
+  canPublishActivity,
   onSelect,
   onCommand,
 }: {
   activity: CatalogActivity;
   isSelected: boolean;
   isBusy: boolean;
+  canPublishActivity: boolean;
   onSelect: () => void;
   onCommand: (command: 'publish' | 'disable') => void;
 }) {
@@ -240,7 +248,7 @@ function ActivityRow({
         <StatusBadge status={activity.status} />
       </button>
       <div className={styles.rowActions}>
-        {activity.status === 'Draft' && (
+        {canPublishActivity && activity.status === 'Draft' && (
           <Button
             type="button"
             disabled={isBusy}
@@ -249,7 +257,7 @@ function ActivityRow({
             Publish
           </Button>
         )}
-        {activity.status === 'Published' && (
+        {canPublishActivity && activity.status === 'Published' && (
           <Button
             type="button"
             disabled={isBusy}
@@ -267,11 +275,13 @@ function SlotRow({
   slot,
   timeZone,
   isBusy,
+  canManageSlots,
   onCommand,
 }: {
   slot: CatalogSlot;
   timeZone: string | null;
   isBusy: boolean;
+  canManageSlots: boolean;
   onCommand: (command: 'close' | 'cancel') => void;
 }) {
   return (
@@ -290,26 +300,28 @@ function SlotRow({
         </span>
         <StatusBadge status={slot.status} />
       </div>
-      <div className={styles.rowActions}>
-        {['Available', 'Full'].includes(slot.status) && (
-          <Button
-            type="button"
-            disabled={isBusy}
-            onClick={() => onCommand('close')}
-          >
-            Close
-          </Button>
-        )}
-        {['Available', 'Full', 'Closed'].includes(slot.status) && (
-          <Button
-            type="button"
-            disabled={isBusy}
-            onClick={() => onCommand('cancel')}
-          >
-            Cancel
-          </Button>
-        )}
-      </div>
+      {canManageSlots && (
+        <div className={styles.rowActions}>
+          {['Available', 'Full'].includes(slot.status) && (
+            <Button
+              type="button"
+              disabled={isBusy}
+              onClick={() => onCommand('close')}
+            >
+              Close
+            </Button>
+          )}
+          {['Available', 'Full', 'Closed'].includes(slot.status) && (
+            <Button
+              type="button"
+              disabled={isBusy}
+              onClick={() => onCommand('cancel')}
+            >
+              Cancel
+            </Button>
+          )}
+        </div>
+      )}
     </li>
   );
 }

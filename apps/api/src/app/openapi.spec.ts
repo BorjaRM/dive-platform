@@ -106,12 +106,16 @@ describe('OpenAPI document generation', () => {
         canReadActivities: { type: 'boolean' },
         canReadSessions: { type: 'boolean' },
         canCreateActivity: { type: 'boolean' },
+        canUpdateActivity: { type: 'boolean' },
+        canPublishActivity: { type: 'boolean' },
         canScheduleSession: { type: 'boolean' },
       },
       required: [
         'canReadActivities',
         'canReadSessions',
         'canCreateActivity',
+        'canUpdateActivity',
+        'canPublishActivity',
         'canScheduleSession',
       ],
     });

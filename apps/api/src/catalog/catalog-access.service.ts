@@ -66,6 +66,8 @@ export class CatalogAccessService {
         canReadActivities: canPerform('booking_service.read'),
         canReadSessions: canPerform('availability.read'),
         canCreateActivity: canPerform('booking_service.create'),
+        canUpdateActivity: canPerform('booking_service.update'),
+        canPublishActivity: canPerform('booking_service.publish'),
         canScheduleSession: canPerform('availability.manage'),
       };
     });

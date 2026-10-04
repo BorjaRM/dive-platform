@@ -62,12 +62,12 @@ describe('CatalogAccessService', () => {
   });
 
   it.each([
-    ['tenant_owner', true, true],
-    ['auditor_compliance', false, false],
-    ['reception_booking_manager', false, true],
+    ['tenant_owner', true, true, true, true],
+    ['auditor_compliance', false, false, false, false],
+    ['reception_booking_manager', false, false, false, true],
   ])(
     'projects capabilities from current %s membership, not stale context (DIVE-IAM-REQ-030..032)',
-    async (role, canCreateActivity, canScheduleSession) => {
+    async (role, canCreateActivity, canUpdateActivity, canPublishActivity, canScheduleSession) => {
       const current = {
         ...initialContext,
         roles: Object.freeze([role]),
@@ -102,6 +102,8 @@ describe('CatalogAccessService', () => {
         canReadActivities: true,
         canReadSessions: true,
         canCreateActivity,
+        canUpdateActivity,
+        canPublishActivity,
         canScheduleSession,
       });
       expect(databaseMocks.withIamAuthorizedTenant).toHaveBeenCalledTimes(1);

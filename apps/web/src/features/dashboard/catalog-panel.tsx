@@ -112,6 +112,22 @@ function CatalogCenterPanel({
   const timeZone =
     authorizedCenters.find((center) => center.id === centerId)?.timeZone ??
     null;
+  const capabilitiesQuery = useQuery({
+    queryKey: [
+      ...CATALOG_QUERY_KEYS.root,
+      'capabilities',
+      tenantContext,
+      centerId,
+    ],
+    queryFn: ({ signal }) =>
+      api.getDashboardCapabilities(tenantContext as string, centerId, signal),
+    enabled: isReady && Boolean(tenantContext && centerId),
+    retry: false,
+  });
+  const capabilities =
+    capabilitiesQuery.isSuccess && !capabilitiesQuery.isFetching
+      ? capabilitiesQuery.data
+      : undefined;
 
   const settingsQuery = useQuery({
     queryKey: [...CATALOG_QUERY_KEYS.settings, tenantContext, centerId],
@@ -358,7 +374,7 @@ function CatalogCenterPanel({
                   Calendar
                 </Button>
               )}
-              {view.kind === 'list' && (
+              {view.kind === 'list' && capabilities?.canCreateActivity && (
                 <Button
                   onClick={() =>
                     navigate('/dashboard/activities/new', {
@@ -417,6 +433,7 @@ function CatalogCenterPanel({
                 page={activityPage}
                 isUpdating={activityMutationPending}
                 isBusy={catalogMutation.isPending}
+                canPublishActivity={capabilities?.canPublishActivity === true}
                 onStatusChange={(status) =>
                   updateSearchParams({
                     [CATALOG_SEARCH_PARAMS.activityStatus]: status,
@@ -482,6 +499,7 @@ function CatalogCenterPanel({
                     key={activityId}
                     detail={activityQuery.data}
                     centerId={centerId}
+                    canEditActivity={capabilities?.canUpdateActivity === true}
                     onReload={async () => {
                       const result = await activityQuery.refetch();
                       if (result.error) throw result.error;
@@ -501,6 +519,7 @@ function CatalogCenterPanel({
                 page={effectiveSlotPage}
                 isUpdating={slotMutationPending}
                 isBusy={catalogMutation.isPending}
+                canManageSlots={capabilities?.canScheduleSession === true}
                 onStatusChange={(status) =>
                   updateSearchParams({
                     [CATALOG_SEARCH_PARAMS.slotStatus]: status,
@@ -519,23 +538,25 @@ function CatalogCenterPanel({
                   )
                 }
               >
-                <CreateSlotForm
-                  key={selectedActivity.id}
-                  timeZone={timeZone}
-                  disabled={catalogMutation.isPending}
-                  onInvalid={() => setSuccessNotice(null)}
-                  onCreate={(input, onSuccess) => {
-                    runMutation(
-                      {
-                        type: 'create-slot',
-                        activityId: selectedActivity.id,
-                        input,
-                      },
-                      'Slot created.',
-                      onSuccess,
-                    );
-                  }}
-                />
+                {capabilities?.canScheduleSession && (
+                  <CreateSlotForm
+                    key={selectedActivity.id}
+                    timeZone={timeZone}
+                    disabled={catalogMutation.isPending}
+                    onInvalid={() => setSuccessNotice(null)}
+                    onCreate={(input, onSuccess) => {
+                      runMutation(
+                        {
+                          type: 'create-slot',
+                          activityId: selectedActivity.id,
+                          input,
+                        },
+                        'Slot created.',
+                        onSuccess,
+                      );
+                    }}
+                  />
+                )}
               </ActivitySlotsSection>
             )}
           </>

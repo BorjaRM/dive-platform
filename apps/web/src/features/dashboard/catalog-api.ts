@@ -15,6 +15,8 @@ export type DashboardCapabilities = {
   canReadActivities: boolean;
   canReadSessions: boolean;
   canCreateActivity: boolean;
+  canUpdateActivity: boolean;
+  canPublishActivity: boolean;
   canScheduleSession: boolean;
 };
 
@@ -155,6 +157,8 @@ export function createCatalogApi({ request }: { request: DashboardRequest }) {
         typeof capabilities.canReadActivities !== 'boolean' ||
         typeof capabilities.canReadSessions !== 'boolean' ||
         typeof capabilities.canCreateActivity !== 'boolean' ||
+        typeof capabilities.canUpdateActivity !== 'boolean' ||
+        typeof capabilities.canPublishActivity !== 'boolean' ||
         typeof capabilities.canScheduleSession !== 'boolean'
       ) {
         throw new Error('Dashboard permissions are unavailable.');

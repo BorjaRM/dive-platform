@@ -11,6 +11,12 @@ export class DashboardCapabilitiesDto {
   canCreateActivity: boolean;
 
   @ApiProperty()
+  canUpdateActivity: boolean;
+
+  @ApiProperty()
+  canPublishActivity: boolean;
+
+  @ApiProperty()
   canScheduleSession: boolean;
 }
 

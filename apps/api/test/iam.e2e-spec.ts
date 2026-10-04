@@ -379,12 +379,12 @@ describe('IAM/API vertical (e2e)', () => {
   });
 
   it.each([
-    ['owner-a-token', true, true],
-    ['manager-a-token', true, true],
-    ['auditor-a-token', false, false],
+    ['owner-a-token', true, true, true, true],
+    ['manager-a-token', true, true, true, true],
+    ['auditor-a-token', false, false, false, false],
   ])(
     'returns current dashboard capabilities for %s (DIVE-IAM-REQ-030..032)',
-    async (token, canCreateActivity, canScheduleSession) => {
+    async (token, canCreateActivity, canUpdateActivity, canPublishActivity, canScheduleSession) => {
       const response = await bffRequest()
         .get(`/v1/centers/${centerA1}/dashboard-capabilities`)
         .set('authorization', `Bearer ${token}`)
@@ -395,6 +395,8 @@ describe('IAM/API vertical (e2e)', () => {
         canReadActivities: true,
         canReadSessions: true,
         canCreateActivity,
+        canUpdateActivity,
+        canPublishActivity,
         canScheduleSession,
       });
     },
@@ -411,6 +413,8 @@ describe('IAM/API vertical (e2e)', () => {
       canReadActivities: true,
       canReadSessions: true,
       canCreateActivity: true,
+      canUpdateActivity: true,
+      canPublishActivity: true,
       canScheduleSession: true,
     });
     await admin.query(
@@ -421,6 +425,8 @@ describe('IAM/API vertical (e2e)', () => {
       canReadActivities: true,
       canReadSessions: true,
       canCreateActivity: false,
+      canUpdateActivity: false,
+      canPublishActivity: false,
       canScheduleSession: true,
     });
     await admin.query(
