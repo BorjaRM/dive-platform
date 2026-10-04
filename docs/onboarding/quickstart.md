@@ -42,6 +42,7 @@ and [the invitation processor](../../apps/worker/src/bootstrap-invitation-worker
 | `pnpm db:reset:local` | Confirms and recreates only the configured local `dive_spike` database, prepares roles and applies migrations. Deletes all data in that database. |
 | `pnpm db:bootstrap` | Prepares restricted database roles and permissions using admin credentials. Does not reset or migrate the schema. |
 | `pnpm db:migrate` | Applies versioned product migrations using migration credentials. Does not drop the database. |
+| `pnpm db:seed:local` | Loads reproducible local tenants, centers and database-side test identities. Requires the local `dive_spike` database and does not create Clerk accounts. |
 | `pnpm db:generate` | Generates migration files from the schema; does not apply them. Review generated SQL before applying it. |
 | `pnpm build` | Builds workspace applications and packages through Turbo. Does not start servers. |
 | `pnpm swagger` | Builds and opens the isolated loopback OpenAPI viewer; it does not start the business API or enable Try it out. See [API documentation](../../apps/api/README.md#local-documentation-viewer). |
@@ -49,6 +50,48 @@ and [the invitation processor](../../apps/worker/src/bootstrap-invitation-worker
 | `pnpm check:fix` | Applies Biome fixes. Does not fix typecheck or test failures. |
 | `pnpm test` | Runs workspace unit tests through Turbo. Does not replace integration tests or the standalone reset-script tests below. |
 | `pnpm test:integration` | Runs database integration and API e2e, including deterministic Next.js/API/PostgreSQL BFF integration, against the configured harness. Use a disposable test database; this is not a browser/real-Clerk run. |
+
+The seed creates four synthetic database identities by default. To link them to
+users that already exist in Clerk, set the issuer and the four Clerk subjects
+before running the same command:
+
+```bash
+SEED_IDENTITY_ISSUER=https://clerk.example \
+SEED_OWNER_SUBJECT=user_... \
+SEED_OPERATIONS_LEAD_SUBJECT=user_... \
+SEED_CENTER_MANAGER_SUBJECT=user_... \
+SEED_ATLAS_ADMIN_SUBJECT=user_... \
+pnpm db:seed:local
+```
+
+The seed does not create or invite Clerk users. The subjects must come from the
+corresponding Clerk accounts, and the issuer must match the configured identity
+provider. Re-running the command updates a subject for the same identity and
+issuer without duplicating the local data.
+
+Keep Clerk subjects, tokens and credentials in local environment files; do not
+commit real provider identifiers or secrets to the repository. The placeholder
+subjects above are examples only.
+
+**Documented -- Local seed access:** the following memberships are created by
+the seed. `SEED_OWNER_SUBJECT` has access to both tenants; the other identities
+are scoped to one tenant:
+
+| Clerk subject variable | Blue Current Diving | Ocean Atlas Expeditions |
+| --- | --- | --- |
+| `SEED_OWNER_SUBJECT` | `tenant_owner`; Puerto Azul and Bahia Luna | `tenant_owner`; Arrecife Sur |
+| `SEED_OPERATIONS_LEAD_SUBJECT` | `operations_lead`; Puerto Azul and Bahia Luna | No access |
+| `SEED_CENTER_MANAGER_SUBJECT` | `center_manager`; Puerto Azul only | No access |
+| `SEED_ATLAS_ADMIN_SUBJECT` | No access | `tenant_admin`; Arrecife Sur |
+
+For the owner and tenant admin memberships, the seed leaves the center scope
+unrestricted within their tenant. `No access` means the seed creates no
+membership or tenant link for that identity.
+
+`operations_lead` is fail-closed by center scope: `center_ids` must contain one
+or more centers. `null` or an empty list grants no center operations; to cover
+all current centers, list every center explicitly. Adding a new center requires
+updating that membership's center list.
 
 Only `db:reset:local` enforces the local URL restrictions described below.
 The standalone `db:bootstrap` and `db:migrate` commands load `.env.example`
@@ -81,6 +124,38 @@ on source changes, not on new database events. It is not a continuous queue
 poller. Use `email:send` for an explicit delivery run. An exit without error is
 not proof that an email reached an inbox; delivery may be disabled or the queue
 may be empty.
+
+**Documented -- Worker redirect configuration:** for
+[DIVE-ONB-REQ-038](../../specs/onboarding/SPEC-DIVE-ONBOARDING-001.md), the
+worker compares `BOOTSTRAP_INVITATION_REDIRECT_URL` with
+`AUTHENTICATION_ORIGIN` plus `/bootstrap/accept`. Configure the same canonical
+authentication origin used by the web app in Render; the blueprint provides no
+default. Missing or mismatched configuration stops provider dispatch.
+
+**Documented -- Bootstrap security migrations:**
+[0013](../../packages/database/drizzle/0013_bootstrap_delivery_security.sql)
+adds the normalized destination email to old invitation receipts and validates
+existing mutation audit reasons without rewriting audit records. Historical
+empty or missing mutation reasons abort the migration; investigate the records
+rather than inventing reasons or bypassing the constraint.
+[0014](../../packages/database/drizzle/0014_bootstrap_revocation_chain.sql)
+keeps replacement creation blocked until predecessor revocations succeed,
+including across chained reissues. Pending, paused or terminal revocations leave
+replacement delivery blocked for operational review. These checks implement
+[DIVE-ONB-REQ-039..040 and DIVE-ONB-REQ-045](../../specs/onboarding/SPEC-DIVE-ONBOARDING-ADMIN-001.md).
+Apply migrations before deploying the updated API/web/worker. Rollback disables
+delivery in the worker and writes in the API; retain migrations and audit data
+rather than restoring the old claim function.
+
+## Web ingress and TLS
+
+For a deployed web process, verify that the public ingress terminates TLS and
+overwrites `Host` with the public hostname and `X-Forwarded-Proto` with exactly
+one external protocol value. The web process must not be directly reachable
+from the public network. The proxy uses these values to distinguish the public
+landing host, the authentication host and each center host; invalid forwarded
+protocol values fail closed. Local proxy tests do not verify the deployed
+ingress, header sanitization or TLS behavior.
 
 ## Rebuild the local development database
 
