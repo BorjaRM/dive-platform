@@ -66,7 +66,9 @@ export async function issueIamInvitation(
   }>,
 ): Promise<InvitationCommandResult> {
   const credential = randomBytes(32).toString('base64url');
-  const targetAddressCanonical = canonicalInvitationAddress(input.targetAddress);
+  const targetAddressCanonical = canonicalInvitationAddress(
+    input.targetAddress,
+  );
   const invitationAttemptId = randomUUID();
   const result = await pool.query<{ outcome: InvitationCommandResult }>(
     `SELECT iam_app.issue_invitation_command(
@@ -111,7 +113,9 @@ export async function issueIamMembershipInvitation(
   }>,
 ): Promise<InvitationCommandResult> {
   const credential = randomBytes(32).toString('base64url');
-  const targetAddressCanonical = canonicalInvitationAddress(input.targetAddress);
+  const targetAddressCanonical = canonicalInvitationAddress(
+    input.targetAddress,
+  );
   const invitationAttemptId = randomUUID();
   const result = await pool.query<{ outcome: InvitationCommandResult }>(
     `SELECT iam_app.issue_membership_invitation_command(

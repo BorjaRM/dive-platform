@@ -152,6 +152,20 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
     await adminPool.end();
   });
 
+  it('indexes only active invitation deliveries in claim order', async () => {
+    const indexes = await adminPool.query<{ indexdef: string }>(
+      `SELECT indexdef FROM pg_indexes
+       WHERE schemaname='iam_app' AND tablename='outbox_events'
+         AND indexname='outbox_invitation_claim_idx'`,
+    );
+    expect(indexes.rows).toEqual([
+      {
+        indexdef:
+          "CREATE INDEX outbox_invitation_claim_idx ON iam_app.outbox_events USING btree (created_at, id) WHERE ((event_type = ANY (ARRAY['iam.invitation.issued.v1'::text, 'iam.invitation.revoked.v1'::text])) AND (delivery_status = ANY (ARRAY['pending'::text, 'retrying'::text])))",
+      },
+    ]);
+  });
+
   it('protects owner membership changes and allows owners to cancel mistaken pending owner invitations (DIVE-IAM-REQ-018, DIVE-IAM-REQ-025)', async () => {
     await expect(
       issueIamInvitation(appPool, adminPrincipal, {

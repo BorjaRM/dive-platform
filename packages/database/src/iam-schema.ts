@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   check,
   foreignKey,
+  index,
   integer,
   jsonb,
   pgSchema,
@@ -212,9 +213,7 @@ export const iamInvitations = iamApp.table(
     providerKind: text('provider_kind'),
     providerInvitationId: text('provider_invitation_id'),
     status: text('status').notNull(),
-    deliveryStatus: text('delivery_status')
-      .notNull()
-      .default(sql`'pending'`),
+    deliveryStatus: text('delivery_status').notNull().default(sql`'pending'`),
     deliveryAttemptCount: integer('delivery_attempt_count')
       .notNull()
       .default(sql`0`),
@@ -342,9 +341,7 @@ export const iamOutboxEvents = iamApp.table(
     payload: jsonb('payload').notNull(),
     correlationId: uuid('correlation_id').notNull(),
     idempotencyKey: text('idempotency_key').notNull(),
-    deliveryStatus: text('delivery_status')
-      .notNull()
-      .default(sql`'pending'`),
+    deliveryStatus: text('delivery_status').notNull().default(sql`'pending'`),
     deliveryAttemptCount: integer('delivery_attempt_count')
       .notNull()
       .default(sql`0`),
@@ -359,6 +356,11 @@ export const iamOutboxEvents = iamApp.table(
   (table) => [
     primaryKey({ columns: [table.tenantId, table.id] }),
     unique().on(table.tenantId, table.idempotencyKey),
+    index('outbox_invitation_claim_idx')
+      .on(table.createdAt, table.id)
+      .where(
+        sql`${table.eventType} IN ('iam.invitation.issued.v1', 'iam.invitation.revoked.v1') AND ${table.deliveryStatus} IN ('pending', 'retrying')`,
+      ),
     check(
       'outbox_delivery_status_known',
       sql`delivery_status IN ('pending', 'retrying', 'succeeded', 'dead_letter')`,

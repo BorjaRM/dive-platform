@@ -116,7 +116,10 @@ describe('invitation worker command output', () => {
   it('keeps ordinary worker logs free of tenant, correlation and invitation secrets', async () => {
     vi.stubEnv('BOOTSTRAP_INVITATION_DELIVERY_ENABLED', 'false');
     vi.stubEnv('ORDINARY_INVITATION_DELIVERY_ENABLED', 'true');
-    vi.stubEnv('ORDINARY_INVITATION_REDIRECT_URL', 'http://localhost:3000/invite');
+    vi.stubEnv(
+      'ORDINARY_INVITATION_REDIRECT_URL',
+      'http://localhost:3000/invite',
+    );
     mocks.processNextOrdinary
       .mockResolvedValueOnce('succeeded')
       .mockResolvedValueOnce('idle');

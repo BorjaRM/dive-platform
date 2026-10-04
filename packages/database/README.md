@@ -107,6 +107,30 @@ startup.
 
 ## Outbox boundary
 
+### Ordinary invitation claim index
+
+**Documented:** the [Drizzle schema](src/iam-schema.ts) and
+[pre-release baseline](drizzle/0000_baseline.sql) define
+`outbox_invitation_claim_idx` on `(created_at, id)`, restricted to
+`iam.invitation.issued.v1` / `iam.invitation.revoked.v1` events in
+`pending` / `retrying` delivery states. Its keys match the ordinary invitation
+claim order and terminal events are excluded from the index.
+
+The index does not start with `tenant_id` because candidate discovery spans
+tenants inside the restricted delivery function. Tenant context, forced RLS
+and the tenant-qualified row lock remain unchanged. The claim returns at most
+one event but can examine multiple candidates when rows are locked or retries
+are not yet due; this index does not cap that work or index the retry due time.
+
+The [invitation integration suite](test/integration/iam-invitations.integration.test.ts)
+checks the migrated index definition and the existing cross-tenant delivery
+boundary. Performance has not been measured; planner choice and the benefit
+with many future retries still need representative
+`EXPLAIN (ANALYZE, BUFFERS)` measurements. This baseline change applies to newly
+created disposable databases, not as an upgrade to an already-applied baseline.
+
+### Database-effect prototype
+
 `processOutboxOnce` accepts an `applyDatabaseEffect` callback whose only supplied capability is the transaction-bound Drizzle handle. The effect and consumer receipt therefore commit or roll back together.
 
 External delivery is intentionally not implemented by this prototype. Email, webhook, file, or provider calls must not be added to `applyDatabaseEffect`: they cannot be committed atomically with PostgreSQL. The first real worker integration must define and test an at-least-once contract, destination idempotency key, retry/backoff, exhaustion/dead-letter behavior, and non-disclosing logs before performing external effects.

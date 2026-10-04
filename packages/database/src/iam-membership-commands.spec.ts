@@ -3,9 +3,9 @@ import { canonicalInvitationAddress } from './iam-membership-commands.js';
 
 describe('canonicalInvitationAddress (DIVE-IAM-REQ-017)', () => {
   it('normalizes Unicode whitespace, compatibility characters, local case and IDNA domains', () => {
-    expect(
-      canonicalInvitationAddress('\u2003Ｆoo@Bücher.Example\u00a0'),
-    ).toBe('foo@xn--bcher-kva.example');
+    expect(canonicalInvitationAddress('\u2003Ｆoo@Bücher.Example\u00a0')).toBe(
+      'foo@xn--bcher-kva.example',
+    );
   });
 
   it('does not apply provider-specific local-part aliases', () => {

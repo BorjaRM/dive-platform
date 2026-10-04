@@ -3962,6 +3962,13 @@ CREATE UNIQUE INDEX invitations_pending_target_address_canonical_idx ON iam_app.
 
 
 --
+-- Name: outbox_invitation_claim_idx; Type: INDEX; Schema: iam_app; Owner: -
+--
+
+CREATE INDEX outbox_invitation_claim_idx ON iam_app.outbox_events USING btree (created_at, id) WHERE (event_type IN ('iam.invitation.issued.v1', 'iam.invitation.revoked.v1') AND delivery_status IN ('pending', 'retrying'));
+
+
+--
 -- Name: tenant_contexts_identity_session_active_idx; Type: INDEX; Schema: iam_app; Owner: -
 --
 

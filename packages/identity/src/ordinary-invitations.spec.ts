@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   ClerkOrdinaryInvitationAdapter,
-  OrdinaryInvitationProviderError,
   type ClerkOrdinaryInvitationDependencies,
+  OrdinaryInvitationProviderError,
 } from './ordinary-invitations.js';
 
 function dependencies(): ClerkOrdinaryInvitationDependencies {
