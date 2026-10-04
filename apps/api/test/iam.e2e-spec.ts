@@ -1403,6 +1403,89 @@ describe('IAM/API vertical (e2e)', () => {
     ]);
   });
 
+  it('revalidates worker role and center scope across operator, context and center reads (DIVE-IAM-REQ-030..031, MT-REQ-010)', async () => {
+    await admin.query(
+      `UPDATE iam_app.memberships
+       SET roles=ARRAY['reception_booking_manager']
+       WHERE id=$1`,
+      [membershipManagerA],
+    );
+
+    const operators = await request(app.getHttpServer())
+      .get('/v1/me/operators')
+      .set('authorization', 'Bearer manager-a-token')
+      .expect(200);
+    const worker = operators.body.operators.find(
+      (operator: { displayName: string; operatorRef: string }) =>
+        operator.displayName === 'A',
+    );
+    expect(worker?.operatorRef).toMatch(/^op_[A-Za-z0-9_-]+$/);
+
+    const assignedContext = await request(app.getHttpServer())
+      .post('/v1/me/tenant-contexts')
+      .set('authorization', 'Bearer manager-a-token')
+      .send({ operatorRef: worker.operatorRef })
+      .expect(201);
+    const assignedHandle = assignedContext.body.tenantContext;
+    await bffRequest()
+      .get('/v1/centers')
+      .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', assignedHandle)
+      .expect(200)
+      .expect([{ id: centerA1, name: 'A1', timeZone: 'Europe/Madrid' }]);
+
+    await admin.query(
+      `UPDATE iam_app.memberships
+       SET center_ids=ARRAY[]::uuid[]
+       WHERE id=$1`,
+      [membershipManagerA],
+    );
+
+    const noCenterContext = await request(app.getHttpServer())
+      .post('/v1/me/tenant-contexts')
+      .set('authorization', 'Bearer manager-a-token')
+      .send({ operatorRef: worker.operatorRef })
+      .expect(201);
+    const noCenterHandle = noCenterContext.body.tenantContext;
+    await bffRequest()
+      .get('/v1/centers')
+      .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', noCenterHandle)
+      .expect(200)
+      .expect([]);
+    await bffRequest()
+      .get(`/v1/centers/${centerA1}`)
+      .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', noCenterHandle)
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .get('/v1/me/operators')
+      .set('authorization', 'Bearer pending-a-token')
+      .expect(200)
+      .expect({ operators: [] });
+    await request(app.getHttpServer())
+      .post('/v1/me/tenant-contexts')
+      .set('authorization', 'Bearer pending-a-token')
+      .send({})
+      .expect(403);
+
+    await admin.query(
+      `UPDATE iam_app.memberships SET status='disabled' WHERE id=$1`,
+      [membershipManagerA],
+    );
+    await request(app.getHttpServer())
+      .get('/v1/me/operators')
+      .set('authorization', 'Bearer manager-a-token')
+      .expect(200)
+      .expect({ operators: [] });
+    await bffRequest()
+      .get('/v1/centers')
+      .set('authorization', 'Bearer manager-a-token')
+      .set('x-tenant-context', assignedHandle)
+      .expect(403);
+  });
+
   it('returns configured and missing center zones without defaults (DIVE-IAM-REQ-003, DIVE-IAM-REQ-032)', async () => {
     const handle = await contextFor('manager-a-token');
     for (const timeZone of ['Atlantic/Canary', null]) {

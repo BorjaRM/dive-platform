@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.110
+- **Version:** 0.112
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -32,7 +32,7 @@
 | ADR-DIVE-015 | `specs/architecture/adrs/ADR-DIVE-015.md` | Accepted | 0.3 |
 | ADR-DIVE-016 | `specs/architecture/adrs/ADR-DIVE-016.md` | Draft | 0.1 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Draft | 1.7 |
-| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.27 |
+| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.29 |
 | SPEC-DIVE-MARKETING-001 | `specs/marketing/SPEC-DIVE-MARKETING-001.md` | Ready to start | 0.1 |
 | SPEC-DIVE-ONBOARDING-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md` | Ready to start | 0.20 |
 | SPEC-DIVE-TRIAL-001 | `specs/commercial/SPEC-DIVE-TRIAL-001.md` | Draft | 0.1 |
@@ -42,7 +42,7 @@
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-004 | `specs/spikes/SPIKE-DIVE-004/` | Draft / executed 2026-09-29 (Documented: spike results and dated provider evidence) | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.110 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.112 |
 | ADR-DIVE-017 | `specs/architecture/adrs/ADR-DIVE-017.md` | Ready to start | 0.4 |
 | SPEC-DIVE-BOOKING-CAPABILITIES-001 | `specs/booking/SPEC-DIVE-BOOKING-CAPABILITIES-001.md` | Draft | 0.4 |
 | SPEC-DIVE-BOOKING-CATALOG-001 | `specs/booking/SPEC-DIVE-BOOKING-CATALOG-001.md` | Draft | 0.15 |
@@ -226,7 +226,7 @@ The Proposed reconciliation for original-emission credential replay (`DIVE-BOOK-
 | Slice | IDs | Proof |
 |---|---|---|
 | Identity resolution, independent memberships, issuer + subject, and requested-tenant enforcement | `DIVE-IAM-REQ-001`, `002`, `005`, `006` | `packages/database/test/integration/iam-api.integration.test.ts`, `apps/api/test/iam.e2e-spec.ts` |
-| Explicit Phase 1 role grants, permission-granting-role scope, inactive membership denial, and disabled external-collaborator fail-closed behavior | `DIVE-IAM-REQ-003`, `010..014`, `023` | `apps/api/src/iam/iam.roles.spec.ts`, `apps/api/test/iam.e2e-spec.ts` |
+| Explicit Phase 1 role grants, explicit Operations Lead center scope with missing-scope denial, inactive membership denial, and disabled external-collaborator fail-closed behavior | `DIVE-IAM-REQ-003`, `010..014`, `023` | `packages/identity/src/index.ts`, `apps/api/src/iam/iam.roles.spec.ts`, `apps/api/test/iam.e2e-spec.ts` |
 | Provider-neutral identity assertion; invitation and pending-membership lifecycle; no-bearer retries; deliberate reissue; concurrent acceptance/reissue; non-disclosing scope denial; transactional audit/outbox | `DIVE-IAM-REQ-005`, `017`, `024`, `025` | `apps/api/src/iam/iam.identity.spec.ts`, `packages/database/test/integration/iam-invitations.integration.test.ts` |
 | Command-only membership mutation, last-owner protection, and atomic disable audit/outbox | `DIVE-IAM-REQ-018`, `025` | `apps/api/test/iam.e2e-spec.ts`, `packages/database/test/integration/iam-api.integration.test.ts`, `packages/database/test/integration/migrations.integration.test.ts` |
 | Non-disclosing errors for the exposed center, membership-disable, and invitation persistence paths | `DIVE-IAM-REQ-024` | `apps/api/test/iam.e2e-spec.ts`, `packages/database/test/integration/iam-invitations.integration.test.ts` |

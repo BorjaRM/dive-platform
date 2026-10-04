@@ -3,7 +3,11 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardContextProvider } from './dashboard-context';
 import { DashboardHome } from './dashboard-home';
-import { type DashboardApi, DashboardApiError } from './tenant-context';
+import {
+  type Center,
+  type DashboardApi,
+  DashboardApiError,
+} from './tenant-context';
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/dashboard',
@@ -53,6 +57,7 @@ function createApi() {
 function renderHome(
   api: ReturnType<typeof createApi>,
   options: {
+    authorizedCenters?: Center[];
     timeZone?: string | null;
     handleSessionExpired?: () => void;
     ready?: boolean;
@@ -69,7 +74,7 @@ function renderHome(
           apiBaseUrl: '/api/dashboard',
           session: { getToken: vi.fn() },
           tenantContext: 'ctx-private',
-          authorizedCenters: [
+          authorizedCenters: options.authorizedCenters ?? [
             {
               id: 'center-a',
               name: 'Center A',
@@ -167,6 +172,22 @@ describe('center home (DIVE-IAM-REQ-030..032, DIVE-BOOK-REQ-049)', () => {
       canScheduleSession: false,
     });
     await screen.findByRole('link', { name: 'Buceo' });
+    expect(
+      screen.queryByRole('link', { name: 'Create activity' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Schedule session' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows a neutral state and skips center data requests when no centers are authorized (DIVE-IAM-REQ-030..031)', () => {
+    const api = createApi();
+    renderHome(api, { authorizedCenters: [] });
+
+    expect(screen.getByText('No center is available')).toBeInTheDocument();
+    expect(api.getDashboardCapabilities).not.toHaveBeenCalled();
+    expect(api.listActivities).not.toHaveBeenCalled();
+    expect(api.listSlots).not.toHaveBeenCalled();
     expect(
       screen.queryByRole('link', { name: 'Create activity' }),
     ).not.toBeInTheDocument();

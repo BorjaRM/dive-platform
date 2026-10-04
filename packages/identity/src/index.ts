@@ -353,7 +353,6 @@ const permissionsByRole: Readonly<
 const tenantWideRoles: ReadonlySet<string> = new Set([
   IAM_ROLES.tenantOwner,
   IAM_ROLES.tenantAdmin,
-  IAM_ROLES.operationsLead,
   IAM_ROLES.auditorCompliance,
 ]);
 

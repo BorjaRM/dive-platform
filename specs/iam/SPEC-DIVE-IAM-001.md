@@ -1,10 +1,10 @@
 # SPEC-DIVE-IAM-001 — Roles, permissions, and scopes
 
 - **Status:** Ready to start
-- **Version:** 0.27
-- **Last reviewed:** 2026-10-01
+- **Version:** 0.29
+- **Last reviewed:** 2026-10-04
 - **Approved by:** Product owner
-- **Approval reference:** PR #1, provenance migration PR, PR #13 (`ADR-DIVE-008` Ready to start), product confirmation 2026-09-27 for `ADR-DIVE-008` v0.7 implementation closures, product confirmation 2026-09-27 for center-application bootstrap (`ADR-DIVE-008` v0.9), product confirmation 2026-09-27 for reserved keys, generated CORS, authentication host, environment namespace, and no-`Origin` bootstrap (`ADR-DIVE-008` v0.10), product confirmation 2026-09-29 for `center.read` on center-entry issuance (`ADR-DIVE-008` v0.11), product confirmation 2026-09-29 applying the center-entry lifecycle recommendation (`ADR-DIVE-008` v0.12), PR #32 Draft authority-boundary clarification, Product, Security, and Architecture approval on 2026-09-27 for the `booking.reject` permission, and PR #36 Draft self-bootstrap authority-boundary clarification
+- **Approval reference:** PR #1, provenance migration PR, PR #13 (`ADR-DIVE-008` Ready to start), product confirmation 2026-09-27 for `ADR-DIVE-008` v0.7 implementation closures, product confirmation 2026-09-27 for center-application bootstrap (`ADR-DIVE-008` v0.9), product confirmation 2026-09-27 for reserved keys, generated CORS, authentication host, environment namespace, and no-`Origin` bootstrap (`ADR-DIVE-008` v0.10), product confirmation 2026-09-29 for `center.read` on center-entry issuance (`ADR-DIVE-008` v0.11), product confirmation 2026-09-29 applying the center-entry lifecycle recommendation (`ADR-DIVE-008` v0.12), PR #32 Draft authority-boundary clarification, Product, Security, and Architecture approval on 2026-09-27 for the `booking.reject` permission, PR #36 Draft self-bootstrap authority-boundary clarification, and product-owner authorization on 2026-10-04 for the Operations Lead membership center-scope and fail-closed refinements
 - **Owner:** Product / Security
 - **IDs:** Only the requirements declared below; moved IDs retain their identifiers in the ownership map.
 
@@ -61,7 +61,13 @@
 
 - **DIVE-IAM-REQ-011:** Center Manager and Reception / Booking Manager can act only in assigned centers.
 
-- **DIVE-IAM-REQ-012:** Operations Lead may operate across centers of the same tenant and still cannot cross tenants.
+**Documented -- Operations Lead fail-closed scope refinement, 2026-10-04:** the
+product owner authorized explicit membership center scope for Operations Lead;
+null or empty `center_ids` denies center operations, while covering all current
+centers requires listing them explicitly. Same-tenant and cross-tenant
+boundaries remain unchanged.
+
+- **DIVE-IAM-REQ-012:** Operations Lead may operate across the centers listed in its membership within the same tenant. A non-empty `center_ids` list restricts access to those assigned centers; null or empty `center_ids` denies center operations. Operations Lead still cannot cross tenants.
 
 - **DIVE-IAM-REQ-013:** Auditor/Compliance is read-only.
 
@@ -159,13 +165,13 @@ Tenant-wide:
 |---|---|
 | Tenant Owner | Full tenant administration, including billing later; cannot be locked out of the last owner |
 | Tenant Admin | Day-to-day administration except ownership transfer |
-| Operations Lead | Cross-center booking operations |
 | Auditor/Compliance | Read-only operational and audit access |
 
-Center-scoped:
+Membership-scoped:
 
 | Role | Intent |
 |---|---|
+| Operations Lead | Cross-center booking operations within explicitly assigned `center_ids`; all current centers must be listed explicitly |
 | Center Manager | Manage one or more assigned centers |
 | Reception / Booking Manager | Create/manage bookings and calendar in assigned centers |
 | External collaborator | Modeled, **disabled in first pilot** |

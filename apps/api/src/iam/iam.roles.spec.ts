@@ -201,7 +201,6 @@ describe('IAM role permissions (DIVE-IAM-REQ-003, DIVE-IAM-REQ-010..014, DIVE-IA
   it.each([
     IAM_ROLES.tenantOwner,
     IAM_ROLES.tenantAdmin,
-    IAM_ROLES.operationsLead,
     IAM_ROLES.auditorCompliance,
   ])(
     'authorizes tenant-wide scope for %s without center assignments',
@@ -210,7 +209,7 @@ describe('IAM role permissions (DIVE-IAM-REQ-003, DIVE-IAM-REQ-010..014, DIVE-IA
         authorizeIamMembership({
           membershipStatus: 'active',
           roles: [role],
-          centerIds: [],
+          centerIds: null,
           permission: 'center.read',
           requestedCenterId: 'any-center-in-the-tenant',
           tenantMatches: true,
@@ -220,6 +219,53 @@ describe('IAM role permissions (DIVE-IAM-REQ-003, DIVE-IAM-REQ-010..014, DIVE-IA
       ).toEqual({ allowed: true });
     },
   );
+
+  it('requires explicit center_ids to scope an operations lead', () => {
+    const membership = {
+      membershipStatus: 'active',
+      roles: [IAM_ROLES.operationsLead],
+      permission: 'center.read',
+      tenantMatches: true,
+      resourceExists: true,
+      resourceStateAllows: true,
+    } as const;
+
+    expect(
+      authorizeIamMembership({
+        ...membership,
+        centerIds: null,
+        requestedCenterId: 'any-center-in-the-tenant',
+      }),
+    ).toEqual({ allowed: false, reason: 'scope_mismatch' });
+    expect(
+      authorizeIamMembership({
+        ...membership,
+        centerIds: [],
+        requestedCenterId: 'any-center-in-the-tenant',
+      }),
+    ).toEqual({ allowed: false, reason: 'scope_mismatch' });
+    expect(
+      authorizeIamMembership({
+        ...membership,
+        centerIds: ['center-a'],
+        requestedCenterId: 'center-a',
+      }),
+    ).toEqual({ allowed: true });
+    expect(
+      authorizeIamMembership({
+        ...membership,
+        centerIds: ['center-a'],
+        requestedCenterId: 'center-b',
+      }),
+    ).toEqual({ allowed: false, reason: 'scope_mismatch' });
+    expect(
+      authorizeIamMembership({
+        ...membership,
+        centerIds: ['center-a', 'center-b'],
+        requestedCenterId: 'center-b',
+      }),
+    ).toEqual({ allowed: true });
+  });
 
   it('denies an unknown permission', () => {
     expect(

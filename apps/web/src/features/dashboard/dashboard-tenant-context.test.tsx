@@ -310,6 +310,59 @@ describe('authenticated dashboard tenant-context flow', () => {
     fetchMock.mockRestore();
   });
 
+  it('shows a neutral no-center state for an active worker with no readable centers (DIVE-IAM-REQ-030..031)', async () => {
+    const rawStorage = memoryStorage();
+    const storage = createTenantContextStorage(rawStorage);
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input, init) => {
+        const url = String(input);
+        const method = init?.method ?? 'GET';
+        if (url.endsWith('/v1/me/operators')) {
+          return jsonResponse({
+            operators: [
+              { operatorRef: 'op_worker', displayName: 'Center Worker' },
+            ],
+          });
+        }
+        if (url.endsWith('/v1/me/tenant-contexts') && method === 'POST') {
+          return jsonResponse({ tenantContext: 'ctx_worker' });
+        }
+        if (url.endsWith('/v1/centers')) return jsonResponse([]);
+        throw new Error(`Unexpected request: ${method} ${url}`);
+      });
+
+    renderDashboard(
+      { configured: true, getToken: async () => 'worker-session' },
+      storage,
+    );
+
+    expect(await screen.findByText('No centers available')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Your active operator has no readable centers in this context.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Change workspace' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument();
+    expect(
+      screen.queryByText('No active operator memberships'),
+    ).not.toBeInTheDocument();
+    expect(rawStorage.getItem('dive.dashboard.tenant-context')).toBe(
+      'ctx_worker',
+    );
+
+    const centersCall = fetchMock.mock.calls.find(([input]) =>
+      String(input).endsWith('/v1/centers'),
+    );
+    expect(centersCall).toBeDefined();
+    expect(new Headers(centersCall?.[1]?.headers).get('X-Tenant-Context')).toBe(
+      'ctx_worker',
+    );
+  });
+
   it('does not leave the initial session probe pending past its deadline', async () => {
     const session: SessionTokenSource = {
       configured: true,
