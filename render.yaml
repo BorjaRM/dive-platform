@@ -30,6 +30,6 @@ services:
       - key: BOOTSTRAP_INVITATION_REDIRECT_URL
         sync: false
       - key: BOOTSTRAP_INVITATION_WRITES_ENABLED
-        value: "false"
+        value: "true"
       - key: BOOTSTRAP_INVITATION_DELIVERY_ENABLED
-        value: "false"
+        value: "true"

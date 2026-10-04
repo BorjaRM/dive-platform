@@ -85,6 +85,13 @@
       "when": 1790816400002,
       "tag": "0011_booking_read_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791107458349,
+      "tag": "0012_small_kabuki",
+      "breakpoints": true
     }
   ]
 }

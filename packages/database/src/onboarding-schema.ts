@@ -111,7 +111,7 @@ export const onboardingBootstrapGrants = onboardingApp.table(
     issuedByPrincipalId: uuid('issued_by_principal_id')
       .notNull()
       .references(() => onboardingPlatformPrincipals.id),
-    issueReason: text('issue_reason').notNull(),
+    issueReason: text('issue_reason'),
     requestFingerprint: text('request_fingerprint').notNull(),
     providerInvitationRef: text('provider_invitation_ref'),
     providerStatus: text('provider_status'),
@@ -228,6 +228,13 @@ export const onboardingAuditRecords = onboardingApp.table(
     check(
       'bootstrap_invitation_audit_result_known',
       sql`result IN ('success', 'denied', 'failed')`,
+    ),
+    check(
+      'bootstrap_invitation_audit_mutation_reason_required',
+      sql`action NOT IN (
+        'tenant_bootstrap_invitation.reissued',
+        'tenant_bootstrap_invitation.revoked'
+      ) OR (reason IS NOT NULL AND btrim(reason) <> '')`,
     ),
   ],
 );

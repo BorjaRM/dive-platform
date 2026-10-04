@@ -26,7 +26,12 @@ vi.mock('@clerk/nextjs', () => ({
 }));
 
 const invitationId = 'aaaaaaaa-0001-4001-8001-000000000001';
-const safeState = { invitationId, status: 'issued', deliveryStatus: 'pending' };
+const safeState = {
+  invitationId,
+  destinationEmail: 'owner@example.test',
+  status: 'issued',
+  deliveryStatus: 'pending',
+};
 const props = {
   clerkConfigured: true,
   returnUrl: 'https://auth.example.test/platform/invitations',
@@ -96,6 +101,7 @@ describe('DIVE-ONB-REQ-005,039,040 platform invitation console', () => {
     fill();
     submit();
     await screen.findByText('Pending processing');
+    expect(screen.getByText('owner@example.test')).toBeInTheDocument();
     const [url, init] = upstream.mock.calls[0] ?? [];
     expect(url).toBe('/api/platform/invitations');
     expect(JSON.parse(String(init?.body))).toEqual({
@@ -113,6 +119,22 @@ describe('DIVE-ONB-REQ-005,039,040 platform invitation console', () => {
     });
     expect(screen.queryByText('private-ticket')).not.toBeInTheDocument();
     expect(upstream).toHaveBeenCalledOnce();
+  });
+
+  it('issues without a reason and omits the optional field', async () => {
+    const upstream = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(Response.json(safeState, { status: 201 }));
+    render(<PlatformInvitations {...props} />);
+    fireEvent.change(screen.getByLabelText('Destination email'), {
+      target: { value: ' OWNER@Example.Test ' },
+    });
+    expect(screen.getByLabelText('Reason')).not.toBeRequired();
+    submit();
+    await screen.findByText('Pending processing');
+    expect(JSON.parse(String(upstream.mock.calls[0]?.[1]?.body))).toEqual({
+      destinationEmail: 'owner@example.test',
+    });
   });
 
   it('blocks duplicate submissions while token acquisition is pending', async () => {
@@ -236,6 +258,77 @@ describe('DIVE-ONB-REQ-005,039,040 platform invitation console', () => {
       `/api/platform/invitations/${invitationId}`,
     );
     expect(upstream.mock.calls[0]?.[1]?.method).toBe('GET');
+  });
+
+  it('reissues an issued invitation with a reason and idempotency key', async () => {
+    const replacementId = 'bbbbbbbb-0001-4001-8001-000000000001';
+    const upstream = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(Response.json(safeState))
+      .mockResolvedValueOnce(
+        Response.json({
+          invitationId: replacementId,
+          destinationEmail: 'owner@example.test',
+          status: 'issued',
+          deliveryStatus: 'pending',
+        }),
+      );
+    render(<PlatformInvitations {...props} />);
+    fireEvent.change(screen.getByLabelText('Invitation ID'), {
+      target: { value: invitationId },
+    });
+    fireEvent.submit(screen.getByRole('form', { name: 'Read invitation' }));
+    await screen.findByText('Pending processing');
+    fireEvent.change(screen.getByLabelText('Change reason'), {
+      target: { value: 'Replace expired email' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Reissue invitation' }));
+    await screen.findByText(replacementId);
+    const [url, init] = upstream.mock.calls[1] ?? [];
+    expect(url).toBe(`/api/platform/invitations/${invitationId}/reissue`);
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(String(init?.body))).toEqual({
+      reason: 'Replace expired email',
+    });
+    expect(new Headers(init?.headers).get('idempotency-key')).toBeTruthy();
+  });
+
+  it('retries a revoke with the same request after an uncertain outcome', async () => {
+    const upstream = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(Response.json(safeState))
+      .mockRejectedValueOnce(new TypeError('private network detail'))
+      .mockResolvedValueOnce(
+        Response.json({
+          invitationId,
+          destinationEmail: 'owner@example.test',
+          status: 'revoked',
+          deliveryStatus: 'pending',
+        }),
+      );
+    render(<PlatformInvitations {...props} />);
+    fireEvent.change(screen.getByLabelText('Invitation ID'), {
+      target: { value: invitationId },
+    });
+    fireEvent.submit(screen.getByRole('form', { name: 'Read invitation' }));
+    await screen.findByText('Pending processing');
+    fireEvent.change(screen.getByLabelText('Change reason'), {
+      target: { value: 'Cancel duplicate invitation' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke invitation' }));
+    await screen.findByRole('alert');
+    expect(
+      screen.getByRole('button', { name: 'Reissue invitation' }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry revoke' }));
+    await screen.findByText('Revoked');
+    expect(upstream).toHaveBeenCalledTimes(3);
+    const first = upstream.mock.calls[1]?.[1];
+    const retry = upstream.mock.calls[2]?.[1];
+    expect(retry?.body).toBe(first?.body);
+    expect(new Headers(retry?.headers).get('idempotency-key')).toBe(
+      new Headers(first?.headers).get('idempotency-key'),
+    );
   });
 
   it('rejects a malformed ID without making a request', async () => {

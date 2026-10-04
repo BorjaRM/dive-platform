@@ -15,6 +15,7 @@ export type BootstrapInvitationDenied = Readonly<{
 
 export type BootstrapInvitationState = Readonly<{
   invitationId: string;
+  destinationEmail: string;
   status: 'consumed' | 'expired' | 'issued' | 'revoked' | 'superseded';
   deliveryStatus: 'dead_letter' | 'pending' | 'retrying' | 'succeeded';
   issuedAt?: string;
@@ -55,7 +56,7 @@ export type TenantBootstrapCompletionResult =
   | TenantBootstrapCompletion
   | TenantBootstrapCompletionDenied;
 
-function fingerprint(value: Readonly<Record<string, string>>): string {
+function fingerprint(value: Readonly<Record<string, string | null>>): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
@@ -155,14 +156,14 @@ export async function issueBootstrapInvitation(
   principal: AuthenticatedPrincipal,
   input: Readonly<{
     destinationEmail: string;
-    reason: string;
+    reason?: string;
     idempotencyKey: string;
     correlationId: string;
   }>,
 ): Promise<BootstrapInvitationResult> {
   assertAuthenticatedPrincipal(principal);
   const destinationEmail = input.destinationEmail.trim().toLowerCase();
-  const reason = input.reason.trim();
+  const reason = input.reason?.trim() || null;
   const result = await pool.query<{ outcome: BootstrapInvitationResult }>(
     `SELECT onboarding_app.issue_bootstrap_invitation_command(
       $1, $2, $3, $4, $5, $6, $7::uuid

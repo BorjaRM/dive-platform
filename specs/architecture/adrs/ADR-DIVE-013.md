@@ -1,7 +1,7 @@
 # ADR-DIVE-013 — Controlled self bootstrap and simple first-center setup
 
 - **Status:** Ready to start
-- **Version:** 0.14
+- **Version:** 0.16
 - **Date:** 2026-09-29
 - **Deciders:** Product / Security / Frontend Architecture
 - **Affected IDs:** `DIVE-ONB-REQ-001..050`; `DIVE-IAM-REQ-001..006`, `017`, `020`, `024`, `025`, `029..032`
@@ -35,11 +35,11 @@ The MVP decision is intentionally narrower than an assisted-provisioning model: 
 ### Pre-tenant authority
 
 - The Clerk application uses invite-only access mode. `/sign-in/[[...sign-in]]` exposes ordinary login only: no public operator signup, bootstrap-invitation discovery, manual code entry, or operator creation. `/dashboard` remains protected, redirects signed-out users to that sign-in route, and never renders `<SignUp />` or bootstrap data entry.
-- Platform identities use the PostgreSQL-authoritative `bootstrap_invitation.read|issue|reissue|revoke` capabilities, independent of tenant memberships and read-only support. Mutations require a reason and audit. **Proposed and approved 2026-09-29:** MFA is out of scope for issue #72; future step-up remains governed by `ADR-DIVE-006`.
+- Platform identities use the PostgreSQL-authoritative `bootstrap_invitation.read|issue|reissue|revoke` capabilities, independent of tenant memberships and read-only support. Initial issue may omit a reason; reissue and revoke require a reason and all three commands are audited. **Proposed and approved 2026-09-29:** MFA is out of scope for issue #72; future step-up remains governed by `ADR-DIVE-006`. **Proposed and approved 2026-09-30:** the initial issue reason is optional, while reissue and revoke reasons remain mandatory.
 - Platform principals are normalized by `issuer + subject`; restricted operational tooling exclusively assigns and revokes their explicit capabilities. Tenant roles, support grants, and authentication alone never create platform capabilities.
 - The administration boundary permits ten operations per normalized platform principal per minute, counting denied attempts. A secondary IP control may add protection but cannot authorize. Excess returns non-disclosing `429` with `Retry-After`.
 - The internal application commands are the ordinary production administration path. A dedicated graphical administration UI is not required initially; controlled platform tooling may invoke the same authenticated API. Clerk Dashboard is limited to diagnostics, development testing, and bounded emergency provider action and never creates PostgreSQL bootstrap authority.
-- The API accepts only the approved destination, reason, and idempotency context. Provider expiry, notification, exact redirect, `ignoreExisting` policy, and metadata are server-owned. Callers cannot select tenant, center, role, permission, provider ticket, redirect, expiry, or Clerk metadata. The Clerk credential is confined to the post-commit worker adapter.
+- The API accepts only the approved destination, optional issue reason, required mutation reason, and idempotency context. Provider expiry, notification, exact redirect, `ignoreExisting` policy, and metadata are server-owned. Callers cannot select tenant, center, role, permission, provider ticket, redirect, expiry, or Clerk metadata. The Clerk credential is confined to the post-commit worker adapter.
 - Destination email is trimmed and lowercased without provider-specific dot or plus rewriting. Administrative idempotency is scoped by normalized actor, command, and key; exact normalized replay returns the original result, while changed destination, reason, or target returns `409 idempotency_conflict`. Issue, reissue, and revoke have separate namespaces.
 - Platform staff do not create the tenant or center, designate an Owner, confirm customer data, or receive a tenant membership through this flow.
 - Clerk Application Invitations own identity enrollment, provider ticket, email delivery, seven-day expiry, revocation, and redirect to the exact authentication-host acceptance route. PostgreSQL owns a separate bootstrap grant and remains the sole authority for tenant, center, Owner, and completion. The application issues no second bearer and uses no Clerk Organization or Clerk metadata as business authority.
@@ -115,7 +115,9 @@ The confirmed name contract normalizes names to Unicode NFC, trims outer whitesp
 
 The simple bootstrap form remains subject to normal product accessibility requirements. Provisioning uses its approved rollout control and is limited to explicitly invited identities; platform staff are limited to invitation management. Guidance-specific accessibility and rollout decisions remain Deferred with `DIVE-ONB-REQ-027..034`.
 
-`BOOTSTRAP_INVITATION_WRITES_ENABLED` and `BOOTSTRAP_INVITATION_DELIVERY_ENABLED` are separate, disabled-by-default controls. Disabled writes leave safe reads available and make mutations return `503 feature_unavailable`. Disabled delivery allows authoritative grant/outbox persistence but prevents worker claims. Delivery cannot be enabled while writes are disabled or required worker/provider configuration is absent.
+`BOOTSTRAP_INVITATION_WRITES_ENABLED` and `BOOTSTRAP_INVITATION_DELIVERY_ENABLED` are separate controls whose default is disabled when no environment-specific override is supplied. Disabled writes leave safe reads available and make mutations return `503 feature_unavailable`. Disabled delivery allows authoritative grant/outbox persistence but prevents worker claims. Delivery cannot be enabled while writes are disabled or required worker/provider configuration is absent.
+
+**Documented:** the current Render blueprint explicitly sets both controls to `true` for the controlled worker rollout in `render.yaml`. This deployment override does not change the disabled default or authorize delivery without the required provider configuration and deployment verification.
 
 ## Consequences
 

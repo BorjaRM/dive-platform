@@ -81,7 +81,8 @@ Use `false` in the same commands to withdraw a capability. Do not expose the
 administrative connection to Next.js, the API runtime, or the browser. No
 capabilities are assigned by visiting the page or from tenant roles.
 
-Emission requires email and reason. The console preserves the payload and
+Initial emission requires an email and accepts an optional reason; reissue and
+revoke require a non-empty reason. The console preserves the payload and
 idempotency key for manual retries while the same session component remains
 mounted; an uncertain result does not start a fresh operation. This state is
 not persisted across reloads, navigation or sign-out, so those actions can lose
@@ -90,12 +91,15 @@ invitation. Lookup uses an invitation ID and manual refresh, without polling.
 Delivery processing is separate from invitation state and does not confirm inbox
 receipt. Tickets, invitation links and raw provider errors are not displayed.
 
-MFA, listing, bulk sends, reissue and revoke UI are outside this increment.
+MFA, listing and bulk sends are outside this increment; reissue and revoke are
+available in the console.
 `BOOTSTRAP_INVITATION_WRITES_ENABLED` and `BOOTSTRAP_INVITATION_DELIVERY_ENABLED`
-remain API/worker controls; the page never enables them. Real Clerk continuity,
-ingress and provider delivery require sandbox/deployment verification before
-activation. The console tests and the real Next/API/PostgreSQL harness use
-synthetic identities and do not establish those deployment checks.
+remain API/worker controls; the page never enables them. The current Render
+blueprint sets both controls to `true` for the controlled worker rollout. Real
+Clerk continuity, ingress and provider delivery still require sandbox/deployment
+verification; an enabled deployment flag is configuration, not evidence that
+those checks passed. The console tests and the real Next/API/PostgreSQL harness
+use synthetic identities and do not establish those deployment checks.
 
 Set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` to the publishable key for the Clerk
 instance used by the web app. Keep the secret key and webhook signing secret

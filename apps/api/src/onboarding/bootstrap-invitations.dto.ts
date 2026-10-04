@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export type BootstrapInvitationIssueInput = Readonly<{
   destinationEmail: string;
-  reason: string;
+  reason?: string;
 }>;
 
 export type BootstrapInvitationMutationInput = Readonly<{
@@ -13,8 +13,8 @@ export class BootstrapInvitationIssueInputDto {
   @ApiProperty({ format: 'email' })
   destinationEmail!: string;
 
-  @ApiProperty()
-  reason!: string;
+  @ApiProperty({ required: false })
+  reason?: string;
 }
 
 export class BootstrapInvitationMutationInputDto {
@@ -25,6 +25,9 @@ export class BootstrapInvitationMutationInputDto {
 export class BootstrapInvitationStateDto {
   @ApiProperty({ format: 'uuid' })
   invitationId!: string;
+
+  @ApiProperty({ format: 'email' })
+  destinationEmail!: string;
 
   @ApiProperty({
     enum: ['issued', 'consumed', 'revoked', 'expired', 'superseded'],

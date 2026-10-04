@@ -175,6 +175,7 @@ describe('bootstrap invitation persistence (DIVE-ONB-REQ-001..009, 013, 039..040
     } as const;
     const issued = await issueBootstrapInvitation(appPool, principal, input);
     expect(issued).toMatchObject({
+      destinationEmail: 'owner@example.test',
       status: 'issued',
       deliveryStatus: 'pending',
     });
@@ -212,6 +213,92 @@ describe('bootstrap invitation persistence (DIVE-ONB-REQ-001..009, 013, 039..040
       audit_count: 1,
       destination_email: 'owner@example.test',
       outbox_count: 1,
+    });
+  });
+
+  it('stores an absent initial reason as NULL and distinguishes it from a provided reason', async () => {
+    const principal = await authenticateIdentity(provider, 'platform-token');
+    const input = {
+      destinationEmail: 'owner@example.test',
+      idempotencyKey: 'issue-without-reason',
+      correlationId,
+    } as const;
+    const issued = await issueBootstrapInvitation(appPool, principal, input);
+    expect(issued).toMatchObject({ status: 'issued' });
+    expect(await issueBootstrapInvitation(appPool, principal, input)).toEqual(
+      issued,
+    );
+    expect(
+      await issueBootstrapInvitation(appPool, principal, {
+        ...input,
+        reason: 'Provided later',
+      }),
+    ).toEqual({ deniedReason: 'idempotency_conflict' });
+
+    if ('deniedReason' in issued) throw new Error('Expected issued invitation');
+    const persisted = await adminPool.query<{
+      audit_reason: string | null;
+      issue_reason: string | null;
+    }>(
+      `SELECT bootstrap_grant.issue_reason,
+              (SELECT audit.reason
+               FROM onboarding_app.bootstrap_invitation_audit_records audit
+               WHERE audit.grant_id = bootstrap_grant.id
+                 AND audit.action = 'tenant_bootstrap_invitation.issued') AS audit_reason
+       FROM onboarding_app.tenant_bootstrap_grants bootstrap_grant
+       WHERE bootstrap_grant.id = $1`,
+      [issued.invitationId],
+    );
+    expect(persisted.rows[0]).toEqual({
+      audit_reason: null,
+      issue_reason: null,
+    });
+  });
+
+  it('normalizes a blank initial reason at the SQL command boundary', async () => {
+    const principal = await authenticateIdentity(provider, 'platform-token');
+    const raw = await appPool.query<{
+      outcome: {
+        destinationEmail: string;
+        invitationId: string;
+        status: string;
+      };
+    }>(
+      `SELECT onboarding_app.issue_bootstrap_invitation_command(
+        $1, $2, $3, $4, $5, $6, $7::uuid
+      ) AS outcome`,
+      [
+        principal.issuer,
+        principal.subject,
+        ' RAW@Example.Test ',
+        '   ',
+        'issue-blank-reason-sql',
+        'a'.repeat(64),
+        correlationId,
+      ],
+    );
+    const outcome = raw.rows[0]?.outcome;
+    expect(outcome).toMatchObject({
+      destinationEmail: 'raw@example.test',
+      status: 'issued',
+    });
+
+    const persisted = await adminPool.query<{
+      audit_reason: string | null;
+      issue_reason: string | null;
+    }>(
+      `SELECT bootstrap_grant.issue_reason,
+              (SELECT audit.reason
+               FROM onboarding_app.bootstrap_invitation_audit_records audit
+               WHERE audit.grant_id = bootstrap_grant.id
+                 AND audit.action = 'tenant_bootstrap_invitation.issued') AS audit_reason
+       FROM onboarding_app.tenant_bootstrap_grants bootstrap_grant
+       WHERE bootstrap_grant.id = $1`,
+      [outcome?.invitationId],
+    );
+    expect(persisted.rows[0]).toEqual({
+      audit_reason: null,
+      issue_reason: null,
     });
   });
 

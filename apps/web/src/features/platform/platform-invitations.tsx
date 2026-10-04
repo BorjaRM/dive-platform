@@ -51,12 +51,19 @@ function AuthenticatedInvitations({ returnUrl, requestTimeoutMillis }: Props) {
   );
 }
 
-type InvitationInput = Readonly<{ destinationEmail: string; reason: string }>;
-type Attempt = Readonly<{
-  input: InvitationInput;
+type InvitationAttempt = Readonly<{
+  action: 'issue' | 'reissue' | 'revoke';
+  invitationId?: string;
+  input: Readonly<{ destinationEmail?: string; reason?: string }>;
   key: string;
   outcome: 'unknown' | 'rejected' | 'completed';
 }>;
+type InvitationOperation =
+  | 'issuing'
+  | 'reading'
+  | 'reissuing'
+  | 'revoking'
+  | null;
 
 class InvitationRequestError extends Error {
   constructor(
@@ -67,7 +74,7 @@ class InvitationRequestError extends Error {
   }
 }
 
-function errorMessage(error: unknown, issuing: boolean): string {
+function errorMessage(error: unknown, mutating: boolean): string {
   if (error instanceof InvitationRequestError) {
     switch (error.status) {
       case 401:
@@ -93,14 +100,44 @@ function errorMessage(error: unknown, issuing: boolean): string {
         return 'Too many operations. Try again later.';
       }
       case 503:
-        return issuing
+        return mutating
           ? 'Invitation administration is unavailable. The outcome may be unknown.'
           : 'Invitation administration is unavailable.';
     }
   }
-  return issuing
+  return mutating
     ? 'The invitation outcome is unknown. Retry the same invitation to recover its result.'
     : 'The invitation state could not be loaded.';
+}
+
+function issueButtonLabel(
+  operation: InvitationOperation,
+  attempt: InvitationAttempt | null,
+): string {
+  if (operation === 'issuing') return 'Sending invitation...';
+  if (attempt) return 'Retry invitation';
+  return 'Send invitation';
+}
+
+function mutationButtonLabel(
+  action: 'reissue' | 'revoke',
+  operation: InvitationOperation,
+  attempt: InvitationAttempt | null,
+): string {
+  if (action === 'reissue' && operation === 'reissuing') return 'Reissuing...';
+  if (action === 'revoke' && operation === 'revoking') return 'Revoking...';
+  if (attempt?.action === action && attempt.outcome !== 'completed')
+    return action === 'reissue' ? 'Retry reissue' : 'Retry revoke';
+  return action === 'reissue' ? 'Reissue invitation' : 'Revoke invitation';
+}
+
+function mutationButtonDisabled(
+  action: 'reissue' | 'revoke',
+  operation: InvitationOperation,
+  attempt: InvitationAttempt | null,
+): boolean {
+  if (operation) return true;
+  return attempt?.outcome === 'unknown' && attempt.action !== action;
 }
 
 function InvitationConsole({
@@ -114,11 +151,12 @@ function InvitationConsole({
 }>) {
   const [destinationEmail, setDestinationEmail] = useState('');
   const [reason, setReason] = useState('');
+  const [mutationReason, setMutationReason] = useState('');
   const [invitationId, setInvitationId] = useState('');
-  const [attempt, setAttempt] = useState<Attempt | null>(null);
-  const [operation, setOperation] = useState<'issuing' | 'reading' | null>(
-    null,
-  );
+  const [attempt, setAttempt] = useState<InvitationAttempt | null>(null);
+  const [mutationAttempt, setMutationAttempt] =
+    useState<InvitationAttempt | null>(null);
+  const [operation, setOperation] = useState<InvitationOperation>(null);
   const [result, setResult] = useState<BootstrapInvitationState | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -133,7 +171,10 @@ function InvitationConsole({
     [],
   );
 
-  async function request(currentAttempt: Attempt | null, requestedId?: string) {
+  async function request(
+    currentAttempt: InvitationAttempt | null,
+    requestedId?: string,
+  ) {
     if (activeRequest.current) return;
     const controller = new AbortController();
     activeRequest.current = controller;
@@ -147,7 +188,10 @@ function InvitationConsole({
     });
     const bounded = <Value,>(pending: Promise<Value>) =>
       Promise.race([pending, aborted]);
-    setOperation(currentAttempt ? 'issuing' : 'reading');
+    if (!currentAttempt) setOperation('reading');
+    else if (currentAttempt.action === 'issue') setOperation('issuing');
+    else if (currentAttempt.action === 'reissue') setOperation('reissuing');
+    else setOperation('revoking');
     setMessage(null);
     try {
       const token = await bounded(getToken());
@@ -158,23 +202,23 @@ function InvitationConsole({
         headers.set('Content-Type', 'application/json');
         headers.set('Idempotency-Key', currentAttempt.key);
       }
+      let path = `/api/platform/invitations/${requestedId}`;
+      if (currentAttempt?.action === 'issue')
+        path = '/api/platform/invitations';
+      else if (currentAttempt)
+        path = `/api/platform/invitations/${currentAttempt.invitationId}/${currentAttempt.action}`;
       const response = await bounded(
-        fetch(
-          currentAttempt
-            ? '/api/platform/invitations'
-            : `/api/platform/invitations/${requestedId}`,
-          {
-            method: currentAttempt ? 'POST' : 'GET',
-            headers,
-            ...(currentAttempt
-              ? { body: JSON.stringify(currentAttempt.input) }
-              : {}),
-            signal: controller.signal,
-            cache: 'no-store',
-            credentials: 'omit',
-            redirect: 'error',
-          },
-        ),
+        fetch(path, {
+          method: currentAttempt ? 'POST' : 'GET',
+          headers,
+          ...(currentAttempt
+            ? { body: JSON.stringify(currentAttempt.input) }
+            : {}),
+          signal: controller.signal,
+          cache: 'no-store',
+          credentials: 'omit',
+          redirect: 'error',
+        }),
       );
       controller.signal.throwIfAborted();
       if (!response.ok)
@@ -194,8 +238,10 @@ function InvitationConsole({
         throw new Error('Invalid invitation state');
       setResult(state);
       setInvitationId(state.invitationId);
-      if (currentAttempt)
+      if (currentAttempt?.action === 'issue')
         setAttempt({ ...currentAttempt, outcome: 'completed' });
+      if (currentAttempt?.action !== 'issue' && currentAttempt)
+        setMutationAttempt({ ...currentAttempt, outcome: 'completed' });
     } catch (error) {
       if (activeRequest.current !== controller) return;
       if (
@@ -205,7 +251,9 @@ function InvitationConsole({
         error.status < 500 &&
         error.status !== 408
       ) {
-        setAttempt({ ...currentAttempt, outcome: 'rejected' });
+        const rejected = { ...currentAttempt, outcome: 'rejected' as const };
+        if (currentAttempt.action === 'issue') setAttempt(rejected);
+        else setMutationAttempt(rejected);
       }
       setMessage(errorMessage(error, Boolean(currentAttempt)));
       if (error instanceof InvitationRequestError && error.status === 401)
@@ -224,14 +272,14 @@ function InvitationConsole({
     if (activeRequest.current || attempt?.outcome === 'completed') return;
     const input = {
       destinationEmail: destinationEmail.trim().toLowerCase(),
-      reason: reason.trim(),
+      ...(reason.trim() ? { reason: reason.trim() } : {}),
     };
-    if (!input.destinationEmail || !input.reason) {
-      setMessage('Enter an email and a reason.');
+    if (!input.destinationEmail) {
+      setMessage('Enter an email.');
       return;
     }
-    const currentAttempt: Attempt = {
-      ...(attempt ?? { input, key: crypto.randomUUID() }),
+    const currentAttempt: InvitationAttempt = {
+      ...(attempt ?? { action: 'issue', input, key: crypto.randomUUID() }),
       outcome: 'unknown',
     };
     setAttempt(currentAttempt);
@@ -249,6 +297,37 @@ function InvitationConsole({
     }
     setResult(null);
     void request(null, requestedId);
+  }
+
+  function mutate(action: 'reissue' | 'revoke') {
+    if (activeRequest.current) return;
+    const targetId = result?.invitationId ?? invitationId.trim();
+    const trimmedReason = mutationReason.trim();
+    if (!invitationUuid.test(targetId)) {
+      setMessage('Load a valid invitation before changing it.');
+      return;
+    }
+    if (!trimmedReason) {
+      setMessage('Enter a reason for this invitation change.');
+      return;
+    }
+    const previousAttempt =
+      mutationAttempt?.action === action &&
+      mutationAttempt.outcome === 'unknown' &&
+      mutationAttempt.invitationId?.toLowerCase() === targetId.toLowerCase()
+        ? mutationAttempt
+        : null;
+    const currentAttempt: InvitationAttempt = {
+      ...(previousAttempt ?? {
+        action,
+        invitationId: targetId,
+        input: { reason: trimmedReason },
+        key: crypto.randomUUID(),
+      }),
+      outcome: 'unknown',
+    };
+    setMutationAttempt(currentAttempt);
+    void request(currentAttempt);
   }
 
   if (sessionExpired)
@@ -285,7 +364,6 @@ function InvitationConsole({
               <span className={styles.label}>Reason</span>
               <Input
                 id="invitation-reason"
-                required
                 value={reason}
                 readOnly={Boolean(attempt) || Boolean(operation)}
                 onChange={(event) => setReason(event.target.value)}
@@ -298,11 +376,7 @@ function InvitationConsole({
                   Boolean(operation) || attempt?.outcome === 'completed'
                 }
               >
-                {operation === 'issuing'
-                  ? 'Sending invitation...'
-                  : attempt
-                    ? 'Retry invitation'
-                    : 'Send invitation'}
+                {issueButtonLabel(operation, attempt)}
               </Button>
               {attempt && attempt.outcome !== 'unknown' ? (
                 <Button
@@ -312,6 +386,8 @@ function InvitationConsole({
                     setAttempt(null);
                     setDestinationEmail('');
                     setReason('');
+                    setMutationAttempt(null);
+                    setMutationReason('');
                     setMessage(null);
                   }}
                 >
@@ -352,6 +428,48 @@ function InvitationConsole({
             </Button>
           </form>
           {result ? <InvitationResult result={result} /> : null}
+          {result?.status === 'issued' ? (
+            <div className={styles.actions}>
+              <label className={styles.field} htmlFor="mutation-reason">
+                <span className={styles.label}>Change reason</span>
+                <Input
+                  id="mutation-reason"
+                  required
+                  value={mutationReason}
+                  readOnly={
+                    mutationAttempt?.outcome === 'unknown' || Boolean(operation)
+                  }
+                  onChange={(event) => setMutationReason(event.target.value)}
+                />
+              </label>
+              <div className={styles.actions}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={mutationButtonDisabled(
+                    'reissue',
+                    operation,
+                    mutationAttempt,
+                  )}
+                  onClick={() => mutate('reissue')}
+                >
+                  {mutationButtonLabel('reissue', operation, mutationAttempt)}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={mutationButtonDisabled(
+                    'revoke',
+                    operation,
+                    mutationAttempt,
+                  )}
+                  onClick={() => mutate('revoke')}
+                >
+                  {mutationButtonLabel('revoke', operation, mutationAttempt)}
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </section>
       </div>
     </main>
@@ -382,6 +500,10 @@ function InvitationResult({ result }: { result: BootstrapInvitationState }) {
         <div>
           <dt className={styles.resultLabel}>Invitation ID</dt>
           <dd>{result.invitationId}</dd>
+        </div>
+        <div>
+          <dt className={styles.resultLabel}>Destination email</dt>
+          <dd>{result.destinationEmail}</dd>
         </div>
         <div>
           <dt className={styles.resultLabel}>Invitation</dt>

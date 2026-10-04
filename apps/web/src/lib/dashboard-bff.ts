@@ -138,6 +138,13 @@ const platformInvitationOperations: readonly Operation[] = [
     path: new RegExp(`^/v1/platform/bootstrap-invitations/${uuid}$`),
     scope: 'platform',
   },
+  {
+    method: 'POST',
+    path: new RegExp(
+      `^/v1/platform/bootstrap-invitations/${uuid}/(?:reissue|revoke)$`,
+    ),
+    scope: 'platform',
+  },
 ];
 
 function problem(status: number, code: string): Response {

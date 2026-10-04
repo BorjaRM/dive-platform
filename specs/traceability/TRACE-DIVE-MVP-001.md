@@ -27,14 +27,14 @@
 | ADR-DIVE-010 | `specs/architecture/adrs/ADR-DIVE-010.md` | Draft | 0.4 |
 | ADR-DIVE-011 | `specs/architecture/adrs/ADR-DIVE-011.md` | Draft | 0.3 |
 | ADR-DIVE-012 | `specs/architecture/adrs/ADR-DIVE-012.md` | Draft | 0.5 |
-| ADR-DIVE-013 | `specs/architecture/adrs/ADR-DIVE-013.md` | Ready to start | 0.14 |
+| ADR-DIVE-013 | `specs/architecture/adrs/ADR-DIVE-013.md` | Ready to start | 0.16 |
 | ADR-DIVE-014 | `specs/architecture/adrs/ADR-DIVE-014.md` | Ready to start | 0.11 |
 | ADR-DIVE-015 | `specs/architecture/adrs/ADR-DIVE-015.md` | Accepted | 0.3 |
 | ADR-DIVE-016 | `specs/architecture/adrs/ADR-DIVE-016.md` | Draft | 0.1 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Draft | 1.7 |
 | SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.27 |
 | SPEC-DIVE-MARKETING-001 | `specs/marketing/SPEC-DIVE-MARKETING-001.md` | Ready to start | 0.1 |
-| SPEC-DIVE-ONBOARDING-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md` | Ready to start | 0.19 |
+| SPEC-DIVE-ONBOARDING-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md` | Ready to start | 0.20 |
 | SPEC-DIVE-TRIAL-001 | `specs/commercial/SPEC-DIVE-TRIAL-001.md` | Draft | 0.1 |
 | SPEC-DIVE-OPS-001 | `specs/domain/SPEC-DIVE-OPS-001.md` | Deferred | 0.3-draft |
 | MT-SPIKE-001 requirements | `specs/multitenancy/MT-SPIKE-001-requirements.md` | Accepted with conditions | 0.4 |
@@ -52,7 +52,7 @@
 | SPEC-DIVE-IAM-DASHBOARD-001 | `specs/iam/SPEC-DIVE-IAM-DASHBOARD-001.md` | Ready to start | 0.14 |
 | SPEC-DIVE-IAM-INVITATIONS-001 | `specs/iam/SPEC-DIVE-IAM-INVITATIONS-001.md` | Ready to start | 0.1 |
 | SPEC-DIVE-IAM-SUPPORT-001 | `specs/iam/SPEC-DIVE-IAM-SUPPORT-001.md` | Ready to start | 0.1 |
-| SPEC-DIVE-ONBOARDING-ADMIN-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-ADMIN-001.md` | Ready to start | 0.1 |
+| SPEC-DIVE-ONBOARDING-ADMIN-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-ADMIN-001.md` | Ready to start | 0.3 |
 | SPEC-DIVE-ONBOARDING-DELIVERY-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-DELIVERY-001.md` | Ready to start | 0.2 |
 | SPEC-DIVE-ONBOARDING-GUIDANCE-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-GUIDANCE-001.md` | Deferred | 0.1 |
 

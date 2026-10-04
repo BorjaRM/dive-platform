@@ -20,17 +20,23 @@ function requiredString(value: unknown, field: string): string {
   return value.trim();
 }
 
+function optionalString(value: unknown, field: string): string | undefined {
+  if (value === undefined) return undefined;
+  return requiredString(value, field);
+}
+
 @Injectable()
 export class BootstrapInvitationIssueInputPipe implements PipeTransform {
   transform(value: unknown): BootstrapInvitationIssueInput {
     rejectUnknownFields(value, ['destinationEmail', 'reason']);
     const input = value as Record<string, unknown>;
+    const reason = optionalString(input.reason, 'reason');
     return {
       destinationEmail: requiredString(
         input.destinationEmail,
         'destinationEmail',
       ),
-      reason: requiredString(input.reason, 'reason'),
+      ...(reason === undefined ? {} : { reason }),
     };
   }
 }

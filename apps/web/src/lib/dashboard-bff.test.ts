@@ -375,6 +375,7 @@ describe('BFF body resource limits', () => {
     expect(upstream).not.toHaveBeenCalled();
     const payload = JSON.stringify({
       invitationId: centerId,
+      destinationEmail: 'owner@example.test',
       status: 'issued',
       deliveryStatus: 'pending',
     });
@@ -522,6 +523,7 @@ describe('DIVE-ONB-REQ-005,039,040 platform invitation transport', () => {
       Response.json(
         {
           invitationId: centerId,
+          destinationEmail: 'owner@example.test',
           status: 'issued',
           deliveryStatus: 'pending',
         },
@@ -579,6 +581,7 @@ describe('DIVE-ONB-REQ-005,039,040 platform invitation transport', () => {
     const upstream = vi.fn<typeof fetch>().mockResolvedValue(
       Response.json({
         invitationId: centerId,
+        destinationEmail: 'owner@example.test',
         status: 'issued',
         deliveryStatus: 'pending',
         ticket: 'private-ticket',
@@ -599,10 +602,53 @@ describe('DIVE-ONB-REQ-005,039,040 platform invitation transport', () => {
     expect(upstream).toHaveBeenCalledOnce();
     expect(await response.json()).toEqual({
       invitationId: centerId,
+      destinationEmail: 'owner@example.test',
       status: 'issued',
       deliveryStatus: 'pending',
     });
   });
+
+  it.each(['reissue', 'revoke'])(
+    'forwards %s with the platform mutation contract',
+    async (command) => {
+      const upstream = vi.fn<typeof fetch>().mockResolvedValue(
+        Response.json({
+          invitationId: centerId,
+          destinationEmail: 'owner@example.test',
+          status: command === 'revoke' ? 'revoked' : 'issued',
+          deliveryStatus: 'pending',
+        }),
+      );
+      const response = await handlePlatformInvitationBff(
+        new Request(
+          `${authOrigin}/api/platform/invitations/${centerId}/${command}`,
+          {
+            method: 'POST',
+            headers: {
+              host: new URL(authOrigin).host,
+              origin: authOrigin,
+              authorization: 'Bearer operator-token',
+              'content-type': 'application/json',
+              'idempotency-key': `${command}-1`,
+            },
+            body: JSON.stringify({ reason: 'Manual recovery' }),
+          },
+        ),
+        [...path, centerId, command],
+        { environment, fetch: upstream },
+      );
+      expect(response.status).toBe(200);
+      expect(upstream).toHaveBeenCalledOnce();
+      expect(upstream.mock.calls[0]?.[0]).toBe(
+        `https://api.example.test/v1/platform/bootstrap-invitations/${centerId}/${command}`,
+      );
+      const init = upstream.mock.calls[0]?.[1];
+      expect(new Headers(init?.headers).get('idempotency-key')).toBe(
+        `${command}-1`,
+      );
+      expect(init?.body).toBe(JSON.stringify({ reason: 'Manual recovery' }));
+    },
+  );
 
   it('sanitizes errors while preserving Retry-After', async () => {
     const upstream = vi
@@ -637,8 +683,6 @@ describe('DIVE-ONB-REQ-005,039,040 platform invitation transport', () => {
   it.each([
     ['GET', []],
     ['GET', ['invalid']],
-    ['POST', [centerId, 'reissue']],
-    ['POST', [centerId, 'revoke']],
     ['DELETE', [centerId]],
     ['HEAD', [centerId]],
   ])('rejects nonenumerated operation %s %#', async (method, suffix) => {

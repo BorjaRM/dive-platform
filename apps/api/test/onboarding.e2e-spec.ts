@@ -190,6 +190,33 @@ describe('platform bootstrap invitations HTTP (DIVE-ONB-REQ-039..040)', () => {
       .expect(({ body }) => expect(body.status).toBe('revoked'));
   });
 
+  it('allows an initial issue without a reason but requires reasons for mutations', async () => {
+    const issued = await request(app.getHttpServer())
+      .post('/v1/platform/bootstrap-invitations')
+      .set('Authorization', 'Bearer platform-token')
+      .set('Idempotency-Key', 'issue-without-reason')
+      .send({ destinationEmail: 'owner@example.test' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(
+        `/v1/platform/bootstrap-invitations/${issued.body.invitationId as string}/reissue`,
+      )
+      .set('Authorization', 'Bearer platform-token')
+      .set('Idempotency-Key', 'reissue-without-reason')
+      .send({})
+      .expect(422);
+
+    await request(app.getHttpServer())
+      .post(
+        `/v1/platform/bootstrap-invitations/${issued.body.invitationId as string}/revoke`,
+      )
+      .set('Authorization', 'Bearer platform-token')
+      .set('Idempotency-Key', 'revoke-without-reason')
+      .send({})
+      .expect(422);
+  });
+
   async function deliverInvitation(
     destinationEmail: string,
     idempotencyKey: string,

@@ -7,6 +7,16 @@ import {
 } from './bootstrap-invitations.validation.pipe.js';
 
 describe('bootstrap invitation request validation', () => {
+  it('allows an issue without a reason but keeps the field type-safe', () => {
+    const pipe = new BootstrapInvitationIssueInputPipe();
+    expect(pipe.transform({ destinationEmail: 'owner@example.test' })).toEqual({
+      destinationEmail: 'owner@example.test',
+    });
+    expect(() =>
+      pipe.transform({ destinationEmail: 'owner@example.test', reason: 42 }),
+    ).toThrow();
+  });
+
   it('accepts only destination and reason for issue', () => {
     const pipe = new BootstrapInvitationIssueInputPipe();
     expect(

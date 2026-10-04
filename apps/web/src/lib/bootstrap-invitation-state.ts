@@ -17,6 +17,7 @@ export const invitationUuid =
 
 export type BootstrapInvitationState = Readonly<{
   invitationId: string;
+  destinationEmail: string;
   status: (typeof invitationStatuses)[number];
   deliveryStatus: (typeof deliveryStatuses)[number];
   issuedAt?: string;
@@ -37,6 +38,8 @@ export function parseBootstrapInvitationState(
   if (
     typeof input.invitationId !== 'string' ||
     !invitationUuid.test(input.invitationId) ||
+    typeof input.destinationEmail !== 'string' ||
+    input.destinationEmail.trim() === '' ||
     !status ||
     !deliveryStatus
   )
@@ -51,6 +54,7 @@ export function parseBootstrapInvitationState(
   }
   return {
     invitationId: input.invitationId,
+    destinationEmail: input.destinationEmail,
     status,
     deliveryStatus,
     ...(typeof input.issuedAt === 'string'

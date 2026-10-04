@@ -1,10 +1,10 @@
 # SPEC-DIVE-ONBOARDING-001 — Controlled self bootstrap and first-center setup
 
 - **Status:** Ready to start
-- **Version:** 0.19
+- **Version:** 0.20
 - **Last reviewed:** 2026-10-01
 - **Approved by:** Product owner for Ready-to-start promotion
-- **Approval reference:** Product confirmation 2026-09-29 after executed `SPIKE-DIVE-004`; Ready-to-start status applied 2026-09-29; guided onboarding deferred and backend-owned invitation administration retained by product confirmation 2026-09-29; platform administration and worker policies approved 2026-09-29; active-session invitation acceptance changed to mandatory ticket-based reauthentication by product confirmation 2026-09-29; absolute first-center handoff approved through `ADR-DIVE-008` v0.12 on 2026-09-29; time-zone selector initially approved with browser-native data on 2026-10-01, then server-generated Intl options approved by the product owner on the same date, as recorded under Time-zone selection approval; artifact status unchanged
+- **Approval reference:** Product confirmation 2026-09-29 after executed `SPIKE-DIVE-004`; Ready-to-start status applied 2026-09-29; guided onboarding deferred and backend-owned invitation administration retained by product confirmation 2026-09-29; platform administration and worker policies approved 2026-09-29; initial issue reason made optional while reissue and revoke reasons remain mandatory by product-owner confirmation 2026-09-30; active-session invitation acceptance changed to mandatory ticket-based reauthentication by product confirmation 2026-09-29; absolute first-center handoff approved through `ADR-DIVE-008` v0.12 on 2026-09-29; time-zone selector initially approved with browser-native data on 2026-10-01, then server-generated Intl options approved by the product owner on the same date, as recorded under Time-zone selection approval; artifact status unchanged
 - **Owner:** Product / Security / Frontend Architecture
 - **IDs:** Only the requirements declared below; moved IDs retain their identifiers in the ownership map.
 
@@ -139,7 +139,7 @@ Let an explicitly invited future Owner create its own operator tenant and first 
 
 ### Post-bootstrap public-profile boundary
 
-**Proposed, explicitly approved:** on 2026-09-30 the product owner requested "aplica los cambios propuestos sobre la documentacion", approving the proposal to keep the existing minimal bootstrap and complete the public center profile afterward. No bootstrap field or existing operability prerequisite is added or removed.
+**Proposed, explicitly approved:** on 2026-09-30 the product owner approved documenting the proposal to keep the existing minimal bootstrap and complete the public center profile afterward. No bootstrap field or existing operability prerequisite is added or removed.
 
 **Documented:** `DIVE-ONB-REQ-020..026` and `041` remain the field/identity authority. Public contacts, social/review links, public location, center language capabilities and commercial presentation do not enter this form. Interface locale remains the user's preference, not a center teaching-language list.
 
@@ -200,7 +200,7 @@ The mandatory acceptance matrix is:
 12. Tokens, tenant context, form contents, and unnecessary personal data do not appear in browser persistence, logs, audit, outbox payloads, or analytics.
 13. Completion requires active Owner membership and successful entry to the first-center application through the approved `centerKey`/host contract; activity creation is not included.
 14. Clerk is configured invite-only; `/sign-in/[[...sign-in]]` contains no public signup or invitation discovery; `/bootstrap/accept` handles new and existing identities without disclosure, and any active session must be explicitly signed out before ticket-based reauthentication; `__clerk_ticket` is retained only in ephemeral component memory after history replacement, consumed by Clerk before `/bootstrap/setup`, and absent from setup/dashboard URLs, logs, referrers, audit, traces, analytics, errors, and events; `/dashboard` redirects signed-out users to login and never renders `<SignUp />`. This scenario inherits the `Proposed` provenance and product approval recorded for `DIVE-ONB-REQ-038`.
-15. Internal issue, read, reissue, and revoke enforce platform capabilities, recorded reason, idempotency, abuse protection, safe state, server-owned provider parameters, and no raw-credential recovery; tenant roles and read-only support are denied. MFA is out of scope for issue #72.
+15. Internal issue, read, reissue, and revoke enforce platform capabilities, an optional initial issue reason, mandatory reissue and revoke reasons, idempotency, abuse protection, safe state, server-owned provider parameters, and no raw-credential recovery; tenant roles and read-only support are denied. MFA is out of scope for issue #72.
 16. The worker creates the Clerk Application Invitation only after commit, respects provider rate limits and `Retry-After`, records the defined delivery-state transitions and safe provider state, applies the local full-jitter fallback for an absent or invalid `Retry-After`, and does not duplicate grants or provider invitations; reissue makes the old grant unusable before asynchronous Clerk revocation completes.
 17. A membership disabled after context issuance cannot use or renew its handles, while another active membership for the same identity remains usable.
 18. An authenticated identity without an active membership receives the neutral no-access state and no tenant or resource disclosure.
@@ -211,7 +211,7 @@ The mandatory acceptance matrix is:
 ## Security, privacy, isolation, and operations
 
 - Bootstrap is authenticated and pre-tenant; it does not weaken RLS or use a migration role as an application role.
-- Invitation-management capabilities are the four stable keys in `DIVE-ONB-REQ-039`, separate from tenant roles and read-only platform support; mutations require a recorded reason. **Proposed and approved 2026-09-29:** MFA is out of scope for issue #72; future step-up remains governed by `ADR-DIVE-006`.
+- Invitation-management capabilities are the four stable keys in `DIVE-ONB-REQ-039`, separate from tenant roles and read-only platform support; initial issue may omit its reason, while reissue and revoke require a recorded reason. **Proposed and approved 2026-09-29:** MFA is out of scope for issue #72; future step-up remains governed by `ADR-DIVE-006`. **Proposed and approved 2026-09-30:** the initial issue reason is optional, while reissue and revoke reasons remain mandatory.
 - The invitation API is an internal platform administration boundary, not a tenant endpoint. It accepts no caller-selected provider behavior or business authority, applies abuse protection and idempotency, and returns neither the Clerk ticket nor a reconstructed link. The Clerk credential remains confined to the worker adapter.
 - Clerk Dashboard is limited to provider diagnostics, development testing, and bounded emergency provider action. It is not the ordinary production issuance channel; a dashboard-created invitation has no bootstrap authority without the independently valid PostgreSQL grant, and provider-side emergency revocation must be accompanied by the authoritative application revocation.
 - Email is used only for delivery and initial verified matching; stable identity binding remains `issuer + subject`.
@@ -227,7 +227,7 @@ No latency, bundle, or throughput budget is introduced. Implementation evidence 
 ## Errors, concurrency, and idempotency
 
 - Invitation failures use one non-disclosing error contract.
-- Administrative idempotency is scoped by normalized actor and command; its request fingerprint includes destination, reason, and target resource when applicable.
+- Administrative idempotency is scoped by normalized actor and command; its request fingerprint includes destination, the optional issue reason when supplied, required mutation reason, and target resource when applicable.
 - Payload mismatch after consumption is a conflict.
 - Transaction failure exposes no partial success.
 - Database uniqueness and transaction serialization are authoritative for concurrent consumption.

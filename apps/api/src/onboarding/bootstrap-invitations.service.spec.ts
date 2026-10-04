@@ -76,6 +76,7 @@ describe('BootstrapInvitationsService', () => {
     const principal = await authenticateIdentity(identityProvider, 'token');
     vi.mocked(readBootstrapInvitation).mockResolvedValue({
       invitationId: 'aaaaaaaa-1111-4111-8111-111111111111',
+      destinationEmail: 'owner@example.test',
       status: 'issued',
       deliveryStatus: 'pending',
     });
