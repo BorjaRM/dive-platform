@@ -184,7 +184,7 @@ export const onboardingCommandReceipts = onboardingApp.table(
     }),
     check(
       'bootstrap_invitation_command_receipts_command_known',
-      sql`command IN ('issue', 'reissue', 'revoke')`,
+      sql`command IN ('issue', 'reissue', 'revoke', 'revoke_retry')`,
     ),
     check(
       'bootstrap_invitation_command_receipts_fingerprint_format',
@@ -220,6 +220,7 @@ export const onboardingAuditRecords = onboardingApp.table(
         'tenant_bootstrap_invitation.issued',
         'tenant_bootstrap_invitation.reissued',
         'tenant_bootstrap_invitation.revoked',
+        'tenant_bootstrap_invitation.revocation_retried',
         'tenant_bootstrap_invitation.delivery_failed',
         'tenant_bootstrap.completed',
         'tenant_bootstrap.denied'
@@ -233,7 +234,8 @@ export const onboardingAuditRecords = onboardingApp.table(
       'bootstrap_invitation_audit_mutation_reason_required',
       sql`action NOT IN (
         'tenant_bootstrap_invitation.reissued',
-        'tenant_bootstrap_invitation.revoked'
+        'tenant_bootstrap_invitation.revoked',
+        'tenant_bootstrap_invitation.revocation_retried'
       ) OR (reason IS NOT NULL AND btrim(reason) <> '')`,
     ),
   ],

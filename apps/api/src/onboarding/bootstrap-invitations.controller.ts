@@ -122,4 +122,29 @@ export class BootstrapInvitationsController {
       correlationIdForCurrentContext(),
     );
   }
+
+  @Post(':invitationId/revoke/retry')
+  @HttpAdmission({
+    kind: 'exception',
+    exception: 'bootstrapInvitationRevokeRetry',
+  })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Retry delivery of a revoked invitation' })
+  @ApiBody({ type: BootstrapInvitationMutationInputDto })
+  @ApiOkResponse({ type: BootstrapInvitationStateDto })
+  retryRevoke(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Param('invitationId', BootstrapInvitationUuidPipe) invitationId: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Body(BootstrapInvitationMutationInputPipe)
+    input: BootstrapInvitationMutationInput,
+  ) {
+    return this.invitations.retryRevoke(
+      principal,
+      invitationId,
+      input,
+      idempotencyKey,
+      correlationIdForCurrentContext(),
+    );
+  }
 }

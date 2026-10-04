@@ -52,7 +52,7 @@ function AuthenticatedInvitations({ returnUrl, requestTimeoutMillis }: Props) {
 }
 
 type InvitationAttempt = Readonly<{
-  action: 'issue' | 'reissue' | 'revoke';
+  action: 'issue' | 'reissue' | 'revoke' | 'retry-revoke';
   invitationId?: string;
   input: Readonly<{ destinationEmail?: string; reason?: string }>;
   key: string;
@@ -63,6 +63,7 @@ type InvitationOperation =
   | 'reading'
   | 'reissuing'
   | 'revoking'
+  | 'retrying-revoke'
   | null;
 
 class InvitationRequestError extends Error {
@@ -120,19 +121,29 @@ function issueButtonLabel(
 }
 
 function mutationButtonLabel(
-  action: 'reissue' | 'revoke',
+  action: 'reissue' | 'revoke' | 'retry-revoke',
   operation: InvitationOperation,
   attempt: InvitationAttempt | null,
 ): string {
   if (action === 'reissue' && operation === 'reissuing') return 'Reissuing...';
   if (action === 'revoke' && operation === 'revoking') return 'Revoking...';
+  if (action === 'retry-revoke' && operation === 'retrying-revoke')
+    return 'Retrying revocation...';
   if (attempt?.action === action && attempt.outcome !== 'completed')
-    return action === 'reissue' ? 'Retry reissue' : 'Retry revoke';
-  return action === 'reissue' ? 'Reissue invitation' : 'Revoke invitation';
+    return action === 'reissue'
+      ? 'Retry reissue'
+      : action === 'revoke'
+        ? 'Retry revoke'
+        : 'Retry revocation';
+  return action === 'reissue'
+    ? 'Reissue invitation'
+    : action === 'revoke'
+      ? 'Revoke invitation'
+      : 'Retry revocation';
 }
 
 function mutationButtonDisabled(
-  action: 'reissue' | 'revoke',
+  action: 'reissue' | 'revoke' | 'retry-revoke',
   operation: InvitationOperation,
   attempt: InvitationAttempt | null,
 ): boolean {
@@ -191,7 +202,8 @@ function InvitationConsole({
     if (!currentAttempt) setOperation('reading');
     else if (currentAttempt.action === 'issue') setOperation('issuing');
     else if (currentAttempt.action === 'reissue') setOperation('reissuing');
-    else setOperation('revoking');
+    else if (currentAttempt.action === 'revoke') setOperation('revoking');
+    else setOperation('retrying-revoke');
     setMessage(null);
     try {
       const token = await bounded(getToken());
@@ -205,8 +217,13 @@ function InvitationConsole({
       let path = `/api/platform/invitations/${requestedId}`;
       if (currentAttempt?.action === 'issue')
         path = '/api/platform/invitations';
-      else if (currentAttempt)
-        path = `/api/platform/invitations/${currentAttempt.invitationId}/${currentAttempt.action}`;
+      else if (currentAttempt) {
+        const command =
+          currentAttempt.action === 'retry-revoke'
+            ? 'revoke/retry'
+            : currentAttempt.action;
+        path = `/api/platform/invitations/${currentAttempt.invitationId}/${command}`;
+      }
       const response = await bounded(
         fetch(path, {
           method: currentAttempt ? 'POST' : 'GET',
@@ -299,7 +316,7 @@ function InvitationConsole({
     void request(null, requestedId);
   }
 
-  function mutate(action: 'reissue' | 'revoke') {
+  function mutate(action: 'reissue' | 'revoke' | 'retry-revoke') {
     if (activeRequest.current) return;
     const targetId = result?.invitationId ?? invitationId.trim();
     const trimmedReason = mutationReason.trim();
@@ -428,10 +445,16 @@ function InvitationConsole({
             </Button>
           </form>
           {result ? <InvitationResult result={result} /> : null}
-          {result?.status === 'issued' ? (
+          {result?.status === 'issued' ||
+          (result?.status === 'revoked' &&
+            result.deliveryStatus === 'dead_letter') ? (
             <div className={styles.actions}>
               <label className={styles.field} htmlFor="mutation-reason">
-                <span className={styles.label}>Change reason</span>
+                <span className={styles.label}>
+                  {result.status === 'revoked'
+                    ? 'Recovery reason'
+                    : 'Change reason'}
+                </span>
                 <Input
                   id="mutation-reason"
                   required
@@ -442,32 +465,51 @@ function InvitationConsole({
                   onChange={(event) => setMutationReason(event.target.value)}
                 />
               </label>
-              <div className={styles.actions}>
+              {result.status === 'issued' ? (
+                <div className={styles.actions}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={mutationButtonDisabled(
+                      'reissue',
+                      operation,
+                      mutationAttempt,
+                    )}
+                    onClick={() => mutate('reissue')}
+                  >
+                    {mutationButtonLabel('reissue', operation, mutationAttempt)}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={mutationButtonDisabled(
+                      'revoke',
+                      operation,
+                      mutationAttempt,
+                    )}
+                    onClick={() => mutate('revoke')}
+                  >
+                    {mutationButtonLabel('revoke', operation, mutationAttempt)}
+                  </Button>
+                </div>
+              ) : (
                 <Button
                   type="button"
                   variant="secondary"
                   disabled={mutationButtonDisabled(
-                    'reissue',
+                    'retry-revoke',
                     operation,
                     mutationAttempt,
                   )}
-                  onClick={() => mutate('reissue')}
+                  onClick={() => mutate('retry-revoke')}
                 >
-                  {mutationButtonLabel('reissue', operation, mutationAttempt)}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={mutationButtonDisabled(
-                    'revoke',
+                  {mutationButtonLabel(
+                    'retry-revoke',
                     operation,
                     mutationAttempt,
                   )}
-                  onClick={() => mutate('revoke')}
-                >
-                  {mutationButtonLabel('revoke', operation, mutationAttempt)}
                 </Button>
-              </div>
+              )}
             </div>
           ) : null}
         </section>

@@ -141,7 +141,7 @@ const platformInvitationOperations: readonly Operation[] = [
   {
     method: 'POST',
     path: new RegExp(
-      `^/v1/platform/bootstrap-invitations/${uuid}/(?:reissue|revoke)$`,
+      `^/v1/platform/bootstrap-invitations/${uuid}/(?:reissue|revoke|revoke/retry)$`,
     ),
     scope: 'platform',
   },

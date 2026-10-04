@@ -73,6 +73,47 @@ export async function issueIamInvitation(
     : Object.freeze(outcome);
 }
 
+export async function issueIamMembershipInvitation(
+  pool: Pool,
+  principal: Principal,
+  input: Readonly<{
+    tenantId: string;
+    targetAddress: string;
+    roles: readonly string[];
+    centerIds: readonly string[];
+    idempotencyKey: string;
+    correlationId: string;
+    reissueInvitationId?: string;
+  }>,
+): Promise<InvitationCommandResult> {
+  const credential = randomBytes(32).toString('base64url');
+  const result = await pool.query<{ outcome: InvitationCommandResult }>(
+    `SELECT iam_app.issue_membership_invitation_command(
+      $1, $2, $3::uuid, $4::uuid, $5::uuid, $6, $7::text[], $8::uuid[],
+      $9, $10, $11::uuid, $12::uuid
+    ) AS outcome`,
+    [
+      principal.issuer,
+      principal.subject,
+      input.tenantId,
+      randomUUID(),
+      randomUUID(),
+      input.targetAddress,
+      input.roles,
+      input.centerIds,
+      credentialHash(credential),
+      input.idempotencyKey,
+      input.reissueInvitationId ?? null,
+      input.correlationId,
+    ],
+  );
+  const outcome = result.rows[0]?.outcome;
+  if (!outcome) throw new Error('Membership invitation returned no outcome');
+  return 'created' in outcome && outcome.created
+    ? Object.freeze({ ...outcome, credential })
+    : Object.freeze(outcome);
+}
+
 export async function respondToIamInvitation(
   pool: Pool,
   principal: AuthenticatedPrincipal,
@@ -116,10 +157,15 @@ export async function revokeIamInvitation(
     tenantId: string;
     invitationId: string;
     correlationId: string;
+    allowOwnerInvitation?: boolean;
   }>,
 ): Promise<InvitationCommandResult> {
+  const command =
+    input.allowOwnerInvitation === true
+      ? 'revoke_owner_invitation_command'
+      : 'revoke_membership_invitation_command';
   const result = await pool.query<{ outcome: InvitationCommandResult }>(
-    `SELECT iam_app.revoke_invitation_command(
+    `SELECT iam_app.${command}(
       $1, $2, $3::uuid, $4::uuid, $5::uuid
     ) AS outcome`,
     [

@@ -1906,6 +1906,119 @@ describe('IAM/API vertical (e2e)', () => {
     expect(audits.rows[0]?.count).toBe(0);
   });
 
+  it('separates normal membership invitations from ownership invitations (DIVE-IAM-REQ-017, DIVE-IAM-REQ-018, DIVE-IAM-REQ-025, MT-REQ-010)', async () => {
+    const ownerContext = await contextFor('owner-a-token');
+    const tenantBAdminContext = await contextFor('member-b-token');
+
+    await request(app.getHttpServer())
+      .post('/v1/memberships/invitations')
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .set('idempotency-key', 'normal-invitation')
+      .send({
+        targetAddress: 'normal@example.test',
+        roles: ['center_manager'],
+        centerIds: [centerA1],
+        tenantId: tenantB,
+      })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          status: 'pending',
+          credential: expect.any(String),
+          created: true,
+        });
+      });
+
+    await request(app.getHttpServer())
+      .post('/v1/memberships/invitations')
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .set('idempotency-key', 'normal-owner-role')
+      .send({
+        targetAddress: 'wrong-route@example.test',
+        roles: ['tenant_owner'],
+        centerIds: [centerA1],
+      })
+      .expect(400);
+
+    const ownerInvitation = await request(app.getHttpServer())
+      .post('/v1/ownership/invitations')
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .set('idempotency-key', 'owner-route')
+      .send({
+        targetAddress: 'pending-owner@example.test',
+        centerIds: [centerA1],
+      })
+      .expect(201);
+    const ownerInvitationId = ownerInvitation.body.invitationId as string;
+
+    await request(app.getHttpServer())
+      .post('/v1/ownership/invitations')
+      .set('authorization', 'Bearer member-b-token')
+      .set('x-tenant-context', tenantBAdminContext)
+      .set('idempotency-key', 'admin-owner-route')
+      .send({
+        targetAddress: 'admin-owner@example.test',
+        centerIds: [centerB1],
+      })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .delete(`/v1/memberships/invitations/${ownerInvitationId}`)
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .delete(`/v1/ownership/invitations/${ownerInvitationId}`)
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          invitationId: ownerInvitationId,
+          status: 'revoked',
+        });
+      });
+
+    await request(app.getHttpServer())
+      .post('/v1/memberships/invitations')
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .send({
+        targetAddress: 'missing-key@example.test',
+        roles: ['center_manager'],
+        centerIds: [centerA1],
+      })
+      .expect(400);
+
+    const normalInvitation = await request(app.getHttpServer())
+      .post('/v1/memberships/invitations')
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .set('idempotency-key', 'normal-revocation')
+      .send({
+        targetAddress: 'normal-revocation@example.test',
+        roles: ['center_manager'],
+        centerIds: [centerA1],
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .delete(`/v1/ownership/invitations/${normalInvitation.body.invitationId}`)
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .expect(403);
+    await request(app.getHttpServer())
+      .delete(
+        `/v1/memberships/invitations/${normalInvitation.body.invitationId}`,
+      )
+      .set('authorization', 'Bearer owner-a-token')
+      .set('x-tenant-context', ownerContext)
+      .expect(200);
+  });
+
   it('denies cross-tenant disable and protects the last active owner', async () => {
     await request(app.getHttpServer())
       .patch(`/v1/memberships/${membershipB}/disable`)
@@ -1916,7 +2029,11 @@ describe('IAM/API vertical (e2e)', () => {
       .patch(`/v1/memberships/${membershipOwnerA2}/disable`)
       .set('authorization', 'Bearer owner-a-token')
       .set('x-tenant-context', await contextFor('owner-a-token'))
-      .expect(200);
+      .expect(403);
+    await admin.query(
+      `UPDATE iam_app.memberships SET status='disabled' WHERE id=$1`,
+      [membershipOwnerA2],
+    );
     await request(app.getHttpServer())
       .patch(`/v1/memberships/${membershipOwnerA}/disable`)
       .set('authorization', 'Bearer owner-a-token')
@@ -1975,14 +2092,14 @@ describe('IAM/API vertical (e2e)', () => {
           .set('x-tenant-context', ownerContext),
       ]);
 
-      expect(responses.map(({ status }) => status).sort()).toEqual([200, 403]);
+      expect(responses.map(({ status }) => status).sort()).toEqual([403, 403]);
       const owners = await admin.query<{ count: number }>(
         `SELECT count(*)::int count
          FROM iam_app.memberships
          WHERE tenant_id=$1 AND status='active' AND roles @> ARRAY['tenant_owner']::text[]`,
         [tenantA],
       );
-      expect(owners.rows[0]?.count).toBe(1);
+      expect(owners.rows[0]?.count).toBe(2);
     } finally {
       await admin.query(`
         DROP TRIGGER IF EXISTS test_delay_owner_disable ON iam_app.memberships;

@@ -2,6 +2,7 @@ import {
   consumeBootstrapInvitationRateLimit,
   issueBootstrapInvitation,
   readBootstrapInvitation,
+  retryBootstrapInvitationRevoke,
 } from '@dive-center/database';
 import {
   authenticateIdentity,
@@ -21,6 +22,7 @@ vi.mock('@dive-center/database', () => ({
   readBootstrapInvitation: vi.fn(),
   reissueBootstrapInvitation: vi.fn(),
   revokeBootstrapInvitation: vi.fn(),
+  retryBootstrapInvitationRevoke: vi.fn(),
 }));
 
 const identityProvider = new DeterministicIdentityProvider(
@@ -97,6 +99,37 @@ describe('BootstrapInvitationsService', () => {
       headers: { 'Retry-After': '37' },
     });
     expect(readBootstrapInvitation).not.toHaveBeenCalled();
+  });
+
+  it('retries revoke delivery through the dedicated command', async () => {
+    process.env.BOOTSTRAP_INVITATION_WRITES_ENABLED = 'true';
+    const principal = await authenticateIdentity(identityProvider, 'token');
+    vi.mocked(retryBootstrapInvitationRevoke).mockResolvedValue({
+      invitationId: 'aaaaaaaa-1111-4111-8111-111111111111',
+      destinationEmail: 'owner@example.test',
+      status: 'revoked',
+      deliveryStatus: 'pending',
+    });
+
+    await expect(
+      service.retryRevoke(
+        principal,
+        'aaaaaaaa-1111-4111-8111-111111111111',
+        { reason: 'Reviewed revoke' },
+        'retry-1',
+        'bbbbbbbb-2222-4222-8222-222222222222',
+      ),
+    ).resolves.toMatchObject({ deliveryStatus: 'pending' });
+    expect(retryBootstrapInvitationRevoke).toHaveBeenCalledWith(
+      pool,
+      principal,
+      {
+        invitationId: 'aaaaaaaa-1111-4111-8111-111111111111',
+        reason: 'Reviewed revoke',
+        idempotencyKey: 'retry-1',
+        correlationId: 'bbbbbbbb-2222-4222-8222-222222222222',
+      },
+    );
   });
 
   it('maps inaccessible resources without exposing capability or existence', async () => {

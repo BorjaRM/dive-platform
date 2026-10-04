@@ -160,6 +160,67 @@ describe('product migrations', () => {
     expect(Number(after.rows[0]?.count)).toBe(migrationJournal.entries.length);
   });
 
+  it('restricts invitation SECURITY DEFINER functions to the application role', async () => {
+    const result = await adminPool.query<{
+      function_name: string;
+      security_definer: boolean;
+      public_execute: boolean;
+      app_execute: boolean;
+      worker_execute: boolean;
+    }>(`
+      SELECT
+        procedure.proname AS function_name,
+        procedure.prosecdef AS security_definer,
+        EXISTS (
+          SELECT 1
+          FROM aclexplode(
+            COALESCE(
+              procedure.proacl,
+              acldefault('f', procedure.proowner)
+            )
+          ) AS privilege
+          WHERE privilege.grantee = 0
+            AND privilege.privilege_type = 'EXECUTE'
+        ) AS public_execute,
+        has_function_privilege('dive_app', procedure.oid, 'EXECUTE') AS app_execute,
+        has_function_privilege('dive_worker', procedure.oid, 'EXECUTE') AS worker_execute
+      FROM pg_proc AS procedure
+      JOIN pg_namespace AS namespace
+        ON namespace.oid = procedure.pronamespace
+      WHERE namespace.nspname = 'iam_app'
+        AND procedure.proname IN (
+          'issue_membership_invitation_command',
+          'revoke_membership_invitation_command',
+          'revoke_owner_invitation_command'
+        )
+      ORDER BY procedure.proname
+    `);
+
+    expect(result.rows).toEqual([
+      {
+        function_name: 'issue_membership_invitation_command',
+        security_definer: true,
+        public_execute: false,
+        app_execute: true,
+        worker_execute: false,
+      },
+      {
+        function_name: 'revoke_membership_invitation_command',
+        security_definer: true,
+        public_execute: false,
+        app_execute: true,
+        worker_execute: false,
+      },
+      {
+        function_name: 'revoke_owner_invitation_command',
+        security_definer: true,
+        public_execute: false,
+        app_execute: true,
+        worker_execute: false,
+      },
+    ]);
+  });
+
   it('restores row_security before a later migration reads a forced-RLS table', async () => {
     const followupDatabaseName = 'dive_migrate_followup';
     const tempFolder = mkdtempSync(join(tmpdir(), 'dive-migrate-followup-'));

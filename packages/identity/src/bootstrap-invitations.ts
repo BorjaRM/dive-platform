@@ -270,7 +270,11 @@ export class ClerkBootstrapInvitationAdapter
         ),
       );
     } catch (error) {
-      throw providerError(error);
+      const failure = providerError(error);
+      if (failure.statusCode === 404) {
+        return Object.freeze({ invitationRef, status: 'not_found' });
+      }
+      throw failure;
     }
   }
 }

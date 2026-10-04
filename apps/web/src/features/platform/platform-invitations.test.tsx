@@ -331,6 +331,56 @@ describe('DIVE-ONB-REQ-005,039,040 platform invitation console', () => {
     );
   });
 
+  it('recovers a revoked dead-letter without offering reissue', async () => {
+    const upstream = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        Response.json({
+          invitationId,
+          destinationEmail: 'owner@example.test',
+          status: 'revoked',
+          deliveryStatus: 'dead_letter',
+        }),
+      )
+      .mockRejectedValueOnce(new TypeError('private network detail'))
+      .mockResolvedValueOnce(
+        Response.json({
+          invitationId,
+          destinationEmail: 'owner@example.test',
+          status: 'revoked',
+          deliveryStatus: 'pending',
+        }),
+      );
+    render(<PlatformInvitations {...props} />);
+    fireEvent.change(screen.getByLabelText('Invitation ID'), {
+      target: { value: invitationId },
+    });
+    fireEvent.submit(screen.getByRole('form', { name: 'Read invitation' }));
+    await screen.findByText('Processing failed');
+    expect(
+      screen.queryByRole('button', { name: 'Reissue invitation' }),
+    ).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Recovery reason'), {
+      target: { value: 'Reviewed revoke delivery' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Retry revocation' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'outcome is unknown',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Retry revocation' }));
+    await screen.findByText('Revoked');
+
+    const first = upstream.mock.calls[1];
+    const retry = upstream.mock.calls[2];
+    expect(first?.[0]).toBe(
+      `/api/platform/invitations/${invitationId}/revoke/retry`,
+    );
+    expect(retry?.[1]?.body).toBe(first?.[1]?.body);
+    expect(new Headers(retry?.[1]?.headers).get('idempotency-key')).toBe(
+      new Headers(first?.[1]?.headers).get('idempotency-key'),
+    );
+  });
+
   it('rejects a malformed ID without making a request', async () => {
     const upstream = vi.spyOn(globalThis, 'fetch');
     render(<PlatformInvitations {...props} />);

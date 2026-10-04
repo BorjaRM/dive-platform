@@ -31,6 +31,7 @@ export type {
 export {
   disableIamMembership,
   issueIamInvitation,
+  issueIamMembershipInvitation,
   respondToIamInvitation,
   revokeIamInvitation,
 } from './iam-membership-commands.js';
@@ -69,6 +70,7 @@ export {
   issueBootstrapInvitation,
   readBootstrapInvitation,
   reissueBootstrapInvitation,
+  retryBootstrapInvitationRevoke,
   revokeBootstrapInvitation,
   setBootstrapPlatformCapability,
 } from './onboarding-commands.js';

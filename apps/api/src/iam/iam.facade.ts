@@ -119,15 +119,29 @@ export class IamService {
     );
   }
 
-  issueInvitation(
+  issueMembershipInvitation(
     principal: AuthenticatedPrincipal,
-    tenantId: string,
-    input: Parameters<InvitationsService['issueInvitation']>[2],
+    handle: string | undefined,
+    input: Parameters<InvitationsService['issueMembershipInvitation']>[2],
     correlationId: string,
   ) {
-    return this.invitations.issueInvitation(
+    return this.invitations.issueMembershipInvitation(
       principal,
-      tenantId,
+      handle,
+      input,
+      correlationId,
+    );
+  }
+
+  issueOwnerInvitation(
+    principal: AuthenticatedPrincipal,
+    handle: string | undefined,
+    input: Parameters<InvitationsService['issueOwnerInvitation']>[2],
+    correlationId: string,
+  ) {
+    return this.invitations.issueOwnerInvitation(
+      principal,
+      handle,
       input,
       correlationId,
     );
@@ -149,15 +163,29 @@ export class IamService {
     );
   }
 
-  revokeInvitation(
+  revokeMembershipInvitation(
     principal: AuthenticatedPrincipal,
-    tenantId: string,
+    handle: string | undefined,
     invitationId: string,
     correlationId: string,
   ) {
-    return this.invitations.revokeInvitation(
+    return this.invitations.revokeMembershipInvitation(
       principal,
-      tenantId,
+      handle,
+      invitationId,
+      correlationId,
+    );
+  }
+
+  revokeOwnerInvitation(
+    principal: AuthenticatedPrincipal,
+    handle: string | undefined,
+    invitationId: string,
+    correlationId: string,
+  ) {
+    return this.invitations.revokeOwnerInvitation(
+      principal,
+      handle,
       invitationId,
       correlationId,
     );

@@ -1,7 +1,7 @@
 # SPEC-DIVE-IAM-001 — Roles, permissions, and scopes
 
 - **Status:** Ready to start
-- **Version:** 0.29
+- **Version:** 0.30
 - **Last reviewed:** 2026-10-04
 - **Approved by:** Product owner
 - **Approval reference:** PR #1, provenance migration PR, PR #13 (`ADR-DIVE-008` Ready to start), product confirmation 2026-09-27 for `ADR-DIVE-008` v0.7 implementation closures, product confirmation 2026-09-27 for center-application bootstrap (`ADR-DIVE-008` v0.9), product confirmation 2026-09-27 for reserved keys, generated CORS, authentication host, environment namespace, and no-`Origin` bootstrap (`ADR-DIVE-008` v0.10), product confirmation 2026-09-29 for `center.read` on center-entry issuance (`ADR-DIVE-008` v0.11), product confirmation 2026-09-29 applying the center-entry lifecycle recommendation (`ADR-DIVE-008` v0.12), PR #32 Draft authority-boundary clarification, Product, Security, and Architecture approval on 2026-09-27 for the `booking.reject` permission, PR #36 Draft self-bootstrap authority-boundary clarification, and product-owner authorization on 2026-10-04 for the Operations Lead membership center-scope and fail-closed refinements
@@ -78,6 +78,14 @@ boundaries remain unchanged.
 - **DIVE-IAM-REQ-016:** Ordinary revocation (disable membership, role removal, session invalidation) takes effect within 5 minutes.
 
 - **DIVE-IAM-REQ-018:** The last Tenant Owner cannot be disabled without transferring ownership.
+
+**Documented -- Owner membership protection refinement, 2026-10-04:** the
+product owner authorized multiple active owners for resilience, while removing
+ordinary owner-to-owner membership removal. `membership.disable` denies an
+active owner target for every actor; `tenant_admin` also cannot issue, reissue,
+or revoke a pending owner invitation. An active owner may revoke a pending owner
+invitation to correct an accidental grant. No ownership-transfer command is
+introduced by this increment.
 
 - **DIVE-IAM-REQ-019:** MFA is not mandatory for MVP dashboard users, but the model must support future step-up without schema rewrite.
 
@@ -163,8 +171,8 @@ Tenant-wide:
 
 | Role | Intent |
 |---|---|
-| Tenant Owner | Full tenant administration, including billing later; cannot be locked out of the last owner |
-| Tenant Admin | Day-to-day administration except ownership transfer |
+| Tenant Owner | Full tenant administration, including billing later; multiple active owners are permitted, but ordinary membership disable cannot target an owner |
+| Tenant Admin | Day-to-day administration of non-owner memberships except ownership transfer |
 | Auditor/Compliance | Read-only operational and audit access |
 
 Membership-scoped:
@@ -222,6 +230,11 @@ Write variants of `audit.*` and `support.tenant.write` are out of MVP.
 | `support.tenant.read` | n/a | n/a | n/a | n/a | n/a | n/a | platform support only |
 
 “assigned” means authorized centers only.
+
+Owner-targeted membership operations are more restrictive than the role matrix:
+an admin cannot create or modify an owner membership, and an owner cannot
+disable another active owner through the ordinary membership command. A pending
+owner invitation can be revoked by an active owner before acceptance.
 
 ### Calendar phase-two read permissions
 

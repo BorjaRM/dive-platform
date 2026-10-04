@@ -20,6 +20,7 @@ import {
   issueBootstrapInvitation,
   readBootstrapInvitation,
   reissueBootstrapInvitation,
+  retryBootstrapInvitationRevoke,
   revokeBootstrapInvitation,
   setBootstrapPlatformCapability,
 } from '../../src/onboarding-commands.js';
@@ -842,14 +843,22 @@ describe('bootstrap invitation persistence (DIVE-ONB-REQ-001..009, 013, 039..040
       { command: 'create', grant_id: reissued.invitationId },
     ]);
 
+    const revoked = await revokeBootstrapInvitation(appPool, principal, {
+      invitationId: reissued.invitationId,
+      reason: 'Operator request',
+      idempotencyKey: 'revoke-1',
+      correlationId,
+    });
+    expect(revoked).toMatchObject({
+      status: 'revoked',
+      deliveryStatus: 'pending',
+    });
     expect(
-      await revokeBootstrapInvitation(appPool, principal, {
-        invitationId: reissued.invitationId,
-        reason: 'Operator request',
-        idempotencyKey: 'revoke-1',
-        correlationId,
-      }),
-    ).toMatchObject({ status: 'revoked' });
+      await readBootstrapInvitation(appPool, principal, reissued.invitationId),
+    ).toMatchObject({
+      status: 'revoked',
+      deliveryStatus: 'pending',
+    });
   });
 
   it.each(['retrying', 'dead_letter'] as const)(
@@ -1220,5 +1229,154 @@ describe('bootstrap invitation persistence (DIVE-ONB-REQ-001..009, 013, 039..040
       attempt_count: 8,
       delivery_state: 'dead_letter',
     });
+  });
+
+  it('recovers a revoked dead-letter without mutating the original event or creating a grant', async () => {
+    const principal = await authenticateIdentity(provider, 'platform-token');
+    const grantId = await issueDeliveredGrant('revoke-recovery');
+    await expect(
+      revokeBootstrapInvitation(appPool, principal, {
+        invitationId: grantId,
+        reason: 'Cancel duplicate invitation',
+        idempotencyKey: 'revoke-recovery-command',
+        correlationId,
+      }),
+    ).resolves.toMatchObject({
+      invitationId: grantId,
+      status: 'revoked',
+      deliveryStatus: 'pending',
+    });
+
+    for (let attempt = 1; attempt <= 8; attempt += 1) {
+      const client = await workerPool.connect();
+      try {
+        await client.query('BEGIN');
+        const event = await claimBootstrapOutboxEvent(client);
+        if (!event)
+          throw new Error(`Expected revoke claim for attempt ${attempt}`);
+        await expect(
+          failBootstrapOutboxEvent(client, {
+            eventId: event.eventId,
+            retryable: true,
+            nextAttemptAt: '2000-01-01T00:00:00.000Z',
+            providerStatus: 'unavailable',
+          }),
+        ).resolves.toBe(attempt === 8 ? 'dead_letter' : 'retrying');
+        await client.query('COMMIT');
+      } finally {
+        client.release();
+      }
+    }
+
+    const recovered = await retryBootstrapInvitationRevoke(appPool, principal, {
+      invitationId: grantId,
+      reason: '  Reviewed revoke delivery  ',
+      idempotencyKey: 'revoke-recovery-retry',
+      correlationId,
+    });
+    expect(recovered).toEqual({
+      invitationId: grantId,
+      destinationEmail: 'owner@example.test',
+      status: 'revoked',
+      deliveryStatus: 'pending',
+    });
+
+    const persisted = await adminPool.query<{
+      grant_count: number;
+      dead_letter_count: number;
+      pending_revoke_count: number;
+      retry_audit_count: number;
+      retry_receipt_count: number;
+    }>(
+      `SELECT
+        (SELECT count(*)::int FROM onboarding_app.tenant_bootstrap_grants) AS grant_count,
+        (SELECT count(*)::int FROM onboarding_app.tenant_bootstrap_outbox_events
+          WHERE grant_id = $1 AND command = 'revoke' AND delivery_state = 'dead_letter') AS dead_letter_count,
+        (SELECT count(*)::int FROM onboarding_app.tenant_bootstrap_outbox_events
+          WHERE grant_id = $1 AND command = 'revoke' AND delivery_state = 'pending') AS pending_revoke_count,
+        (SELECT count(*)::int FROM onboarding_app.bootstrap_invitation_audit_records
+          WHERE grant_id = $1 AND action = 'tenant_bootstrap_invitation.revocation_retried') AS retry_audit_count,
+        (SELECT count(*)::int FROM onboarding_app.bootstrap_invitation_command_receipts
+          WHERE command = 'revoke_retry') AS retry_receipt_count`,
+      [grantId],
+    );
+    expect(persisted.rows[0]).toEqual({
+      grant_count: 1,
+      dead_letter_count: 1,
+      pending_revoke_count: 1,
+      retry_audit_count: 1,
+      retry_receipt_count: 1,
+    });
+
+    await expect(
+      retryBootstrapInvitationRevoke(appPool, principal, {
+        invitationId: grantId,
+        reason: '  Reviewed revoke delivery  ',
+        idempotencyKey: 'revoke-recovery-retry',
+        correlationId,
+      }),
+    ).resolves.toEqual(recovered);
+    await expect(
+      retryBootstrapInvitationRevoke(appPool, principal, {
+        invitationId: grantId,
+        reason: 'Different reason',
+        idempotencyKey: 'revoke-recovery-retry',
+        correlationId,
+      }),
+    ).resolves.toEqual({ deniedReason: 'idempotency_conflict' });
+  });
+
+  it('serializes concurrent revoke recovery attempts and permits only one new event', async () => {
+    const principal = await authenticateIdentity(provider, 'platform-token');
+    const grantId = await issueDeliveredGrant('revoke-recovery-concurrent');
+    await revokeBootstrapInvitation(appPool, principal, {
+      invitationId: grantId,
+      reason: 'Cancel duplicate invitation',
+      idempotencyKey: 'revoke-concurrent-command',
+      correlationId,
+    });
+    for (let attempt = 1; attempt <= 8; attempt += 1) {
+      const client = await workerPool.connect();
+      try {
+        await client.query('BEGIN');
+        const event = await claimBootstrapOutboxEvent(client);
+        if (!event) throw new Error('Expected revoke claim');
+        await failBootstrapOutboxEvent(client, {
+          eventId: event.eventId,
+          retryable: true,
+          nextAttemptAt: '2000-01-01T00:00:00.000Z',
+          providerStatus: 'unavailable',
+        });
+        await client.query('COMMIT');
+      } finally {
+        client.release();
+      }
+    }
+
+    const results = await Promise.all(
+      ['concurrent-1', 'concurrent-2'].map((idempotencyKey) =>
+        retryBootstrapInvitationRevoke(appPool, principal, {
+          invitationId: grantId,
+          reason: 'Concurrent recovery',
+          idempotencyKey,
+          correlationId,
+        }),
+      ),
+    );
+    expect(
+      results.filter((result) => !('deniedReason' in result)),
+    ).toHaveLength(1);
+    expect(results).toEqual(
+      expect.arrayContaining([
+        { deniedReason: 'resource_missing_or_inaccessible' },
+      ]),
+    );
+    const events = await adminPool.query<{ count: number }>(
+      `SELECT count(*)::int AS count
+       FROM onboarding_app.tenant_bootstrap_outbox_events
+       WHERE grant_id = $1 AND command = 'revoke'`,
+      [grantId],
+    );
+    expect(events.rows[0]?.count).toBe(2);
   });
 });

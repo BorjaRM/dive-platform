@@ -93,6 +93,12 @@ or more centers. `null` or an empty list grants no center operations; to cover
 all current centers, list every center explicitly. Adding a new center requires
 updating that membership's center list.
 
+Owner memberships have an additional protection: tenant admins cannot create or
+modify owner memberships, and no actor can disable an active owner through the
+ordinary membership endpoint. An active owner can revoke a pending owner
+invitation if it was created by mistake. Ownership transfer is not yet an
+application command; do not simulate it by disabling an owner.
+
 Only `db:reset:local` enforces the local URL restrictions described below.
 The standalone `db:bootstrap` and `db:migrate` commands load `.env.example`
 through the database package scripts; inherited environment variables take

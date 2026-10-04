@@ -9,6 +9,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { bootstrapRoles } from '../../src/bootstrap-roles.js';
 import { resolveIamAccess } from '../../src/iam-authorize.js';
 import {
+  disableIamMembership,
   type InvitationCommandResult,
   issueIamInvitation,
   respondToIamInvitation,
@@ -23,12 +24,20 @@ const centerA = 'aaaaaaaa-0001-0001-0001-000000000001';
 const centerB = 'bbbbbbbb-0002-0002-0002-000000000001';
 const ownerIdentity = 'a1111111-1111-1111-1111-111111111111';
 const ownerMembership = 'aa111111-1111-1111-1111-111111111111';
+const adminIdentity = 'a2222222-2222-2222-2222-222222222222';
+const adminMembership = 'aa222222-2222-2222-2222-222222222222';
 const targetAddress = 'invitee@example.test';
 
 const ownerPrincipal = {
   issuer: 'test',
   subject: 'owner-a',
   verifiedAddresses: ['owner-a@example.test'],
+} as const;
+
+const adminPrincipal = {
+  issuer: 'test',
+  subject: 'admin-a',
+  verifiedAddresses: ['admin-a@example.test'],
 } as const;
 
 const inviteePrincipal = {
@@ -109,16 +118,107 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
        VALUES ($1,'test','owner-a')`,
       [ownerIdentity],
     );
+    await adminPool.query('INSERT INTO iam_app.identities(id) VALUES ($1)', [
+      adminIdentity,
+    ]);
+    await adminPool.query(
+      `INSERT INTO iam_app.external_identities(identity_id,issuer,subject)
+       VALUES ($1,'test','admin-a')`,
+      [adminIdentity],
+    );
     await adminPool.query(
       `INSERT INTO iam_app.memberships(id,tenant_id,identity_id,status,roles,center_ids)
        VALUES ($1,$2,$3,'active',ARRAY['tenant_owner'],NULL)`,
       [ownerMembership, tenantA, ownerIdentity],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.memberships(id,tenant_id,identity_id,status,roles,center_ids)
+       VALUES ($1,$2,$3,'active',ARRAY['tenant_admin'],NULL)`,
+      [adminMembership, tenantA, adminIdentity],
     );
   });
 
   afterAll(async () => {
     await appPool.end();
     await adminPool.end();
+  });
+
+  it('protects owner membership changes and allows owners to cancel mistaken pending owner invitations (DIVE-IAM-REQ-018, DIVE-IAM-REQ-025)', async () => {
+    await expect(
+      issueIamInvitation(appPool, adminPrincipal, {
+        tenantId: tenantA,
+        targetAddress: 'owner-by-admin@example.test',
+        roles: ['tenant_owner'],
+        centerIds: [centerA],
+        idempotencyKey: 'admin-owner-invite',
+        correlationId: randomUUID(),
+      }),
+    ).resolves.toEqual({ deniedReason: 'permission_missing' });
+
+    await expect(
+      issueIamInvitation(appPool, adminPrincipal, {
+        tenantId: tenantA,
+        targetAddress: 'owner-by-admin@example.test',
+        roles: ['tenant_owner'],
+        centerIds: [centerA],
+        idempotencyKey: 'admin-owner-invite',
+        correlationId: randomUUID(),
+      }),
+    ).resolves.toEqual({ deniedReason: 'permission_missing' });
+
+    const pendingOwner = await issueIamInvitation(appPool, ownerPrincipal, {
+      tenantId: tenantA,
+      targetAddress: 'mistaken-owner@example.test',
+      roles: ['tenant_owner'],
+      centerIds: [centerA],
+      idempotencyKey: 'owner-owner-invite',
+      correlationId: randomUUID(),
+    });
+    if ('deniedReason' in pendingOwner || !pendingOwner.invitationId) {
+      throw new Error('Expected a pending owner invitation');
+    }
+
+    await expect(
+      revokeIamInvitation(appPool, adminPrincipal, {
+        tenantId: tenantA,
+        invitationId: pendingOwner.invitationId,
+        correlationId: randomUUID(),
+      }),
+    ).resolves.toEqual({ deniedReason: 'permission_missing' });
+    await expect(
+      revokeIamInvitation(appPool, ownerPrincipal, {
+        tenantId: tenantA,
+        invitationId: pendingOwner.invitationId,
+        correlationId: randomUUID(),
+        allowOwnerInvitation: true,
+      }),
+    ).resolves.toMatchObject({ status: 'revoked' });
+
+    const secondOwnerIdentity = 'a3333333-3333-3333-3333-333333333333';
+    const secondOwnerMembership = 'aa333333-3333-3333-3333-333333333333';
+    await adminPool.query('INSERT INTO iam_app.identities(id) VALUES ($1)', [
+      secondOwnerIdentity,
+    ]);
+    await adminPool.query(
+      `INSERT INTO iam_app.memberships(id,tenant_id,identity_id,status,roles,center_ids)
+       VALUES ($1,$2,$3,'active',ARRAY['tenant_owner'],NULL)`,
+      [secondOwnerMembership, tenantA, secondOwnerIdentity],
+    );
+
+    await expect(
+      disableIamMembership(appPool, adminPrincipal, {
+        tenantId: tenantA,
+        membershipId: secondOwnerMembership,
+        correlationId: randomUUID(),
+      }),
+    ).resolves.toEqual({ deniedReason: 'permission_missing' });
+    await expect(
+      disableIamMembership(appPool, ownerPrincipal, {
+        tenantId: tenantA,
+        membershipId: secondOwnerMembership,
+        correlationId: randomUUID(),
+      }),
+    ).resolves.toEqual({ deniedReason: 'permission_missing' });
   });
 
   it('creates one immutable unbound pending membership with seven-day expiry and no pending access', async () => {

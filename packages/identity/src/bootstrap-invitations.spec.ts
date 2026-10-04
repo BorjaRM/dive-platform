@@ -109,6 +109,24 @@ describe('ClerkBootstrapInvitationAdapter (DIVE-ONB-REQ-038, 043..045)', () => {
     expect((error as Error).message).not.toContain('secret');
   });
 
+  it('treats an already absent invitation as an idempotent revoke success', async () => {
+    const provider = dependencies();
+    vi.mocked(provider.revokeInvitation).mockRejectedValue({ status: 404 });
+    const adapter = new ClerkBootstrapInvitationAdapter(
+      {
+        authenticationOrigin: 'https://auth.example.test',
+        secretKey: 'sk_test_not-real',
+        redirectUrl: 'https://auth.example.test/bootstrap/accept',
+        requestTimeoutMillis: 15_000,
+      },
+      provider,
+    );
+    await expect(adapter.revoke('inv_missing')).resolves.toEqual({
+      invitationRef: 'inv_missing',
+      status: 'not_found',
+    });
+  });
+
   it('bounds stalled provider requests with the configured deadline', async () => {
     vi.useFakeTimers();
     try {

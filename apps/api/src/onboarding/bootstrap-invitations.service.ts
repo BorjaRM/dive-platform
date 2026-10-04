@@ -5,6 +5,7 @@ import {
   issueBootstrapInvitation,
   readBootstrapInvitation,
   reissueBootstrapInvitation,
+  retryBootstrapInvitationRevoke,
   revokeBootstrapInvitation,
 } from '@dive-center/database';
 import type { AuthenticatedPrincipal } from '@dive-center/identity';
@@ -84,6 +85,25 @@ export class BootstrapInvitationsService {
     this.assertWritesEnabled();
     return this.state(
       await revokeBootstrapInvitation(this.pool, principal, {
+        invitationId,
+        reason: input.reason,
+        idempotencyKey: this.idempotencyKey(idempotencyKey),
+        correlationId,
+      }),
+    );
+  }
+
+  async retryRevoke(
+    principal: AuthenticatedPrincipal,
+    invitationId: string,
+    input: BootstrapInvitationMutationInput,
+    idempotencyKey: string | undefined,
+    correlationId: string,
+  ): Promise<BootstrapInvitationState> {
+    await this.authorizeOperation(principal);
+    this.assertWritesEnabled();
+    return this.state(
+      await retryBootstrapInvitationRevoke(this.pool, principal, {
         invitationId,
         reason: input.reason,
         idempotencyKey: this.idempotencyKey(idempotencyKey),

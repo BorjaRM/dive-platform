@@ -252,6 +252,35 @@ export function revokeBootstrapInvitation(
   return mutateBootstrapInvitation(pool, principal, 'revoke', input);
 }
 
+export async function retryBootstrapInvitationRevoke(
+  pool: Pool,
+  principal: AuthenticatedPrincipal,
+  input: Readonly<{
+    invitationId: string;
+    reason: string;
+    idempotencyKey: string;
+    correlationId: string;
+  }>,
+): Promise<BootstrapInvitationResult> {
+  assertAuthenticatedPrincipal(principal);
+  const reason = input.reason.trim();
+  const result = await pool.query<{ outcome: BootstrapInvitationResult }>(
+    `SELECT onboarding_app.retry_bootstrap_invitation_revoke_command(
+      $1, $2, $3::uuid, $4, $5, $6, $7::uuid
+    ) AS outcome`,
+    [
+      principal.issuer,
+      principal.subject,
+      input.invitationId,
+      reason,
+      input.idempotencyKey,
+      fingerprint({ invitationId: input.invitationId, reason }),
+      input.correlationId,
+    ],
+  );
+  return requireOutcome(result.rows[0]);
+}
+
 export async function claimBootstrapOutboxEvent(
   client: PoolClient,
 ): Promise<BootstrapOutboxClaim | null> {

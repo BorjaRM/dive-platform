@@ -70,10 +70,175 @@ export function retryAfterDelayMillis(
     const delay = Number(normalized) * 1_000;
     return Number.isSafeInteger(delay) ? delay : Number.POSITIVE_INFINITY;
   }
-  const timestamp = Date.parse(normalized);
+  const timestamp = parseHttpDateTimestamp(normalized);
   const delay = timestamp - now.getTime();
   if (!Number.isFinite(timestamp) || delay <= 0) return null;
   return Number.isSafeInteger(delay) ? delay : Number.POSITIVE_INFINITY;
+}
+
+const shortWeekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const longWeekdays = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
+const months = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+function parseHttpDateTimestamp(value: string): number {
+  const imfFixdate =
+    /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun), (\d{2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4}) (\d{2}):(\d{2}):(\d{2}) GMT$/.exec(
+      value,
+    );
+  if (imfFixdate) {
+    const [
+      ,
+      weekday = '',
+      day = '',
+      month = '',
+      year = '',
+      hour = '',
+      minute = '',
+      second = '',
+    ] = imfFixdate;
+    return validatedHttpDateTimestamp(
+      weekday,
+      day,
+      month,
+      year,
+      hour,
+      minute,
+      second,
+    );
+  }
+
+  const rfc850Date =
+    /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), (\d{2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2}) (\d{2}):(\d{2}):(\d{2}) GMT$/.exec(
+      value,
+    );
+  if (rfc850Date) {
+    const [
+      ,
+      weekday = '',
+      day = '',
+      month = '',
+      shortYearValue = '',
+      hour = '',
+      minute = '',
+      second = '',
+    ] = rfc850Date;
+    const shortYear = Number(shortYearValue);
+    return validatedHttpDateTimestamp(
+      weekday,
+      day,
+      month,
+      String(shortYear >= 50 ? 1900 + shortYear : 2000 + shortYear),
+      hour,
+      minute,
+      second,
+    );
+  }
+
+  const asctimeDate =
+    /^(Sun|Mon|Tue|Wed|Thu|Fri|Sat) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) ([ 0-9]{2}) (\d{2}):(\d{2}):(\d{2}) (\d{4})$/.exec(
+      value,
+    );
+  if (asctimeDate) {
+    const [
+      ,
+      weekday = '',
+      month = '',
+      day = '',
+      hour = '',
+      minute = '',
+      second = '',
+      year = '',
+    ] = asctimeDate;
+    return validatedHttpDateTimestamp(
+      weekday,
+      day,
+      month,
+      year,
+      hour,
+      minute,
+      second,
+    );
+  }
+
+  return Number.NaN;
+}
+
+function validatedHttpDateTimestamp(
+  weekday: string,
+  day: string,
+  month: string,
+  year: string,
+  hour: string,
+  minute: string,
+  second: string,
+): number {
+  const yearNumber = Number(year);
+  const monthIndex = months.indexOf(month);
+  const dayNumber = Number(day.trim());
+  const hourNumber = Number(hour);
+  const minuteNumber = Number(minute);
+  const secondNumber = Number(second);
+  if (
+    monthIndex < 0 ||
+    dayNumber < 1 ||
+    dayNumber > 31 ||
+    hourNumber > 23 ||
+    minuteNumber > 59 ||
+    secondNumber > 59
+  ) {
+    return Number.NaN;
+  }
+
+  const timestamp = Date.UTC(
+    yearNumber,
+    monthIndex,
+    dayNumber,
+    hourNumber,
+    minuteNumber,
+    secondNumber,
+  );
+  const date = new Date(timestamp);
+  if (yearNumber >= 0 && yearNumber <= 99) {
+    date.setUTCFullYear(yearNumber);
+  }
+  const expectedWeekdayName = longWeekdays.includes(weekday)
+    ? (shortWeekdays[longWeekdays.indexOf(weekday)] ?? '')
+    : weekday;
+  const expectedWeekday = shortWeekdays.indexOf(expectedWeekdayName);
+  if (
+    !Number.isFinite(date.getTime()) ||
+    date.getUTCFullYear() !== yearNumber ||
+    date.getUTCMonth() !== monthIndex ||
+    date.getUTCDate() !== dayNumber ||
+    date.getUTCHours() !== hourNumber ||
+    date.getUTCMinutes() !== minuteNumber ||
+    date.getUTCSeconds() !== secondNumber ||
+    date.getUTCDay() !== expectedWeekday
+  ) {
+    return Number.NaN;
+  }
+  return date.getTime();
 }
 
 function isRetryable(error: BootstrapInvitationProviderError): boolean {
@@ -86,10 +251,19 @@ function isRetryable(error: BootstrapInvitationProviderError): boolean {
 }
 
 function safeProviderStatus(error: BootstrapInvitationProviderError): string {
+  if (error.name === 'UnknownProviderStateError') {
+    return 'unknown_provider_state';
+  }
   if (error.timedOut) return 'request_timeout';
   return error.statusCode === null
     ? 'network_error'
     : `http_${error.statusCode}`;
+}
+
+function unknownProviderStateError(): BootstrapInvitationProviderError {
+  const error = new BootstrapInvitationProviderError(null, null);
+  error.name = 'UnknownProviderStateError';
+  return error;
 }
 
 async function deliver(
@@ -108,16 +282,21 @@ async function deliver(
     });
   }
 
-  let invitationRef = claim.providerInvitationRef;
-  if (!invitationRef) {
-    const reconciled = await provider.reconcile({
-      destinationEmail: claim.destinationEmail,
-      grantRef: claim.grantId,
+  const reconciled = await provider.reconcile({
+    destinationEmail: claim.destinationEmail,
+    grantRef: claim.grantId,
+  });
+  if (!reconciled) return null;
+  if (reconciled.status === 'revoked' || reconciled.status === 'not_found') {
+    return Object.freeze({
+      invitationRef: reconciled.invitationRef,
+      status: 'not_found',
     });
-    if (!reconciled) return null;
-    invitationRef = reconciled.invitationRef;
   }
-  return provider.revoke(invitationRef);
+  if (reconciled.status !== 'pending') {
+    throw unknownProviderStateError();
+  }
+  return provider.revoke(reconciled.invitationRef);
 }
 
 async function rollback(client: PoolClient): Promise<void> {

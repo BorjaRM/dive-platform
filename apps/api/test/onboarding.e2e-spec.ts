@@ -2,6 +2,7 @@ import {
   bootstrapRoles,
   claimBootstrapOutboxEvent,
   completeBootstrapOutboxEvent,
+  failBootstrapOutboxEvent,
   migrateProduct,
   setBootstrapPlatformCapability,
 } from '@dive-center/database';
@@ -215,6 +216,108 @@ describe('platform bootstrap invitations HTTP (DIVE-ONB-REQ-039..040)', () => {
       .set('Idempotency-Key', 'revoke-without-reason')
       .send({})
       .expect(422);
+  });
+
+  it('recovers a dead-lettered revoke through the dedicated platform route', async () => {
+    const issued = await request(app.getHttpServer())
+      .post('/v1/platform/bootstrap-invitations')
+      .set('Authorization', 'Bearer platform-token')
+      .set('Idempotency-Key', 'recovery-issue')
+      .send({ destinationEmail: 'owner@example.test', reason: 'Recovery' })
+      .expect(201);
+    const invitationId = issued.body.invitationId as string;
+
+    await request(app.getHttpServer())
+      .post(`/v1/platform/bootstrap-invitations/${invitationId}/revoke`)
+      .set('Authorization', 'Bearer platform-token')
+      .set('Idempotency-Key', 'recovery-revoke')
+      .send({ reason: 'Cancel duplicate invitation' })
+      .expect(200);
+
+    for (let attempt = 1; attempt <= 8; attempt += 1) {
+      const client = await workerPool.connect();
+      try {
+        await client.query('BEGIN');
+        const event = await claimBootstrapOutboxEvent(client);
+        if (!event)
+          throw new Error(`Expected revoke claim for attempt ${attempt}`);
+        await failBootstrapOutboxEvent(client, {
+          eventId: event.eventId,
+          retryable: true,
+          nextAttemptAt: '2000-01-01T00:00:00.000Z',
+          providerStatus: 'unavailable',
+        });
+        await client.query('COMMIT');
+      } finally {
+        client.release();
+      }
+    }
+
+    await request(app.getHttpServer())
+      .post(`/v1/platform/bootstrap-invitations/${invitationId}/revoke/retry`)
+      .set('Authorization', 'Bearer platform-token')
+      .set('Idempotency-Key', 'recovery-retry')
+      .send({ reason: 'Reviewed revoke delivery' })
+      .expect(200)
+      .expect(({ body }) =>
+        expect(body).toEqual({
+          invitationId,
+          destinationEmail: 'owner@example.test',
+          status: 'revoked',
+          deliveryStatus: 'pending',
+        }),
+      );
+  });
+
+  it('rejects revoke without capability and leaves grant, audit, and outbox unchanged', async () => {
+    const issued = await request(app.getHttpServer())
+      .post('/v1/platform/bootstrap-invitations')
+      .set('Authorization', 'Bearer platform-token')
+      .set('Idempotency-Key', 'revoke-capability-issue')
+      .send({
+        destinationEmail: 'owner@example.test',
+        reason: 'Capability test',
+      })
+      .expect(201);
+    const invitationId = issued.body.invitationId as string;
+    const before = await admin.query<{
+      audit_count: number;
+      event_count: number;
+      grant_status: string;
+    }>(
+      `SELECT
+        (SELECT status FROM onboarding_app.tenant_bootstrap_grants WHERE id = $1) AS grant_status,
+        (SELECT count(*)::int FROM onboarding_app.bootstrap_invitation_audit_records WHERE grant_id = $1) AS audit_count,
+        (SELECT count(*)::int FROM onboarding_app.tenant_bootstrap_outbox_events WHERE grant_id = $1) AS event_count`,
+      [invitationId],
+    );
+
+    await setBootstrapPlatformCapability(platformAdminPool, {
+      issuer: 'https://identity.example.test',
+      subject: 'platform-operator',
+      capability: 'bootstrap_invitation.revoke',
+      enabled: false,
+    });
+
+    await request(app.getHttpServer())
+      .post(`/v1/platform/bootstrap-invitations/${invitationId}/revoke`)
+      .set('Authorization', 'Bearer platform-token')
+      .set('Idempotency-Key', 'revoke-capability-denied')
+      .send({ reason: 'Unauthorized revoke' })
+      .expect(404);
+
+    const after = await admin.query<{
+      audit_count: number;
+      event_count: number;
+      grant_status: string;
+    }>(
+      `SELECT
+        (SELECT status FROM onboarding_app.tenant_bootstrap_grants WHERE id = $1) AS grant_status,
+        (SELECT count(*)::int FROM onboarding_app.bootstrap_invitation_audit_records WHERE grant_id = $1) AS audit_count,
+        (SELECT count(*)::int FROM onboarding_app.tenant_bootstrap_outbox_events WHERE grant_id = $1) AS event_count`,
+      [invitationId],
+    );
+    expect(after.rows).toEqual(before.rows);
   });
 
   async function deliverInvitation(

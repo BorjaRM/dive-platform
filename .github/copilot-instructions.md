@@ -68,6 +68,7 @@ Docker Compose + integration PostgreSQL exist for MT-SPIKE-001 (`infra/docker/po
 - **Documented:** for current and future dashboard/center-facing work, consult `DIVE-IAM-REQ-030..032`, the confirmed authorization-capability/application-scope policy, the selected [simple BFF](../specs/iam/SPEC-DIVE-IAM-DASHBOARD-001.md#simple-bff-contract), [omission-prevention controls](../specs/iam/SPEC-DIVE-IAM-DASHBOARD-001.md#avoiding-route-omissions) and remaining implementation questions. Apply the [shared agent guidance](agents/README.md#principles-mandatory) authorized by the product-owner documentation request on 2026-09-30. Respect the selected contract and open deployment decisions; do not claim that required runtime/CI controls already exist. Do not infer application-wide coverage from catalog-only tests or an enabled administrative surface from future architectural capability. The SPEC owns the rules; do not copy them into agent profiles.
 - `SPEC-DIVE-OPS-001` is Deferred; do not implement it in the walking skeleton.
 - Performance is system-wide (DB, API, worker/outbox, web/widget). Do not invent numeric budgets.
+- **Proposed, explicitly authorized in chat on 2026-10-04:** every new or altered PostgreSQL `SECURITY DEFINER` function must set an explicit safe `search_path`, revoke `EXECUTE` from `PUBLIC`, grant execution only to the named runtime role, and include an integration assertion for those privileges. This is security implementation guidance, not a product contract.
 
 ## Engineering standards
 

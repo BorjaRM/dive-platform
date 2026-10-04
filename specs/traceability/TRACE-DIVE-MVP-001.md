@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.112
+- **Version:** 0.113
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -32,7 +32,7 @@
 | ADR-DIVE-015 | `specs/architecture/adrs/ADR-DIVE-015.md` | Accepted | 0.3 |
 | ADR-DIVE-016 | `specs/architecture/adrs/ADR-DIVE-016.md` | Draft | 0.1 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Draft | 1.7 |
-| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.29 |
+| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.30 |
 | SPEC-DIVE-MARKETING-001 | `specs/marketing/SPEC-DIVE-MARKETING-001.md` | Ready to start | 0.1 |
 | SPEC-DIVE-ONBOARDING-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md` | Ready to start | 0.20 |
 | SPEC-DIVE-TRIAL-001 | `specs/commercial/SPEC-DIVE-TRIAL-001.md` | Draft | 0.1 |
@@ -52,8 +52,8 @@
 | SPEC-DIVE-IAM-DASHBOARD-001 | `specs/iam/SPEC-DIVE-IAM-DASHBOARD-001.md` | Ready to start | 0.14 |
 | SPEC-DIVE-IAM-INVITATIONS-001 | `specs/iam/SPEC-DIVE-IAM-INVITATIONS-001.md` | Ready to start | 0.1 |
 | SPEC-DIVE-IAM-SUPPORT-001 | `specs/iam/SPEC-DIVE-IAM-SUPPORT-001.md` | Ready to start | 0.1 |
-| SPEC-DIVE-ONBOARDING-ADMIN-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-ADMIN-001.md` | Ready to start | 0.3 |
-| SPEC-DIVE-ONBOARDING-DELIVERY-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-DELIVERY-001.md` | Ready to start | 0.2 |
+| SPEC-DIVE-ONBOARDING-ADMIN-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-ADMIN-001.md` | Ready to start | 0.4 |
+| SPEC-DIVE-ONBOARDING-DELIVERY-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-DELIVERY-001.md` | Ready to start | 0.3 |
 | SPEC-DIVE-ONBOARDING-GUIDANCE-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-GUIDANCE-001.md` | Deferred | 0.1 |
 
 **Documented:** the map reflects the structural split and subsequent dated approvals recorded by the owners. Original approvals are retained; the new commercial direction is explicitly approved on 2026-09-30, not inferred from the map. No executed coverage is inferred. Requirement entry points are SPEC-DIVE-BOOKING-001, SPEC-DIVE-IAM-001 and SPEC-DIVE-ONBOARDING-001, each with its ownership table.
@@ -135,7 +135,7 @@ Dashboard tenant-context requirements `DIVE-IAM-REQ-029..032` remain Ready to st
 | Guided onboarding | 027–034 | Deferred; no implementation tests until a future story reactivates and redefines the scope | none |
 | Acceptance matrix | 036 | evidence mapped to every applicable row above | implementation PR |
 | Login and bootstrap HTTP boundary | 037–041 | Clerk invite-only, application-invitation custom-flow, mandatory active-session sign-out and ticket reauthentication, ticket-redaction, platform-capability, abuse/idempotency, rollout, safe-state, and completion contract tests; MFA is out of scope for issue #72 | implementation PR plus Clerk Development evidence; future step-up remains governed by `ADR-DIVE-006` |
-| Center entry, provider delivery, persistence, and retention | 042–047 | `centerKey` mapping/rollback, pre-tenant outbox, Clerk create/revoke/reissue/reconciliation, delivery-state transitions, retry/dead-letter, valid and invalid `Retry-After` handling, redirect, retention, audit, and event contract tests | Partial in PR #78 plus residual backend tests: mapping, dynamic exact-origin resolution, completion audit/event, provider delivery, and induced completion rollback are represented; deployed DNS/TLS/Clerk readiness remains an activation evidence gap |
+| Center entry, provider delivery, persistence, and retention | 042–047 | `centerKey` mapping/rollback, pre-tenant outbox, Clerk create/revoke/reissue/reconciliation, delivery-state transitions, retry/dead-letter, valid and invalid `Retry-After` handling, redirect, retention, audit, and event contract tests | Partial in PR #78 plus residual backend tests: mapping, dynamic exact-origin resolution, completion audit/event, provider delivery, revoke dead-letter recovery, and induced completion rollback are represented; deployed DNS/TLS/Clerk readiness remains an activation evidence gap |
 | Revocation and no-active-membership safety | 048–050 | stale-handle denial, renewal denial, unrelated-membership continuity, neutral UI, and non-disclosure tests | Demonstrated by `apps/api/test/iam.e2e-spec.ts`, `packages/database/test/integration/iam-api.integration.test.ts`, `apps/web/src/features/dashboard/dashboard-tenant-context.test.tsx`, and `apps/web/src/features/dashboard/tenant-context.test.ts`; center-entry denial uses the same non-disclosing contract |
 
 **Issue #73 reconciliation (Derived, 2026-09-29):** PR #78 contains the core self-bootstrap command and its persistence path. Residual integration tests represent induced transaction rollback and rejection of terminal or ordinary IAM grants without tenant side effects, and the existing IAM/dashboard paths plus the neutral no-access test cover `DIVE-ONB-REQ-048..050`. The backend now resolves exact center origins from trusted mappings, implements `POST /v1/me/center-entry-contexts` with current membership, `center.read`, and center-scope checks, and implements the approved Owner/Admin-only active/disabled lifecycle with immutable keys and audit. The setup client still lacks the absolute first-center navigation, which remains outside the issue #73 backend brief. This note records coverage only; it does not change requirement text or promote an artifact.
@@ -228,7 +228,9 @@ The Proposed reconciliation for original-emission credential replay (`DIVE-BOOK-
 | Identity resolution, independent memberships, issuer + subject, and requested-tenant enforcement | `DIVE-IAM-REQ-001`, `002`, `005`, `006` | `packages/database/test/integration/iam-api.integration.test.ts`, `apps/api/test/iam.e2e-spec.ts` |
 | Explicit Phase 1 role grants, explicit Operations Lead center scope with missing-scope denial, inactive membership denial, and disabled external-collaborator fail-closed behavior | `DIVE-IAM-REQ-003`, `010..014`, `023` | `packages/identity/src/index.ts`, `apps/api/src/iam/iam.roles.spec.ts`, `apps/api/test/iam.e2e-spec.ts` |
 | Provider-neutral identity assertion; invitation and pending-membership lifecycle; no-bearer retries; deliberate reissue; concurrent acceptance/reissue; non-disclosing scope denial; transactional audit/outbox | `DIVE-IAM-REQ-005`, `017`, `024`, `025` | `apps/api/src/iam/iam.identity.spec.ts`, `packages/database/test/integration/iam-invitations.integration.test.ts` |
-| Command-only membership mutation, last-owner protection, and atomic disable audit/outbox | `DIVE-IAM-REQ-018`, `025` | `apps/api/test/iam.e2e-spec.ts`, `packages/database/test/integration/iam-api.integration.test.ts`, `packages/database/test/integration/migrations.integration.test.ts` |
+| Explicit normal-membership versus ownership invitation HTTP boundary, trusted tenant-context resolution, owner-route target restriction, and normal-route owner denial | `DIVE-IAM-REQ-017`, `018`, `025` | `apps/api/test/iam.e2e-spec.ts`, `packages/database/test/integration/iam-invitations.integration.test.ts` |
+| Request-body tenant spoofing denied while invitation issue/revoke remains tenant-scoped | `MT-REQ-010` | `apps/api/test/iam.e2e-spec.ts`, `packages/database/test/integration/iam-invitations.integration.test.ts` |
+| Command-only membership mutation, owner-target protection, last-owner protection, and atomic disable audit/outbox | `DIVE-IAM-REQ-018`, `025` | `apps/api/test/iam.e2e-spec.ts`, `packages/database/test/integration/iam-api.integration.test.ts`, `packages/database/test/integration/iam-invitations.integration.test.ts`, `packages/database/test/integration/migrations.integration.test.ts` |
 | Non-disclosing errors for the exposed center, membership-disable, and invitation persistence paths | `DIVE-IAM-REQ-024` | `apps/api/test/iam.e2e-spec.ts`, `packages/database/test/integration/iam-invitations.integration.test.ts` |
 | Provider-neutral assurance and ordinary authentication without a verified address | `DIVE-IAM-REQ-005`, `019` | `packages/identity/src/clerk.spec.ts`, `apps/api/src/iam/iam.identity.spec.ts`, `apps/api/test/iam.e2e-spec.ts` |
 | Authenticated self-bootstrap command, closed setup input, verified-email grant resolution, atomic tenant/center/Owner creation, idempotency, concurrency, redemption rate limit, center-key mapping, completion audit, and safe completion event | `DIVE-ONB-REQ-004`, `006`, `008..009`, `012`, `018..021`, `041..042`, `047` | Partial: `apps/api/src/onboarding/tenant-bootstrap.validation.spec.ts`, `apps/api/src/onboarding/tenant-bootstrap.service.spec.ts`, `apps/api/test/onboarding.e2e-spec.ts`, `packages/database/test/integration/onboarding-invitations.integration.test.ts`, `packages/database/test/integration/product-security.integration.test.ts`; rollback and terminal/wrong-kind denial assertions exist in onboarding-invitations.integration.test.ts; `apps/web/src/features/bootstrap/bootstrap-setup.test.tsx` covers the absolute first-center web handoff; deployed readiness remains open |

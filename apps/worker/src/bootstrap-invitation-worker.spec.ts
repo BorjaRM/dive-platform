@@ -115,6 +115,58 @@ describe('bootstrap invitation worker (DIVE-ONB-REQ-043..045)', () => {
     );
   });
 
+  it('completes an already-revoked provider invitation as safe not_found', async () => {
+    const { client, pool, provider } = harness();
+    vi.mocked(claimBootstrapOutboxEvent).mockResolvedValue({
+      ...claim,
+      command: 'revoke',
+      providerInvitationRef: 'inv_revoked',
+    });
+    vi.mocked(provider.reconcile).mockResolvedValue({
+      invitationRef: 'inv_revoked',
+      status: 'revoked',
+    });
+
+    await expect(
+      processNextBootstrapInvitation(pool, provider, enabledEnvironment),
+    ).resolves.toBe('succeeded');
+
+    expect(provider.revoke).not.toHaveBeenCalled();
+    expect(completeBootstrapOutboxEvent).toHaveBeenCalledWith(client, {
+      eventId: claim.eventId,
+      providerInvitationRef: 'inv_revoked',
+      providerStatus: 'not_found',
+    });
+    expect(client.query).toHaveBeenLastCalledWith('COMMIT');
+  });
+
+  it('retries an unknown provider invitation state without revoking it', async () => {
+    const { client, pool, provider } = harness();
+    vi.mocked(claimBootstrapOutboxEvent).mockResolvedValue({
+      ...claim,
+      command: 'revoke',
+      providerInvitationRef: 'inv_unknown',
+    });
+    vi.mocked(provider.reconcile).mockResolvedValue({
+      invitationRef: 'inv_unknown',
+      status: 'accepted',
+    });
+    vi.mocked(failBootstrapOutboxEvent).mockResolvedValue('retrying');
+
+    await expect(
+      processNextBootstrapInvitation(pool, provider, enabledEnvironment),
+    ).resolves.toBe('retrying');
+
+    expect(provider.revoke).not.toHaveBeenCalled();
+    expect(failBootstrapOutboxEvent).toHaveBeenCalledWith(client, {
+      eventId: claim.eventId,
+      retryable: true,
+      nextAttemptAt: expect.any(String),
+      providerStatus: 'unknown_provider_state',
+    });
+    expect(completeBootstrapOutboxEvent).not.toHaveBeenCalled();
+  });
+
   it('honors valid Retry-After when it exceeds local jitter', async () => {
     const { client, pool, provider } = harness();
     vi.mocked(claimBootstrapOutboxEvent).mockResolvedValue(claim);
@@ -202,6 +254,10 @@ describe('bootstrap invitation worker (DIVE-ONB-REQ-043..045)', () => {
       command: 'revoke',
       providerInvitationRef: 'inv_previous',
     });
+    vi.mocked(provider.reconcile).mockResolvedValue({
+      invitationRef: 'inv_previous',
+      status: 'pending',
+    });
     vi.mocked(provider.revoke).mockRejectedValue(
       new BootstrapInvitationProviderError(429, '9007199254740991'),
     );
@@ -219,7 +275,10 @@ describe('bootstrap invitation worker (DIVE-ONB-REQ-043..045)', () => {
       providerStatus: 'retry_after_out_of_range',
     });
     expect(provider.create).not.toHaveBeenCalled();
-    expect(provider.reconcile).not.toHaveBeenCalled();
+    expect(provider.reconcile).toHaveBeenCalledWith({
+      destinationEmail: claim.destinationEmail,
+      grantRef: claim.grantId,
+    });
     expect(client.query).toHaveBeenLastCalledWith('COMMIT');
   });
 
@@ -297,7 +356,15 @@ describe('bootstrap invitation worker (DIVE-ONB-REQ-043..045)', () => {
     expect(retryAfterDelayMillis('Thu, 01 Jan 2026 00:00:30 GMT', now)).toBe(
       30_000,
     );
+    expect(retryAfterDelayMillis('Tuesday, 01-Jan-30 00:00:30 GMT', now)).toBe(
+      126_230_430_000,
+    );
+    expect(retryAfterDelayMillis('Tue Jan  1 00:00:30 2030', now)).toBe(
+      126_230_430_000,
+    );
     expect(retryAfterDelayMillis('-1', now)).toBeNull();
+    expect(retryAfterDelayMillis('2030-01-01', now)).toBeNull();
+    expect(retryAfterDelayMillis('Tue, 01 Jan 2030 00:00:30', now)).toBeNull();
     expect(retryAfterDelayMillis('invalid', now)).toBeNull();
     expect(
       retryAfterDelayMillis('Wed, 31 Dec 2025 23:59:59 GMT', now),

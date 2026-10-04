@@ -1,6 +1,7 @@
 import type { AuthenticatedPrincipal } from '@dive-center/identity';
 import { correlationIdForCurrentContext } from '@dive-center/observability';
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -19,6 +20,8 @@ import {
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
+  ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiOkResponse,
@@ -53,6 +56,9 @@ import {
   CenterEntryContextDto,
   CenterEntryStatusDto,
   DisableMembershipResultDto,
+  InvitationCommandResultDto,
+  IssueMembershipInvitationDto,
+  IssueOwnerInvitationDto,
   OperatorListDto,
   TenantContextDto,
 } from './iam.dto.js';
@@ -232,7 +238,7 @@ export class IamController {
   @ApiOkResponse({ type: DisableMembershipResultDto })
   @ApiForbiddenResponse({
     description:
-      'Membership missing/inactive, or the caller cannot disable the last owner',
+      'Membership missing/inactive, or the caller cannot disable an owner',
   })
   @AuthAction(IAM_ACTIONS.membershipDisable)
   @HttpAdmission({ kind: 'exception', exception: 'membershipDisable' })
@@ -250,6 +256,118 @@ export class IamController {
           principal,
           handle,
           membershipId,
+          correlationId,
+        ),
+    );
+  }
+
+  @ApiOperation({ summary: 'Invite a non-owner tenant membership' })
+  @ApiBody({ type: IssueMembershipInvitationDto })
+  @ApiCreatedResponse({ type: InvitationCommandResultDto })
+  @ApiBadRequestResponse({
+    description: 'Missing idempotency key or owner role',
+  })
+  @ApiForbiddenResponse({ description: 'Membership invitation denied' })
+  @AuthAction(IAM_ACTIONS.membershipInvite)
+  @HttpAdmission({ kind: 'exception', exception: 'membershipInvitationIssue' })
+  @Post('memberships/invitations')
+  issueMembershipInvitation(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Headers('x-tenant-context') handle: string | undefined,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Body() input: IssueMembershipInvitationDto,
+  ) {
+    if (!idempotencyKey)
+      throw new BadRequestException('Missing idempotency key');
+    return this.execute(
+      IAM_ACTIONS.membershipInvite,
+      principal,
+      (principal, correlationId) =>
+        this.iam.issueMembershipInvitation(
+          principal,
+          handle,
+          { ...input, idempotencyKey },
+          correlationId,
+        ),
+    );
+  }
+
+  @ApiOperation({ summary: 'Invite a tenant owner' })
+  @ApiBody({ type: IssueOwnerInvitationDto })
+  @ApiCreatedResponse({ type: InvitationCommandResultDto })
+  @ApiBadRequestResponse({ description: 'Missing idempotency key' })
+  @ApiForbiddenResponse({ description: 'Owner invitation denied' })
+  @AuthAction(IAM_ACTIONS.membershipInvite)
+  @HttpAdmission({ kind: 'exception', exception: 'ownershipInvitationIssue' })
+  @Post('ownership/invitations')
+  issueOwnerInvitation(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Headers('x-tenant-context') handle: string | undefined,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Body() input: IssueOwnerInvitationDto,
+  ) {
+    if (!idempotencyKey)
+      throw new BadRequestException('Missing idempotency key');
+    return this.execute(
+      IAM_ACTIONS.membershipInvite,
+      principal,
+      (principal, correlationId) =>
+        this.iam.issueOwnerInvitation(
+          principal,
+          handle,
+          { ...input, idempotencyKey },
+          correlationId,
+        ),
+    );
+  }
+
+  @ApiOperation({ summary: 'Revoke a non-owner membership invitation' })
+  @ApiParam({ name: 'invitationId', format: 'uuid' })
+  @ApiOkResponse({ type: InvitationCommandResultDto })
+  @ApiForbiddenResponse({
+    description: 'Membership invitation revocation denied',
+  })
+  @AuthAction(IAM_ACTIONS.membershipDisable)
+  @HttpAdmission({ kind: 'exception', exception: 'membershipInvitationRevoke' })
+  @Delete('memberships/invitations/:invitationId')
+  revokeMembershipInvitation(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Headers('x-tenant-context') handle: string | undefined,
+    @Param('invitationId') invitationId: string,
+  ) {
+    return this.execute(
+      IAM_ACTIONS.membershipDisable,
+      principal,
+      (principal, correlationId) =>
+        this.iam.revokeMembershipInvitation(
+          principal,
+          handle,
+          invitationId,
+          correlationId,
+        ),
+    );
+  }
+
+  @ApiOperation({ summary: 'Revoke a pending owner invitation' })
+  @ApiParam({ name: 'invitationId', format: 'uuid' })
+  @ApiOkResponse({ type: InvitationCommandResultDto })
+  @ApiForbiddenResponse({ description: 'Owner invitation revocation denied' })
+  @AuthAction(IAM_ACTIONS.membershipDisable)
+  @HttpAdmission({ kind: 'exception', exception: 'ownershipInvitationRevoke' })
+  @Delete('ownership/invitations/:invitationId')
+  revokeOwnerInvitation(
+    @Principal() principal: AuthenticatedPrincipal,
+    @Headers('x-tenant-context') handle: string | undefined,
+    @Param('invitationId') invitationId: string,
+  ) {
+    return this.execute(
+      IAM_ACTIONS.membershipDisable,
+      principal,
+      (principal, correlationId) =>
+        this.iam.revokeOwnerInvitation(
+          principal,
+          handle,
+          invitationId,
           correlationId,
         ),
     );

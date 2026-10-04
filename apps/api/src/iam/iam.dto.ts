@@ -24,6 +24,56 @@ export class DisableMembershipResultDto {
   status: 'disabled';
 }
 
+export class InvitationCommandResultDto {
+  @ApiProperty({ format: 'uuid' })
+  invitationId: string;
+
+  @ApiProperty({ format: 'uuid' })
+  membershipId: string;
+
+  @ApiProperty({
+    enum: ['pending', 'revoked', 'accepted', 'rejected', 'expired'],
+  })
+  status: 'pending' | 'revoked' | 'accepted' | 'rejected' | 'expired';
+
+  @ApiPropertyOptional({ enum: ['queued'] })
+  deliveryStatus?: 'queued';
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  expiresAt?: string;
+
+  @ApiPropertyOptional({ description: 'Invitation credential, returned once' })
+  credential?: string;
+
+  @ApiPropertyOptional()
+  created?: boolean;
+}
+
+export class IssueMembershipInvitationDto {
+  @ApiProperty({ description: 'Verified destination address' })
+  targetAddress: string;
+
+  @ApiProperty({ type: [String], description: 'Non-owner membership roles' })
+  roles: string[];
+
+  @ApiProperty({ type: [String], format: 'uuid' })
+  centerIds: string[];
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  reissueInvitationId?: string;
+}
+
+export class IssueOwnerInvitationDto {
+  @ApiProperty({ description: 'Verified destination address' })
+  targetAddress: string;
+
+  @ApiProperty({ type: [String], format: 'uuid' })
+  centerIds: string[];
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  reissueInvitationId?: string;
+}
+
 export class OperatorDto {
   @ApiProperty({ description: 'Opaque operator selector' })
   operatorRef: string;

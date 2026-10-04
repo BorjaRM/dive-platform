@@ -608,14 +608,14 @@ describe('DIVE-ONB-REQ-005,039,040 platform invitation transport', () => {
     });
   });
 
-  it.each(['reissue', 'revoke'])(
+  it.each(['reissue', 'revoke', 'revoke/retry'])(
     'forwards %s with the platform mutation contract',
     async (command) => {
       const upstream = vi.fn<typeof fetch>().mockResolvedValue(
         Response.json({
           invitationId: centerId,
           destinationEmail: 'owner@example.test',
-          status: command === 'revoke' ? 'revoked' : 'issued',
+          status: command === 'reissue' ? 'issued' : 'revoked',
           deliveryStatus: 'pending',
         }),
       );
@@ -629,12 +629,12 @@ describe('DIVE-ONB-REQ-005,039,040 platform invitation transport', () => {
               origin: authOrigin,
               authorization: 'Bearer operator-token',
               'content-type': 'application/json',
-              'idempotency-key': `${command}-1`,
+              'idempotency-key': `${command.replace('/', '-')}-1`,
             },
             body: JSON.stringify({ reason: 'Manual recovery' }),
           },
         ),
-        [...path, centerId, command],
+        [...path, centerId, ...command.split('/')],
         { environment, fetch: upstream },
       );
       expect(response.status).toBe(200);
@@ -644,7 +644,7 @@ describe('DIVE-ONB-REQ-005,039,040 platform invitation transport', () => {
       );
       const init = upstream.mock.calls[0]?.[1];
       expect(new Headers(init?.headers).get('idempotency-key')).toBe(
-        `${command}-1`,
+        `${command.replace('/', '-')}-1`,
       );
       expect(init?.body).toBe(JSON.stringify({ reason: 'Manual recovery' }));
     },
