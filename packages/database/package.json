@@ -18,7 +18,8 @@
     "test:integration": "node --env-file=../../.env.example ./node_modules/vitest/vitest.mjs run --config vitest.config.ts",
     "db:generate": "drizzle-kit generate --config drizzle.config.ts",
     "db:migrate": "node --env-file=../../.env.example --import tsx scripts/migrate.ts",
-    "db:bootstrap": "node --env-file=../../.env.example --import tsx scripts/bootstrap.ts"
+    "db:bootstrap": "node --env-file=../../.env.example --import tsx scripts/bootstrap.ts",
+    "db:seed:local": "node --env-file=../../.env.example --env-file-if-exists=../../.env.local --import tsx scripts/seed-local.ts"
   },
   "dependencies": {
     "@dive-center/contracts": "workspace:*",
