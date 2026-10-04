@@ -1,5 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+export class DashboardCapabilitiesDto {
+  @ApiProperty()
+  canReadActivities: boolean;
+
+  @ApiProperty()
+  canReadSessions: boolean;
+
+  @ApiProperty()
+  canCreateActivity: boolean;
+
+  @ApiProperty()
+  canScheduleSession: boolean;
+}
+
 export class LocalizedTextDto {
   @ApiPropertyOptional()
   es?: string;
@@ -100,6 +114,38 @@ export class CatalogSettingsDto {
   defaultActivityLocale: 'es' | 'en' | null;
 }
 
+export class CatalogTranslationValuesDto {
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  description: string;
+}
+
+export class CatalogCommonValuesDto {
+  @ApiProperty({ type: Number, nullable: true })
+  defaultCapacity: number | null;
+}
+
+export class CatalogTranslationEditDto {
+  @ApiProperty({ enum: ['translation'] })
+  group: 'translation';
+
+  @ApiProperty({ enum: ['es', 'en'] })
+  locale: 'es' | 'en';
+
+  @ApiProperty({ type: CatalogTranslationValuesDto })
+  values: CatalogTranslationValuesDto;
+}
+
+export class CatalogCommonEditDto {
+  @ApiProperty({ enum: ['common'] })
+  group: 'common';
+
+  @ApiProperty({ type: CatalogCommonValuesDto })
+  values: CatalogCommonValuesDto;
+}
+
 export class CatalogSettingsInputDto {
   @ApiProperty({ enum: ['es', 'en'] })
   defaultActivityLocale: 'es' | 'en';
@@ -138,6 +184,17 @@ export type CatalogActivityInput = Readonly<{
   description?: unknown;
   defaultCapacity?: unknown;
 }>;
+
+export type CatalogActivityEditInput =
+  | Readonly<{
+      group: 'translation';
+      locale: 'es' | 'en';
+      values: { name: string; description: string };
+    }>
+  | Readonly<{
+      group: 'common';
+      values: { defaultCapacity: number | null };
+    }>;
 
 export type CatalogSettingsInput = Readonly<{
   defaultActivityLocale: 'es' | 'en';

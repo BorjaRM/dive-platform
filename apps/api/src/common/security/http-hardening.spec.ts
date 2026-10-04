@@ -73,4 +73,14 @@ describe('HTTP hardening', () => {
       }),
     ).toThrow('Invalid API_SWAGGER_ENABLED');
   });
+
+  it('rejects Swagger configuration when BFF admission is configured', () => {
+    expect(() =>
+      swaggerEnabledFromEnvironment({
+        NODE_ENV: 'test',
+        API_SWAGGER_ENABLED: 'true',
+        BFF_SERVICE_CREDENTIAL_VERIFIERS: 'synthetic-test-configuration',
+      }),
+    ).toThrow('Swagger unavailable with BFF admission');
+  });
 });

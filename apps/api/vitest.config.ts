@@ -7,7 +7,12 @@ export default defineConfig({
   test: {
     globals: true,
     root: './',
-    include: ['src/**/*.spec.ts'],
+    setupFiles: ['./test/bff-test-fixture.ts'],
+    include: [
+      'src/**/*.spec.ts',
+      'test/clerk.sandbox-config.spec.ts',
+      'test/clerk.browser-session.spec.ts',
+    ],
     exclude: ['node_modules', 'dist', 'coverage', 'src/**/*.e2e-spec.ts'],
   },
 });

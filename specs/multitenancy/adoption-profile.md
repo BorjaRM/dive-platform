@@ -1,7 +1,7 @@
 # Multi-tenant adoption profile — Dive platform
 
 - **Status:** Draft
-- **Version:** 0.5
+- **Version:** 0.6
 - **Product:** Dive platform
 - **solution_name:** Plataforma para centros de buceo
 - **solution_slug:** `dive-platform`
@@ -38,6 +38,16 @@ This profile instantiates `specs/foundation/multitenancy-architecture.md` for th
 Cross-cutting validation covers tenant-context propagation and cleanup, forced RLS, tenant-aware relationships, pool reuse, async/outbox propagation, audit, and negative tests with at least two tenants and two centers.
 
 Booking capacity, booking states, widget behavior, and trip operations remain in their product SPECs and spikes. Sharing fixtures or pipeline with those spikes does not merge their results.
+
+### Per-table selected-tenant isolation proof
+
+**Proposed, explicitly approved -- Product validation obligation:** source: product-owner documentation direction in the selected-handle isolation test discussion on 2026-10-01. This adds a product-specific validation obligation under the [baseline test strategy](../foundation/multitenancy-architecture.md#14-minimum-test-strategy); the profile remains Draft and no executed coverage or artifact promotion is implied.
+
+- For every table whose data must not be shared between tenants, provide a reproducible negative test that attempts to access tenant A's data while tenant B is selected by the handle. Use the same identity with active memberships and the relevant permissions in both tenants, so denial cannot be explained only by missing authorization in A.
+- Include a positive control showing that the same identity and operation can access A's data with A's handle. Exercise both tenant directions, including the corresponding permitted operation with B's handle, without changing identity or permissions between the permitted and denied requests.
+- Exercise the applicable public application boundary and the persistence isolation boundary against real PostgreSQL. Cover the table's supported reads, lists or aggregates without foreign rows or contributions, and supported mutations without foreign changes or associated audit/outbox effects. A denial at HTTP admission alone does not prove that table's RLS or persistence controls.
+- Maintain per-table coverage in the existing product isolation inventory and owning tests. Add or extend this proof when introducing a non-shared table or a new access path; a passing center-list test or a representative harness table does not establish coverage for other tables. Reuse the existing test harness rather than creating a separate suite for every table.
+- Only data explicitly classified as global or shared by its owning contract are outside this obligation. Missing tenant keys, broad roles or missing tests do not establish that classification. Unexecuted or missing per-table checks remain coverage gaps, not completed proof.
 
 ### Option B — channels not in MT-SPIKE-001
 

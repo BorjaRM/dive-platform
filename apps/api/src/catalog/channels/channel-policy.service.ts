@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { bookingChannels } from '@dive-center/database';
-import type { AuthenticatedPrincipal } from '@dive-center/identity';
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
+import type { ResolvedCenterApplicationScope } from '../../common/auth/http-admission.js';
 import { CatalogProblemException } from '../catalog.errors.js';
 import { uuid } from '../catalog.validation.js';
 import { CatalogAccessService } from '../catalog-access.service.js';
@@ -16,17 +16,14 @@ export class ChannelPolicyService {
   ) {}
 
   async updatePolicy(
-    principal: AuthenticatedPrincipal,
-    handle: string | undefined,
-    centerId: string,
+    applicationScope: ResolvedCenterApplicationScope,
     channelId: string,
     input: ChannelPolicyInput,
   ): Promise<void> {
+    const centerId = applicationScope.centerId;
     uuid(channelId, 'channelId');
     return this.access.authorized(
-      principal,
-      handle,
-      centerId,
+      applicationScope,
       'channel.manage',
       async ({ context, db, recordMutation }) => {
         const [channel] = await db

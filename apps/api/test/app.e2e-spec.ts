@@ -8,7 +8,7 @@ import request from 'supertest';
 
 import { AppModule } from './../src/app/app.module.js';
 
-describe('AppController (e2e)', () => {
+describe('AppModule HTTP composition (e2e)', () => {
   let app: INestApplication;
   let moduleFixture: TestingModule;
 
@@ -21,11 +21,8 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+  it('does not expose the retired root greeting', () => {
+    return request(app.getHttpServer()).get('/').expect(404);
   });
 
   it('uses one production Clerk adapter for session and webhook ports', () => {

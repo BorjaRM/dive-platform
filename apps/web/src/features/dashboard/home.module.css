@@ -1,0 +1,157 @@
+.home {
+  min-width: 0;
+  padding-block: var(--space-6);
+}
+
+.navigation,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.navigation {
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.navigationLink {
+  composes: focusable from "../../components/ui/controls.module.css";
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height);
+  max-width: 100%;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-action);
+  font-size: var(--text-button);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  text-underline-offset: 0.2em;
+}
+
+.navigationLink:hover {
+  color: var(--color-action-hover);
+}
+
+.navigationLink[aria-current="page"] {
+  border-bottom: 2px solid var(--color-action);
+  text-decoration: none;
+}
+
+.actionLink {
+  composes: navigationLink;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-input);
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-block: var(--space-6);
+}
+
+.identity {
+  min-width: 0;
+  flex: 1 1 16rem;
+}
+
+.identity h2 {
+  margin: 0;
+  font-size: var(--text-section-title);
+  font-weight: var(--weight-section-title);
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.date {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+}
+
+.helper {
+  composes: helper from "../../components/ui/primitives.module.css";
+  overflow-wrap: anywhere;
+}
+
+.label {
+  composes: label from "../../components/ui/primitives.module.css";
+}
+
+.center {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 100%;
+  min-width: 0;
+}
+
+.upcoming {
+  margin-top: var(--space-8);
+}
+
+.sectionHeading {
+  composes: sectionHeading from "../../components/ui/primitives.module.css";
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.sectionHeading h3 {
+  margin: 0;
+}
+
+.sessions {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.session {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding-block: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.start {
+  grid-column: 1 / -1;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.activity {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
+.activityLink {
+  composes: focusable from "../../components/ui/controls.module.css";
+  color: var(--color-text);
+  font-size: var(--text-base);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  text-underline-offset: 0.2em;
+}
+
+@container dashboard (min-width: 40rem) {
+  .session {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  }
+
+  .start {
+    grid-column: auto;
+  }
+}

@@ -10,6 +10,7 @@
     "build": "turbo run build",
     "dev": ". \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" && nvm use --silent && node --env-file=.env.example --env-file-if-exists=.env.local ./node_modules/turbo/bin/turbo run dev",
     "dev:fresh": "pnpm db:reset:local && pnpm dev",
+    "swagger": "pnpm --filter @dive-center/api swagger:local --open",
     "email:send": "node --env-file=.env.example --env-file-if-exists=.env.local --import tsx apps/worker/src/main.ts",
     "lint": "biome check .",
     "typecheck": "turbo run typecheck",

@@ -9,19 +9,24 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Badge, Button } from '../../components/ui/controls';
+import { Button } from '../../components/ui/controls';
 import styles from './dashboard.module.css';
 import {
   DashboardContextProvider,
   type DashboardSessionState,
 } from './dashboard-context';
 import {
-  type Center,
+  CentersSection,
+  DashboardShell,
+  OperatorSelection,
+  StatusPanel,
+} from './dashboard-context-views';
+import {
   createBrowserTenantContextStorage,
   createDashboardApi,
+  DASHBOARD_BFF_BASE_PATH,
   DASHBOARD_QUERY_KEYS,
   DashboardApiError,
-  type Operator,
   type SessionTokenSource,
   type TenantContextStorage,
 } from './tenant-context';
@@ -61,7 +66,7 @@ export function DashboardTenantContext({
   const api = useMemo(
     () =>
       createDashboardApi({
-        baseUrl: apiBaseUrl ?? '',
+        baseUrl: apiBaseUrl || DASHBOARD_BFF_BASE_PATH,
         session,
         requestTimeoutMillis,
       }),
@@ -118,18 +123,20 @@ export function DashboardTenantContext({
     setContextStorage(nextStorage);
     try {
       const storedContext = nextStorage.read();
-      if (sessionExpiredRef.current || centerKey) {
+      if (sessionExpiredRef.current) {
         nextStorage.clear();
         setTenantContext(null);
         setEntryCenter(null);
         clearDashboardCache();
       } else {
+        setEntryCenter(null);
+        clearDashboardCache();
         setTenantContext(storedContext);
       }
     } finally {
       setStorageReady(true);
     }
-  }, [centerKey, clearDashboardCache, storage]);
+  }, [clearDashboardCache, storage]);
 
   const completeSessionProbe = useEffectEvent(
     (
@@ -263,25 +270,30 @@ export function DashboardTenantContext({
     queryKey: centerKey
       ? [
           ...DASHBOARD_QUERY_KEYS.centers,
+          centerKey,
           tenantContext,
           currentEntryCenter?.centerId,
         ]
       : DASHBOARD_QUERY_KEYS.centers,
-    queryFn: async ({ signal }) =>
-      centerKey
-        ? [
-            await api.getCenter(
-              tenantContext as string,
-              currentEntryCenter?.centerId as string,
-              signal,
-            ),
-          ]
-        : api.listCenters(tenantContext as string, signal),
+    queryFn: async ({ signal }) => {
+      if (centerKey && currentEntryCenter) {
+        return [
+          await api.getCenter(
+            tenantContext as string,
+            currentEntryCenter.centerId,
+            signal,
+          ),
+        ];
+      }
+      const centers = await api.listCenters(tenantContext as string, signal);
+      if (centerKey && centers.length > 1)
+        throw new DashboardApiError(502, 'unavailable');
+      return centers;
+    },
     enabled:
       hasAvailableSession &&
       storageReady &&
       tenantContext !== null &&
-      (!centerKey || currentEntryCenter !== null) &&
       recovery === null,
     retry: false,
   });
@@ -422,7 +434,8 @@ export function DashboardTenantContext({
       sessionState === 'available' &&
       tenantContext !== null &&
       recovery === null &&
-      (!centerKey || (currentEntryCenter !== null && centersQuery.isSuccess)),
+      (!centerKey ||
+        (centersQuery.isSuccess && centersQuery.data?.length === 1)),
     invalidateDashboardCache: clearDashboardCache,
     handleSessionExpired: expireSession,
     clearTenantContext: () => clearContext(),
@@ -438,7 +451,7 @@ export function DashboardTenantContext({
       <DashboardShell eyebrow="Dashboard" title="Authentication seam required">
         <StatusPanel
           title="Dashboard API is not configured"
-          message="Set NEXT_PUBLIC_DASHBOARD_API_URL and connect an authenticated session token source before using the dashboard."
+          message="The dashboard connection is unavailable."
         />
       </DashboardShell>,
     );
@@ -569,215 +582,29 @@ export function DashboardTenantContext({
   }
 
   return renderWithDashboardContext(
-    <>
-      <DashboardShell
-        eyebrow="Authenticated dashboard"
-        title="Your dive operation"
-        action={
-          <div className={styles.actions}>
-            {!centerKey && (
-              <Button type="button" onClick={() => void changeWorkspace()}>
-                Change workspace
-              </Button>
-            )}
-            <Button type="button" onClick={() => void logout()}>
-              Log out
+    <DashboardShell
+      eyebrow="Authenticated dashboard"
+      title="Your dive operation"
+      action={
+        <div className={styles.actions}>
+          {!centerKey && (
+            <Button type="button" onClick={() => void changeWorkspace()}>
+              Change workspace
             </Button>
-          </div>
-        }
-      >
+          )}
+          <Button type="button" onClick={() => void logout()}>
+            Log out
+          </Button>
+        </div>
+      }
+    >
+      {children ?? (
         <CentersSection
           centers={centersQuery.data}
           isLoading={centersQuery.isPending}
           error={centersQuery.error}
         />
-      </DashboardShell>
-      {children}
-    </>,
-  );
-}
-
-function CentersSection({
-  centers,
-  isLoading,
-  error,
-}: {
-  centers: Center[] | undefined;
-  isLoading: boolean;
-  error: Error | null;
-}) {
-  return (
-    <section className={styles.section} aria-labelledby="centers-heading">
-      <div className={styles.sectionHeading}>
-        <div>
-          <p className={styles.sectionKicker}>Tenant-scoped data</p>
-          <h2 id="centers-heading">Centers</h2>
-        </div>
-        <Badge variant="count">Context active</Badge>
-      </div>
-      {isLoading && (
-        <StatusPanel
-          title="Loading centers"
-          message="Reading current access from the server."
-        />
       )}
-      {error && !isLoading && (
-        <StatusPanel
-          title="Centers could not be loaded"
-          message="The dashboard request was denied or unavailable."
-        />
-      )}
-      {!error && centers && centers.length === 0 && (
-        <StatusPanel
-          title="No centers available"
-          message="Your active operator has no readable centers in this context."
-        />
-      )}
-      {!error && centers && centers.length > 0 && (
-        <ul className={styles.centerList}>
-          {centers.map((center) => (
-            <li key={center.id} className={styles.centerRow}>
-              <span className={styles.centerMark} aria-hidden="true" />
-              <span>
-                <strong>{center.name}</strong>
-                <small>Current server-authorized center</small>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function OperatorSelection({
-  isLoading,
-  operators,
-  error,
-  notice,
-  onSelect,
-}: {
-  isLoading: boolean;
-  operators: Operator[];
-  error: Error | null;
-  notice: ActionNotice;
-  onSelect: (operator: Operator) => void;
-}) {
-  if (isLoading) {
-    return (
-      <StatusPanel
-        title="Loading operators"
-        message="Finding your active memberships."
-      />
-    );
-  }
-  if (error) {
-    return (
-      <StatusPanel
-        title="Operators could not be loaded"
-        message="The dashboard could not read your active memberships."
-      />
-    );
-  }
-  if (operators.length === 0) {
-    return (
-      <StatusPanel
-        title="No active operator memberships"
-        message="There is no dashboard workspace available for this account."
-      />
-    );
-  }
-
-  return (
-    <section className={styles.section} aria-labelledby="operators-heading">
-      {notice === 'revocation-failed' && (
-        <StatusPanel
-          title="Previous workspace cleanup needs attention"
-          message="The local context was removed, but the server could not confirm revocation. A new workspace can still be selected."
-        />
-      )}
-      <div className={styles.sectionHeading}>
-        <div>
-          <p className={styles.sectionKicker}>Active memberships</p>
-          <h2 id="operators-heading">Select an operator</h2>
-        </div>
-        <Badge variant="count">{operators.length} available</Badge>
-      </div>
-      <div className={styles.operatorList}>
-        {operators.map((operator) => (
-          <button
-            type="button"
-            className={styles.operatorOption}
-            key={operator.operatorRef}
-            onClick={() => onSelect(operator)}
-          >
-            <span>
-              <strong>{operator.displayName}</strong>
-              <small>Open tenant workspace</small>
-            </span>
-            <span className={styles.arrow} aria-hidden="true">
-              -&gt;
-            </span>
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function DashboardShell({
-  eyebrow,
-  title,
-  action,
-  children,
-}: {
-  eyebrow: string;
-  title: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <main className={styles.page}>
-      <div
-        className={`${styles.orbit} ${styles.orbitOne}`}
-        aria-hidden="true"
-      />
-      <div
-        className={`${styles.orbit} ${styles.orbitTwo}`}
-        aria-hidden="true"
-      />
-      <div className={styles.frame}>
-        <header className={styles.header}>
-          <div>
-            <p className={styles.brandMark}>BLUECURRENT</p>
-            <p className={styles.eyebrow}>{eyebrow}</p>
-            <h1>{title}</h1>
-          </div>
-          {action}
-        </header>
-        {children}
-      </div>
-    </main>
-  );
-}
-
-function StatusPanel({
-  title,
-  message,
-  action,
-}: {
-  title: string;
-  message: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <section className={styles.statusPanel} role="status">
-      <span className={styles.statusLine} aria-hidden="true" />
-      <div>
-        <h2>{title}</h2>
-        <p>{message}</p>
-        {action && <div className={styles.statusAction}>{action}</div>}
-      </div>
-    </section>
+    </DashboardShell>,
   );
 }

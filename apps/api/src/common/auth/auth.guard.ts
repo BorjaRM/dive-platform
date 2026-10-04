@@ -32,6 +32,15 @@ type AuthenticatedRequest = {
   principal?: AuthenticatedPrincipal;
 };
 
+const authenticatedRequests = new WeakMap<
+  object,
+  {
+    provider: IdentityProviderPort;
+    token: string;
+    principal: AuthenticatedPrincipal;
+  }
+>();
+
 @Injectable()
 export class ClerkAuthGuard implements CanActivate {
   constructor(
@@ -50,8 +59,21 @@ export class ClerkAuthGuard implements CanActivate {
       this.logAuthenticationFailure(context);
       throw new UnauthorizedException('Unauthenticated');
     }
+    const authenticated = authenticatedRequests.get(request);
+    if (
+      authenticated?.provider === this.identities &&
+      authenticated.token === token
+    ) {
+      request.principal = authenticated.principal;
+      return true;
+    }
     try {
       request.principal = await authenticateIdentity(this.identities, token);
+      authenticatedRequests.set(request, {
+        provider: this.identities,
+        token,
+        principal: request.principal,
+      });
       return true;
     } catch (error) {
       if (error instanceof IdentityProviderUnavailableError) {

@@ -4,6 +4,7 @@ import {
   uuid,
 } from '../common/validation/request-validation.js';
 import type {
+  CatalogActivityEditInput,
   CatalogActivityInput,
   CatalogListQueryInput,
   CatalogSettingsInput,
@@ -146,6 +147,72 @@ export function parseCatalogSettingsInput(
     );
   }
   return { defaultActivityLocale: input.defaultActivityLocale };
+}
+
+export function parseCatalogActivityEditInput(
+  value: unknown,
+): CatalogActivityEditInput {
+  rejectUnknownFields(value, ['group', 'locale', 'values']);
+  const input = value as Record<string, unknown>;
+  if (input.group === 'translation') {
+    if (input.locale !== 'es' && input.locale !== 'en') {
+      throw new CatalogProblemException(422, 'validation_error');
+    }
+    rejectUnknownFields(input.values, ['name', 'description']);
+    const values = input.values as Record<string, unknown>;
+    if (
+      typeof values.name !== 'string' ||
+      typeof values.description !== 'string'
+    ) {
+      throw new CatalogProblemException(422, 'validation_error');
+    }
+    return {
+      group: 'translation',
+      locale: input.locale,
+      values: { name: values.name, description: values.description },
+    };
+  }
+  if (input.group === 'common') {
+    rejectUnknownFields(input, ['group', 'values']);
+    rejectUnknownFields(input.values, ['defaultCapacity']);
+    const values = input.values as Record<string, unknown>;
+    return {
+      group: 'common',
+      values: {
+        defaultCapacity:
+          values.defaultCapacity === null
+            ? null
+            : positiveInteger(values.defaultCapacity, 'defaultCapacity'),
+      },
+    };
+  }
+  throw new CatalogProblemException(422, 'validation_error');
+}
+
+export function activityEtag(activityId: string, revision: bigint) {
+  return `"activity-${activityId}-r${revision}"`;
+}
+
+export function parseActivityPrecondition(value: unknown) {
+  if (value === undefined) {
+    throw new CatalogProblemException(428, 'precondition_required');
+  }
+  const match =
+    typeof value === 'string'
+      ? /^"activity-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-r([1-9][0-9]{0,18})"$/.exec(
+          value,
+        )
+      : null;
+  const activityId = match?.[1];
+  const revisionText = match?.[2];
+  if (
+    !activityId ||
+    !revisionText ||
+    BigInt(revisionText) > 9_223_372_036_854_775_807n
+  ) {
+    throw new CatalogProblemException(400, 'invalid_precondition');
+  }
+  return { activityId, revision: BigInt(revisionText) };
 }
 
 export function parseCatalogInputInstant(value: unknown, field: string) {

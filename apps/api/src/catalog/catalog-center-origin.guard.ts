@@ -1,4 +1,3 @@
-import type { AuthenticatedPrincipal } from '@dive-center/identity';
 import {
   type CanActivate,
   type ExecutionContext,
@@ -6,26 +5,25 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import type { ResolvedCenterApplicationScope } from '../common/auth/http-admission.js';
 import { CatalogAccessService } from './catalog-access.service.js';
 
 @Injectable()
-export class CatalogCenterOriginGuard implements CanActivate {
+export class CatalogCenterScopeGuard implements CanActivate {
   constructor(
     @Inject(CatalogAccessService) private readonly access: CatalogAccessService,
   ) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<{
-      principal?: AuthenticatedPrincipal;
-      headers: { origin?: string; 'x-tenant-context'?: string };
+      applicationScope?: ResolvedCenterApplicationScope;
       params: { centerId: string };
     }>();
-    if (!request.principal) throw new UnauthorizedException('Unauthenticated');
-    await this.access.assertCenterOriginScope(
-      request.principal,
-      request.headers['x-tenant-context'],
+    if (!request.applicationScope)
+      throw new UnauthorizedException('Unauthenticated');
+    this.access.assertRequestedCenterScope(
+      request.applicationScope,
       request.params.centerId,
-      request.headers.origin,
     );
     return true;
   }

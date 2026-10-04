@@ -33,6 +33,11 @@ import {
   Principal,
 } from '../common/auth/auth.guard.js';
 import {
+  CenterApplicationScope,
+  HttpAdmission,
+  type ResolvedCenterApplicationScope,
+} from '../common/auth/http-admission.js';
+import {
   IAM_ACTIONS,
   type IamAction,
   SECURITY_LOGGER,
@@ -94,6 +99,7 @@ export class IamController {
   @ApiOkResponse({ type: CenterEntryContextDto })
   @ApiForbiddenResponse({ description: 'Center entry is unavailable' })
   @AuthAction(IAM_ACTIONS.tenantContextIssue)
+  @HttpAdmission({ kind: 'center-bootstrap' })
   @Post('me/center-entry-contexts')
   issueCenterEntryContext(
     @Principal() principal: AuthenticatedPrincipal,
@@ -116,6 +122,7 @@ export class IamController {
   @ApiOperation({ summary: 'List active operators for the caller' })
   @ApiOkResponse({ type: OperatorListDto })
   @AuthAction(IAM_ACTIONS.tenantContextIssue)
+  @HttpAdmission({ kind: 'exception', exception: 'operators' })
   @Get('me/operators')
   listOperators(@Principal() principal: AuthenticatedPrincipal) {
     return this.execute(
@@ -129,6 +136,7 @@ export class IamController {
   @ApiOkResponse({ type: TenantContextDto })
   @ApiForbiddenResponse({ description: 'No valid active operator selection' })
   @AuthAction(IAM_ACTIONS.tenantContextIssue)
+  @HttpAdmission({ kind: 'exception', exception: 'tenantContextIssue' })
   @Post('me/tenant-contexts')
   issueTenantContext(
     @Principal() principal: AuthenticatedPrincipal,
@@ -152,6 +160,7 @@ export class IamController {
     description: 'Context missing or not owned by caller',
   })
   @AuthAction(IAM_ACTIONS.tenantContextRevoke)
+  @HttpAdmission({ kind: 'exception', exception: 'tenantContextRevoke' })
   @Delete('me/tenant-contexts')
   @HttpCode(HttpStatus.NO_CONTENT)
   revokeTenantContext(
@@ -169,17 +178,10 @@ export class IamController {
   @ApiOperation({ summary: 'List centers in the selected tenant context' })
   @ApiOkResponse({ type: [CenterDto] })
   @AuthAction(IAM_ACTIONS.centerRead)
+  @HttpAdmission({ kind: 'center-data' })
   @Get('centers')
-  readCenters(
-    @Principal() principal: AuthenticatedPrincipal,
-    @Headers('x-tenant-context') handle: string | undefined,
-  ) {
-    return this.execute(
-      IAM_ACTIONS.centerRead,
-      principal,
-      (principal, correlationId) =>
-        this.iam.readCenters(principal, handle, correlationId),
-    );
+  readCenters(@CenterApplicationScope() scope: ResolvedCenterApplicationScope) {
+    return this.iam.readCenters(scope, correlationIdForCurrentContext());
   }
 
   @ApiOperation({ summary: 'Read a center in the selected tenant context' })
@@ -189,17 +191,16 @@ export class IamController {
     description: 'Access denied for the requested center',
   })
   @AuthAction(IAM_ACTIONS.centerRead)
+  @HttpAdmission({ kind: 'center-data' })
   @Get('centers/:centerId')
   readCenter(
-    @Principal() principal: AuthenticatedPrincipal,
-    @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId') centerId: string,
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
+    @Param('centerId') requestedCenterId: string,
   ) {
-    return this.execute(
-      IAM_ACTIONS.centerRead,
-      principal,
-      (principal, correlationId) =>
-        this.iam.readCenter(principal, handle, centerId, correlationId),
+    return this.iam.readCenter(
+      scope,
+      requestedCenterId,
+      correlationIdForCurrentContext(),
     );
   }
 
@@ -209,24 +210,18 @@ export class IamController {
   @ApiBadRequestResponse({ description: 'Invalid lifecycle request' })
   @ApiForbiddenResponse({ description: 'Center entry management denied' })
   @AuthAction(IAM_ACTIONS.centerEntryManage)
+  @HttpAdmission({ kind: 'center-data' })
   @Patch('centers/:centerId/entry-status')
   setCenterEntryStatus(
-    @Principal() principal: AuthenticatedPrincipal,
-    @Headers('x-tenant-context') handle: string | undefined,
-    @Param('centerId') centerId: string,
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
+    @Param('centerId') requestedCenterId: string,
     @Body() input: UpdateCenterEntryStatusDto,
   ) {
-    return this.execute(
-      IAM_ACTIONS.centerEntryManage,
-      principal,
-      (principal, correlationId) =>
-        this.iam.setCenterEntryStatus(
-          principal,
-          handle,
-          centerId,
-          input,
-          correlationId,
-        ),
+    return this.iam.setCenterEntryStatus(
+      scope,
+      requestedCenterId,
+      input,
+      correlationIdForCurrentContext(),
     );
   }
 
@@ -240,6 +235,7 @@ export class IamController {
       'Membership missing/inactive, or the caller cannot disable the last owner',
   })
   @AuthAction(IAM_ACTIONS.membershipDisable)
+  @HttpAdmission({ kind: 'exception', exception: 'membershipDisable' })
   @Patch('memberships/:membershipId/disable')
   disableMembership(
     @Principal() principal: AuthenticatedPrincipal,

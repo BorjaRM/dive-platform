@@ -9,6 +9,7 @@ import {
   DeterministicIdentityProvider,
   IDENTITY_PROVIDER,
   IDENTITY_WEBHOOK_VERIFIER,
+  VERIFIED_ADDRESS_PROVIDER,
 } from '@dive-center/identity';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -88,6 +89,8 @@ describe('platform bootstrap invitations HTTP (DIVE-ONB-REQ-039..040)', () => {
     await migrateProduct();
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(IDENTITY_PROVIDER)
+      .useValue(identityProvider)
+      .overrideProvider(VERIFIED_ADDRESS_PROVIDER)
       .useValue(identityProvider)
       .overrideProvider(IDENTITY_WEBHOOK_VERIFIER)
       .useValue({ verify: async () => undefined })

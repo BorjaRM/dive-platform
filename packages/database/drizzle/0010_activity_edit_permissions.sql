@@ -1,0 +1,1 @@
+GRANT UPDATE (name, description, default_capacity, revision) ON booking_app.activities TO dive_app;

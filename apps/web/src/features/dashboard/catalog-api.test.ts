@@ -9,6 +9,103 @@ function jsonResponse(value: unknown, status = 200) {
 }
 
 describe('dashboard catalog API boundary', () => {
+  it('reads typed center capabilities through the same-origin BFF (DIVE-IAM-REQ-030..032)', async () => {
+    const capabilities = {
+      canReadActivities: true,
+      canReadSessions: true,
+      canCreateActivity: false,
+      canScheduleSession: true,
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(jsonResponse(capabilities));
+    const api = createDashboardApi({
+      baseUrl: '/api/dashboard',
+      session: { getToken: async () => 'token' },
+    });
+    await expect(
+      api.getDashboardCapabilities('ctx_private', 'center/alpha'),
+    ).resolves.toEqual(capabilities);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/dashboard/v1/centers/center%2Falpha/dashboard-capabilities',
+    );
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(new Headers(init?.headers).get('X-Tenant-Context')).toBe(
+      'ctx_private',
+    );
+    expect(init?.cache).toBe('no-store');
+  });
+
+  it.each([
+    null,
+    {},
+    {
+      canReadActivities: true,
+      canReadSessions: true,
+      canCreateActivity: 'true',
+      canScheduleSession: true,
+    },
+  ])(
+    'rejects malformed capability responses without granting permissions %#',
+    async (capabilities) => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        jsonResponse(capabilities),
+      );
+      const api = createDashboardApi({
+        baseUrl: '/api/dashboard',
+        session: { getToken: async () => 'token' },
+      });
+      await expect(
+        api.getDashboardCapabilities('ctx_private', 'center-a'),
+      ).rejects.toThrow('Dashboard permissions are unavailable.');
+    },
+  );
+
+  it('reads the exact revision and sends it on grouped saves through the BFF', async () => {
+    const etag = '"activity-alpha-r9007199254740993"';
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: 'alpha' }), {
+          headers: { 'Content-Type': 'application/json', ETag: etag },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(null, { status: 204, headers: { ETag: etag } }),
+      );
+    const api = createDashboardApi({
+      baseUrl: '/api/dashboard',
+      session: { getToken: async () => 'token' },
+    });
+    const detail = await api.getActivity(
+      'ctx_alpha',
+      'center/alpha',
+      'activity/alpha',
+    );
+    expect(detail.etag).toBe(etag);
+    await expect(
+      api.updateActivity(
+        'ctx_alpha',
+        'center/alpha',
+        'activity/alpha',
+        { group: 'common', values: { defaultCapacity: null } },
+        detail.etag,
+      ),
+    ).resolves.toBe(etag);
+    const [url, init] = fetchMock.mock.calls[1] ?? [];
+    expect(url).toBe(
+      '/api/dashboard/v1/centers/center%2Falpha/activities/activity%2Falpha',
+    );
+    expect(new Headers(init?.headers).get('If-Match')).toBe(etag);
+    expect(new Headers(init?.headers).get('X-Tenant-Context')).toBe(
+      'ctx_alpha',
+    );
+    expect(JSON.parse(init?.body as string)).toEqual({
+      group: 'common',
+      values: { defaultCapacity: null },
+    });
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -19,7 +116,7 @@ describe('dashboard catalog API boundary', () => {
       .mockResolvedValueOnce(jsonResponse({ defaultActivityLocale: null }))
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
     const api = createDashboardApi({
-      baseUrl: 'https://api.example.test',
+      baseUrl: '/api/dashboard',
       session: { getToken: async () => 'session-secret' },
     });
     await expect(
@@ -29,7 +126,7 @@ describe('dashboard catalog API boundary', () => {
       api.selectCatalogLanguage('ctx_secret', 'center/alpha', 'en'),
     ).resolves.toBeUndefined();
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      'https://api.example.test/v1/centers/center%2Falpha/catalog-settings',
+      '/api/dashboard/v1/centers/center%2Falpha/catalog-settings',
     );
     const init = fetchMock.mock.calls[1]?.[1];
     expect(init?.method).toBe('PUT');
@@ -48,7 +145,7 @@ describe('dashboard catalog API boundary', () => {
         jsonResponse({ items: [], page: 2, pageSize: 50, hasNext: true }),
       );
     const api = createDashboardApi({
-      baseUrl: 'https://api.example.test/',
+      baseUrl: '/api/dashboard/',
       session: { getToken: async () => 'session-secret' },
     });
 
@@ -63,7 +160,7 @@ describe('dashboard catalog API boundary', () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const headers = new Headers(init.headers);
     expect(url).toBe(
-      'https://api.example.test/v1/centers/center%2Falpha/activities?page=2&pageSize=50&status=Published',
+      '/api/dashboard/v1/centers/center%2Falpha/activities?page=2&pageSize=50&status=Published',
     );
     expect(url).not.toContain('ctx_secret');
     expect(url).not.toContain('session-secret');
@@ -101,7 +198,7 @@ describe('dashboard catalog API boundary', () => {
       )
       .mockResolvedValue(new Response(null, { status: 204 }));
     const api = createDashboardApi({
-      baseUrl: 'https://api.example.test',
+      baseUrl: '/api/dashboard',
       session: { getToken: async () => 'session-secret' },
     });
 
@@ -148,16 +245,16 @@ describe('dashboard catalog API boundary', () => {
     });
     expect(fetchMock.mock.calls[2]?.[1]?.method).toBe('PATCH');
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      'https://api.example.test/v1/centers/center-alpha/activities/activity-alpha/publish',
+      '/api/dashboard/v1/centers/center-alpha/activities/activity-alpha/publish',
     );
     expect(fetchMock.mock.calls[3]?.[0]).toBe(
-      'https://api.example.test/v1/centers/center-alpha/slots/slot-alpha/close',
+      '/api/dashboard/v1/centers/center-alpha/slots/slot-alpha/close',
     );
     expect(fetchMock.mock.calls[4]?.[0]).toBe(
-      'https://api.example.test/v1/centers/center-alpha/activities/activity-alpha/disable',
+      '/api/dashboard/v1/centers/center-alpha/activities/activity-alpha/disable',
     );
     expect(fetchMock.mock.calls[5]?.[0]).toBe(
-      'https://api.example.test/v1/centers/center-alpha/slots/slot-alpha/cancel',
+      '/api/dashboard/v1/centers/center-alpha/slots/slot-alpha/cancel',
     );
   });
 
@@ -176,7 +273,7 @@ describe('dashboard catalog API boundary', () => {
       ),
     );
     const api = createDashboardApi({
-      baseUrl: 'https://api.example.test',
+      baseUrl: '/api/dashboard',
       session: { getToken: async () => 'session-secret' },
     });
 
@@ -198,7 +295,7 @@ describe('dashboard catalog API boundary', () => {
     });
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      'https://api.example.test/v1/centers/center-alpha/activities/activity-alpha/slots?page=0&pageSize=20&status=Available&from=2026-10-01T00%3A00%3A00Z&to=2026-10-31T23%3A59%3A59Z',
+      '/api/dashboard/v1/centers/center-alpha/activities/activity-alpha/slots?page=0&pageSize=20&status=Available&from=2026-10-01T00%3A00%3A00Z&to=2026-10-31T23%3A59%3A59Z',
     );
   });
 
@@ -214,7 +311,7 @@ describe('dashboard catalog API boundary', () => {
         });
       });
     const api = createDashboardApi({
-      baseUrl: 'https://api.example.test',
+      baseUrl: '/api/dashboard',
       session: { getToken: async () => 'session-secret' },
     });
     const controller = new AbortController();

@@ -1,10 +1,33 @@
+import { isClerkAPIResponseError } from '@clerk/backend/errors';
 import type { Browser, Locator, Page } from 'playwright';
+
+export async function assertClerkSessionCannotMintToken(
+  requestToken: () => Promise<unknown>,
+): Promise<void> {
+  try {
+    await requestToken();
+  } catch (error) {
+    if (
+      isClerkAPIResponseError(error) &&
+      error.status === 404 &&
+      error.errors.length > 0 &&
+      error.errors.every((detail) => detail.code === 'resource_not_found')
+    ) {
+      return;
+    }
+    throw new Error(
+      'Token issuance failed without a documented session denial',
+    );
+  }
+  throw new Error('Clerk still issued a token for the revoked session');
+}
 
 type ClerkBrowserSessionOptions = Readonly<{
   browser: Browser;
   accountPortalUrl: string;
   email: string;
   password: string;
+  onSessionCreated: (sessionId: string) => void;
   timeoutMs?: number;
 }>;
 
@@ -52,6 +75,18 @@ export async function signInClerkPage(
     waitUntil: 'domcontentloaded',
     timeout: timeoutMs,
   });
+  return completeClerkSignIn(page, options);
+}
+
+export async function completeClerkSignIn(
+  page: Page,
+  options: Pick<
+    ClerkBrowserSessionOptions,
+    'email' | 'password' | 'timeoutMs' | 'onSessionCreated'
+  >,
+): Promise<ClerkBrowserSession> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  page.setDefaultTimeout(timeoutMs);
   const identifier = page
     .locator('input[name="identifier"], input[type="email"]')
     .first();
@@ -85,15 +120,23 @@ export async function signInClerkPage(
     );
   }
 
-  const session = await page.evaluate(async () => {
+  const sessionId = await page.evaluate(() => {
+    const session = (globalThis as unknown as ClerkWindow).Clerk?.session;
+    if (!session?.id) throw new Error('Clerk browser session is missing');
+    return session.id;
+  });
+  options.onSessionCreated(sessionId);
+
+  const token = await page.evaluate(async (expectedSessionId) => {
     const clerk = (globalThis as unknown as ClerkWindow).Clerk;
-    if (!clerk?.session) throw new Error('Clerk browser session is missing');
+    if (clerk?.session?.id !== expectedSessionId)
+      throw new Error('Clerk browser session changed before token retrieval');
     const token = await clerk.session.getToken();
     if (!token) throw new Error('Clerk browser session token is missing');
-    return { id: clerk.session.id, token };
-  });
+    return token;
+  }, sessionId);
 
-  return Object.freeze(session);
+  return Object.freeze({ id: sessionId, token });
 }
 
 export async function createClerkBrowserSession(
@@ -108,6 +151,7 @@ export async function createClerkBrowserSession(
       accountPortalUrl: options.accountPortalUrl,
       email: options.email,
       password: options.password,
+      onSessionCreated: options.onSessionCreated,
       timeoutMs,
     });
   } finally {

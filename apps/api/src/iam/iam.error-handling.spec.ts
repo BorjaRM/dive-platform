@@ -16,6 +16,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthAction, ClerkAuthGuard } from '../common/auth/auth.guard.js';
+import type { ResolvedCenterApplicationScope } from '../common/auth/http-admission.js';
 import { TenantContextCrypto } from '../common/tenant-context/tenant-context.crypto.js';
 import { CentersService } from './centers/centers.service.js';
 import { IamController } from './iam.controller.js';
@@ -34,6 +35,18 @@ const principalProvider: IdentityProviderPort = {
 
 const principal = () => authenticateIdentity(principalProvider, 'token');
 const contextCrypto = new TenantContextCrypto('t'.repeat(32));
+const applicationScope: ResolvedCenterApplicationScope = {
+  access: {
+    issuer: 'test',
+    subject: 'owner-a',
+    identityId: 'identity-a',
+    membershipId: 'membership-a',
+    tenantId: '11111111-1111-1111-1111-111111111111',
+    roles: ['tenant_owner'],
+    centerIds: null,
+  },
+  centerId: 'aaaaaaaa-0001-0001-0001-000000000001',
+};
 
 @Controller('test-auth-boundary')
 class AuthBoundaryController {
@@ -46,22 +59,19 @@ class AuthBoundaryController {
 
 describe('IAM error handling', () => {
   it('keeps authorization denials as non-disclosing 403 responses', async () => {
-    const pool = {
+    const client = {
       query: vi.fn().mockResolvedValue({ rows: [{ access: null }] }),
+      release: vi.fn(),
+    };
+    const pool = {
+      connect: vi.fn().mockResolvedValue(client),
     };
     const logger = { warn: vi.fn() };
-    const tenantContexts = new TenantContextService(
-      pool as never,
-      logger,
-      contextCrypto,
-      'app.example.test',
-    );
-    const service = new CentersService(pool as never, logger, tenantContexts);
+    const service = new CentersService(pool as never, logger);
 
     await expect(
       service.readCenter(
-        await principal(),
-        'ctx_test',
+        applicationScope,
         'aaaaaaaa-0001-0001-0001-000000000001',
         '33333333-3333-3333-3333-333333333333',
       ),
@@ -83,26 +93,35 @@ describe('IAM error handling', () => {
   it('propagates database failures instead of returning 403', async () => {
     const dependencyFailure = new Error('database unavailable');
     const pool = {
-      query: vi.fn().mockRejectedValue(dependencyFailure),
+      connect: vi.fn().mockRejectedValue(dependencyFailure),
     };
     const logger = { warn: vi.fn() };
-    const tenantContexts = new TenantContextService(
-      pool as never,
-      logger,
-      contextCrypto,
-      'app.example.test',
-    );
-    const service = new CentersService(pool as never, logger, tenantContexts);
+    const service = new CentersService(pool as never, logger);
 
     await expect(
       service.readCenter(
-        await principal(),
-        'ctx_test',
+        applicationScope,
         'aaaaaaaa-0001-0001-0001-000000000001',
         '33333333-3333-3333-3333-333333333333',
       ),
     ).rejects.toBe(dependencyFailure);
     expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it('denies a center list after membership revocation during transaction revalidation', async () => {
+    const client = {
+      query: vi.fn().mockResolvedValue({ rows: [{ access: null }] }),
+      release: vi.fn(),
+    };
+    const pool = { connect: vi.fn().mockResolvedValue(client) };
+    const logger = { warn: vi.fn() };
+    const service = new CentersService(pool as never, logger);
+    await expect(
+      service.readCenters(applicationScope, 'correlation'),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'membership_missing_or_inactive' }),
+    );
   });
 
   it('propagates command dependency failures', async () => {
@@ -141,8 +160,7 @@ describe('IAM error handling', () => {
 
     await expect(
       controller.readCenter(
-        await principal(),
-        'ctx_test',
+        applicationScope,
         'aaaaaaaa-0001-0001-0001-000000000001',
       ),
     ).rejects.toBe(dependencyFailure);
@@ -152,8 +170,7 @@ describe('IAM error handling', () => {
           .fn()
           .mockRejectedValue(new ForbiddenException('Access denied')),
       } as never).readCenter(
-        await principal(),
-        'ctx_test',
+        applicationScope,
         'aaaaaaaa-0001-0001-0001-000000000001',
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);

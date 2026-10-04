@@ -3,6 +3,7 @@ import {
   type IamAccessContext,
   IamAccessDeniedError,
   type IamOperator,
+  iamCenterEntries,
   issueIamTenantContext,
   listIamOperators,
   resolveIamAccess,
@@ -10,13 +11,16 @@ import {
   resolveIamTenantContext,
   revokeIamTenantContext,
   rollbackAndReleaseClient,
+  withIamAuthorizedTenant,
 } from '@dive-center/database';
 import {
   type AuthenticatedPrincipal,
   authorizeIamMembership,
 } from '@dive-center/identity';
 import { Inject, Injectable, Optional } from '@nestjs/common';
+import { and, eq } from 'drizzle-orm';
 import type { Pool } from 'pg';
+import type { ResolvedCenterApplicationScope } from '../../common/auth/http-admission.js';
 import { DATABASE_POOL } from '../../common/database/database.tokens.js';
 import {
   IAM_ACTIONS,
@@ -131,6 +135,58 @@ export class TenantContextService {
 
   async isCenterOriginAllowed(origin: string): Promise<boolean> {
     return (await this.resolveCenterOrigin(origin)) !== null;
+  }
+
+  async resolveCenterApplicationScope(
+    principal: AuthenticatedPrincipal,
+    handle: string | undefined,
+    requestedOrigin: string | undefined,
+    action: IamAction,
+    correlationId: string,
+  ): Promise<ResolvedCenterApplicationScope> {
+    const requestedCenterKey = centerKeyFromOrigin(
+      requestedOrigin,
+      this.centerAppBaseDomain,
+      this.centerAppBaseOrigin,
+    );
+    if (!requestedCenterKey) {
+      this.securityDenied(action, 'scope_mismatch', correlationId);
+      denied();
+    }
+
+    const context = await this.resolveAuthorizedContext(
+      principal,
+      handle,
+      action,
+      correlationId,
+    );
+    try {
+      return await withIamAuthorizedTenant(
+        this.pool,
+        context,
+        async ({ db }, current) => {
+          const [entry] = await db
+            .select({ centerId: iamCenterEntries.centerId })
+            .from(iamCenterEntries)
+            .where(
+              and(
+                eq(iamCenterEntries.tenantId, current.tenantId),
+                eq(iamCenterEntries.centerKey, requestedCenterKey),
+              ),
+            )
+            .limit(1);
+          if (!entry) {
+            this.securityDenied(action, 'scope_mismatch', correlationId);
+            denied();
+          }
+          return Object.freeze({ access: current, centerId: entry.centerId });
+        },
+      );
+    } catch (error) {
+      if (!(error instanceof IamAccessDeniedError)) throw error;
+      this.securityDenied(action, error.reason, correlationId);
+      denied();
+    }
   }
 
   async issueCenterEntryContext(

@@ -4,28 +4,23 @@ import {
   iamCenters,
   withIamAuthorizedTenant,
 } from '@dive-center/database';
-import {
-  type AuthenticatedPrincipal,
-  authorizeIamMembership,
-} from '@dive-center/identity';
+import { authorizeIamMembership } from '@dive-center/identity';
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import type { Pool } from 'pg';
+import type { ResolvedCenterApplicationScope } from '../../common/auth/http-admission.js';
 import { DATABASE_POOL } from '../../common/database/database.tokens.js';
 import {
   SECURITY_LOGGER,
   type SecurityLoggerPort,
 } from '../../common/security/security.tokens.js';
 import { denied } from '../iam-denied.js';
-import { TenantContextService } from '../tenant-context/tenant-context.service.js';
 
 @Injectable()
 export class CentersService {
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool,
     @Inject(SECURITY_LOGGER) private readonly logger: SecurityLoggerPort,
-    @Inject(TenantContextService)
-    private readonly tenantContexts: TenantContextService,
   ) {}
 
   private securityDenied(correlationId: string, reason: IamDenialReason): void {
@@ -38,53 +33,61 @@ export class CentersService {
   }
 
   async readCenters(
-    principal: AuthenticatedPrincipal,
-    handle: string | undefined,
+    scope: ResolvedCenterApplicationScope,
     correlationId: string,
   ) {
-    const context = await this.tenantContexts.resolveAuthorizedContext(
-      principal,
-      handle,
-      'center.read',
-      correlationId,
-    );
-    return withIamAuthorizedTenant(
-      this.pool,
-      context,
-      async ({ db }, current) => {
-        const rows = await db
-          .select({ id: iamCenters.id, name: iamCenters.name })
-          .from(iamCenters)
-          .where(eq(iamCenters.tenantId, context.tenantId));
-        return rows.filter(
-          (center) =>
-            authorizeIamMembership({
-              membershipStatus: 'active',
-              roles: current.roles,
-              centerIds: current.centerIds,
-              permission: 'center.read',
-              requestedCenterId: center.id,
-              tenantMatches: true,
-              resourceExists: true,
-              resourceStateAllows: true,
-            }).allowed,
-        );
-      },
-    );
+    const context = scope.access;
+    try {
+      return await withIamAuthorizedTenant(
+        this.pool,
+        context,
+        async ({ db }, current) => {
+          const rows = await db
+            .select({
+              id: iamCenters.id,
+              name: iamCenters.name,
+              timeZone: iamCenters.timeZone,
+            })
+            .from(iamCenters)
+            .where(
+              and(
+                eq(iamCenters.tenantId, current.tenantId),
+                eq(iamCenters.id, scope.centerId),
+              ),
+            );
+          return rows.filter(
+            (center) =>
+              authorizeIamMembership({
+                membershipStatus: 'active',
+                roles: current.roles,
+                centerIds: current.centerIds,
+                permission: 'center.read',
+                requestedCenterId: center.id,
+                tenantMatches: true,
+                resourceExists: true,
+                resourceStateAllows: true,
+              }).allowed,
+          );
+        },
+      );
+    } catch (error) {
+      if (!(error instanceof IamAccessDeniedError)) throw error;
+      this.securityDenied(correlationId, error.reason);
+      denied();
+    }
   }
 
   async readCenter(
-    principal: AuthenticatedPrincipal,
-    handle: string | undefined,
-    centerId: string,
+    scope: ResolvedCenterApplicationScope,
+    requestedCenterId: string,
     correlationId: string,
   ) {
-    const context = await this.tenantContexts.resolveAuthorizedContext(
-      principal,
-      handle,
-      'center.read',
-      correlationId,
-    );
+    if (requestedCenterId.toLowerCase() !== scope.centerId) {
+      this.securityDenied(correlationId, 'scope_mismatch');
+      denied();
+    }
+    const context = scope.access;
+    const centerId = scope.centerId;
 
     try {
       return await withIamAuthorizedTenant(
@@ -110,7 +113,11 @@ export class CentersService {
           }
 
           const rows = await db
-            .select({ id: iamCenters.id, name: iamCenters.name })
+            .select({
+              id: iamCenters.id,
+              name: iamCenters.name,
+              timeZone: iamCenters.timeZone,
+            })
             .from(iamCenters)
             .where(
               and(

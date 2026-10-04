@@ -13,8 +13,20 @@ import { type Browser, chromium } from 'playwright';
 import request from 'supertest';
 import { AppModule } from '../src/app/app.module.js';
 import { clerkIdentityConfigFromEnvironment } from '../src/common/auth/clerk.config.js';
-import { createClerkBrowserSession } from './clerk.browser-session.js';
-import { legacyDashboardCenterPath } from './legacy-dashboard-routes.js';
+import {
+  CENTER_APP_BASE_DOMAIN,
+  CENTER_APP_BASE_ORIGIN,
+} from '../src/common/tenant-context/tenant-context.tokens.js';
+import { bffServiceCredential } from './bff-test-fixture.js';
+import {
+  assertClerkSessionCannotMintToken,
+  createClerkBrowserSession,
+} from './clerk.browser-session.js';
+import {
+  canonicalHttpsOrigin,
+  requiredEnvironment,
+  sandboxDatabaseUrl,
+} from './clerk.sandbox-config.js';
 
 const REVOCATION_REQUIREMENT_MS = 5 * 60 * 1_000;
 const REAL_RUN_FLAG = 'DIVE_REAL_CLERK_E2E';
@@ -46,6 +58,7 @@ type SandboxSession = {
   token: string;
   sessionIdHash: string;
   revoked: boolean;
+  tenantContext?: string;
 };
 
 type SafeObservation = Readonly<{
@@ -57,58 +70,6 @@ type SafeObservation = Readonly<{
   elapsedMs?: number;
   attempts?: number;
 }>;
-
-function requiredEnvironment(name: string): string {
-  const value = process.env[name]?.trim();
-  if (!value) throw new Error(`Missing ${name}`);
-  return value;
-}
-
-function sandboxDatabaseUrl(name: string, expectedUsername: string): string {
-  const value = requiredEnvironment(name);
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new Error(`Invalid ${name}`);
-  }
-  if (
-    !['postgres:', 'postgresql:'].includes(url.protocol) ||
-    !['127.0.0.1', 'localhost'].includes(url.hostname) ||
-    url.port !== '55432' ||
-    url.pathname !== '/dive_spike' ||
-    decodeURIComponent(url.username) !== expectedUsername ||
-    url.search ||
-    url.hash
-  ) {
-    throw new Error(
-      `${name} must target the local dive_spike sandbox database on port 55432`,
-    );
-  }
-  return value;
-}
-
-function canonicalHttpsOrigin(name: string): string {
-  const value = requiredEnvironment(name);
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new Error(`Invalid ${name}`);
-  }
-  if (
-    url.protocol !== 'https:' ||
-    url.username ||
-    url.password ||
-    url.pathname !== '/' ||
-    url.search ||
-    url.hash ||
-    url.origin !== value
-  ) {
-    throw new Error(`${name} must be a canonical HTTPS origin`);
-  }
-  return value;
-}
 
 function loadSandboxConfig(): SandboxConfig {
   if (process.env[REAL_RUN_FLAG] !== '1') {
@@ -174,11 +135,27 @@ function fixtureIds(): SandboxFixture {
 async function centerRequest(
   app: INestApplication,
   fixture: SandboxFixture,
-  token: string,
+  session: SandboxSession,
 ): Promise<number> {
+  const origin = `http://${fixture.centerId}.app.localhost`;
+  if (!session.tenantContext) {
+    const bootstrap = await request(app.getHttpServer())
+      .post('/v1/me/center-entry-contexts')
+      .set('authorization', `Bearer ${session.token}`)
+      .set('x-bff-service-credential', bffServiceCredential)
+      .set('x-bff-center-origin', origin)
+      .set('origin', origin)
+      .send({ centerRef: fixture.centerId });
+    if (bootstrap.status !== 201) return bootstrap.status;
+    session.tenantContext = bootstrap.body.tenantContext;
+  }
+  if (!session.tenantContext) throw new Error('Missing sandbox tenant context');
   const response = await request(app.getHttpServer())
-    .get(legacyDashboardCenterPath(fixture.tenantId, fixture.centerId))
-    .set('authorization', `Bearer ${token}`);
+    .get(`/v1/centers/${fixture.centerId}`)
+    .set('authorization', `Bearer ${session.token}`)
+    .set('x-bff-service-credential', bffServiceCredential)
+    .set('x-bff-center-origin', origin)
+    .set('x-tenant-context', session.tenantContext);
   return response.status;
 }
 
@@ -192,6 +169,7 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
   let identityProvider: IdentityProviderPort;
   let fixture: SandboxFixture | undefined;
   const sessions: SandboxSession[] = [];
+  const pendingSessionIds = new Set<string>();
   const observations: SafeObservation[] = [];
   let completedScenarios = 0;
 
@@ -215,25 +193,18 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
       accountPortalUrl: config.accountPortalUrl,
       email: await primaryEmailForUser(userId),
       password,
+      onSessionCreated: (sessionId) => pendingSessionIds.add(sessionId),
     });
-    let sandboxSession: SandboxSession | undefined;
-    try {
-      sandboxSession = {
-        userId,
-        id: browserSession.id,
-        token: browserSession.token,
-        sessionIdHash: sessionIdHash(browserSession.id),
-        revoked: false,
-      };
-      sessions.push(sandboxSession);
-
-      await validateProductionTokenProfile(sandboxSession);
-      return sandboxSession;
-    } finally {
-      if (!sandboxSession) {
-        await clerk.sessions.revokeSession(browserSession.id);
-      }
-    }
+    const sandboxSession: SandboxSession = {
+      userId,
+      id: browserSession.id,
+      token: browserSession.token,
+      sessionIdHash: sessionIdHash(browserSession.id),
+      revoked: false,
+    };
+    sessions.push(sandboxSession);
+    await validateProductionTokenProfile(sandboxSession);
+    return sandboxSession;
   }
 
   async function validateProductionTokenProfile(
@@ -303,6 +274,10 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
         [nextFixture.centerId, nextFixture.tenantId],
       );
       await client.query(
+        `INSERT INTO iam_app.center_entries(center_key,tenant_id,center_id) VALUES ($1,$2,$3)`,
+        [nextFixture.centerId, nextFixture.tenantId, nextFixture.centerId],
+      );
+      await client.query(
         `INSERT INTO iam_app.memberships(id,tenant_id,identity_id,status,roles,center_ids)
          VALUES ($1,$2,$3,'active',ARRAY['tenant_owner'],NULL)`,
         [
@@ -324,6 +299,14 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
     const client = await admin.connect();
     try {
       await client.query('BEGIN');
+      await client.query(
+        `DELETE FROM iam_app.tenant_contexts WHERE tenant_id = $1`,
+        [currentFixture.tenantId],
+      );
+      await client.query(
+        `DELETE FROM iam_app.center_entries WHERE tenant_id = $1`,
+        [currentFixture.tenantId],
+      );
       await client.query(
         `DELETE FROM iam_app.audit_records WHERE tenant_id = $1`,
         [currentFixture.tenantId],
@@ -377,7 +360,12 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
 
     moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(CENTER_APP_BASE_DOMAIN)
+      .useValue('app.localhost')
+      .overrideProvider(CENTER_APP_BASE_ORIGIN)
+      .useValue('http://app.localhost')
+      .compile();
     app = moduleFixture.createNestApplication({ rawBody: true });
     await app.init();
     clerk = createClerkClient({ secretKey: config.clerk.secretKey });
@@ -404,6 +392,15 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
           } catch (error) {
             cleanupError ??= error;
           }
+        }
+        if (session.revoked) pendingSessionIds.delete(session.id);
+      }
+      for (const sessionId of pendingSessionIds) {
+        try {
+          await clerk.sessions.revokeSession(sessionId);
+          pendingSessionIds.delete(sessionId);
+        } catch (error) {
+          cleanupError ??= error;
         }
       }
     } finally {
@@ -452,7 +449,7 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
     const authorizedStatus = await centerRequest(
       app,
       currentFixture,
-      authorizedSession.token,
+      authorizedSession,
     );
     expect(authorizedStatus).toBe(200);
     observe({
@@ -469,7 +466,7 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
     const controlStatus = await centerRequest(
       app,
       currentFixture,
-      controlSession.token,
+      controlSession,
     );
     expect(controlStatus).toBe(403);
     observe({
@@ -481,7 +478,7 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
     completedScenarios += 1;
   });
 
-  it('REAL-SESSION-REVOKE denies the first request after Clerk revocation', async () => {
+  it('REAL-SESSION-REVOKE denies the frozen JWT after expiry within the revocation bound', async () => {
     const currentFixture = fixture;
     if (!currentFixture) throw new Error('Sandbox fixture was not prepared');
 
@@ -493,15 +490,16 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
       config.controlUserId,
       config.controlUserPassword,
     );
-    const authorizedStatus = await centerRequest(
-      app,
-      currentFixture,
-      session.token,
-    );
+    const authorizedStatus = await centerRequest(app, currentFixture, session);
     expect(authorizedStatus).toBe(200);
-    expect(await centerRequest(app, currentFixture, controlSession.token)).toBe(
-      403,
-    );
+    expect(await centerRequest(app, currentFixture, controlSession)).toBe(403);
+    const claims = await verifyToken(session.token, {
+      secretKey: config.clerk.secretKey,
+      authorizedParties: [...config.clerk.authorizedParties],
+    });
+    if (!Number.isSafeInteger(claims.exp)) {
+      throw new Error('Sandbox token expiry could not be established');
+    }
     observe({
       scenario: 'REAL-SESSION-REVOKE',
       statusCode: authorizedStatus,
@@ -517,6 +515,15 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
         'Clerk did not report the session as revoked; no denial measurement was recorded.',
       );
     }
+    await assertClerkSessionCannotMintToken(() =>
+      clerk.sessions.getToken(session.id),
+    );
+    const controlToken = await clerk.sessions.getToken(controlSession.id);
+    const controlClaims = await verifyToken(controlToken.jwt, {
+      secretKey: config.clerk.secretKey,
+    });
+    expect(controlClaims.sid).toBe(controlSession.id);
+    expect(controlClaims.sub).toBe(config.controlUserId);
 
     const statusCodesSeen = new Set<number>();
     let firstDeniedAt: number | undefined;
@@ -524,30 +531,31 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
     let retryDelayMs = 100;
     while (monotonicMs() - revokedAt <= REVOCATION_REQUIREMENT_MS) {
       attempts += 1;
-      const statusCode = await centerRequest(
-        app,
-        currentFixture,
-        session.token,
-      );
+      const statusCode = await centerRequest(app, currentFixture, session);
       statusCodesSeen.add(statusCode);
       if (statusCode === 401) {
+        expect(Date.now()).toBeGreaterThanOrEqual(claims.exp * 1_000);
+        firstDeniedAt = monotonicMs();
         const providerSession = await clerk.sessions.getSession(session.id);
         if (providerSession.status !== 'revoked') {
           throw new Error(
             'The provider session was not reported as revoked; no denial measurement was recorded.',
           );
         }
+        const freshControlSession = await createSandboxSession(
+          config.controlUserId,
+          config.controlUserPassword,
+        );
         const controlStatus = await centerRequest(
           app,
           currentFixture,
-          controlSession.token,
+          freshControlSession,
         );
         if (controlStatus !== 403) {
           throw new Error(
             `The active control session did not remain healthy: ${controlStatus}`,
           );
         }
-        firstDeniedAt = monotonicMs();
         break;
       }
       if (statusCode !== 200) {
@@ -571,7 +579,7 @@ describe('Clerk sandbox evidence (REAL-AUTH, REAL-SESSION-REVOKE)', () => {
       scenario: 'REAL-SESSION-REVOKE',
       statusCode: 401,
       sessionIdHash: session.sessionIdHash,
-      result: 'denied_after_revocation',
+      result: 'denied_after_jwt_expiry',
       elapsedMs: firstDeniedAt - revokedAt,
       attempts,
     });

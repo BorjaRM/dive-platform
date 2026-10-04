@@ -2,6 +2,8 @@ import { completeOwnTenantBootstrap } from '@dive-center/database';
 import {
   authenticateIdentity,
   DeterministicIdentityProvider,
+  IdentityProviderUnavailableError,
+  InvalidIdentityCredentialsError,
 } from '@dive-center/identity';
 import type { Pool } from 'pg';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -28,7 +30,7 @@ const provider = new DeterministicIdentityProvider(
 
 describe('TenantBootstrapService', () => {
   const pool = {} as Pool;
-  const service = new TenantBootstrapService(pool);
+  const service = new TenantBootstrapService(pool, provider);
   const previousWritesFlag = process.env.BOOTSTRAP_INVITATION_WRITES_ENABLED;
   const input = {
     operatorDisplayName: 'Ocean',
@@ -104,5 +106,38 @@ describe('TenantBootstrapService', () => {
       status: 429,
       headers: { 'Retry-After': '23' },
     });
+  });
+
+  it.each([
+    [new IdentityProviderUnavailableError(), 503],
+    [new InvalidIdentityCredentialsError(), 403],
+  ])(
+    'does not consume a grant when email verification fails (%s)',
+    async (failure, status) => {
+      const principal = await authenticateIdentity(provider, 'token');
+      const unavailable = new TenantBootstrapService(pool, {
+        getVerifiedAddresses: async () => {
+          throw failure;
+        },
+      });
+      await expect(
+        unavailable.complete(principal, input, correlationId),
+      ).rejects.toMatchObject({
+        status,
+        response: expect.objectContaining({ code: 'bootstrap_unavailable' }),
+      });
+      expect(completeOwnTenantBootstrap).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not trust addresses on the principal instead of the use-case lookup', async () => {
+    const principal = await authenticateIdentity(provider, 'token');
+    const withoutVerifiedEmail = new TenantBootstrapService(pool, {
+      getVerifiedAddresses: async () => [],
+    });
+    await expect(
+      withoutVerifiedEmail.complete(principal, input, correlationId),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(completeOwnTenantBootstrap).not.toHaveBeenCalled();
   });
 });

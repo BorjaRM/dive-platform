@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { Button, Input, Notice } from '../../components/ui/controls';
 import styles from './bootstrap.module.css';
+import { BootstrapStatus } from './bootstrap-status';
 
 type AcceptancePhase =
   | 'loading'
@@ -167,11 +168,18 @@ export function BootstrapAcceptance() {
   }
 
   if (phase === 'loading') {
-    return <AcceptanceStatus title="Checking your invitation" />;
+    return (
+      <BootstrapStatus
+        kicker="Invitation access"
+        title="Checking your invitation"
+        body="Preparing secure invitation access."
+      />
+    );
   }
   if (phase === 'missing') {
     return (
-      <AcceptanceStatus
+      <BootstrapStatus
+        kicker="Invitation access"
         title="This invitation cannot be opened"
         body="Request a new invitation or contact support."
       />
@@ -201,7 +209,8 @@ export function BootstrapAcceptance() {
   const invitationFlow = invitation?.flow;
   if (invitationFlow !== 'sign_in' && invitationFlow !== 'sign_up') {
     return (
-      <AcceptanceStatus
+      <BootstrapStatus
+        kicker="Invitation access"
         title="This invitation cannot be opened"
         body="Request a new invitation or contact support."
       />
@@ -279,21 +288,6 @@ function AcceptanceFrame({
           <h2>{title}</h2>
           {children}
         </div>
-      </section>
-    </main>
-  );
-}
-
-function AcceptanceStatus({
-  title,
-  body = 'Preparing secure invitation access.',
-}: Readonly<{ title: string; body?: string }>) {
-  return (
-    <main className={styles.statusPage}>
-      <section className={styles.notice} role="status">
-        <p className={styles.kicker}>Invitation access</p>
-        <h1>{title}</h1>
-        <p>{body}</p>
       </section>
     </main>
   );

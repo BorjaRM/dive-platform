@@ -24,31 +24,53 @@ function serviceWithAccess(
   centerIds: string[] | null = null,
   baseOrigin = 'https://app.dive-platform.com',
 ) {
-  const query = vi.fn(async (statement: string) => {
-    if (statement === 'BEGIN' || statement === 'COMMIT') return { rows: [] };
-    if (statement.includes('resolve_center_entry_command')) {
-      return { rows: [{ entry: { tenantId, centerId } }] };
-    }
-    if (statement.includes('resolve_access')) {
-      return {
-        rows: [
-          {
-            access: {
-              identityId: 'a1111111-1111-1111-1111-111111111111',
-              membershipId: 'b1111111-1111-1111-1111-111111111111',
-              tenantId,
-              roles,
-              centerIds,
+  const query = vi.fn(
+    async (
+      statement: string | { text: string },
+      values?: readonly unknown[],
+    ) => {
+      const sql = typeof statement === 'string' ? statement : statement.text;
+      if (
+        ['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql) ||
+        sql.includes('set_config')
+      ) {
+        return { rows: [] };
+      }
+      if (sql.includes('resolve_tenant_context_command')) {
+        return { rows: [{ context: { tenantId } }] };
+      }
+      if (sql.includes('"iam_app"."center_entries"')) {
+        return {
+          rows:
+            values?.[0] === tenantId && values?.[1] === 'costa-norte'
+              ? [[centerId]]
+              : [],
+        };
+      }
+      if (sql.includes('resolve_center_entry_command')) {
+        return { rows: [{ entry: { tenantId, centerId } }] };
+      }
+      if (sql.includes('resolve_access')) {
+        return {
+          rows: [
+            {
+              access: {
+                identityId: 'a1111111-1111-1111-1111-111111111111',
+                membershipId: 'b1111111-1111-1111-1111-111111111111',
+                tenantId,
+                roles,
+                centerIds,
+              },
             },
-          },
-        ],
-      };
-    }
-    if (statement.includes('issue_tenant_context_command')) {
-      return { rows: [{ outcome: { tenantId, issuedAt: '2026-09-29' } }] };
-    }
-    throw new Error(`Unexpected query: ${statement}`);
-  });
+          ],
+        };
+      }
+      if (sql.includes('issue_tenant_context_command')) {
+        return { rows: [{ outcome: { tenantId, issuedAt: '2026-09-29' } }] };
+      }
+      throw new Error(`Unexpected query: ${statement}`);
+    },
+  );
   const client = { query, release: vi.fn() };
   const pool = { connect: vi.fn().mockResolvedValue(client), query };
   const logger = { warn: vi.fn() };
@@ -194,5 +216,70 @@ describe('TenantContextService center entry (DIVE-IAM-REQ-032)', () => {
         'https://costa-norte.app.dive-platform.com.evil.test',
       ),
     ).resolves.toBe(false);
+  });
+
+  it('resolves one center scope under the current authorized tenant', async () => {
+    const { service } = serviceWithAccess();
+    const scope = await service.resolveCenterApplicationScope(
+      await principal(),
+      'ctx_test-handle',
+      'https://costa-norte.app.dive-platform.com',
+      'center.read',
+      'correlation',
+    );
+    expect(scope).toEqual({
+      access: expect.objectContaining({ tenantId, subject: 'owner' }),
+      centerId,
+    });
+    expect(Object.isFrozen(scope)).toBe(true);
+  });
+
+  it.each([
+    undefined,
+    'https://app.dive-platform.com',
+    'https://costa-norte.app.dive-platform.com.evil.test',
+    'https://unknown.app.dive-platform.com',
+    'https://bravo.app.dive-platform.com',
+  ])(
+    'denies absent, malformed or unmapped application origin %#',
+    async (origin) => {
+      const { service } = serviceWithAccess();
+      await expect(
+        service.resolveCenterApplicationScope(
+          await principal(),
+          'ctx_test-handle',
+          origin,
+          'center.read',
+          'correlation',
+        ),
+      ).rejects.toMatchObject({ status: 403 });
+    },
+  );
+
+  it('does not establish an application scope without a tenant handle', async () => {
+    const { service } = serviceWithAccess();
+    await expect(
+      service.resolveCenterApplicationScope(
+        await principal(),
+        undefined,
+        'https://costa-norte.app.dive-platform.com',
+        'center.read',
+        'correlation',
+      ),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('does not turn a tenant-context resolver outage into a scope denial or grant', async () => {
+    const { client, service } = serviceWithAccess();
+    client.query.mockRejectedValueOnce(new Error('database unavailable'));
+    await expect(
+      service.resolveCenterApplicationScope(
+        await principal(),
+        'ctx_test-handle',
+        'https://costa-norte.app.dive-platform.com',
+        'center.read',
+        'correlation',
+      ),
+    ).rejects.toThrow('database unavailable');
   });
 });

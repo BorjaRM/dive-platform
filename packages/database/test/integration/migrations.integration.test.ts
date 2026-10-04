@@ -243,7 +243,13 @@ SELECT id FROM iam_app.tenants;
     ) as {
       entries: Array<{ tag: string }>;
     };
-    journal.entries = journal.entries.slice(0, -1);
+    const catalogMigrationIndex = journal.entries.findIndex(
+      (entry) => entry.tag === '0007_center_catalog_language',
+    );
+    if (catalogMigrationIndex < 0) {
+      throw new Error('Missing catalog language migration');
+    }
+    journal.entries = journal.entries.slice(0, catalogMigrationIndex);
     mkdirSync(join(tempFolder, 'meta'));
     writeFileSync(
       join(tempFolder, 'meta/_journal.json'),
@@ -303,6 +309,93 @@ SELECT id FROM iam_app.tenants;
         'SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations',
       );
       expect(migrations.rows).toEqual([{ count: journal.entries.length }]);
+    } finally {
+      await priorAdmin?.end();
+      await maintenance.query(`DROP DATABASE IF EXISTS ${databaseName}`);
+      await maintenance.end();
+      rmSync(tempFolder, { recursive: true, force: true });
+    }
+  });
+
+  it('upgrades existing activities with revision 1 and preserves data on schema rollback (DIVE-BOOK-REQ-078)', async () => {
+    const databaseName = 'dive_migrate_activity_revision';
+    const tempFolder = mkdtempSync(join(tmpdir(), 'dive-migrate-revision-'));
+    const journal = JSON.parse(
+      readFileSync(join(productMigrationsFolder, 'meta/_journal.json'), 'utf8'),
+    ) as { entries: Array<{ tag: string }> };
+    const revisionIndex = journal.entries.findIndex(
+      ({ tag }) => tag === '0009_activity_revision',
+    );
+    if (revisionIndex < 0)
+      throw new Error('Missing activity revision migration');
+    journal.entries = journal.entries.slice(0, revisionIndex);
+    mkdirSync(join(tempFolder, 'meta'));
+    writeFileSync(
+      join(tempFolder, 'meta/_journal.json'),
+      JSON.stringify(journal),
+    );
+    for (const entry of journal.entries) {
+      writeFileSync(
+        join(tempFolder, `${entry.tag}.sql`),
+        readFileSync(join(productMigrationsFolder, `${entry.tag}.sql`), 'utf8'),
+      );
+    }
+    const maintenance = new Pool({
+      connectionString: spikeAdminDatabaseUrl(),
+      max: 1,
+    });
+    let priorAdmin: Pool | undefined;
+    try {
+      await maintenance.query(`DROP DATABASE IF EXISTS ${databaseName}`);
+      await maintenance.query(`CREATE DATABASE ${databaseName}`);
+      await maintenance.query(
+        `GRANT CONNECT, CREATE ON DATABASE ${databaseName} TO dive_migration`,
+      );
+      const migrationUrl = urlForDatabase(migrationDatabaseUrl(), databaseName);
+      await migrateProduct(tempFolder, migrationUrl);
+      priorAdmin = new Pool({
+        connectionString: urlForDatabase(spikeAdminDatabaseUrl(), databaseName),
+        max: 1,
+      });
+      await priorAdmin.query(
+        `INSERT INTO iam_app.tenants(id,name) VALUES ($1,'Existing')`,
+        [tenantA],
+      );
+      await priorAdmin.query(
+        `INSERT INTO iam_app.centers(id,tenant_id,name) VALUES ($1,$2,'Existing')`,
+        [centerA1, tenantA],
+      );
+      await priorAdmin.query(
+        `INSERT INTO booking_app.activities(id,tenant_id,center_id,base_locale,name,description,default_capacity,status) VALUES (gen_random_uuid(),$1,$2,'es','{"es":"Original","en":"Existing"}','{"en":"Description"}',5,'Disabled')`,
+        [tenantA, centerA1],
+      );
+      const before = (
+        await priorAdmin.query('SELECT * FROM booking_app.activities')
+      ).rows;
+      await migrateProduct(productMigrationsFolder, migrationUrl);
+      const upgraded = (
+        await priorAdmin.query('SELECT * FROM booking_app.activities')
+      ).rows;
+      expect(upgraded).toEqual(
+        before.map((activity) => ({ ...activity, revision: '1' })),
+      );
+      const column = await priorAdmin.query(
+        `SELECT data_type,is_nullable,column_default FROM information_schema.columns WHERE table_schema='booking_app' AND table_name='activities' AND column_name='revision'`,
+      );
+      expect(column.rows).toEqual([
+        { data_type: 'bigint', is_nullable: 'NO', column_default: '1' },
+      ]);
+      await priorAdmin.query('BEGIN');
+      await priorAdmin.query(
+        'ALTER TABLE booking_app.activities DROP COLUMN revision',
+      );
+      expect(
+        (await priorAdmin.query('SELECT * FROM booking_app.activities')).rows,
+      ).toEqual(before);
+      await priorAdmin.query('ROLLBACK');
+      expect(
+        (await priorAdmin.query('SELECT * FROM booking_app.activities')).rows,
+      ).toEqual(upgraded);
     } finally {
       await priorAdmin?.end();
       await maintenance.query(`DROP DATABASE IF EXISTS ${databaseName}`);

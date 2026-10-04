@@ -92,6 +92,12 @@ export function swaggerEnabledFromEnvironment(
   if (runtimeEnvironment === 'production' && configured === 'true') {
     throw new Error('Invalid API_SWAGGER_ENABLED');
   }
+  if (
+    configured === 'true' &&
+    environment.BFF_SERVICE_CREDENTIAL_VERIFIERS !== undefined
+  ) {
+    throw new Error('Swagger unavailable with BFF admission');
+  }
   return configured === 'true';
 }
 

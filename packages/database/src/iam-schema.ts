@@ -261,6 +261,7 @@ export const iamAuditRecords = iamApp.table(
         'booking.create',
         'booking.read',
         'booking.update',
+        'booking.activity.updated',
         'booking.confirm',
         'booking.cancel',
         'customer_contact.read',

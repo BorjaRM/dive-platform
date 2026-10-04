@@ -1,8 +1,8 @@
 # SPEC-DIVE-BOOKING-CAPABILITIES-001 - Public booking credentials and recovery
 
 - **Status:** Draft
-- **Version:** 0.2
-- **Last reviewed:** 2026-09-30
+- **Version:** 0.4
+- **Last reviewed:** 2026-10-01
 - **Owner:** Product / Booking
 - **Approval reference:** Original requirements and approval records extracted from SPEC-DIVE-BOOKING-001 at commit `86e9d97`; documentation split requested 2026-09-30. Product-owner approval of policy-conditioned and pre-date-assignment cancellation direction on 2026-09-30 is recorded below. Security/replay gaps remain open; no artifact promotion or conformance is inferred.
 
@@ -20,6 +20,8 @@
 | `DIVE-BOOK-REQ-071` | `Proposed` | Original 071; consumed-credential replay reconciliation 2026-09-30 | Draft exception; Security approval pending |
 | `DIVE-BOOK-REQ-072` | `Proposed` | Product, Security, and Architecture approval 2026-09-27; ADR-DIVE-005 v0.3 | Original approval retained |
 | `DIVE-BOOK-REQ-081` | `Proposed` | Product-owner request on 2026-09-30: "aplica los cambios propuestos sobre la documentacion", approving aligned policy text/behavior and cancellation without penalty before date assignment, with communicated/accepted conditions when assigning a date | Approved product direction and policy-eligibility revision of `DIVE-BOOK-REQ-071`; exact policy/time/error, unscheduled-state and acceptance contracts remain open; consumed-token replay still needs Security approval |
+| Cutoff and center-request refinement of `DIVE-BOOK-REQ-081` | `Proposed` | Product-owner acceptance in this chat on 2026-10-01 of the preceding cancellation recommendation, followed by documentation authorization | Explicitly approved configurable start-relative public cancellation cutoff and request-to-center direction afterward, with no default cutoff or refund promise; exact boundary, request transport and undated-booking reconciliation remain open; no Security replay approval or artifact promotion |
+| Minute boundary and initial contact flow under `DIVE-BOOK-REQ-081` | `Proposed` | Subsequent product-owner acceptance in this chat on 2026-10-01 of the preceding seven-block technical recommendations, followed by documentation authorization | Explicitly approved nonnegative integer minutes, inclusive cutoff and contact-center-only initial fallback below; no internal request system, Security replay approval or status promotion |
 
 ## Requirements
 
@@ -57,13 +59,17 @@ Public credential failures are indistinguishable from unknown or mismatched book
 
 The existing capability, non-disclosure, idempotency, atomic seat release and audit/outbox boundaries remain mandatory. Policy eligibility adds a business check, not a replacement credential. Credential expiry and a commercial cancellation cutoff are separate; free cancellation before date assignment does not renew an expired token or waive authorization. Current resend/state contracts must be reconciled before activating undated booking.
 
-No cutoff hours, monetary penalty, automatic refund, new unscheduled booking state or date-assignment endpoint is selected. A selected day without an exact time does not justify inventing a midnight start. Agreed date/condition changes require the explicit acceptance flow owned by Booking; unilateral assignment is not customer consent.
+**Proposed, explicitly approved:** the subsequent seven-block acceptance selects a configurable nonnegative integer cutoff in minutes, with no default. For a known exact start, allow cancellation when `now <= start - cutoffMinutes`; the subtraction interprets minutes as duration units and uses authoritative instants. Equality is allowed; zero allows cancellation through the exact start, subject to existing accepted-policy, credential and state boundaries. Validate the configured value and converted deadline for representability; exact numeric bounds, clock/precision and error contract remain open.
+
+**Proposed, explicitly approved:** after the cutoff, the first increment presents explicit contact with the center. It introduces no internal request system, new request endpoint, automatic seat release, refund or fee. Subsequent staff resolution remains subject to existing authorized cancellation/state commands; this acceptance does not close their absent contracts. Exact contact presentation and post-cutoff business error remain open. Policy versions and their localized text belong to [Catalog](SPEC-DIVE-BOOKING-CATALOG-001.md#accepted-commercial-refinements); management grants belong to [IAM](../iam/SPEC-DIVE-IAM-001.md#commercial-profile-and-policy-permissions).
+
+No default cutoff hours, monetary penalty, automatic refund, new unscheduled booking state or date-assignment endpoint is selected. A selected day without an exact time does not justify inventing a midnight start. Initially undated bookings retain cancellation without penalty before date assignment under `DIVE-BOOK-REQ-081`; their concrete rule/state/token contract remains to be closed. Agreed date/condition changes require the explicit acceptance flow owned by Booking; unilateral assignment is not customer consent.
 
 Exact replay, when its Security contract is approved, recovers the committed cancellation result within the existing credential/replay bounds. A later policy edit or crossing a cutoff must not execute another mutation, reprice that result or reevaluate it against current catalog text.
 
-Implementation gates: structured policy rules and immutable version identity; dated and day-only cutoff evaluation in the confirmed center time zone; cancellation eligibility errors after successful credential validation; legal meaning and communication of conditions; acceptance/assignment concurrency; undated booking state and token/resend compatibility; retention and migration of existing bookings. This section approves direction, not those absent contracts.
+Implementation gates: structured policy rules and immutable version identity; numeric bounds, clock/precision, safe deadline calculation and day-only evaluation; contact presentation and existing staff resolution contracts, not an internal request service; cancellation eligibility errors after successful credential validation; legal meaning and communication of conditions; acceptance/assignment concurrency; undated booking state and token/resend compatibility; retention and migration of existing bookings. Minutes, inclusive equality and the initial contact-only flow are no longer undecided. Consumed-token exact replay still requires Security approval.
 
-Expected checks, not executed proof: accepted policy differs from the latest edited policy; free cancellation before date assignment; explicit acceptance on date assignment; unknown start never produces an invented cutoff; policy text matches executable behavior; valid credential denied by policy versus indistinguishable invalid credentials; unchanged replay result; and single atomic cancellation competing with assignment or another state transition.
+Expected checks, not executed proof: accepted policy differs from the latest edited policy; free cancellation before date assignment; explicit acceptance on date assignment; unknown start never produces an invented cutoff; policy text matches executable behavior; before/at/after deadline and zero-cutoff cases under the inclusive boundary; center contact does not cancel or release seats; valid credential denied by policy versus indistinguishable invalid credentials; unchanged replay result when approved; and single atomic cancellation competing with assignment or another state transition.
 
 ## Open questions
 

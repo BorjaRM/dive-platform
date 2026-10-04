@@ -30,9 +30,12 @@ export async function proxy(request: NextRequest, event?: NextFetchEvent) {
 
 async function routeRequest(request: NextRequest, event?: NextFetchEvent) {
   const path = request.nextUrl.pathname;
-  const isApplicationPath = ['/dashboard', '/bootstrap', '/sign-in'].some(
-    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
-  );
+  const isApplicationPath = [
+    '/dashboard',
+    '/bootstrap',
+    '/sign-in',
+    '/platform',
+  ].some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
   if (isApplicationPath || path === '/') {
     let applicationConfig:
       | ReturnType<typeof readApplicationHostConfig>
@@ -50,7 +53,7 @@ async function routeRequest(request: NextRequest, event?: NextFetchEvent) {
       if (surface.kind === 'unknown') {
         if (isApplicationPath) return new NextResponse(null, { status: 404 });
       } else {
-        const apiBaseUrl = process.env.NEXT_PUBLIC_DASHBOARD_API_URL ?? '';
+        const apiBaseUrl = process.env.BFF_API_ORIGIN ?? '';
         const originCheckSignal = () =>
           AbortSignal.timeout(
             dashboardRequestTimeoutFromEnvironment(
@@ -59,8 +62,13 @@ async function routeRequest(request: NextRequest, event?: NextFetchEvent) {
           );
         if (request.nextUrl.origin !== surface.origin)
           return new NextResponse(null, { status: 404 });
+        if (path.startsWith('/platform') && surface.kind !== 'authentication')
+          return new NextResponse(null, { status: 404 });
         if (surface.kind === 'center') {
+          const isExistingDashboardRoute =
+            path === '/dashboard' || path.startsWith('/dashboard/');
           if (
+            !isExistingDashboardRoute &&
             !(await isActiveCenterOrigin(
               surface.origin,
               apiBaseUrl,
@@ -86,6 +94,16 @@ async function routeRequest(request: NextRequest, event?: NextFetchEvent) {
           return NextResponse.redirect(`${surface.origin}/dashboard`);
         const forwardedHeaders = new Headers(request.headers);
         forwardedHeaders.delete('x-dive-center-return');
+        forwardedHeaders.delete('x-dive-platform-return');
+        const platformReturnUrl = `${applicationConfig.authenticationOrigin}/platform/invitations`;
+        if (
+          surface.kind === 'authentication' &&
+          (path === '/platform/invitations' ||
+            (path.startsWith('/sign-in') &&
+              request.nextUrl.searchParams.get('redirect_url') ===
+                platformReturnUrl))
+        )
+          forwardedHeaders.set('x-dive-platform-return', platformReturnUrl);
         const returnUrl =
           surface.kind === 'authentication' && path.startsWith('/sign-in')
             ? await validatedCenterReturnUrl(
@@ -142,5 +160,6 @@ export const config = {
     '/dashboard/:path*',
     '/bootstrap/:path*',
     '/sign-in/:path*',
+    '/platform/:path*',
   ],
 };

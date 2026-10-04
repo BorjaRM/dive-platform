@@ -3,7 +3,7 @@ import type { PoolClient } from 'pg';
 export type BookingCatalogMutation = Readonly<{
   tenantId: string;
   actorIdentityId: string;
-  action: 'booking.create' | 'booking.update';
+  action: 'booking.create' | 'booking.update' | 'booking.activity.updated';
   resourceType: 'activity' | 'slot' | 'channel' | 'catalog_settings';
   resourceId: string;
   eventType: string | null;

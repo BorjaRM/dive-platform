@@ -331,6 +331,7 @@ describe('IAM/API persistence controls', () => {
 
   it('resolves exact center-entry mappings and clears pooled selector context (DIVE-IAM-REQ-032, MT-REQ-004..005, MT-REQ-010)', async () => {
     const centerA = 'aaaaaaaa-0001-0001-0001-000000000001';
+    const disabledCenterA = 'aaaaaaaa-0001-0001-0001-000000000002';
     const centerB = 'bbbbbbbb-0002-0002-0002-000000000001';
     await adminPool.query(
       `INSERT INTO iam_app.tenants(id,name) VALUES ($1,'A'),($2,'B')`,
@@ -338,14 +339,14 @@ describe('IAM/API persistence controls', () => {
     );
     await adminPool.query(
       `INSERT INTO iam_app.centers(id,tenant_id,name)
-       VALUES ($1,$2,'A1'),($3,$4,'B1')`,
-      [centerA, tenantA, centerB, tenantB],
+       VALUES ($1,$2,'A1'),($3,$4,'B1'),($5,$2,'A2')`,
+      [centerA, tenantA, centerB, tenantB, disabledCenterA],
     );
     await withAdminTenant(migrationPool, tenantA, (client) =>
       client.query(
-        `INSERT INTO iam_app.center_entries(center_key,tenant_id,center_id)
-         VALUES ('alpha', $1, $2)`,
-        [tenantA, centerA],
+        `INSERT INTO iam_app.center_entries(center_key,tenant_id,center_id,status)
+         VALUES ('alpha', $1, $2, 'active'),('delta', $1, $3, 'disabled')`,
+        [tenantA, centerA, disabledCenterA],
       ),
     );
     await withAdminTenant(migrationPool, tenantB, (client) =>
@@ -365,6 +366,9 @@ describe('IAM/API persistence controls', () => {
         resolveIamCenterEntry(singleConnectionPool, 'bravo'),
       ).resolves.toEqual({ tenantId: tenantB, centerId: centerB });
       await expect(
+        resolveIamCenterEntry(singleConnectionPool, 'delta'),
+      ).resolves.toBeNull();
+      await expect(
         resolveIamCenterEntry(singleConnectionPool, 'unknown'),
       ).resolves.toBeNull();
       await expect(
@@ -375,16 +379,73 @@ describe('IAM/API persistence controls', () => {
       ).resolves.toBeNull();
       await expect(
         singleConnectionPool.query('SELECT * FROM iam_app.center_entries'),
-      ).rejects.toThrow('permission denied for table center_entries');
+      ).resolves.toMatchObject({ rows: [] });
+
+      const backendPids = new Set<number>();
+      for (const selectedTenant of [tenantA, tenantB, tenantA]) {
+        const rows = await withAdminTenant(
+          singleConnectionPool,
+          selectedTenant,
+          async (client) => {
+            const backend = await client.query<{ pid: number }>(
+              'SELECT pg_backend_pid() AS pid',
+            );
+            const backendPid = backend.rows[0]?.pid;
+            if (backendPid === undefined) {
+              throw new Error('Missing PostgreSQL backend PID');
+            }
+            backendPids.add(backendPid);
+            await client.query('SELECT set_config($1, $2, true)', [
+              'app.center_entry_key',
+              selectedTenant === tenantA ? 'bravo' : 'alpha',
+            ]);
+            return client.query(
+              'SELECT center_key, status FROM iam_app.center_entries ORDER BY center_key',
+            );
+          },
+        );
+        expect(rows.rows).toEqual(
+          selectedTenant === tenantA
+            ? [
+                { center_key: 'alpha', status: 'active' },
+                { center_key: 'delta', status: 'disabled' },
+              ]
+            : [{ center_key: 'bravo', status: 'active' }],
+        );
+      }
+      expect(backendPids.size).toBe(1);
+
+      const forgedKey = await withAdminTenant(
+        singleConnectionPool,
+        '',
+        async (client) => {
+          await client.query('SELECT set_config($1, $2, true)', [
+            'app.center_entry_key',
+            'bravo',
+          ]);
+          return client.query('SELECT * FROM iam_app.center_entries');
+        },
+      );
+      expect(forgedKey.rows).toEqual([]);
+
+      await expect(
+        withAdminTenant(singleConnectionPool, 'invalid-tenant', (client) =>
+          client.query('SELECT * FROM iam_app.center_entries'),
+        ),
+      ).rejects.toThrow();
 
       const context = await singleConnectionPool.query<{
-        centerKey: string;
-        tenantId: string;
+        centerKey: string | null;
+        tenantId: string | null;
       }>(
         `SELECT current_setting('app.center_entry_key', true) AS "centerKey",
                 current_setting('app.tenant_id', true) AS "tenantId"`,
       );
-      expect(context.rows[0]).toEqual({ centerKey: null, tenantId: null });
+      expect(context.rows[0]?.centerKey ?? '').toBe('');
+      expect(context.rows[0]?.tenantId ?? '').toBe('');
+      await expect(
+        singleConnectionPool.query('SELECT * FROM iam_app.center_entries'),
+      ).resolves.toMatchObject({ rows: [] });
     } finally {
       await singleConnectionPool.end();
     }
@@ -446,8 +507,7 @@ describe('IAM/API persistence controls', () => {
     await expect(
       setIamCenterEntryStatus(
         appPool,
-        { issuer: 'test', subject: 'identity-a' },
-        { tenantId: tenantA },
+        { issuer: 'test', subject: 'identity-a', tenantId: tenantA },
         {
           centerId: centerA,
           status: 'disabled',
@@ -459,8 +519,7 @@ describe('IAM/API persistence controls', () => {
     await expect(
       setIamCenterEntryStatus(
         appPool,
-        { issuer: 'test', subject: 'identity-a' },
-        { tenantId: tenantA },
+        { issuer: 'test', subject: 'identity-a', tenantId: tenantA },
         {
           centerId: centerA,
           status: 'disabled',
@@ -474,8 +533,7 @@ describe('IAM/API persistence controls', () => {
     await expect(
       setIamCenterEntryStatus(
         appPool,
-        { issuer: 'test', subject: 'identity-manager' },
-        { tenantId: tenantA },
+        { issuer: 'test', subject: 'identity-manager', tenantId: tenantA },
         {
           centerId: centerA,
           status: 'active',
@@ -488,8 +546,7 @@ describe('IAM/API persistence controls', () => {
     await expect(
       setIamCenterEntryStatus(
         appPool,
-        { issuer: 'test', subject: 'identity-a' },
-        { tenantId: tenantA },
+        { issuer: 'test', subject: 'identity-a', tenantId: tenantA },
         {
           centerId: centerB,
           status: 'disabled',
@@ -506,8 +563,7 @@ describe('IAM/API persistence controls', () => {
     await expect(
       setIamCenterEntryStatus(
         appPool,
-        { issuer: 'test', subject: 'unknown' },
-        { tenantId: tenantA },
+        { issuer: 'test', subject: 'unknown', tenantId: tenantA },
         {
           centerId: centerA,
           status: 'active',
@@ -520,8 +576,7 @@ describe('IAM/API persistence controls', () => {
     await expect(
       setIamCenterEntryStatus(
         appPool,
-        { issuer: 'test', subject: 'identity-a' },
-        { tenantId: tenantA },
+        { issuer: 'test', subject: 'identity-a', tenantId: tenantA },
         {
           centerId: centerA,
           status: 'active',

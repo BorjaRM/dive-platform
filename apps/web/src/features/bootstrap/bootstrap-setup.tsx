@@ -3,10 +3,11 @@
 import { useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useState } from 'react';
-import { Button, Input, Notice } from '../../components/ui/controls';
+import { Button, Input, Notice, Select } from '../../components/ui/controls';
 import { centerDashboardUrl } from '../../lib/application-hosts';
 import styles from './bootstrap.module.css';
 import { BootstrapApiError, completeTenantBootstrap } from './bootstrap-api';
+import { BootstrapStatus } from './bootstrap-status';
 
 const copy = {
   en: {
@@ -17,6 +18,9 @@ const copy = {
     operator: 'Operation name',
     center: 'First center name',
     timeZone: 'Center time zone',
+    searchTimeZone: 'Search time zones',
+    selectTimeZone: 'Select a time zone',
+    timeZoneRequired: 'Select a time zone to continue.',
     confirm: 'I confirm this is the center’s local time zone.',
     submit: 'Create operation',
     submitting: 'Creating operation…',
@@ -33,6 +37,9 @@ const copy = {
     operator: 'Nombre del operador',
     center: 'Nombre del primer centro',
     timeZone: 'Zona horaria del centro',
+    searchTimeZone: 'Buscar zona horaria',
+    selectTimeZone: 'Selecciona una zona horaria',
+    timeZoneRequired: 'Selecciona una zona horaria para continuar.',
     confirm: 'Confirmo que esta es la zona horaria local del centro.',
     submit: 'Crear operador',
     submitting: 'Creando operador…',
@@ -48,22 +55,31 @@ export function BootstrapSetup({
   clerkConfigured,
   centerAppBaseDomain,
   centerAppBaseOrigin,
+  timeZones,
   navigate = (destination: string) => window.location.replace(destination),
 }: Readonly<{
   apiBaseUrl: string;
   clerkConfigured: boolean;
   centerAppBaseDomain?: string;
   centerAppBaseOrigin?: string | undefined;
+  timeZones: readonly string[];
   navigate?: (destination: string) => void;
 }>) {
   if (!clerkConfigured || !apiBaseUrl || !centerAppBaseDomain) {
-    return <SetupStatus title="Setup is unavailable" />;
+    return (
+      <BootstrapStatus
+        kicker="BlueCurrent"
+        title="Setup is unavailable"
+        body="Contact support if the problem continues."
+      />
+    );
   }
   return (
     <AuthenticatedBootstrapSetup
       apiBaseUrl={apiBaseUrl}
       centerAppBaseDomain={centerAppBaseDomain}
       centerAppBaseOrigin={centerAppBaseOrigin}
+      timeZones={timeZones}
       navigate={navigate}
     />
   );
@@ -73,25 +89,51 @@ function AuthenticatedBootstrapSetup({
   apiBaseUrl,
   centerAppBaseDomain,
   centerAppBaseOrigin,
+  timeZones,
   navigate,
 }: Readonly<{
   apiBaseUrl: string;
   centerAppBaseDomain: string;
   centerAppBaseOrigin?: string | undefined;
+  timeZones: readonly string[];
   navigate: (destination: string) => void;
 }>) {
   const router = useRouter();
   const { getToken, isLoaded, isSignedIn } = useAuth();
   const [locale, setLocale] = useState<'en' | 'es'>('en');
   const [timeZone, setTimeZone] = useState('');
+  const [suggestedTimeZone, setSuggestedTimeZone] = useState('');
+  const [timeZoneSearch, setTimeZoneSearch] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const text = copy[locale];
+  const availableTimeZones = [
+    ...new Set([
+      ...timeZones,
+      ...(suggestedTimeZone ? [suggestedTimeZone] : []),
+    ]),
+  ].sort();
+  const normalizedSearch = timeZoneSearch
+    .trim()
+    .toLowerCase()
+    .replaceAll(' ', '_');
+  const visibleTimeZones = availableTimeZones.filter(
+    (option) =>
+      option === timeZone || option.toLowerCase().includes(normalizedSearch),
+  );
 
   useEffect(() => {
     setLocale(navigator.language.toLowerCase().startsWith('es') ? 'es' : 'en');
-    setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    try {
+      const detectedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (detectedTimeZone) {
+        setSuggestedTimeZone(detectedTimeZone);
+        setTimeZone(detectedTimeZone);
+      }
+    } catch {
+      setSuggestedTimeZone('');
+    }
   }, []);
 
   useEffect(() => {
@@ -100,6 +142,10 @@ function AuthenticatedBootstrapSetup({
 
   async function submitSetup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!timeZone || !availableTimeZones.includes(timeZone)) {
+      setMessage(text.timeZoneRequired);
+      return;
+    }
     if (!confirmed) {
       setMessage(text.confirmationRequired);
       return;
@@ -139,7 +185,13 @@ function AuthenticatedBootstrapSetup({
   }
 
   if (!isLoaded || !isSignedIn) {
-    return <SetupStatus title="Checking your session" />;
+    return (
+      <BootstrapStatus
+        kicker="BlueCurrent"
+        title="Checking your session"
+        body="Contact support if the problem continues."
+      />
+    );
   }
 
   return (
@@ -201,20 +253,36 @@ function AuthenticatedBootstrapSetup({
               required
             />
           </label>
+          <label htmlFor="setup-time-zone-search">
+            {text.searchTimeZone}
+            <Input
+              id="setup-time-zone-search"
+              type="search"
+              value={timeZoneSearch}
+              onChange={(event) => setTimeZoneSearch(event.target.value)}
+              autoComplete="off"
+            />
+          </label>
           <label htmlFor="setup-time-zone">
             {text.timeZone}
-            <Input
+            <Select
               id="setup-time-zone"
               name="timeZone"
-              type="text"
               value={timeZone}
               onChange={(event) => {
                 setTimeZone(event.target.value);
                 setConfirmed(false);
+                setMessage(null);
               }}
-              autoComplete="off"
               required
-            />
+            >
+              <option value="">{text.selectTimeZone}</option>
+              {visibleTimeZones.map((option) => (
+                <option key={option} value={option}>
+                  {option.split('/').at(-1)?.replaceAll('_', ' ')} ({option})
+                </option>
+              ))}
+            </Select>
           </label>
           <label className={styles.check}>
             <input
@@ -233,18 +301,6 @@ function AuthenticatedBootstrapSetup({
             {submitting ? text.submitting : text.submit}
           </Button>
         </form>
-      </section>
-    </main>
-  );
-}
-
-function SetupStatus({ title }: Readonly<{ title: string }>) {
-  return (
-    <main className={styles.statusPage}>
-      <section className={styles.notice} role="status">
-        <p className={styles.kicker}>BlueCurrent</p>
-        <h1>{title}</h1>
-        <p>Contact support if the problem continues.</p>
       </section>
     </main>
   );

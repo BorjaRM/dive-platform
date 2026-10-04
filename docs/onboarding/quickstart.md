@@ -19,6 +19,15 @@ pnpm check
 
 `pnpm check` runs Biome at the repo root and then Turbo `typecheck`. Biome is not a per-package Turbo task.
 
+**Documented -- Application configuration:** `pnpm dev` loads `.env.example`
+and root `.env.local`, but the example Clerk/BFF placeholders are not usable
+credentials. Configure the matching server-only BFF secret/API verifier and
+provider settings using [web configuration](../../apps/web/README.md#server-side-bff-configuration)
+and [API admission](../../apps/api/README.md#bff-admission). Center data uses the
+same-origin BFF; `NEXT_PUBLIC_DASHBOARD_API_URL` is no longer the client setting.
+For local center hosts and exact Clerk authorized parties, follow
+[local center origins](../../apps/web/README.md#local-center-origins).
+
 ## Important scripts
 
 Documented: commands are defined in [root package.json](../../package.json).
@@ -35,10 +44,11 @@ and [the invitation processor](../../apps/worker/src/bootstrap-invitation-worker
 | `pnpm db:migrate` | Applies versioned product migrations using migration credentials. Does not drop the database. |
 | `pnpm db:generate` | Generates migration files from the schema; does not apply them. Review generated SQL before applying it. |
 | `pnpm build` | Builds workspace applications and packages through Turbo. Does not start servers. |
+| `pnpm swagger` | Builds and opens the isolated loopback OpenAPI viewer; it does not start the business API or enable Try it out. See [API documentation](../../apps/api/README.md#local-documentation-viewer). |
 | `pnpm check` | Checks formatting/lint and runs workspace typechecks without fixing files. |
 | `pnpm check:fix` | Applies Biome fixes. Does not fix typecheck or test failures. |
 | `pnpm test` | Runs workspace unit tests through Turbo. Does not replace integration tests or the standalone reset-script tests below. |
-| `pnpm test:integration` | Runs database integration tests and API e2e tests against the configured PostgreSQL harness. Use a disposable test database. |
+| `pnpm test:integration` | Runs database integration and API e2e, including deterministic Next.js/API/PostgreSQL BFF integration, against the configured harness. Use a disposable test database; this is not a browser/real-Clerk run. |
 
 Only `db:reset:local` enforces the local URL restrictions described below.
 The standalone `db:bootstrap` and `db:migrate` commands load `.env.example`

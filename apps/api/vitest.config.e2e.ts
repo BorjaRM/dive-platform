@@ -7,13 +7,14 @@ export default defineConfig({
   test: {
     globals: true,
     root: './',
+    setupFiles: ['./test/bff-test-fixture.ts'],
     include: ['**/*.e2e-spec.ts'],
     exclude: [
       '**/node_modules/**',
       '**/.git/**',
       '**/dist/**',
       '**/coverage/**',
-      '**/iam.clerk.sandbox.e2e-spec.ts',
+      '**/*.clerk.sandbox.e2e-spec.ts',
     ],
   },
 });
