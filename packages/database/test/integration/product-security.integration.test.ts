@@ -497,22 +497,29 @@ describe('product database security contract', () => {
 
     const policies = await adminPool.query<{
       cmd: string;
+      policyname: string;
       qual: string | null;
       relation: string;
+      roles: string[];
       with_check: string | null;
     }>(
       `SELECT format('%I.%I', schemaname, tablename) AS relation,
               cmd,
+              policyname,
               qual,
+              roles::text[] AS roles,
               with_check
        FROM pg_policies
        WHERE schemaname IN ('booking_app', 'iam_app')
        ORDER BY relation, policyname`,
     );
-    expect(policies.rows.map(({ relation }) => relation)).toEqual([
+    const tenantPolicies = policies.rows.filter(
+      (policy) => policy.policyname !== 'invitation_delivery_dispatch',
+    );
+    expect(tenantPolicies.map(({ relation }) => relation)).toEqual([
       ...tenantProtectedRelations,
     ]);
-    for (const policy of policies.rows) {
+    for (const policy of tenantPolicies) {
       expect(policy.cmd, policy.relation).toBe('ALL');
       expect(policy.qual, policy.relation).toContain(
         "current_setting('app.tenant_id'::text",
@@ -521,6 +528,20 @@ describe('product database security contract', () => {
         "current_setting('app.tenant_id'::text",
       );
     }
+    expect(
+      policies.rows.filter(
+        (policy) => policy.policyname === 'invitation_delivery_dispatch',
+      ),
+    ).toEqual([
+      {
+        cmd: 'SELECT',
+        policyname: 'invitation_delivery_dispatch',
+        qual: "((SESSION_USER = 'dive_worker'::name) AND (event_type = ANY (ARRAY['iam.invitation.issued.v1'::text, 'iam.invitation.revoked.v1'::text])))",
+        relation: 'iam_app.outbox_events',
+        roles: ['dive_invitation_delivery'],
+        with_check: null,
+      },
+    ]);
   });
 
   it('hardens every product function executable by the runtime role', async () => {
@@ -554,6 +575,126 @@ describe('product database security contract', () => {
       expect(routine.proconfig, routine.routine).toHaveLength(1);
       expect(routine.proconfig?.[0], routine.routine).toMatch(
         /^search_path=.*pg_temp$/,
+      );
+    }
+  });
+
+  it('keeps SECURITY DEFINER owners and effective executors explicit (MT-REQ-004)', async () => {
+    const runtimeFunctionExecutors: Record<string, string[]> = {
+      'booking_app.resolve_public_channel': ['dive_app'],
+      'iam_app.apply_identity_webhook_command': ['dive_app'],
+      'iam_app.claim_invitation_outbox_event': ['dive_worker'],
+      'iam_app.cleanup_revoked_tenant_contexts_command': ['dive_app'],
+      'iam_app.complete_invitation_outbox_event': ['dive_worker'],
+      'iam_app.disable_membership_command': ['dive_app'],
+      'iam_app.fail_invitation_outbox_event': ['dive_worker'],
+      'iam_app.issue_invitation_command': ['dive_app'],
+      'iam_app.issue_membership_invitation_command': ['dive_app'],
+      'iam_app.issue_tenant_context_command': ['dive_app'],
+      'iam_app.list_operators_command': ['dive_app'],
+      'iam_app.record_booking_catalog_mutation': ['dive_app'],
+      'iam_app.record_booking_read': ['dive_app'],
+      'iam_app.record_public_booking_created': ['dive_app'],
+      'iam_app.resolve_access': ['dive_app'],
+      'iam_app.resolve_center_entry_command': ['dive_app'],
+      'iam_app.resolve_tenant_context_command': ['dive_app'],
+      'iam_app.respond_invitation_command': ['dive_app'],
+      'iam_app.revoke_invitation_command': ['dive_app'],
+      'iam_app.revoke_membership_invitation_command': ['dive_app'],
+      'iam_app.revoke_owner_invitation_command': ['dive_app'],
+      'iam_app.revoke_tenant_context_command': ['dive_app'],
+      'iam_app.set_center_entry_status_command': ['dive_app'],
+      'onboarding_app.claim_bootstrap_outbox_event': ['dive_worker'],
+      'onboarding_app.complete_bootstrap_outbox_event': ['dive_worker'],
+      'onboarding_app.complete_own_tenant_bootstrap_command': ['dive_app'],
+      'onboarding_app.consume_bootstrap_invitation_rate_limit': ['dive_app'],
+      'onboarding_app.fail_bootstrap_outbox_event': ['dive_worker'],
+      'onboarding_app.issue_bootstrap_invitation_command': ['dive_app'],
+      'onboarding_app.read_bootstrap_invitation_command': ['dive_app'],
+      'onboarding_app.reissue_bootstrap_invitation_command': ['dive_app'],
+      'onboarding_app.retry_bootstrap_invitation_revoke_command': ['dive_app'],
+      'onboarding_app.revoke_bootstrap_invitation_command': ['dive_app'],
+      'onboarding_app.set_platform_capability': ['dive_platform_admin'],
+    };
+    const functions = await adminPool.query<{
+      effective_executors: string[];
+      owner: string;
+      owner_can_create_database: boolean;
+      owner_can_create_role: boolean;
+      owner_can_login: boolean;
+      owner_can_replicate: boolean;
+      owner_can_superuser: boolean;
+      owner_inherits: boolean;
+      owner_bypasses_rls: boolean;
+      proconfig: string[] | null;
+      public_can_execute: boolean;
+      routine: string;
+    }>(
+      `SELECT format('%I.%I', namespace.nspname, routine.proname) AS routine,
+              owner.rolname AS owner,
+              owner.rolcanlogin AS owner_can_login,
+              owner.rolinherit AS owner_inherits,
+              owner.rolsuper AS owner_can_superuser,
+              owner.rolcreatedb AS owner_can_create_database,
+              owner.rolcreaterole AS owner_can_create_role,
+              owner.rolreplication AS owner_can_replicate,
+              owner.rolbypassrls AS owner_bypasses_rls,
+              routine.proconfig,
+              has_function_privilege('public', routine.oid, 'EXECUTE') AS public_can_execute,
+              COALESCE(
+                array_agg(role.rolname::text ORDER BY role.rolname)
+                  FILTER (WHERE has_function_privilege(role.rolname, routine.oid, 'EXECUTE')),
+                ARRAY[]::text[]
+              ) AS effective_executors
+       FROM pg_proc routine
+       JOIN pg_namespace namespace ON namespace.oid = routine.pronamespace
+       JOIN pg_roles owner ON owner.oid = routine.proowner
+       CROSS JOIN pg_roles role
+       WHERE namespace.nspname IN ('booking_app', 'iam_app', 'onboarding_app')
+         AND routine.prosecdef
+         AND role.rolname IN (
+           'dive_app', 'dive_worker', 'dive_platform_admin',
+           'dive_invitation_delivery', 'dive_bootstrap_delivery'
+         )
+       GROUP BY namespace.nspname, routine.proname, routine.oid, owner.rolname,
+                owner.rolcanlogin, owner.rolinherit, owner.rolsuper,
+                owner.rolcreatedb, owner.rolcreaterole, owner.rolreplication,
+                owner.rolbypassrls, routine.proconfig
+       ORDER BY routine`,
+    );
+
+    expect(functions.rows.length).toBeGreaterThan(0);
+    expect(functions.rows.map(({ routine }) => routine)).toEqual(
+      expect.arrayContaining(Object.keys(runtimeFunctionExecutors)),
+    );
+    for (const routine of functions.rows) {
+      expect([
+        'dive_migration',
+        'dive_invitation_delivery',
+        'dive_bootstrap_delivery',
+      ]).toContain(routine.owner);
+      expect(routine.owner_can_superuser, routine.routine).toBe(false);
+      expect(routine.owner_can_create_database, routine.routine).toBe(false);
+      expect(routine.owner_can_create_role, routine.routine).toBe(false);
+      expect(routine.owner_can_replicate, routine.routine).toBe(false);
+      expect(routine.owner_bypasses_rls, routine.routine).toBe(false);
+      if (routine.owner === 'dive_migration') {
+        expect(routine.owner_can_login, routine.routine).toBe(true);
+        expect(routine.owner_inherits, routine.routine).toBe(false);
+      } else {
+        expect(routine.owner_can_login, routine.routine).toBe(false);
+        expect(routine.owner_inherits, routine.routine).toBe(false);
+      }
+      expect(routine.public_can_execute, routine.routine).toBe(false);
+      expect(routine.proconfig, routine.routine).toEqual([
+        expect.stringMatching(/^search_path=.*pg_temp$/),
+      ]);
+      const expectedExecutors = [
+        ...(routine.owner === 'dive_migration' ? [] : [routine.owner]),
+        ...(runtimeFunctionExecutors[routine.routine] ?? []),
+      ].sort();
+      expect(routine.effective_executors, routine.routine).toEqual(
+        expectedExecutors,
       );
     }
   });
@@ -715,6 +856,12 @@ describe('product database security contract', () => {
       {
         app_can_execute: true,
         platform_admin_can_execute: false,
+        routine: 'retry_bootstrap_invitation_revoke_command',
+        worker_can_execute: false,
+      },
+      {
+        app_can_execute: true,
+        platform_admin_can_execute: false,
         routine: 'revoke_bootstrap_invitation_command',
         worker_can_execute: false,
       },
@@ -726,7 +873,11 @@ describe('product database security contract', () => {
       },
     ]);
     for (const routine of functions.rows) {
-      expect(routine.owner, routine.routine).toBe('dive_migration');
+      expect(routine.owner, routine.routine).toBe(
+        routine.worker_can_execute
+          ? 'dive_bootstrap_delivery'
+          : 'dive_migration',
+      );
       expect(routine.prosecdef, routine.routine).toBe(true);
       expect(routine.public_can_execute, routine.routine).toBe(false);
       expect(routine.proconfig, routine.routine).toEqual([
@@ -735,5 +886,159 @@ describe('product database security contract', () => {
           : 'search_path=onboarding_app, pg_catalog, pg_temp',
       ]);
     }
+  });
+  it('removes inherited delivery privileges from existing migration memberships on bootstrap (MT-REQ-004)', async () => {
+    try {
+      await adminPool.query(
+        'GRANT dive_invitation_delivery, dive_bootstrap_delivery TO dive_migration WITH INHERIT TRUE, SET TRUE',
+      );
+      await bootstrapRoles(adminPool);
+      const memberships = await adminPool.query(
+        `SELECT granted.rolname AS role, membership.inherit_option,
+                membership.set_option, membership.admin_option
+         FROM pg_auth_members membership
+         JOIN pg_roles member ON member.oid = membership.member
+         JOIN pg_roles granted ON granted.oid = membership.roleid
+         WHERE member.rolname = 'dive_migration'
+         ORDER BY granted.rolname`,
+      );
+      expect(memberships.rows).toEqual([
+        {
+          role: 'dive_bootstrap_delivery',
+          inherit_option: false,
+          set_option: true,
+          admin_option: false,
+        },
+        {
+          role: 'dive_invitation_delivery',
+          inherit_option: false,
+          set_option: true,
+          admin_option: false,
+        },
+      ]);
+    } finally {
+      await bootstrapRoles(adminPool);
+    }
+  });
+
+  it('keeps product roles restricted and internal owners unavailable to runtime roles (MT-REQ-004)', async () => {
+    const roles = await adminPool.query<{
+      rolname: string;
+      rolcanlogin: boolean;
+      rolinherit: boolean;
+      rolsuper: boolean;
+      rolcreatedb: boolean;
+      rolcreaterole: boolean;
+      rolreplication: boolean;
+      rolbypassrls: boolean;
+    }>(
+      `SELECT rolname, rolcanlogin, rolinherit, rolsuper, rolcreatedb,
+              rolcreaterole, rolreplication, rolbypassrls
+       FROM pg_roles WHERE rolname LIKE 'dive_%' ORDER BY rolname`,
+    );
+    expect(roles.rows.map((role) => role.rolname)).toEqual([
+      'dive_app',
+      'dive_bootstrap_delivery',
+      'dive_invitation_delivery',
+      'dive_migration',
+      'dive_platform_admin',
+      'dive_worker',
+    ]);
+    for (const role of roles.rows) {
+      expect(role).toMatchObject({
+        rolcanlogin: ![
+          'dive_bootstrap_delivery',
+          'dive_invitation_delivery',
+        ].includes(role.rolname),
+        rolinherit: ![
+          'dive_bootstrap_delivery',
+          'dive_invitation_delivery',
+          'dive_migration',
+        ].includes(role.rolname),
+        rolsuper: false,
+        rolcreatedb: false,
+        rolcreaterole: false,
+        rolreplication: false,
+        rolbypassrls: false,
+      });
+    }
+    const memberships = await adminPool.query(
+      `SELECT member.rolname AS member_role, granted.rolname AS granted_role,
+              membership.admin_option, membership.inherit_option,
+              membership.set_option
+       FROM pg_auth_members membership
+       JOIN pg_roles member ON member.oid = membership.member
+       JOIN pg_roles granted ON granted.oid = membership.roleid
+       WHERE member.rolname LIKE 'dive_%'
+       ORDER BY member.rolname, granted.rolname`,
+    );
+    expect(memberships.rows).toEqual([
+      {
+        member_role: 'dive_migration',
+        granted_role: 'dive_bootstrap_delivery',
+        admin_option: false,
+        inherit_option: false,
+        set_option: true,
+      },
+      {
+        member_role: 'dive_migration',
+        granted_role: 'dive_invitation_delivery',
+        admin_option: false,
+        inherit_option: false,
+        set_option: true,
+      },
+    ]);
+  });
+
+  it('restricts the bootstrap delivery owner to pre-tenant delivery only (MT-REQ-004)', async () => {
+    const role = await adminPool.query(
+      `SELECT rolcanlogin, rolinherit, rolsuper, rolcreatedb,
+              rolcreaterole, rolreplication, rolbypassrls
+       FROM pg_roles WHERE rolname = 'dive_bootstrap_delivery'`,
+    );
+    expect(role.rows).toEqual([
+      {
+        rolcanlogin: false,
+        rolinherit: false,
+        rolsuper: false,
+        rolcreatedb: false,
+        rolcreaterole: false,
+        rolreplication: false,
+        rolbypassrls: false,
+      },
+    ]);
+    const runtimeMemberships = await adminPool.query(
+      `SELECT rolname, pg_has_role(oid, 'dive_bootstrap_delivery', 'MEMBER') AS member
+       FROM pg_roles
+       WHERE rolname IN ('dive_app', 'dive_worker', 'dive_platform_admin')
+       ORDER BY rolname`,
+    );
+    expect(runtimeMemberships.rows).toEqual([
+      { rolname: 'dive_app', member: false },
+      { rolname: 'dive_platform_admin', member: false },
+      { rolname: 'dive_worker', member: false },
+    ]);
+    const forbiddenPrivileges = await adminPool.query(
+      `SELECT has_database_privilege('dive_bootstrap_delivery', current_database(), 'CREATE') AS database_create,
+              has_schema_privilege('dive_bootstrap_delivery', 'onboarding_app', 'CREATE') AS schema_create,
+              has_schema_privilege('dive_bootstrap_delivery', 'iam_app', 'USAGE') AS tenant_schema,
+              has_any_column_privilege('dive_bootstrap_delivery', 'iam_app.memberships', 'SELECT') AS memberships_read,
+              has_any_column_privilege('dive_bootstrap_delivery', 'onboarding_app.platform_principals', 'SELECT') AS principals_read,
+              has_any_column_privilege('dive_bootstrap_delivery', 'onboarding_app.platform_principal_capabilities', 'UPDATE') AS capabilities_write,
+              has_table_privilege('dive_bootstrap_delivery', 'onboarding_app.tenant_bootstrap_grants', 'INSERT') AS grants_create,
+              has_function_privilege('dive_bootstrap_delivery', 'onboarding_app.complete_own_tenant_bootstrap_command(text,text,text,text[],text,text,text,text,text,uuid)', 'EXECUTE') AS bootstrap_authority`,
+    );
+    expect(forbiddenPrivileges.rows).toEqual([
+      {
+        database_create: false,
+        schema_create: false,
+        tenant_schema: false,
+        memberships_read: false,
+        principals_read: false,
+        capabilities_write: false,
+        grants_create: false,
+        bootstrap_authority: false,
+      },
+    ]);
   });
 });

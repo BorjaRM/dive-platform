@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.113
+- **Version:** 0.124
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -18,7 +18,7 @@
 | ADR-DIVE-001 | `specs/architecture/adrs/ADR-DIVE-001.md` | Ready to start | 0.2 |
 | ADR-DIVE-002 | `specs/architecture/adrs/ADR-DIVE-002.md` | Ready to start | 0.4 |
 | ADR-DIVE-003 | `specs/architecture/adrs/ADR-DIVE-003.md` | Ready to start | 0.2 |
-| ADR-DIVE-004 | `specs/architecture/adrs/ADR-DIVE-004.md` | Ready to start | 0.4 |
+| ADR-DIVE-004 | `specs/architecture/adrs/ADR-DIVE-004.md` | Ready to start | 1.6 |
 | ADR-DIVE-005 | `specs/architecture/adrs/ADR-DIVE-005.md` | Draft | 0.4 |
 | ADR-DIVE-006 | `specs/architecture/adrs/ADR-DIVE-006.md` | Ready to start | 0.1 |
 | ADR-DIVE-007 | `specs/architecture/adrs/ADR-DIVE-007.md` | Ready to start | 0.3 |
@@ -32,7 +32,7 @@
 | ADR-DIVE-015 | `specs/architecture/adrs/ADR-DIVE-015.md` | Accepted | 0.3 |
 | ADR-DIVE-016 | `specs/architecture/adrs/ADR-DIVE-016.md` | Draft | 0.1 |
 | SPEC-DIVE-BOOKING-001 | `specs/booking/SPEC-DIVE-BOOKING-001.md` | Draft | 1.7 |
-| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.30 |
+| SPEC-DIVE-IAM-001 | `specs/iam/SPEC-DIVE-IAM-001.md` | Ready to start | 0.33 |
 | SPEC-DIVE-MARKETING-001 | `specs/marketing/SPEC-DIVE-MARKETING-001.md` | Ready to start | 0.1 |
 | SPEC-DIVE-ONBOARDING-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-001.md` | Ready to start | 0.20 |
 | SPEC-DIVE-TRIAL-001 | `specs/commercial/SPEC-DIVE-TRIAL-001.md` | Draft | 0.1 |
@@ -42,7 +42,7 @@
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-004 | `specs/spikes/SPIKE-DIVE-004/` | Draft / executed 2026-09-29 (Documented: spike results and dated provider evidence) | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.112 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.124 |
 | ADR-DIVE-017 | `specs/architecture/adrs/ADR-DIVE-017.md` | Ready to start | 0.4 |
 | SPEC-DIVE-BOOKING-CAPABILITIES-001 | `specs/booking/SPEC-DIVE-BOOKING-CAPABILITIES-001.md` | Draft | 0.4 |
 | SPEC-DIVE-BOOKING-CATALOG-001 | `specs/booking/SPEC-DIVE-BOOKING-CATALOG-001.md` | Draft | 0.15 |
@@ -50,7 +50,7 @@
 | SPEC-DIVE-BOOKING-SCHEDULING-001 | `specs/booking/SPEC-DIVE-BOOKING-SCHEDULING-001.md` | Accepted | 0.14 |
 | SPEC-DIVE-BOOKING-WIDGET-001 | `specs/booking/SPEC-DIVE-BOOKING-WIDGET-001.md` | Draft | 0.2 |
 | SPEC-DIVE-IAM-DASHBOARD-001 | `specs/iam/SPEC-DIVE-IAM-DASHBOARD-001.md` | Ready to start | 0.14 |
-| SPEC-DIVE-IAM-INVITATIONS-001 | `specs/iam/SPEC-DIVE-IAM-INVITATIONS-001.md` | Ready to start | 0.1 |
+| SPEC-DIVE-IAM-INVITATIONS-001 | `specs/iam/SPEC-DIVE-IAM-INVITATIONS-001.md` | Ready to start | 1.3 |
 | SPEC-DIVE-IAM-SUPPORT-001 | `specs/iam/SPEC-DIVE-IAM-SUPPORT-001.md` | Ready to start | 0.1 |
 | SPEC-DIVE-ONBOARDING-ADMIN-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-ADMIN-001.md` | Ready to start | 0.4 |
 | SPEC-DIVE-ONBOARDING-DELIVERY-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-DELIVERY-001.md` | Ready to start | 0.3 |
@@ -265,6 +265,23 @@ Clerk authentication and session revocation (`DIVE-IAM-REQ-004`, `DIVE-IAM-REQ-0
 
 Public capability coverage is now partial for purpose-separated token primitives and tenant-isolated verifier persistence (`DIVE-IAM-REQ-007..008`, `DIVE-IAM-REQ-026`); full HTTP contract, one-time consumption, token limits, and expiry evidence remain follow-ups. Support access plus expiry evidence (`DIVE-IAM-REQ-020`, `DIVE-IAM-REQ-028`) also remain follow-ups. Provider-neutral assurance is demonstrated for current dashboard authentication, while the exact Clerk step-up contract remains open for Phase 4. See `specs/iam/SPEC-DIVE-IAM-SUPPORT-001.md` and `specs/booking/SPEC-DIVE-BOOKING-CAPABILITIES-001.md`. `DIVE-IAM-REQ-027` remains governed by deferred `SPEC-DIVE-OPS-001` scope. `MT-COND-IAM-001` and `MT-COND-WORKER-001` remain activation gates; Option B channels remain deferred. Do not treat this map as additional verification.
 
-Invitation application-boundary hardening is a Draft follow-up in `SPEC-DIVE-IAM-INVITATIONS-001`, with no implementation coverage before invitation HTTP exposure. Related requirements: `DIVE-IAM-REQ-006`, `DIVE-IAM-REQ-017`, `DIVE-IAM-REQ-024`, `DIVE-IAM-REQ-025`, `DIVE-IAM-REQ-028`, and `DIVE-IAM-REQ-030`.
+Ordinary invitation bearer retention pending exact Clerk replacement evidence,
+HTTP non-disclosure, canonical target-address comparison, exact provider/local
+correlation, latest-wins reissue, same-tenant scope assignment, and fail-closed
+scope rules are documented in `ADR-DIVE-004`,
+`SPEC-DIVE-IAM-001`, and `SPEC-DIVE-IAM-INVITATIONS-001`; implementation and
+executable coverage remain pending for `DIVE-IAM-REQ-003`, `DIVE-IAM-REQ-005`,
+`DIVE-IAM-REQ-006`, `DIVE-IAM-REQ-011`, `DIVE-IAM-REQ-012`,
+`DIVE-IAM-REQ-017`, `DIVE-IAM-REQ-024`, `DIVE-IAM-REQ-025`, and
+`DIVE-IAM-REQ-028`. The exact Clerk SDK/harness return contract remains an
+implementation verification gate; no artifact status is promoted. The
+employee-profile create, edit, presentation fields, future Clerk-link fields,
+role multiplicity, lifecycle and assignment boundary are Documented; executable
+coverage remains pending. The MVP identity-link operation remains excluded.
+Avatar storage, executable identity binding, RLS, runtime behavior and
+activity and calendar contracts remain owned by the booking/scheduling
+artifacts; the new employee-profile association is outside current executable
+coverage. The shared-account rejection is Documented and is not part of the
+target model.
 
 Approved Phase 0 decision relationships are recorded in `ADR-DIVE-004` through `ADR-DIVE-008`. Approval authorizes implementation but is not implementation evidence.

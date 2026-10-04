@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   query: vi.fn(),
   end: vi.fn(),
-  processNext: vi.fn(),
+  processNextBootstrap: vi.fn(),
+  processNextOrdinary: vi.fn(),
 }));
 
 vi.mock('@dive-center/database', () => ({
@@ -13,6 +14,7 @@ vi.mock('@dive-center/database', () => ({
 
 vi.mock('@dive-center/identity', () => ({
   ClerkBootstrapInvitationAdapter: class {},
+  ClerkOrdinaryInvitationAdapter: class {},
 }));
 
 vi.mock('pg', () => ({
@@ -26,7 +28,12 @@ vi.mock('./bootstrap-invitation-worker.js', async (importOriginal) => ({
   ...(await importOriginal<
     typeof import('./bootstrap-invitation-worker.js')
   >()),
-  processNextBootstrapInvitation: mocks.processNext,
+  processNextBootstrapInvitation: mocks.processNextBootstrap,
+}));
+
+vi.mock('./ordinary-invitation-worker.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./ordinary-invitation-worker.js')>()),
+  processNextOrdinaryInvitation: mocks.processNextOrdinary,
 }));
 
 describe('invitation worker command output', () => {
@@ -35,6 +42,8 @@ describe('invitation worker command output', () => {
     vi.resetAllMocks();
     vi.stubEnv('BOOTSTRAP_INVITATION_WRITES_ENABLED', 'true');
     vi.stubEnv('BOOTSTRAP_INVITATION_DELIVERY_ENABLED', 'true');
+    vi.stubEnv('ORDINARY_INVITATION_WRITES_ENABLED', 'true');
+    vi.stubEnv('ORDINARY_INVITATION_DELIVERY_ENABLED', 'false');
     vi.stubEnv('CLERK_SECRET_KEY', 'test-secret');
     vi.stubEnv('AUTHENTICATION_ORIGIN', 'http://localhost:3000');
     vi.stubEnv(
@@ -58,7 +67,7 @@ describe('invitation worker command output', () => {
     expect(console.info).toHaveBeenCalledWith(
       'Bootstrap invitation delivery is disabled',
     );
-    expect(mocks.processNext).not.toHaveBeenCalled();
+    expect(mocks.processNextBootstrap).not.toHaveBeenCalled();
   });
 
   it('fails before processing the queue when the canonical authentication origin is missing', async () => {
@@ -67,7 +76,7 @@ describe('invitation worker command output', () => {
     vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
     await import('./main.js');
     await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(1));
-    expect(mocks.processNext).not.toHaveBeenCalled();
+    expect(mocks.processNextBootstrap).not.toHaveBeenCalled();
     expect(mocks.end).toHaveBeenCalledOnce();
     expect(console.error).toHaveBeenCalledExactlyOnceWith(
       'Bootstrap invitation worker failed',
@@ -75,7 +84,7 @@ describe('invitation worker command output', () => {
   });
 
   it('reports an idle queue without claiming an email was sent', async () => {
-    mocks.processNext.mockResolvedValue('idle');
+    mocks.processNextBootstrap.mockResolvedValue('idle');
     await import('./main.js');
     await vi.waitFor(() => expect(mocks.end).toHaveBeenCalledOnce());
     expect(console.info).toHaveBeenCalledExactlyOnceWith(
@@ -84,7 +93,7 @@ describe('invitation worker command output', () => {
   });
 
   it('reports processed operations before the queue becomes idle', async () => {
-    mocks.processNext
+    mocks.processNextBootstrap
       .mockResolvedValueOnce('succeeded')
       .mockResolvedValueOnce('retrying')
       .mockResolvedValueOnce('idle');
@@ -101,6 +110,37 @@ describe('invitation worker command output', () => {
     expect(console.info).toHaveBeenNthCalledWith(
       3,
       'No eligible bootstrap invitation events remain',
+    );
+  });
+
+  it('keeps ordinary worker logs free of tenant, correlation and invitation secrets', async () => {
+    vi.stubEnv('BOOTSTRAP_INVITATION_DELIVERY_ENABLED', 'false');
+    vi.stubEnv('ORDINARY_INVITATION_DELIVERY_ENABLED', 'true');
+    vi.stubEnv('ORDINARY_INVITATION_REDIRECT_URL', 'http://localhost:3000/invite');
+    mocks.processNextOrdinary
+      .mockResolvedValueOnce('succeeded')
+      .mockResolvedValueOnce('idle');
+
+    await import('./main.js');
+    await vi.waitFor(() => expect(mocks.end).toHaveBeenCalledOnce());
+
+    expect(console.info).toHaveBeenCalledWith(
+      'Ordinary invitation operation: succeeded',
+    );
+    expect(console.info).toHaveBeenCalledWith(
+      'No eligible ordinary invitation events remain',
+    );
+    expect(console.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('invitee@example.test'),
+    );
+    expect(console.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('tenant-1'),
+    );
+    expect(console.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('correlation-1'),
+    );
+    expect(console.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('bearer-secret'),
     );
   });
 });

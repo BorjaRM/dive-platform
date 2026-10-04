@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   mkdirSync,
   mkdtempSync,
@@ -63,7 +64,18 @@ const onDeleteCodes: Record<string, string> = {
   'set null': 'n',
 };
 
-const emptyDatabaseName = 'dive_migrate_empty';
+const migrationTestRun = randomUUID().replaceAll('-', '');
+const emptyDatabaseName = `dive_migrate_empty_${migrationTestRun}`;
+
+function quoteIdentifier(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
+async function dropDatabase(pool: Pool, databaseName: string): Promise<void> {
+  await pool.query(
+    `DROP DATABASE IF EXISTS ${quoteIdentifier(databaseName)} WITH (FORCE)`,
+  );
+}
 
 function urlForDatabase(sourceUrl: string, databaseName: string): string {
   const url = new URL(sourceUrl);
@@ -94,8 +106,10 @@ describe('product migrations', () => {
       max: 1,
     });
     try {
-      await maintenance.query(`DROP DATABASE IF EXISTS ${emptyDatabaseName}`);
-      await maintenance.query(`CREATE DATABASE ${emptyDatabaseName}`);
+      await dropDatabase(maintenance, emptyDatabaseName);
+      await maintenance.query(
+        `CREATE DATABASE ${quoteIdentifier(emptyDatabaseName)}`,
+      );
     } finally {
       await maintenance.end();
     }
@@ -125,7 +139,7 @@ describe('product migrations', () => {
       max: 1,
     });
     try {
-      await maintenance.query(`DROP DATABASE IF EXISTS ${emptyDatabaseName}`);
+      await dropDatabase(maintenance, emptyDatabaseName);
     } finally {
       await maintenance.end();
     }
@@ -222,7 +236,7 @@ describe('product migrations', () => {
   });
 
   it('restores row_security before a later migration reads a forced-RLS table', async () => {
-    const followupDatabaseName = 'dive_migrate_followup';
+    const followupDatabaseName = `dive_migrate_followup_${migrationTestRun}`;
     const tempFolder = mkdtempSync(join(tmpdir(), 'dive-migrate-followup-'));
     const metaDir = join(tempFolder, 'meta');
     mkdirSync(metaDir, { recursive: true });
@@ -274,12 +288,12 @@ SELECT id FROM iam_app.tenants;
       max: 1,
     });
     try {
+      await dropDatabase(maintenance, followupDatabaseName);
       await maintenance.query(
-        `DROP DATABASE IF EXISTS ${followupDatabaseName}`,
+        `CREATE DATABASE ${quoteIdentifier(followupDatabaseName)}`,
       );
-      await maintenance.query(`CREATE DATABASE ${followupDatabaseName}`);
       await maintenance.query(
-        `GRANT CONNECT, CREATE ON DATABASE ${followupDatabaseName} TO dive_migration`,
+        `GRANT CONNECT, CREATE ON DATABASE ${quoteIdentifier(followupDatabaseName)} TO dive_migration`,
       );
       await expect(
         migrateProduct(
@@ -288,315 +302,51 @@ SELECT id FROM iam_app.tenants;
         ),
       ).resolves.toBeUndefined();
     } finally {
-      await maintenance.query(
-        `DROP DATABASE IF EXISTS ${followupDatabaseName}`,
-      );
+      await dropDatabase(maintenance, followupDatabaseName);
       await maintenance.end();
       rmSync(tempFolder, { recursive: true, force: true });
     }
   });
 
-  it('rejects nonempty catalog upgrades atomically instead of inventing a base language (DIVE-BOOK-REQ-009, 051)', async () => {
-    const databaseName = 'dive_migrate_catalog_nonempty';
-    const tempFolder = mkdtempSync(join(tmpdir(), 'dive-migrate-catalog-'));
-    const journal = JSON.parse(
-      readFileSync(join(productMigrationsFolder, 'meta/_journal.json'), 'utf8'),
-    ) as {
-      entries: Array<{ tag: string }>;
-    };
-    const catalogMigrationIndex = journal.entries.findIndex(
-      (entry) => entry.tag === '0007_center_catalog_language',
+  it('creates validated bootstrap audit reason constraints (DIVE-ONB-REQ-039..040)', async () => {
+    const constraints = await requireEmptyAdminPool(emptyAdminPool).query(
+      `SELECT convalidated FROM pg_constraint
+       WHERE conname = 'bootstrap_invitation_audit_mutation_reason_required'
+         AND conrelid = 'onboarding_app.bootstrap_invitation_audit_records'::regclass`,
     );
-    if (catalogMigrationIndex < 0) {
-      throw new Error('Missing catalog language migration');
-    }
-    journal.entries = journal.entries.slice(0, catalogMigrationIndex);
-    mkdirSync(join(tempFolder, 'meta'));
-    writeFileSync(
-      join(tempFolder, 'meta/_journal.json'),
-      JSON.stringify(journal),
-    );
-    for (const entry of journal.entries) {
-      writeFileSync(
-        join(tempFolder, `${entry.tag}.sql`),
-        readFileSync(join(productMigrationsFolder, `${entry.tag}.sql`), 'utf8'),
-      );
-    }
-    const maintenance = new Pool({
-      connectionString: spikeAdminDatabaseUrl(),
-      max: 1,
-    });
-    let priorAdmin: Pool | undefined;
-    try {
-      await maintenance.query(`DROP DATABASE IF EXISTS ${databaseName}`);
-      await maintenance.query(`CREATE DATABASE ${databaseName}`);
-      await maintenance.query(
-        `GRANT CONNECT, CREATE ON DATABASE ${databaseName} TO dive_migration`,
-      );
-      const migrationUrl = urlForDatabase(migrationDatabaseUrl(), databaseName);
-      await migrateProduct(tempFolder, migrationUrl);
-      priorAdmin = new Pool({
-        connectionString: urlForDatabase(spikeAdminDatabaseUrl(), databaseName),
-        max: 1,
-      });
-      await priorAdmin.query(
-        `INSERT INTO iam_app.tenants(id, name) VALUES ($1, 'Existing operator')`,
-        [tenantA],
-      );
-      await priorAdmin.query(
-        `INSERT INTO iam_app.centers(id, tenant_id, name) VALUES ($1, $2, 'Existing center')`,
-        [centerA1, tenantA],
-      );
-      await priorAdmin.query(
-        `INSERT INTO booking_app.activities(id, tenant_id, center_id, name, status) VALUES (gen_random_uuid(), $1, $2, '{"es":"Existing activity"}'::jsonb, 'Draft')`,
-        [tenantA, centerA1],
-      );
-      await expect(
-        migrateProduct(productMigrationsFolder, migrationUrl),
-      ).rejects.toThrow(/ADD COLUMN "base_locale"/);
-      const preserved = await priorAdmin.query(
-        'SELECT name FROM booking_app.activities',
-      );
-      expect(preserved.rows).toEqual([{ name: { es: 'Existing activity' } }]);
-      const configuration = await priorAdmin.query(
-        `SELECT to_regclass('booking_app.catalog_settings') AS relation`,
-      );
-      expect(configuration.rows).toEqual([{ relation: null }]);
-      const columns = await priorAdmin.query(
-        `SELECT column_name FROM information_schema.columns WHERE table_schema='booking_app' AND table_name='activities' AND column_name='base_locale'`,
-      );
-      expect(columns.rows).toEqual([]);
-      const migrations = await priorAdmin.query(
-        'SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations',
-      );
-      expect(migrations.rows).toEqual([{ count: journal.entries.length }]);
-    } finally {
-      await priorAdmin?.end();
-      await maintenance.query(`DROP DATABASE IF EXISTS ${databaseName}`);
-      await maintenance.end();
-      rmSync(tempFolder, { recursive: true, force: true });
-    }
+    expect(constraints.rows).toEqual([{ convalidated: true }]);
   });
 
-  it.each([false, true])(
-    'upgrades legacy bootstrap receipts without rewriting audits (invalid reason: %s; DIVE-ONB-REQ-039..040)',
-    async (invalidReason) => {
-      const databaseName = `dive_migrate_bootstrap_${invalidReason ? 'invalid' : 'valid'}`;
-      const tempFolder = mkdtempSync(join(tmpdir(), 'dive-migrate-bootstrap-'));
-      const journal = JSON.parse(
-        readFileSync(
-          join(productMigrationsFolder, 'meta/_journal.json'),
-          'utf8',
-        ),
-      ) as { entries: Array<{ tag: string }> };
-      const reasonMigrationIndex = journal.entries.findIndex(
-        (entry) => entry.tag === '0012_small_kabuki',
-      );
-      if (reasonMigrationIndex < 0)
-        throw new Error('Missing bootstrap reason migration');
-      journal.entries = journal.entries.slice(0, reasonMigrationIndex);
-      mkdirSync(join(tempFolder, 'meta'));
-      writeFileSync(
-        join(tempFolder, 'meta/_journal.json'),
-        JSON.stringify(journal),
-      );
-      for (const entry of journal.entries) {
-        writeFileSync(
-          join(tempFolder, `${entry.tag}.sql`),
-          readFileSync(
-            join(productMigrationsFolder, `${entry.tag}.sql`),
-            'utf8',
-          ),
-        );
-      }
-      const maintenance = new Pool({
-        connectionString: spikeAdminDatabaseUrl(),
-        max: 1,
-      });
-      let priorAdmin: Pool | undefined;
-      try {
-        await maintenance.query(`DROP DATABASE IF EXISTS ${databaseName}`);
-        await maintenance.query(`CREATE DATABASE ${databaseName}`);
-        await maintenance.query(
-          `GRANT CONNECT, CREATE ON DATABASE ${databaseName} TO dive_migration`,
-        );
-        const migrationUrl = urlForDatabase(
-          migrationDatabaseUrl(),
-          databaseName,
-        );
-        await migrateProduct(tempFolder, migrationUrl);
-        priorAdmin = new Pool({
-          connectionString: urlForDatabase(
-            spikeAdminDatabaseUrl(),
-            databaseName,
-          ),
-          max: 1,
-        });
-        for (const capability of ['issue', 'reissue']) {
-          await priorAdmin.query(
-            `SELECT onboarding_app.set_platform_capability($1, $2, $3, true)`,
-            [
-              'https://identity.example.test',
-              'platform-operator',
-              `bootstrap_invitation.${capability}`,
-            ],
-          );
-        }
-        const issueParameters = [
-          'https://identity.example.test',
-          'platform-operator',
-          'owner@example.test',
-          'Original reason',
-          'legacy-issue',
-          'a'.repeat(64),
-          tenantA,
-        ];
-        const issueSql = `SELECT onboarding_app.issue_bootstrap_invitation_command(
-          $1, $2, $3, $4, $5, $6, $7::uuid
-        ) AS outcome`;
-        const issued = await priorAdmin.query<{
-          outcome: { invitationId: string };
-        }>(issueSql, issueParameters);
-        await priorAdmin.query(
-          `SELECT onboarding_app.reissue_bootstrap_invitation_command(
-            $1, $2, $3::uuid, $4, $5, $6, $7::uuid
-          )`,
-          [
-            issueParameters[0],
-            issueParameters[1],
-            issued.rows[0]?.outcome.invitationId,
-            invalidReason ? '' : 'Replacement reason',
-            'legacy-reissue',
-            'b'.repeat(64),
-            tenantA,
-          ],
-        );
-        const auditSql = `SELECT id, action, reason FROM onboarding_app.bootstrap_invitation_audit_records ORDER BY id`;
-        const originalAudits = await priorAdmin.query(auditSql);
-        if (invalidReason) {
-          await expect(
-            migrateProduct(productMigrationsFolder, migrationUrl),
-          ).rejects.toThrow(/VALIDATE CONSTRAINT/);
-          const receipts = await priorAdmin.query(
-            `SELECT result FROM onboarding_app.bootstrap_invitation_command_receipts`,
-          );
-          for (const receipt of receipts.rows)
-            expect(receipt.result).not.toHaveProperty('destinationEmail');
-        } else {
-          await migrateProduct(productMigrationsFolder, migrationUrl);
-          const receipts = await priorAdmin.query(
-            `SELECT result FROM onboarding_app.bootstrap_invitation_command_receipts`,
-          );
-          expect(receipts.rows).toHaveLength(2);
-          for (const receipt of receipts.rows)
-            expect(receipt.result.destinationEmail).toBe('owner@example.test');
-          const replay = await priorAdmin.query(issueSql, issueParameters);
-          expect(replay.rows[0]?.outcome).toEqual({
-            ...issued.rows[0]?.outcome,
-            destinationEmail: 'owner@example.test',
-          });
-          const constraints =
-            await priorAdmin.query(`SELECT convalidated FROM pg_constraint
-            WHERE conname='bootstrap_invitation_audit_mutation_reason_required'
-              AND conrelid='onboarding_app.bootstrap_invitation_audit_records'::regclass`);
-          expect(constraints.rows).toEqual([{ convalidated: true }]);
-        }
-        expect((await priorAdmin.query(auditSql)).rows).toEqual(
-          originalAudits.rows,
-        );
-      } finally {
-        await priorAdmin?.end();
-        await maintenance.query(`DROP DATABASE IF EXISTS ${databaseName}`);
-        await maintenance.end();
-        rmSync(tempFolder, { recursive: true, force: true });
-      }
-    },
-  );
-
-  it('upgrades existing activities with revision 1 and preserves data on schema rollback (DIVE-BOOK-REQ-078)', async () => {
-    const databaseName = 'dive_migrate_activity_revision';
-    const tempFolder = mkdtempSync(join(tmpdir(), 'dive-migrate-revision-'));
-    const journal = JSON.parse(
-      readFileSync(join(productMigrationsFolder, 'meta/_journal.json'), 'utf8'),
-    ) as { entries: Array<{ tag: string }> };
-    const revisionIndex = journal.entries.findIndex(
-      ({ tag }) => tag === '0009_activity_revision',
+  it('initializes activity revisions at 1 (DIVE-BOOK-REQ-078)', async () => {
+    const migratedPool = requireEmptyAdminPool(emptyAdminPool);
+    const column = await migratedPool.query(
+      `SELECT data_type, is_nullable, column_default FROM information_schema.columns
+       WHERE table_schema = 'booking_app' AND table_name = 'activities' AND column_name = 'revision'`,
     );
-    if (revisionIndex < 0)
-      throw new Error('Missing activity revision migration');
-    journal.entries = journal.entries.slice(0, revisionIndex);
-    mkdirSync(join(tempFolder, 'meta'));
-    writeFileSync(
-      join(tempFolder, 'meta/_journal.json'),
-      JSON.stringify(journal),
-    );
-    for (const entry of journal.entries) {
-      writeFileSync(
-        join(tempFolder, `${entry.tag}.sql`),
-        readFileSync(join(productMigrationsFolder, `${entry.tag}.sql`), 'utf8'),
-      );
-    }
-    const maintenance = new Pool({
-      connectionString: spikeAdminDatabaseUrl(),
-      max: 1,
-    });
-    let priorAdmin: Pool | undefined;
+    expect(column.rows).toEqual([
+      { data_type: 'bigint', is_nullable: 'NO', column_default: '1' },
+    ]);
+    const client = await migratedPool.connect();
     try {
-      await maintenance.query(`DROP DATABASE IF EXISTS ${databaseName}`);
-      await maintenance.query(`CREATE DATABASE ${databaseName}`);
-      await maintenance.query(
-        `GRANT CONNECT, CREATE ON DATABASE ${databaseName} TO dive_migration`,
-      );
-      const migrationUrl = urlForDatabase(migrationDatabaseUrl(), databaseName);
-      await migrateProduct(tempFolder, migrationUrl);
-      priorAdmin = new Pool({
-        connectionString: urlForDatabase(spikeAdminDatabaseUrl(), databaseName),
-        max: 1,
-      });
-      await priorAdmin.query(
-        `INSERT INTO iam_app.tenants(id,name) VALUES ($1,'Existing')`,
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO iam_app.tenants(id, name) VALUES ($1, 'Operator')`,
         [tenantA],
       );
-      await priorAdmin.query(
-        `INSERT INTO iam_app.centers(id,tenant_id,name) VALUES ($1,$2,'Existing')`,
+      await client.query(
+        `INSERT INTO iam_app.centers(id, tenant_id, name) VALUES ($1, $2, 'Center')`,
         [centerA1, tenantA],
       );
-      await priorAdmin.query(
-        `INSERT INTO booking_app.activities(id,tenant_id,center_id,base_locale,name,description,default_capacity,status) VALUES (gen_random_uuid(),$1,$2,'es','{"es":"Original","en":"Existing"}','{"en":"Description"}',5,'Disabled')`,
+      const activity = await client.query(
+        `INSERT INTO booking_app.activities(id, tenant_id, center_id, base_locale, name, description, default_capacity, status)
+         VALUES (gen_random_uuid(), $1, $2, 'es', '{"es":"Activity"}', '{}', 5, 'Draft')
+         RETURNING revision`,
         [tenantA, centerA1],
       );
-      const before = (
-        await priorAdmin.query('SELECT * FROM booking_app.activities')
-      ).rows;
-      await migrateProduct(productMigrationsFolder, migrationUrl);
-      const upgraded = (
-        await priorAdmin.query('SELECT * FROM booking_app.activities')
-      ).rows;
-      expect(upgraded).toEqual(
-        before.map((activity) => ({ ...activity, revision: '1' })),
-      );
-      const column = await priorAdmin.query(
-        `SELECT data_type,is_nullable,column_default FROM information_schema.columns WHERE table_schema='booking_app' AND table_name='activities' AND column_name='revision'`,
-      );
-      expect(column.rows).toEqual([
-        { data_type: 'bigint', is_nullable: 'NO', column_default: '1' },
-      ]);
-      await priorAdmin.query('BEGIN');
-      await priorAdmin.query(
-        'ALTER TABLE booking_app.activities DROP COLUMN revision',
-      );
-      expect(
-        (await priorAdmin.query('SELECT * FROM booking_app.activities')).rows,
-      ).toEqual(before);
-      await priorAdmin.query('ROLLBACK');
-      expect(
-        (await priorAdmin.query('SELECT * FROM booking_app.activities')).rows,
-      ).toEqual(upgraded);
+      expect(activity.rows).toEqual([{ revision: '1' }]);
     } finally {
-      await priorAdmin?.end();
-      await maintenance.query(`DROP DATABASE IF EXISTS ${databaseName}`);
-      await maintenance.end();
-      rmSync(tempFolder, { recursive: true, force: true });
+      await client.query('ROLLBACK');
+      client.release();
     }
   });
 

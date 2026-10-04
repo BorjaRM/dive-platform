@@ -39,20 +39,51 @@ not the current runtime contract.
 Production credential separation, break-glass access, network controls, and
 audit gates are tracked in `docs/operations/production-database-access.md`.
 
+## Database roles
+
+**Documented:** [role bootstrap](src/bootstrap-roles.ts) creates six product
+roles. PostgreSQL's predefined roles and the local administrative `postgres`
+account are separate from this product inventory.
+
+| Role | Login | Responsibility |
+|---|---|---|
+| `dive_app` | Yes | API runtime with tenant RLS and controlled application commands. |
+| `dive_worker` | Yes | Execute invitation-delivery commands, without direct invitation/outbox access. |
+| `dive_platform_admin` | Yes | Controlled platform-capability assignment, not tenant administration. |
+| `dive_migration` | Yes | Schema migrations and function ownership administration; never a runtime connection. |
+| `dive_invitation_delivery` | No | Own ordinary invitation-delivery functions with limited tenant-scoped table privileges. |
+| `dive_bootstrap_delivery` | No | Own pre-tenant bootstrap-delivery functions with limited global onboarding privileges. |
+
+The internal delivery owners have no superuser, role/database creation,
+replication or RLS-bypass attributes. Runtime roles are not members of them;
+only the migrator can assume them to administer function ownership. The
+[consolidated baseline](drizzle/0000_baseline.sql) restricts completion and
+failure to an event claimed in the same transaction
+and rejects terminal-event replay. Its claim preserves delivery state and
+attempt count while updating the locked event's row version to bind subsequent
+completion/failure to that transaction. This adds one row write per claim;
+performance has not been measured.
+
 ## Commands
 
 ```bash
-pnpm db:bootstrap   # admin: create dive_migration / dive_app
+pnpm db:bootstrap   # admin: create the six product roles
 pnpm db:migrate     # dive_migration: apply drizzle/
 pnpm db:generate    # Drizzle Kit schema diff → new SQL under drizzle/
 ```
 
-`drizzle/0000_baseline.sql` is the immutable pre-release baseline. It combines
+`drizzle/0000_baseline.sql` is the pre-release baseline. During isolated
+development it may be revised and consolidated until a shared or published
+database depends on its applied history; after that point it is immutable. It combines
 the Drizzle-generated product schema with reviewed PostgreSQL-specific RLS,
-grants, triggers, and `SECURITY DEFINER` functions. The previous disposable
-history has no supported upgrade path; recreate any pre-baseline local database.
+grants, triggers, and `SECURITY DEFINER` functions. **Documented (product-owner
+authorization, 2026-10-04):** it consolidates the 28 product migrations after
+confirmation that no existing database requires preservation. The replaced
+history has no supported upgrade path; recreate any disposable database created
+with an earlier baseline or journal.
 
-For subsequent structural changes, update `src/product-schema.ts`, run
+For subsequent structural changes after the baseline is frozen, update
+`src/product-schema.ts`, run
 `pnpm db:generate`, and review the generated SQL and metadata. Add PostgreSQL
 controls that Drizzle cannot express to that new migration. Do not rewrite an
 applied migration. The API must not apply migrations or bootstrap roles at
@@ -80,6 +111,6 @@ startup.
 
 External delivery is intentionally not implemented by this prototype. Email, webhook, file, or provider calls must not be added to `applyDatabaseEffect`: they cannot be committed atomically with PostgreSQL. The first real worker integration must define and test an at-least-once contract, destination idempotency key, retry/backoff, exhaustion/dead-letter behavior, and non-disclosing logs before performing external effects.
 
-Invitation issue results report `deliveryStatus: "queued"` only after the issuance outbox row commits. The bearer credential is returned only from the initial trusted application call, is never stored or logged, and is omitted from idempotent retries. A lost or unknown delivery outcome requires deliberate reissue; retrying the original idempotency key cannot recover the bearer.
+Invitation issue results report `deliveryStatus: "pending"` only after the issuance outbox row commits. The bearer credential is returned only from the initial trusted application call, is never stored or logged, and is omitted from idempotent retries. A lost or unknown delivery outcome requires deliberate reissue; retrying the original idempotency key cannot recover the bearer.
 
 **Provenance:** the atomic database boundary is `Derived` from `MT-REQ-007` and `MT-REQ-008`. The future external-delivery contract remains an open implementation gate; this package does not choose its retry limits, backoff, or dead-letter transport.

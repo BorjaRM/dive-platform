@@ -24,6 +24,12 @@ export type {
 export { setIamCenterEntryStatus } from './iam-center-entry-commands.js';
 export type { IdentityWebhookCommandResult } from './iam-identity-webhooks.js';
 export { applyIdentityWebhook } from './iam-identity-webhooks.js';
+export type { OrdinaryInvitationOutboxClaim } from './iam-invitation-outbox-commands.js';
+export {
+  claimOrdinaryInvitationOutboxEvent,
+  completeOrdinaryInvitationOutboxEvent,
+  failOrdinaryInvitationOutboxEvent,
+} from './iam-invitation-outbox-commands.js';
 export type {
   InvitationCommandResult,
   MembershipCommandResult,

@@ -1,7 +1,7 @@
 # ADR-DIVE-002 — Stack, topology, and region
 
 - **Status:** Ready to start
-- **Version:** 0.4
+- **Version:** 0.5
 - **Decision date:** 2026-09-26
 
 ## Context
@@ -59,8 +59,11 @@ contains a Nest API whose [root module](../../../apps/api/src/app/app.module.ts)
 composes IAM, catalog, and public booking, a Next
 [dashboard route](../../../apps/web/src/app/%28application%29/dashboard/page.tsx), and a
 PostgreSQL [product schema](../../../packages/database/src/product-schema.ts)
-with an immutable pre-release
-[baseline](../../../packages/database/drizzle/0000_baseline.sql). The
+with a pre-release
+[baseline](../../../packages/database/drizzle/0000_baseline.sql). During
+isolated development, that baseline may be revised and consolidated while no
+shared or published database depends on its applied history; it becomes
+immutable once that boundary is reached. The
 [worker entry point](../../../apps/worker/src/main.ts) implements restricted,
 flag-controlled pre-tenant invitation dispatch. Existence does not demonstrate
 deployed delivery or close MT-COND-WORKER-001. Current details belong

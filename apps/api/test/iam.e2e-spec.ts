@@ -1925,9 +1925,9 @@ describe('IAM/API vertical (e2e)', () => {
       .expect(({ body }) => {
         expect(body).toMatchObject({
           status: 'pending',
-          credential: expect.any(String),
           created: true,
         });
+        expect(body).not.toHaveProperty('credential');
       });
 
     await request(app.getHttpServer())

@@ -9,9 +9,9 @@ tools:
 - edit
 - search
 - web
-- github/get_me
-- github/issue_read
-- github/pull_request_read
+- io.github.github/github-mcp-server/get_me
+- io.github.github/github-mcp-server/issue_read
+- io.github.github/github-mcp-server/pull_request_read
 - 'next-devtools/*'
 - 'clerk/*'
 agents: []

@@ -122,6 +122,7 @@ describe('IAM/API persistence controls', () => {
       `SELECT tablename, qual, with_check
        FROM pg_policies
        WHERE schemaname = 'iam_app'
+        AND ('public' = ANY(roles) OR 'dive_app' = ANY(roles))
        ORDER BY tablename`,
     );
     expect(policies.rows).toHaveLength(8);

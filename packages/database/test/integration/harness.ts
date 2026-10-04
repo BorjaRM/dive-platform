@@ -1,6 +1,10 @@
 import { Pool } from 'pg';
 import { applyMtSpikeHarness } from '../../src/apply-harness.js';
-import { spikeAdminDatabaseUrl, spikeAppDatabaseUrl } from '../../src/env.js';
+import {
+  spikeAdminDatabaseUrl,
+  spikeAppDatabaseUrl,
+  spikeWorkerDatabaseUrl,
+} from '../../src/env.js';
 
 export const tenantA = '11111111-1111-1111-1111-111111111111';
 export const tenantB = '22222222-2222-2222-2222-222222222222';
@@ -20,6 +24,10 @@ export function createAdminPool(): Pool {
 
 export function createAppPool(max = 4): Pool {
   return new Pool({ connectionString: spikeAppDatabaseUrl(), max });
+}
+
+export function createWorkerPool(max = 4): Pool {
+  return new Pool({ connectionString: spikeWorkerDatabaseUrl(), max });
 }
 
 export async function setupHarness(adminPool: Pool): Promise<void> {

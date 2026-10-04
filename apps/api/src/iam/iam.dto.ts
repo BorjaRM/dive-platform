@@ -36,14 +36,13 @@ export class InvitationCommandResultDto {
   })
   status: 'pending' | 'revoked' | 'accepted' | 'rejected' | 'expired';
 
-  @ApiPropertyOptional({ enum: ['queued'] })
-  deliveryStatus?: 'queued';
+  @ApiPropertyOptional({
+    enum: ['pending', 'retrying', 'succeeded', 'dead_letter'],
+  })
+  deliveryStatus?: 'pending' | 'retrying' | 'succeeded' | 'dead_letter';
 
   @ApiPropertyOptional({ format: 'date-time' })
   expiresAt?: string;
-
-  @ApiPropertyOptional({ description: 'Invitation credential, returned once' })
-  credential?: string;
 
   @ApiPropertyOptional()
   created?: boolean;

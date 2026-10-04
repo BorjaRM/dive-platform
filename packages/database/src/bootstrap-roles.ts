@@ -35,7 +35,7 @@ export async function bootstrapRoles(adminPool: Pool): Promise<void> {
     BEGIN
       IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'dive_migration') THEN
         CREATE ROLE dive_migration LOGIN PASSWORD '${migrationPassword}'
-          NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+          NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
       END IF;
       IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'dive_app') THEN
         CREATE ROLE dive_app LOGIN PASSWORD '${appPassword}'
@@ -45,21 +45,39 @@ export async function bootstrapRoles(adminPool: Pool): Promise<void> {
         CREATE ROLE dive_worker LOGIN PASSWORD '${workerPassword}'
           NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
       END IF;
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'dive_invitation_delivery') THEN
+        CREATE ROLE dive_invitation_delivery NOLOGIN NOINHERIT
+          NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+      END IF;
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'dive_bootstrap_delivery') THEN
+        CREATE ROLE dive_bootstrap_delivery NOLOGIN NOINHERIT
+          NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+      END IF;
       IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'dive_platform_admin') THEN
         CREATE ROLE dive_platform_admin LOGIN PASSWORD '${platformAdminPassword}'
           NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
       END IF;
       ALTER ROLE dive_migration
-        WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+        WITH LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
       ALTER ROLE dive_app
         WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
       ALTER ROLE dive_worker
         WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+      ALTER ROLE dive_invitation_delivery
+        WITH NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+      ALTER ROLE dive_bootstrap_delivery
+        WITH NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
       ALTER ROLE dive_platform_admin
         WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
     END
     $$;
   `);
+    await client.query(
+      'GRANT dive_invitation_delivery, dive_bootstrap_delivery TO dive_migration WITH ADMIN FALSE, INHERIT FALSE, SET TRUE',
+    );
+    await client.query(
+      'REVOKE dive_invitation_delivery, dive_bootstrap_delivery FROM dive_app, dive_worker, dive_platform_admin',
+    );
 
     await client.query('REVOKE CREATE ON SCHEMA public FROM PUBLIC');
     const databaseName = await client

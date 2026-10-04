@@ -96,6 +96,10 @@ export class InvitationsService {
       }
       denied();
     }
+    if ('credential' in outcome) {
+      const { credential: _credential, ...safeOutcome } = outcome;
+      return safeOutcome;
+    }
     return outcome;
   }
 

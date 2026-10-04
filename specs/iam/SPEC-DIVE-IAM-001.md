@@ -1,7 +1,7 @@
 # SPEC-DIVE-IAM-001 — Roles, permissions, and scopes
 
 - **Status:** Ready to start
-- **Version:** 0.30
+- **Version:** 0.33
 - **Last reviewed:** 2026-10-04
 - **Approved by:** Product owner
 - **Approval reference:** PR #1, provenance migration PR, PR #13 (`ADR-DIVE-008` Ready to start), product confirmation 2026-09-27 for `ADR-DIVE-008` v0.7 implementation closures, product confirmation 2026-09-27 for center-application bootstrap (`ADR-DIVE-008` v0.9), product confirmation 2026-09-27 for reserved keys, generated CORS, authentication host, environment namespace, and no-`Origin` bootstrap (`ADR-DIVE-008` v0.10), product confirmation 2026-09-29 for `center.read` on center-entry issuance (`ADR-DIVE-008` v0.11), product confirmation 2026-09-29 applying the center-entry lifecycle recommendation (`ADR-DIVE-008` v0.12), PR #32 Draft authority-boundary clarification, Product, Security, and Architecture approval on 2026-09-27 for the `booking.reject` permission, PR #36 Draft self-bootstrap authority-boundary clarification, and product-owner authorization on 2026-10-04 for the Operations Lead membership center-scope and fail-closed refinements
@@ -36,6 +36,8 @@
 | Calendar phase-two concrete contact/audit boundary under `DIVE-IAM-REQ-003`, `015`, `023`, `025`, `028` | `Proposed` | Subsequent product-owner approval and documentation-update authorization on 2026-10-01 of the eight-point concrete calendar read recommendation | Explicitly approved both contact-read permissions, the contact route and reuse of existing read audit actions below; unselected audit details and implementation remain pending, no artifact promotion |
 | Calendar phase-two audit-identifier clarification under `DIVE-IAM-REQ-015`, `025`, `028` | `Proposed` | Product-owner registration authorization on 2026-10-01 for the subsequent five-part implementation-convention recommendation | Explicitly approved reuse of the audit mechanism with actor/resource/result identifiers retained and contact values/payloads excluded; unselected granularity/purpose/timing and implementation proof remain pending, no artifact promotion |
 | Calendar phase-two concrete read-audit contract under `DIVE-IAM-REQ-015`, `025`, `028` | `Proposed` | Product-owner direction on 2026-10-01 authorizing selection/documentation, followed by explicit confirmation of the resulting IAM and Scheduling blocks on the same date | Explicitly approved request-level audit, purpose, denial and fail-closed choices below; no artifact status promotion, implementation, executed coverage or publication is inferred |
+| Ordinary invitation bearer retention pending Clerk evidence, fail-closed scope, latest-wins reissue, and same-tenant membership-scope command under `DIVE-IAM-REQ-003`, `006`, `011`, `012`, `017`, `024`, `025` | `Documented` | Explicit instruction in chat on 2026-10-04 to retain the ordinary bearer because its Clerk replacement is not demonstrated, together with the prior invitation recommendations | Contract recorded for implementation; HTTP non-disclosure, permission, correlation, concurrency, isolation and acceptance tests remain required; no artifact status promotion |
+| Canonical target address and exact Clerk-local invitation correlation under `DIVE-IAM-REQ-005`, `006`, `017`, `024`, `025`, `028` | `Documented` | Explicit acceptance in chat on 2026-10-04 of the canonical-address and provider-reference proposal; [ordinary invitation contract](SPEC-DIVE-IAM-INVITATIONS-001.md#canonical-address-and-exact-provider-correlation) and [ADR-DIVE-004](../architecture/adrs/ADR-DIVE-004.md#canonical-target-address-and-clerk-local-correlation) | Local comparison and fail-closed association are recorded; Clerk SDK/harness verification, migration and executable coverage remain pending; no artifact status promotion |
 
 ## Requirements
 
@@ -104,6 +106,39 @@ introduced by this increment.
 - **DIVE-IAM-REQ-027:** Operational trip roles required by SPEC-DIVE-OPS-001 are not granted in the MVP and require a SPEC change.
 
 - **DIVE-IAM-REQ-028:** Tests must cover cross-tenant access, center-scope enforcement, public-token limits, and support-access expiry.
+
+**Documented -- explicit authorization 2026-10-04:** no missing, null, empty,
+unknown or ambiguous role, permission, tenant, center or resource scope may be
+interpreted as a broader grant. In particular, an omitted center list never
+means all centers, and an omitted role never selects a default role. A
+center-scoped role requires an explicit non-empty list of centers belonging to
+the target tenant; invalid or incomplete scope rejects the operation without
+creating or activating authorization. Tenant-wide roles remain tenant-wide
+only when that role is explicitly selected. A null or empty center set is valid
+only for permissions that are tenant-wide for the effective roles; a
+center-scoped permission denies without an explicit center. Mixed roles do not
+make a center-scoped permission tenant-wide.
+
+**Documented -- explicit authorization 2026-10-04:** adding a center to an
+already active non-owner membership is a separate `membership.scope.update`
+command, not an ordinary invitation. Tenant Owner and Tenant Admin are the
+authorized actors for an active membership in their same tenant. The command
+requires an explicit target membership, an additive non-empty set of center IDs
+belonging to that membership's tenant, and a tenant-scoped idempotency key. It
+preserves existing roles, does not remove centers or elevate permissions, and
+does not infer all centers. Pending, disabled and owner memberships do not
+receive this direct path. The tenant is derived from the authenticated handle
+and target membership, never from a client tenant field. Concurrent scope,
+role and disable operations are serialized and the mutation is audited.
+
+**Documented -- explicit authorization 2026-10-04:** for a target address with
+an existing pending invitation in the same tenant, a new issuance with the same
+idempotency key returns the existing invitation. A new issuance with a
+different key is a latest-wins reissue: the previous pending invitation is
+revoked with a supersession reason and reference to its replacement before the
+replacement becomes current. Pending invitations in different tenants remain
+independent. The canonical address normalization used for this uniqueness rule
+is defined by the [ordinary invitation contract](SPEC-DIVE-IAM-INVITATIONS-001.md#canonical-address-and-exact-provider-correlation). The exact Clerk object identifier is the provider-side correlation reference; email, ticket and browser-return values are not authority.
 
 ## Dashboard JWT validity boundary
 
@@ -203,7 +238,7 @@ Stable capability names:
 - `calendar.read`
 - `customer_contact.read` (purpose-limited)
 - `audit.read` `audit.export`
-- `membership.invite` `membership.disable` `membership.read`
+- `membership.invite` `membership.disable` `membership.read` `membership.scope.update`
 - `channel.read` `channel.manage`
 - `support.tenant.read`
 
@@ -226,6 +261,7 @@ Write variants of `audit.*` and `support.tenant.write` are out of MVP.
 | `customer_contact.read` | Y | Y | Y | Y | assigned | assigned | no |
 | `audit.read` | Y | Y | Y | Y | assigned limited | no | no |
 | `membership.*` | Y | Y | no | read | no | no | no |
+| `membership.scope.update` | Y | Y | no | no | no | no | no |
 | `channel.manage` | Y | Y | no | no | assigned | no | no |
 | `support.tenant.read` | n/a | n/a | n/a | n/a | n/a | n/a | platform support only |
 

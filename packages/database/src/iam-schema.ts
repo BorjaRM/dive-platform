@@ -2,12 +2,14 @@ import { sql } from 'drizzle-orm';
 import {
   check,
   foreignKey,
+  integer,
   jsonb,
   pgSchema,
   primaryKey,
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -204,8 +206,24 @@ export const iamInvitations = iamApp.table(
       .references(() => iamTenants.id),
     membershipId: uuid('membership_id').notNull(),
     targetAddress: text('target_address').notNull(),
+    targetAddressCanonical: text('target_address_canonical').notNull(),
     credentialHash: text('credential_hash').notNull(),
+    invitationAttemptId: uuid('invitation_attempt_id').notNull(),
+    providerKind: text('provider_kind'),
+    providerInvitationId: text('provider_invitation_id'),
     status: text('status').notNull(),
+    deliveryStatus: text('delivery_status')
+      .notNull()
+      .default(sql`'pending'`),
+    deliveryAttemptCount: integer('delivery_attempt_count')
+      .notNull()
+      .default(sql`0`),
+    deliveryNextAttemptAt: timestamp('delivery_next_attempt_at', {
+      withTimezone: true,
+    }),
+    providerStatus: text('provider_status'),
+    supersededByInvitationId: uuid('superseded_by_invitation_id'),
+    supersessionReason: text('supersession_reason'),
     idempotencyKey: text('idempotency_key').notNull(),
     issuedAt: timestamp('issued_at', { withTimezone: true })
       .notNull()
@@ -216,7 +234,12 @@ export const iamInvitations = iamApp.table(
   },
   (table) => [
     primaryKey({ columns: [table.tenantId, table.id] }),
+    uniqueIndex('invitations_pending_target_address_canonical_idx')
+      .on(table.tenantId, table.targetAddressCanonical)
+      .where(sql`status = 'pending' AND target_address_canonical <> ''`),
     unique().on(table.credentialHash),
+    unique().on(table.invitationAttemptId),
+    unique().on(table.providerInvitationId),
     unique().on(table.tenantId, table.idempotencyKey),
     foreignKey({
       columns: [table.tenantId, table.membershipId],
@@ -225,6 +248,24 @@ export const iamInvitations = iamApp.table(
     check(
       'invitations_status_known',
       sql`status IN ('pending', 'accepted', 'rejected', 'revoked', 'expired')`,
+    ),
+    check(
+      'invitations_delivery_status_known',
+      sql`delivery_status IN ('pending', 'retrying', 'succeeded', 'dead_letter')`,
+    ),
+    check(
+      'invitations_delivery_attempt_count_valid',
+      sql`delivery_attempt_count >= 0`,
+    ),
+    check(
+      'invitations_provider_kind_known',
+      sql`provider_kind IS NULL OR provider_kind = 'clerk'`,
+    ),
+    check(
+      'invitations_supersession_consistent',
+      sql`(superseded_by_invitation_id IS NULL AND supersession_reason IS NULL)
+        OR (superseded_by_invitation_id IS NOT NULL
+          AND supersession_reason IN ('latest_wins', 'explicit_reissue'))`,
     ),
   ],
 );
@@ -301,6 +342,16 @@ export const iamOutboxEvents = iamApp.table(
     payload: jsonb('payload').notNull(),
     correlationId: uuid('correlation_id').notNull(),
     idempotencyKey: text('idempotency_key').notNull(),
+    deliveryStatus: text('delivery_status')
+      .notNull()
+      .default(sql`'pending'`),
+    deliveryAttemptCount: integer('delivery_attempt_count')
+      .notNull()
+      .default(sql`0`),
+    deliveryNextAttemptAt: timestamp('delivery_next_attempt_at', {
+      withTimezone: true,
+    }),
+    providerStatus: text('provider_status'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -308,5 +359,13 @@ export const iamOutboxEvents = iamApp.table(
   (table) => [
     primaryKey({ columns: [table.tenantId, table.id] }),
     unique().on(table.tenantId, table.idempotencyKey),
+    check(
+      'outbox_delivery_status_known',
+      sql`delivery_status IN ('pending', 'retrying', 'succeeded', 'dead_letter')`,
+    ),
+    check(
+      'outbox_delivery_attempt_count_valid',
+      sql`delivery_attempt_count >= 0`,
+    ),
   ],
 );

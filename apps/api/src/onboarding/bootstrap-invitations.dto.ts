@@ -35,7 +35,7 @@ export class BootstrapInvitationStateDto {
   status!: string;
 
   @ApiProperty({ enum: ['pending', 'retrying', 'succeeded', 'dead_letter'] })
-  deliveryStatus!: string;
+  deliveryStatus!: 'pending' | 'retrying' | 'succeeded' | 'dead_letter';
 
   @ApiProperty({ required: false })
   issuedAt?: string;

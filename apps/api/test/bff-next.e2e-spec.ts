@@ -47,7 +47,7 @@ const ownerA = 'a1111111-1111-1111-1111-111111111111';
 type IssuedInvitation = {
   invitationId: string;
   status: string;
-  deliveryStatus: string;
+  deliveryStatus: 'pending' | 'retrying' | 'succeeded' | 'dead_letter';
 };
 
 function databaseUrl(name: string) {

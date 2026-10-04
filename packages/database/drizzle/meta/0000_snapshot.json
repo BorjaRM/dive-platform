@@ -1,5 +1,5 @@
 {
-  "id": "208d3f86-244e-4dc1-ae1d-f17d7c0a71b0",
+  "id": "b7d354c7-3097-401f-9e2d-eea7c29a4982",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -106,11 +106,85 @@
       "checkConstraints": {
         "audit_action_known": {
           "name": "audit_action_known",
-          "value": "action IN (\n        'membership.invite',\n        'membership.disable',\n        'booking.create',\n        'booking.read',\n        'booking.update',\n        'booking.confirm',\n        'booking.cancel',\n        'customer_contact.read',\n        'support.tenant.read',\n        'identity.webhook.apply'\n      )"
+          "value": "action IN (\n        'membership.invite',\n        'membership.disable',\n        'center_entry.enable',\n        'center_entry.disable',\n        'booking.create',\n        'booking.read',\n        'booking.update',\n        'booking.activity.updated',\n        'booking.confirm',\n        'booking.cancel',\n        'customer_contact.read',\n        'support.tenant.read',\n        'identity.webhook.apply'\n      )"
         },
         "audit_result_reason_valid": {
           "name": "audit_result_reason_valid",
           "value": "(result = 'success' AND reason IS NULL) OR\n        (result = 'denied' AND reason IN (\n          'authentication_missing_or_invalid',\n          'membership_missing_or_inactive',\n          'permission_missing',\n          'scope_mismatch',\n          'resource_missing_or_inaccessible',\n          'resource_state_invalid',\n          'credential_invalid_or_expired',\n          'duplicate_or_replayed',\n          'assurance_insufficient',\n          'support_grant_invalid',\n          'last_owner',\n          'invariant_violation'\n        ))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "iam_app.center_entries": {
+      "name": "center_entries",
+      "schema": "iam_app",
+      "columns": {
+        "center_key": {
+          "name": "center_key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "center_id": {
+          "name": "center_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "center_entries_tenant_id_tenants_id_fk": {
+          "name": "center_entries_tenant_id_tenants_id_fk",
+          "tableFrom": "center_entries",
+          "tableTo": "tenants",
+          "schemaTo": "iam_app",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "center_entries_tenant_id_center_id_centers_tenant_id_id_fk": {
+          "name": "center_entries_tenant_id_center_id_centers_tenant_id_id_fk",
+          "tableFrom": "center_entries",
+          "tableTo": "centers",
+          "schemaTo": "iam_app",
+          "columnsFrom": ["tenant_id", "center_id"],
+          "columnsTo": ["tenant_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "center_entries_tenant_id_center_id_unique": {
+          "name": "center_entries_tenant_id_center_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "center_id"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "center_entries_key_format": {
+          "name": "center_entries_key_format",
+          "value": "center_key ~ '^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$'"
+        },
+        "center_entries_status_known": {
+          "name": "center_entries_status_known",
+          "value": "status IN ('active', 'disabled')"
         }
       },
       "isRLSEnabled": false
@@ -247,6 +321,47 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "iam_app.identity_preferences": {
+      "name": "identity_preferences",
+      "schema": "iam_app",
+      "columns": {
+        "identity_id": {
+          "name": "identity_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "identity_preferences_identity_id_identities_id_fk": {
+          "name": "identity_preferences_identity_id_identities_id_fk",
+          "tableFrom": "identity_preferences",
+          "tableTo": "identities",
+          "schemaTo": "iam_app",
+          "columnsFrom": ["identity_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "identity_preferences_locale_known": {
+          "name": "identity_preferences_locale_known",
+          "value": "locale IN ('es', 'en')"
+        }
+      },
       "isRLSEnabled": false
     },
     "iam_app.identity_tenants": {
@@ -411,17 +526,79 @@
           "primaryKey": false,
           "notNull": true
         },
+        "target_address_canonical": {
+          "name": "target_address_canonical",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "credential_hash": {
           "name": "credential_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
+        "invitation_attempt_id": {
+          "name": "invitation_attempt_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_kind": {
+          "name": "provider_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider_invitation_id": {
+          "name": "provider_invitation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "status": {
           "name": "status",
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "delivery_status": {
+          "name": "delivery_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "delivery_attempt_count": {
+          "name": "delivery_attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
+        "delivery_next_attempt_at": {
+          "name": "delivery_next_attempt_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider_status": {
+          "name": "provider_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "superseded_by_invitation_id": {
+          "name": "superseded_by_invitation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "supersession_reason": {
+          "name": "supersession_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "idempotency_key": {
           "name": "idempotency_key",
@@ -444,7 +621,30 @@
           "default": "now() + interval '7 days'"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "invitations_pending_target_address_canonical_idx": {
+          "name": "invitations_pending_target_address_canonical_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "target_address_canonical",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "status = 'pending' AND target_address_canonical <> ''",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "invitations_tenant_id_tenants_id_fk": {
           "name": "invitations_tenant_id_tenants_id_fk",
@@ -479,6 +679,16 @@
           "nullsNotDistinct": false,
           "columns": ["credential_hash"]
         },
+        "invitations_invitation_attempt_id_unique": {
+          "name": "invitations_invitation_attempt_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["invitation_attempt_id"]
+        },
+        "invitations_provider_invitation_id_unique": {
+          "name": "invitations_provider_invitation_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["provider_invitation_id"]
+        },
         "invitations_tenant_id_idempotency_key_unique": {
           "name": "invitations_tenant_id_idempotency_key_unique",
           "nullsNotDistinct": false,
@@ -490,6 +700,22 @@
         "invitations_status_known": {
           "name": "invitations_status_known",
           "value": "status IN ('pending', 'accepted', 'rejected', 'revoked', 'expired')"
+        },
+        "invitations_delivery_status_known": {
+          "name": "invitations_delivery_status_known",
+          "value": "delivery_status IN ('pending', 'retrying', 'succeeded', 'dead_letter')"
+        },
+        "invitations_delivery_attempt_count_valid": {
+          "name": "invitations_delivery_attempt_count_valid",
+          "value": "delivery_attempt_count >= 0"
+        },
+        "invitations_provider_kind_known": {
+          "name": "invitations_provider_kind_known",
+          "value": "provider_kind IS NULL OR provider_kind = 'clerk'"
+        },
+        "invitations_supersession_consistent": {
+          "name": "invitations_supersession_consistent",
+          "value": "(superseded_by_invitation_id IS NULL AND supersession_reason IS NULL)\n        OR (superseded_by_invitation_id IS NOT NULL\n          AND supersession_reason IN ('latest_wins', 'explicit_reissue'))"
         }
       },
       "isRLSEnabled": false
@@ -624,6 +850,32 @@
           "primaryKey": false,
           "notNull": true
         },
+        "delivery_status": {
+          "name": "delivery_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "delivery_attempt_count": {
+          "name": "delivery_attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
+        "delivery_next_attempt_at": {
+          "name": "delivery_next_attempt_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider_status": {
+          "name": "provider_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -659,7 +911,16 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "outbox_delivery_status_known": {
+          "name": "outbox_delivery_status_known",
+          "value": "delivery_status IN ('pending', 'retrying', 'succeeded', 'dead_letter')"
+        },
+        "outbox_delivery_attempt_count_valid": {
+          "name": "outbox_delivery_attempt_count_valid",
+          "value": "delivery_attempt_count >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "iam_app.tenant_contexts": {
@@ -789,6 +1050,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "base_locale": {
+          "name": "base_locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "name": {
           "name": "name",
           "type": "jsonb",
@@ -806,6 +1073,13 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "1"
         },
         "status": {
           "name": "status",
@@ -935,6 +1209,14 @@
         "activities_status_known": {
           "name": "activities_status_known",
           "value": "status IN ('Draft', 'Published', 'Disabled')"
+        },
+        "activities_base_locale_known": {
+          "name": "activities_base_locale_known",
+          "value": "base_locale IN ('es', 'en')"
+        },
+        "activities_revision_positive": {
+          "name": "activities_revision_positive",
+          "value": "revision > 0"
         },
         "activities_default_capacity_positive": {
           "name": "activities_default_capacity_positive",
@@ -1335,6 +1617,68 @@
       },
       "isRLSEnabled": false
     },
+    "booking_app.catalog_settings": {
+      "name": "catalog_settings",
+      "schema": "booking_app",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "center_id": {
+          "name": "center_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "default_activity_locale": {
+          "name": "default_activity_locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "catalog_settings_tenant_id_tenants_id_fk": {
+          "name": "catalog_settings_tenant_id_tenants_id_fk",
+          "tableFrom": "catalog_settings",
+          "tableTo": "tenants",
+          "schemaTo": "iam_app",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "catalog_settings_tenant_id_center_id_centers_tenant_id_id_fk": {
+          "name": "catalog_settings_tenant_id_center_id_centers_tenant_id_id_fk",
+          "tableFrom": "catalog_settings",
+          "tableTo": "centers",
+          "schemaTo": "iam_app",
+          "columnsFrom": ["tenant_id", "center_id"],
+          "columnsTo": ["tenant_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "catalog_settings_tenant_id_center_id_pk": {
+          "name": "catalog_settings_tenant_id_center_id_pk",
+          "columns": ["tenant_id", "center_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "catalog_settings_locale_known": {
+          "name": "catalog_settings_locale_known",
+          "value": "default_activity_locale IN ('es', 'en')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "booking_app.channels": {
       "name": "channels",
       "schema": "booking_app",
@@ -1709,12 +2053,746 @@
         }
       },
       "isRLSEnabled": false
+    },
+    "onboarding_app.bootstrap_invitation_audit_records": {
+      "name": "bootstrap_invitation_audit_records",
+      "schema": "onboarding_app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "actor_principal_id": {
+          "name": "actor_principal_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "grant_id": {
+          "name": "grant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "result": {
+          "name": "result",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "correlation_id": {
+          "name": "correlation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "bootstrap_invitation_audit_actor_created_idx": {
+          "name": "bootstrap_invitation_audit_actor_created_idx",
+          "columns": [
+            {
+              "expression": "actor_principal_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "bootstrap_invitation_audit_records_actor_principal_id_platform_principals_id_fk": {
+          "name": "bootstrap_invitation_audit_records_actor_principal_id_platform_principals_id_fk",
+          "tableFrom": "bootstrap_invitation_audit_records",
+          "tableTo": "platform_principals",
+          "schemaTo": "onboarding_app",
+          "columnsFrom": ["actor_principal_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "bootstrap_invitation_audit_records_grant_id_tenant_bootstrap_grants_id_fk": {
+          "name": "bootstrap_invitation_audit_records_grant_id_tenant_bootstrap_grants_id_fk",
+          "tableFrom": "bootstrap_invitation_audit_records",
+          "tableTo": "tenant_bootstrap_grants",
+          "schemaTo": "onboarding_app",
+          "columnsFrom": ["grant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "bootstrap_invitation_audit_action_known": {
+          "name": "bootstrap_invitation_audit_action_known",
+          "value": "action IN (\n        'tenant_bootstrap_invitation.issued',\n        'tenant_bootstrap_invitation.reissued',\n        'tenant_bootstrap_invitation.revoked',\n        'tenant_bootstrap_invitation.revocation_retried',\n        'tenant_bootstrap_invitation.delivery_failed',\n        'tenant_bootstrap.completed',\n        'tenant_bootstrap.denied'\n      )"
+        },
+        "bootstrap_invitation_audit_result_known": {
+          "name": "bootstrap_invitation_audit_result_known",
+          "value": "result IN ('success', 'denied', 'failed')"
+        },
+        "bootstrap_invitation_audit_mutation_reason_required": {
+          "name": "bootstrap_invitation_audit_mutation_reason_required",
+          "value": "action NOT IN (\n        'tenant_bootstrap_invitation.reissued',\n        'tenant_bootstrap_invitation.revoked',\n        'tenant_bootstrap_invitation.revocation_retried'\n      ) OR (reason IS NOT NULL AND btrim(reason) <> '')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "onboarding_app.tenant_bootstrap_grants": {
+      "name": "tenant_bootstrap_grants",
+      "schema": "onboarding_app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "destination_email": {
+          "name": "destination_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "delivery_status": {
+          "name": "delivery_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "issued_by_principal_id": {
+          "name": "issued_by_principal_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "issue_reason": {
+          "name": "issue_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "request_fingerprint": {
+          "name": "request_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_invitation_ref": {
+          "name": "provider_invitation_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider_status": {
+          "name": "provider_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bound_issuer": {
+          "name": "bound_issuer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bound_subject": {
+          "name": "bound_subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "superseded_by_grant_id": {
+          "name": "superseded_by_grant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "result_tenant_id": {
+          "name": "result_tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "result_center_id": {
+          "name": "result_center_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "result_membership_id": {
+          "name": "result_membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completion_fingerprint": {
+          "name": "completion_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "issued_at": {
+          "name": "issued_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now() + interval '7 days'"
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "consumed_at": {
+          "name": "consumed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "tenant_bootstrap_grants_destination_status_idx": {
+          "name": "tenant_bootstrap_grants_destination_status_idx",
+          "columns": [
+            {
+              "expression": "destination_email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "tenant_bootstrap_grants_issued_by_principal_id_platform_principals_id_fk": {
+          "name": "tenant_bootstrap_grants_issued_by_principal_id_platform_principals_id_fk",
+          "tableFrom": "tenant_bootstrap_grants",
+          "tableTo": "platform_principals",
+          "schemaTo": "onboarding_app",
+          "columnsFrom": ["issued_by_principal_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tenant_bootstrap_grants_superseded_by_grant_id_tenant_bootstrap_grants_id_fk": {
+          "name": "tenant_bootstrap_grants_superseded_by_grant_id_tenant_bootstrap_grants_id_fk",
+          "tableFrom": "tenant_bootstrap_grants",
+          "tableTo": "tenant_bootstrap_grants",
+          "schemaTo": "onboarding_app",
+          "columnsFrom": ["superseded_by_grant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tenant_bootstrap_grants_provider_invitation_ref_unique": {
+          "name": "tenant_bootstrap_grants_provider_invitation_ref_unique",
+          "nullsNotDistinct": false,
+          "columns": ["provider_invitation_ref"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "tenant_bootstrap_grants_destination_normalized": {
+          "name": "tenant_bootstrap_grants_destination_normalized",
+          "value": "destination_email = lower(btrim(destination_email)) AND destination_email <> ''"
+        },
+        "tenant_bootstrap_grants_status_known": {
+          "name": "tenant_bootstrap_grants_status_known",
+          "value": "status IN ('issued', 'consumed', 'revoked', 'expired', 'superseded')"
+        },
+        "tenant_bootstrap_grants_delivery_status_known": {
+          "name": "tenant_bootstrap_grants_delivery_status_known",
+          "value": "delivery_status IN ('pending', 'retrying', 'succeeded', 'dead_letter')"
+        },
+        "tenant_bootstrap_grants_fingerprint_format": {
+          "name": "tenant_bootstrap_grants_fingerprint_format",
+          "value": "request_fingerprint ~ '^[0-9a-f]{64}$'"
+        },
+        "tenant_bootstrap_grants_completion_fingerprint_format": {
+          "name": "tenant_bootstrap_grants_completion_fingerprint_format",
+          "value": "completion_fingerprint IS NULL OR completion_fingerprint ~ '^[0-9a-f]{64}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "onboarding_app.bootstrap_invitation_rate_limits": {
+      "name": "bootstrap_invitation_rate_limits",
+      "schema": "onboarding_app",
+      "columns": {
+        "principal_id": {
+          "name": "principal_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "attempted_at": {
+          "name": "attempted_at",
+          "type": "timestamp with time zone[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "ARRAY[]::timestamptz[]"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "bootstrap_invitation_rate_limits_principal_id_platform_principals_id_fk": {
+          "name": "bootstrap_invitation_rate_limits_principal_id_platform_principals_id_fk",
+          "tableFrom": "bootstrap_invitation_rate_limits",
+          "tableTo": "platform_principals",
+          "schemaTo": "onboarding_app",
+          "columnsFrom": ["principal_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "onboarding_app.bootstrap_redemption_rate_limits": {
+      "name": "bootstrap_redemption_rate_limits",
+      "schema": "onboarding_app",
+      "columns": {
+        "issuer": {
+          "name": "issuer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject": {
+          "name": "subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "session_id_hash": {
+          "name": "session_id_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attempted_at": {
+          "name": "attempted_at",
+          "type": "timestamp with time zone[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "ARRAY[]::timestamptz[]"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "bootstrap_redemption_rate_limits_issuer_subject_session_id_hash_pk": {
+          "name": "bootstrap_redemption_rate_limits_issuer_subject_session_id_hash_pk",
+          "columns": ["issuer", "subject", "session_id_hash"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "bootstrap_redemption_rate_limits_principal_normalized": {
+          "name": "bootstrap_redemption_rate_limits_principal_normalized",
+          "value": "issuer = btrim(issuer) AND issuer <> '' AND subject = btrim(subject) AND subject <> ''"
+        },
+        "bootstrap_redemption_rate_limits_session_hash_format": {
+          "name": "bootstrap_redemption_rate_limits_session_hash_format",
+          "value": "session_id_hash ~ '^[0-9a-f]{64}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "onboarding_app.bootstrap_invitation_command_receipts": {
+      "name": "bootstrap_invitation_command_receipts",
+      "schema": "onboarding_app",
+      "columns": {
+        "principal_id": {
+          "name": "principal_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "command": {
+          "name": "command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_fingerprint": {
+          "name": "request_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "result": {
+          "name": "result",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "bootstrap_invitation_command_receipts_principal_id_platform_principals_id_fk": {
+          "name": "bootstrap_invitation_command_receipts_principal_id_platform_principals_id_fk",
+          "tableFrom": "bootstrap_invitation_command_receipts",
+          "tableTo": "platform_principals",
+          "schemaTo": "onboarding_app",
+          "columnsFrom": ["principal_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "bootstrap_invitation_command_receipts_principal_id_command_idempotency_key_pk": {
+          "name": "bootstrap_invitation_command_receipts_principal_id_command_idempotency_key_pk",
+          "columns": ["principal_id", "command", "idempotency_key"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "bootstrap_invitation_command_receipts_command_known": {
+          "name": "bootstrap_invitation_command_receipts_command_known",
+          "value": "command IN ('issue', 'reissue', 'revoke', 'revoke_retry')"
+        },
+        "bootstrap_invitation_command_receipts_fingerprint_format": {
+          "name": "bootstrap_invitation_command_receipts_fingerprint_format",
+          "value": "request_fingerprint ~ '^[0-9a-f]{64}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "onboarding_app.tenant_bootstrap_outbox_events": {
+      "name": "tenant_bootstrap_outbox_events",
+      "schema": "onboarding_app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "grant_id": {
+          "name": "grant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "command": {
+          "name": "command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "delivery_state": {
+          "name": "delivery_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attempt_count": {
+          "name": "attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "correlation_id": {
+          "name": "correlation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "next_attempt_at": {
+          "name": "next_attempt_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "tenant_bootstrap_outbox_claim_idx": {
+          "name": "tenant_bootstrap_outbox_claim_idx",
+          "columns": [
+            {
+              "expression": "delivery_state",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "next_attempt_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "tenant_bootstrap_outbox_events_grant_id_tenant_bootstrap_grants_id_fk": {
+          "name": "tenant_bootstrap_outbox_events_grant_id_tenant_bootstrap_grants_id_fk",
+          "tableFrom": "tenant_bootstrap_outbox_events",
+          "tableTo": "tenant_bootstrap_grants",
+          "schemaTo": "onboarding_app",
+          "columnsFrom": ["grant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tenant_bootstrap_outbox_events_idempotency_key_unique": {
+          "name": "tenant_bootstrap_outbox_events_idempotency_key_unique",
+          "nullsNotDistinct": false,
+          "columns": ["idempotency_key"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "tenant_bootstrap_outbox_command_known": {
+          "name": "tenant_bootstrap_outbox_command_known",
+          "value": "command IN ('create', 'revoke')"
+        },
+        "tenant_bootstrap_outbox_delivery_state_known": {
+          "name": "tenant_bootstrap_outbox_delivery_state_known",
+          "value": "delivery_state IN ('pending', 'retrying', 'succeeded', 'dead_letter')"
+        },
+        "tenant_bootstrap_outbox_attempt_count_valid": {
+          "name": "tenant_bootstrap_outbox_attempt_count_valid",
+          "value": "attempt_count BETWEEN 0 AND 8"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "onboarding_app.platform_principal_capabilities": {
+      "name": "platform_principal_capabilities",
+      "schema": "onboarding_app",
+      "columns": {
+        "principal_id": {
+          "name": "principal_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "capability": {
+          "name": "capability",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "granted_at": {
+          "name": "granted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "platform_principal_capabilities_principal_id_platform_principals_id_fk": {
+          "name": "platform_principal_capabilities_principal_id_platform_principals_id_fk",
+          "tableFrom": "platform_principal_capabilities",
+          "tableTo": "platform_principals",
+          "schemaTo": "onboarding_app",
+          "columnsFrom": ["principal_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "platform_principal_capabilities_principal_id_capability_pk": {
+          "name": "platform_principal_capabilities_principal_id_capability_pk",
+          "columns": ["principal_id", "capability"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "platform_principal_capabilities_known": {
+          "name": "platform_principal_capabilities_known",
+          "value": "capability IN (\n        'bootstrap_invitation.read',\n        'bootstrap_invitation.issue',\n        'bootstrap_invitation.reissue',\n        'bootstrap_invitation.revoke'\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "onboarding_app.platform_principals": {
+      "name": "platform_principals",
+      "schema": "onboarding_app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "issuer": {
+          "name": "issuer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject": {
+          "name": "subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "platform_principals_issuer_subject_unique": {
+          "name": "platform_principals_issuer_subject_unique",
+          "nullsNotDistinct": false,
+          "columns": ["issuer", "subject"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "platform_principals_issuer_normalized": {
+          "name": "platform_principals_issuer_normalized",
+          "value": "issuer = btrim(issuer) AND issuer <> ''"
+        },
+        "platform_principals_subject_normalized": {
+          "name": "platform_principals_subject_normalized",
+          "value": "subject = btrim(subject) AND subject <> ''"
+        }
+      },
+      "isRLSEnabled": false
     }
   },
   "enums": {},
   "schemas": {
     "iam_app": "iam_app",
-    "booking_app": "booking_app"
+    "booking_app": "booking_app",
+    "onboarding_app": "onboarding_app"
   },
   "sequences": {},
   "roles": {},

@@ -2,7 +2,7 @@ import {
   authenticateIdentity,
   DeterministicIdentityProvider,
 } from '@dive-center/identity';
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { bootstrapRoles } from '../../src/bootstrap-roles.js';
 import {
@@ -24,7 +24,7 @@ import {
   revokeBootstrapInvitation,
   setBootstrapPlatformCapability,
 } from '../../src/onboarding-commands.js';
-import { createAdminPool } from './harness.js';
+import { createAdminPool, tenantA } from './harness.js';
 
 const correlationId = 'aaaaaaaa-1111-4111-8111-111111111111';
 const provider = new DeterministicIdentityProvider(
@@ -161,10 +161,91 @@ describe('bootstrap invitation persistence (DIVE-ONB-REQ-001..009, 013, 039..040
         'SELECT * FROM onboarding_app.platform_principals',
       ),
     ).rejects.toThrow(/permission denied/);
-    await expect(
-      workerPool.query('SELECT * FROM iam_app.memberships'),
-    ).rejects.toThrow(/permission denied/);
+    const workerClient = await workerPool.connect();
+    try {
+      await workerClient.query('BEGIN');
+      await workerClient.query("SELECT set_config('app.tenant_id', $1, true)", [
+        tenantA,
+      ]);
+      await expect(
+        workerClient.query('SELECT * FROM iam_app.memberships'),
+      ).rejects.toMatchObject({ code: '42501' });
+    } finally {
+      await workerClient.query('ROLLBACK');
+      workerClient.release();
+    }
   });
+
+  it.each(['complete', 'fail'] as const)(
+    'requires a same-transaction claim for bootstrap %s and rejects terminal events (DIVE-ONB-REQ-044)',
+    async (command) => {
+      const principal = await authenticateIdentity(provider, 'platform-token');
+      for (const suffix of ['first', 'second']) {
+        await issueBootstrapInvitation(appPool, principal, {
+          destinationEmail: `${suffix}@example.test`,
+          idempotencyKey: `claim-boundary-${suffix}`,
+          correlationId,
+        });
+      }
+      const events = await adminPool.query<{ id: string }>(
+        `SELECT id FROM onboarding_app.tenant_bootstrap_outbox_events ORDER BY created_at, id`,
+      );
+      const eventId = events.rows[0]?.id;
+      const otherEventId = events.rows[1]?.id;
+      if (!eventId || !otherEventId)
+        throw new Error('Expected two bootstrap events');
+      const finish = (client: PoolClient, targetEventId: string) => {
+        if (command === 'complete') {
+          return completeBootstrapOutboxEvent(client, {
+            eventId: targetEventId,
+            providerInvitationRef: 'clerk_claim_boundary',
+            providerStatus: 'pending',
+          });
+        }
+        return failBootstrapOutboxEvent(client, {
+          eventId: targetEventId,
+          retryable: false,
+          nextAttemptAt: null,
+          providerStatus: 'http_400',
+        });
+      };
+      const claimedClient = await workerPool.connect();
+      const otherClient = await workerPool.connect();
+      try {
+        await expect(finish(otherClient, eventId)).rejects.toMatchObject({
+          code: '42501',
+        });
+        await claimedClient.query('BEGIN');
+        const claim = await claimBootstrapOutboxEvent(claimedClient);
+        expect(claim?.eventId).toBe(eventId);
+        await expect(finish(otherClient, eventId)).rejects.toMatchObject({
+          code: '42501',
+        });
+        await claimedClient.query('SAVEPOINT wrong_event');
+        await expect(finish(claimedClient, otherEventId)).rejects.toMatchObject(
+          { code: '42501' },
+        );
+        await claimedClient.query('ROLLBACK TO SAVEPOINT wrong_event');
+        await finish(claimedClient, eventId);
+        await claimedClient.query('COMMIT');
+        await expect(finish(claimedClient, eventId)).rejects.toMatchObject({
+          code: '42501',
+        });
+        expect(
+          (
+            await adminPool.query(
+              `SELECT delivery_state, attempt_count FROM onboarding_app.tenant_bootstrap_outbox_events WHERE id = $1`,
+              [otherEventId],
+            )
+          ).rows,
+        ).toEqual([{ delivery_state: 'pending', attempt_count: 0 }]);
+      } finally {
+        await claimedClient.query('ROLLBACK');
+        claimedClient.release();
+        otherClient.release();
+      }
+    },
+  );
 
   it('issues atomically, normalizes email, and replays only the same command payload', async () => {
     const principal = await authenticateIdentity(provider, 'platform-token');

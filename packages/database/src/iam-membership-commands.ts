@@ -1,10 +1,29 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { domainToASCII } from 'node:url';
 import type { IamDenialReason } from '@dive-center/contracts';
 import {
   type AuthenticatedPrincipal,
   assertAuthenticatedPrincipal,
 } from '@dive-center/identity';
 import type { Pool } from 'pg';
+
+export function canonicalInvitationAddress(value: string): string {
+  const normalized = value.trim().normalize('NFKC');
+  if (normalized.split('@').length !== 2) {
+    throw new Error('Invalid invitation address');
+  }
+  const [localPart = '', domainPart = ''] = normalized.split('@');
+  const containsControlCharacter = [...normalized].some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint <= 0x1f || codePoint === 0x7f;
+  });
+  if (!localPart || !domainPart || containsControlCharacter) {
+    throw new Error('Invalid invitation address');
+  }
+  const asciiDomain = domainToASCII(domainPart);
+  if (!asciiDomain) throw new Error('Invalid invitation address');
+  return `${localPart.toLowerCase()}@${asciiDomain.toLowerCase()}`;
+}
 
 type Principal = Readonly<{
   issuer: string;
@@ -19,8 +38,9 @@ export type InvitationCommandResult =
   | Readonly<{
       invitationId: string;
       membershipId: string;
+      invitationAttemptId?: string;
       status: 'pending' | 'accepted' | 'rejected' | 'revoked' | 'expired';
-      deliveryStatus?: 'queued';
+      deliveryStatus?: 'pending' | 'retrying' | 'succeeded' | 'dead_letter';
       expiresAt?: string;
       created?: boolean;
       credential?: string;
@@ -46,10 +66,12 @@ export async function issueIamInvitation(
   }>,
 ): Promise<InvitationCommandResult> {
   const credential = randomBytes(32).toString('base64url');
+  const targetAddressCanonical = canonicalInvitationAddress(input.targetAddress);
+  const invitationAttemptId = randomUUID();
   const result = await pool.query<{ outcome: InvitationCommandResult }>(
     `SELECT iam_app.issue_invitation_command(
-      $1, $2, $3::uuid, $4::uuid, $5::uuid, $6, $7::text[], $8::uuid[],
-      $9, $10, $11::uuid, $12::uuid
+      $1, $2, $3::uuid, $4::uuid, $5::uuid, $6, $7, $8::text[], $9::uuid[],
+      $10, $11, $12, $13::uuid, $14::uuid
     ) AS outcome`,
     [
       principal.issuer,
@@ -58,9 +80,11 @@ export async function issueIamInvitation(
       randomUUID(),
       randomUUID(),
       input.targetAddress,
+      targetAddressCanonical,
       input.roles,
       input.centerIds,
       credentialHash(credential),
+      invitationAttemptId,
       input.idempotencyKey,
       input.reissueInvitationId ?? null,
       input.correlationId,
@@ -87,10 +111,12 @@ export async function issueIamMembershipInvitation(
   }>,
 ): Promise<InvitationCommandResult> {
   const credential = randomBytes(32).toString('base64url');
+  const targetAddressCanonical = canonicalInvitationAddress(input.targetAddress);
+  const invitationAttemptId = randomUUID();
   const result = await pool.query<{ outcome: InvitationCommandResult }>(
     `SELECT iam_app.issue_membership_invitation_command(
-      $1, $2, $3::uuid, $4::uuid, $5::uuid, $6, $7::text[], $8::uuid[],
-      $9, $10, $11::uuid, $12::uuid
+      $1, $2, $3::uuid, $4::uuid, $5::uuid, $6, $7, $8::text[], $9::uuid[],
+      $10, $11, $12, $13::uuid, $14::uuid
     ) AS outcome`,
     [
       principal.issuer,
@@ -99,9 +125,11 @@ export async function issueIamMembershipInvitation(
       randomUUID(),
       randomUUID(),
       input.targetAddress,
+      targetAddressCanonical,
       input.roles,
       input.centerIds,
       credentialHash(credential),
+      invitationAttemptId,
       input.idempotencyKey,
       input.reissueInvitationId ?? null,
       input.correlationId,

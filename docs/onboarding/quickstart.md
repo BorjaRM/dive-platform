@@ -138,14 +138,11 @@ worker compares `BOOTSTRAP_INVITATION_REDIRECT_URL` with
 authentication origin used by the web app in Render; the blueprint provides no
 default. Missing or mismatched configuration stops provider dispatch.
 
-**Documented -- Bootstrap security migrations:**
-[0013](../../packages/database/drizzle/0013_bootstrap_delivery_security.sql)
-adds the normalized destination email to old invitation receipts and validates
-existing mutation audit reasons without rewriting audit records. Historical
-empty or missing mutation reasons abort the migration; investigate the records
-rather than inventing reasons or bypassing the constraint.
-[0014](../../packages/database/drizzle/0014_bootstrap_revocation_chain.sql)
-keeps replacement creation blocked until predecessor revocations succeed,
+**Documented -- Bootstrap security baseline:**
+The [consolidated baseline](../../packages/database/drizzle/0000_baseline.sql)
+creates invitation receipt commands with the normalized destination email and
+validated mutation audit reason constraints. It also keeps replacement creation
+blocked until predecessor revocations succeed,
 including across chained reissues. Pending, paused or terminal revocations leave
 replacement delivery blocked for operational review. These checks implement
 [DIVE-ONB-REQ-039..040 and DIVE-ONB-REQ-045](../../specs/onboarding/SPEC-DIVE-ONBOARDING-ADMIN-001.md).

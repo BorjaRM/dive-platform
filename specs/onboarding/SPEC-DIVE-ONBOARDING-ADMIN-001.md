@@ -1,7 +1,7 @@
 # SPEC-DIVE-ONBOARDING-ADMIN-001 - Platform bootstrap invitation administration
 
 - **Status:** Ready to start
-- **Version:** 0.4
+- **Version:** 0.5
 - **Last reviewed:** 2026-10-04
 - **Owner:** Product / Security / Frontend Architecture
 - **Approval reference:** Requirements and approval records extracted from SPEC-DIVE-ONBOARDING-001 at commit `86e9d97`; documentation split requested 2026-09-30. Product-owner confirmation on 2026-09-30 made the initial issue reason optional while retaining required reasons for reissue and revoke. Explicit chat authorization on 2026-10-04 approved the dedicated audited revoke-recovery command. No status promotion is inferred.
@@ -45,7 +45,7 @@
 - Roll out self bootstrap behind its approved control, initially limited to Clerk invite-only identities with a matching PostgreSQL grant. `BOOTSTRAP_INVITATION_WRITES_ENABLED` controls grant mutations and `BOOTSTRAP_INVITATION_DELIVERY_ENABLED` independently controls provider dispatch; both MUST default to disabled when no environment-specific override is supplied. With writes disabled, safe reads remain available and mutations return `503 feature_unavailable`. With delivery disabled, grant and outbox persistence remain available but the worker MUST NOT claim provider commands. Delivery MUST NOT be enabled while writes are disabled or while required worker/provider configuration is absent. **Documented:** the current Render blueprint explicitly overrides both controls to `true` for the controlled worker rollout in `render.yaml`; this does not change the default or replace provider/deployment verification.
 - No guidance rollout or rollback path is required while `DIVE-ONB-REQ-027..034` remain Deferred.
 - Rolling back provisioning disables new invitation issue/redemption without removing existing tenant access.
-- Database migrations, HTTP contracts, provider adapter, worker, Clerk invite-only configuration, exact redirect allowlist, and center-entry orchestration require a later implementation PR with reversible migration or explicit rollback. The immutable `0000_baseline.sql` MUST NOT be edited; add a new migration.
+- Database migrations, HTTP contracts, provider adapter, worker, Clerk invite-only configuration, exact redirect allowlist, and center-entry orchestration require a later implementation PR with reversible migration or explicit rollback. **Documented (product-owner authorization, 2026-10-04):** during pre-release development, `0000_baseline.sql` MAY be revised and consolidated while no shared or published database depends on its applied history. Once a shared or published database depends on it, it MUST NOT be edited; subsequent changes require a new migration. Disposable databases created with a replaced baseline or journal MUST be recreated.
 
 ## Boundary and verification
 

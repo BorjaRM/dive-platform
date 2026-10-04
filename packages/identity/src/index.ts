@@ -28,6 +28,16 @@ export {
   BootstrapInvitationProviderError,
   ClerkBootstrapInvitationAdapter,
 } from './bootstrap-invitations.js';
+export type {
+  ClerkOrdinaryInvitationConfig,
+  ClerkOrdinaryInvitationDependencies,
+  OrdinaryInvitationProviderPort,
+  OrdinaryInvitationProviderResult,
+} from './ordinary-invitations.js';
+export {
+  ClerkOrdinaryInvitationAdapter,
+  OrdinaryInvitationProviderError,
+} from './ordinary-invitations.js';
 
 declare const authenticatedPrincipal: unique symbol;
 

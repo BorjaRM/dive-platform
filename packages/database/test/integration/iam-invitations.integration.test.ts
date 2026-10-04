@@ -9,6 +9,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { bootstrapRoles } from '../../src/bootstrap-roles.js';
 import { resolveIamAccess } from '../../src/iam-authorize.js';
 import {
+  claimOrdinaryInvitationOutboxEvent,
+  completeOrdinaryInvitationOutboxEvent,
+  failOrdinaryInvitationOutboxEvent,
+} from '../../src/iam-invitation-outbox-commands.js';
+import {
+  canonicalInvitationAddress,
   disableIamMembership,
   type InvitationCommandResult,
   issueIamInvitation,
@@ -16,7 +22,7 @@ import {
   revokeIamInvitation,
 } from '../../src/iam-membership-commands.js';
 import { migrateProduct } from '../../src/migrate.js';
-import { createAdminPool, createAppPool } from './harness.js';
+import { createAdminPool, createAppPool, createWorkerPool } from './harness.js';
 
 const tenantA = '11111111-1111-1111-1111-111111111111';
 const tenantB = '22222222-2222-2222-2222-222222222222';
@@ -87,11 +93,13 @@ async function waitForLockWait(pool: Pool, processId: number): Promise<void> {
 describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM-REQ-024, DIVE-IAM-REQ-025)', () => {
   let adminPool: Pool;
   let appPool: Pool;
+  let workerPool: Pool;
   let inviteeAssertion: AuthenticatedPrincipal;
 
   beforeAll(async () => {
     adminPool = createAdminPool();
     appPool = createAppPool();
+    workerPool = createWorkerPool();
     inviteeAssertion = await trustedPrincipal(inviteePrincipal);
     await bootstrapRoles(adminPool);
     await migrateProduct();
@@ -140,6 +148,7 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
 
   afterAll(async () => {
     await appPool.end();
+    await workerPool.end();
     await adminPool.end();
   });
 
@@ -233,7 +242,7 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
     const issued = await issueIamInvitation(appPool, ownerPrincipal, input);
     expect(issued).toMatchObject({
       created: true,
-      deliveryStatus: 'queued',
+      deliveryStatus: 'pending',
       status: 'pending',
     });
     if ('deniedReason' in issued || !issued.credential) {
@@ -331,7 +340,7 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
     expect(retryResults).toHaveLength(1);
     expect(createdResults[0]).toMatchObject({
       credential: expect.any(String),
-      deliveryStatus: 'queued',
+      deliveryStatus: 'pending',
     });
     expect(retryResults[0]).not.toHaveProperty('credential');
     expect(first).toMatchObject({
@@ -348,7 +357,7 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
       invitationId: first.invitationId,
       membershipId: first.membershipId,
       status: 'pending',
-      deliveryStatus: 'queued',
+      deliveryStatus: 'pending',
       created: false,
     });
     expect(retry).not.toHaveProperty('credential');
@@ -566,6 +575,349 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
     });
   });
 
+  it.each(['invitations', 'outbox_events'] as const)(
+    'denies direct ordinary delivery relation access to the worker (%s; MT-REQ-004)',
+    async (relation) => {
+      await expect(
+        workerPool.query(`SELECT * FROM iam_app.${relation}`),
+      ).rejects.toMatchObject({ code: '42501' });
+      await expect(
+        workerPool.query(
+          `UPDATE iam_app.${relation} SET provider_status = 'tampered' WHERE false`,
+        ),
+      ).rejects.toMatchObject({ code: '42501' });
+
+      const client = await workerPool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query("SELECT set_config('app.tenant_id', $1, true)", [
+          tenantA,
+        ]);
+        await expect(
+          client.query(`SELECT * FROM iam_app.${relation}`),
+        ).rejects.toMatchObject({ code: '42501' });
+      } finally {
+        await client.query('ROLLBACK');
+        client.release();
+      }
+    },
+  );
+
+  it('keeps cross-tenant outbox access inside the worker claim function', async () => {
+    const issued = await issueIamInvitation(appPool, ownerPrincipal, {
+      tenantId: tenantA,
+      targetAddress: 'outbox-cross-tenant-a@example.test',
+      roles: ['center_manager'],
+      centerIds: [centerA],
+      idempotencyKey: 'outbox-cross-tenant-a',
+      correlationId: randomUUID(),
+    });
+    if ('deniedReason' in issued || !issued.invitationId) {
+      throw new Error('Expected an ordinary invitation for tenant A');
+    }
+
+    const tenantBMembershipId = randomUUID();
+    const tenantBInvitationId = randomUUID();
+    const tenantBInvitationAttemptId = randomUUID();
+    const tenantBEventId = randomUUID();
+    await adminPool.query(
+      `INSERT INTO iam_app.memberships
+         (id, tenant_id, identity_id, status, roles, center_ids)
+       VALUES ($1, $2, NULL, 'pending', ARRAY['center_manager'], $3)`,
+      [tenantBMembershipId, tenantB, [centerB]],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.invitations
+         (id, tenant_id, membership_id, target_address, credential_hash,
+          status, idempotency_key, target_address_canonical, invitation_attempt_id)
+       VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7, $8)`,
+      [
+        tenantBInvitationId,
+        tenantB,
+        tenantBMembershipId,
+        'outbox-cross-tenant-b@example.test',
+        hashCredential('outbox-cross-tenant-b'),
+        'outbox-cross-tenant-b',
+        'outbox-cross-tenant-b@example.test',
+        tenantBInvitationAttemptId,
+      ],
+    );
+    await adminPool.query(
+      `INSERT INTO iam_app.outbox_events
+         (id, tenant_id, event_type, payload, correlation_id, idempotency_key,
+          created_at)
+       VALUES ($1, $2, 'iam.invitation.issued.v1', $3, $4, $5, now() + interval '1 second')`,
+      [
+        tenantBEventId,
+        tenantB,
+        {
+          invitationId: tenantBInvitationId,
+          membershipId: tenantBMembershipId,
+        },
+        randomUUID(),
+        'outbox-cross-tenant-b',
+      ],
+    );
+
+    const directClient = await adminPool.connect();
+    try {
+      await directClient.query('BEGIN');
+      await directClient.query(
+        "SET LOCAL SESSION AUTHORIZATION 'dive_migration'",
+      );
+      await directClient.query('SET LOCAL ROLE dive_invitation_delivery');
+      await directClient.query("SELECT set_config('app.tenant_id', $1, true)", [
+        tenantA,
+      ]);
+      await expect(
+        directClient.query(
+          `SELECT tenant_id FROM iam_app.outbox_events
+           WHERE tenant_id IN ($1, $2)`,
+          [tenantA, tenantB],
+        ),
+      ).resolves.toMatchObject({ rows: [] });
+      await expect(
+        directClient.query(
+          `SELECT tenant_id FROM iam_app.invitations
+           WHERE tenant_id IN ($1, $2)`,
+          [tenantA, tenantB],
+        ),
+      ).resolves.toMatchObject({ rows: [] });
+      await expect(
+        directClient.query(
+          'SELECT * FROM iam_app.claim_invitation_outbox_event()',
+        ),
+      ).resolves.toMatchObject({ rows: [] });
+      for (const relation of ['invitations', 'outbox_events']) {
+        const update = await directClient.query(
+          `UPDATE iam_app.${relation} SET provider_status = 'tampered'
+           WHERE tenant_id IN ($1, $2)`,
+          [tenantA, tenantB],
+        );
+        expect(update.rowCount).toBe(0);
+      }
+    } finally {
+      await directClient.query('ROLLBACK');
+      directClient.release();
+    }
+
+    const workerClient = await workerPool.connect();
+    try {
+      await workerClient.query('BEGIN');
+      const claims = [];
+      for (const providerInvitationRef of ['provider-a', 'provider-b']) {
+        const claim = await claimOrdinaryInvitationOutboxEvent(workerClient);
+        if (!claim) throw new Error('Expected a cross-tenant outbox claim');
+        claims.push(claim);
+        await completeOrdinaryInvitationOutboxEvent(workerClient, {
+          claim,
+          providerInvitationRef,
+          providerStatus: 'pending',
+        });
+      }
+      expect(claims.map((claim) => claim?.tenantId).sort()).toEqual(
+        [tenantA, tenantB].sort(),
+      );
+      await workerClient.query('ROLLBACK');
+    } catch (error) {
+      await workerClient.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      workerClient.release();
+    }
+  });
+
+  it.each(['claim', 'complete', 'fail'] as const)(
+    'denies ordinary delivery %s execution to the API role (MT-REQ-004)',
+    async (command) => {
+      const queries = {
+        claim: 'SELECT iam_app.claim_invitation_outbox_event()',
+        complete: `SELECT iam_app.complete_invitation_outbox_event(
+          $1::uuid, $2::uuid, 'provider-reference', 'pending')`,
+        fail: `SELECT iam_app.fail_invitation_outbox_event(
+          $1::uuid, $2::uuid, false, NULL, 'failed')`,
+      };
+      await expect(
+        appPool.query(
+          queries[command],
+          command === 'claim' ? [] : [tenantA, randomUUID()],
+        ),
+      ).rejects.toMatchObject({ code: '42501' });
+    },
+  );
+
+  it.each(['complete', 'fail'] as const)(
+    'denies ordinary delivery %s without a matching transaction claim (MT-REQ-008)',
+    async (command) => {
+      const issued = await issueIamInvitation(appPool, ownerPrincipal, {
+        tenantId: tenantA,
+        targetAddress: `outbox-${command}-scope@example.test`,
+        roles: ['center_manager'],
+        centerIds: [centerA],
+        idempotencyKey: `outbox-${command}-scope`,
+        correlationId: randomUUID(),
+      });
+      if ('deniedReason' in issued) throw new Error('Expected an invitation');
+      const client = await workerPool.connect();
+      try {
+        await client.query('BEGIN');
+        const claim = await claimOrdinaryInvitationOutboxEvent(client);
+        if (!claim) throw new Error('Expected an outbox claim');
+        for (const invalidClaim of [
+          { ...claim, tenantId: tenantB },
+          { ...claim, eventId: randomUUID() },
+        ]) {
+          await client.query('SAVEPOINT invalid_scope');
+          const operation =
+            command === 'complete'
+              ? completeOrdinaryInvitationOutboxEvent(client, {
+                  claim: invalidClaim,
+                  providerInvitationRef: 'provider-reference',
+                  providerStatus: 'pending',
+                })
+              : failOrdinaryInvitationOutboxEvent(client, {
+                  claim: invalidClaim,
+                  retryable: false,
+                  nextAttemptAt: null,
+                  providerStatus: 'failed',
+                });
+          await expect(operation).rejects.toMatchObject({ code: '42501' });
+          await client.query('ROLLBACK TO SAVEPOINT invalid_scope');
+        }
+        await client.query('COMMIT');
+        await client.query('BEGIN');
+        await client.query("SELECT set_config('app.tenant_id', $1, true)", [
+          tenantA,
+        ]);
+        const operation =
+          command === 'complete'
+            ? completeOrdinaryInvitationOutboxEvent(client, {
+                claim,
+                providerInvitationRef: 'provider-reference',
+                providerStatus: 'pending',
+              })
+            : failOrdinaryInvitationOutboxEvent(client, {
+                claim,
+                retryable: false,
+                nextAttemptAt: null,
+                providerStatus: 'failed',
+              });
+        await expect(operation).rejects.toMatchObject({ code: '42501' });
+      } finally {
+        await client.query('ROLLBACK');
+        client.release();
+      }
+      const state = await adminPool.query(
+        `SELECT delivery_status, provider_status FROM iam_app.invitations
+         WHERE tenant_id=$1 AND id=$2`,
+        [tenantA, issued.invitationId],
+      );
+      expect(state.rows).toEqual([
+        { delivery_status: 'pending', provider_status: null },
+      ]);
+    },
+  );
+
+  it.each(['COMMIT', 'ROLLBACK'] as const)(
+    'clears ordinary claim context on pooled reuse after %s (MT-REQ-005)',
+    async (transactionEnd) => {
+      await issueIamInvitation(appPool, ownerPrincipal, {
+        tenantId: tenantA,
+        targetAddress: 'outbox-pool@example.test',
+        roles: ['center_manager'],
+        centerIds: [centerA],
+        idempotencyKey: 'outbox-pool',
+        correlationId: randomUUID(),
+      });
+      const pool = createWorkerPool(1);
+      try {
+        const client = await pool.connect();
+        let backendId: number;
+        try {
+          await client.query('BEGIN');
+          const claim = await claimOrdinaryInvitationOutboxEvent(client);
+          expect(claim?.tenantId).toBe(tenantA);
+          const context = await client.query(
+            `SELECT pg_backend_pid() AS pid,
+                    current_setting('app.tenant_id', true) AS tenant`,
+          );
+          backendId = context.rows[0].pid;
+          expect(context.rows[0].tenant).toBe(tenantA);
+          await client.query(transactionEnd);
+        } finally {
+          await client.query('ROLLBACK');
+          client.release();
+        }
+        const reused = await pool.query(
+          `SELECT pg_backend_pid() AS pid,
+                  NULLIF(current_setting('app.tenant_id', true), '') AS tenant`,
+        );
+        expect(reused.rows).toEqual([{ pid: backendId, tenant: null }]);
+      } finally {
+        await pool.end();
+      }
+    },
+  );
+
+  it('keeps ordinary outbox completion worker-only and persists the provider id', async () => {
+    const issued = await issueIamInvitation(appPool, ownerPrincipal, {
+      tenantId: tenantA,
+      targetAddress: 'outbox-worker@example.test',
+      roles: ['center_manager'],
+      centerIds: [centerA],
+      idempotencyKey: 'outbox-worker-001',
+      correlationId: randomUUID(),
+    });
+    if ('deniedReason' in issued || !issued.invitationId) {
+      throw new Error('Expected an ordinary invitation');
+    }
+
+    await expect(
+      appPool.query('SELECT iam_app.claim_invitation_outbox_event()'),
+    ).rejects.toMatchObject({ code: '42501' });
+
+    const workerClient = await workerPool.connect();
+    try {
+      await workerClient.query('BEGIN');
+      const claim = await claimOrdinaryInvitationOutboxEvent(workerClient);
+      expect(claim).toMatchObject({
+        tenantId: tenantA,
+        invitationId: issued.invitationId,
+        command: 'create',
+        invitationStatus: 'pending',
+        attemptCount: 1,
+      });
+      if (!claim) throw new Error('Expected an ordinary outbox claim');
+      await completeOrdinaryInvitationOutboxEvent(workerClient, {
+        claim,
+        providerInvitationRef: 'inv_clerk_ordinary_1',
+        providerStatus: 'pending',
+      });
+      await workerClient.query('COMMIT');
+    } catch (error) {
+      await workerClient.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      workerClient.release();
+    }
+
+    await expect(
+      adminPool.query(
+        `SELECT provider_kind, provider_invitation_id, delivery_status
+         FROM iam_app.invitations WHERE tenant_id=$1 AND id=$2`,
+        [tenantA, issued.invitationId],
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          provider_kind: 'clerk',
+          provider_invitation_id: 'inv_clerk_ordinary_1',
+          delivery_status: 'succeeded',
+        },
+      ],
+    });
+  });
+
   it.each(['acceptance', 'reissue'] as const)(
     'serializes acceptance racing deliberate reissue when %s reaches the invitation lock first',
     async (firstOperation) => {
@@ -633,8 +985,8 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
         const runReissue = () =>
           reissueClient.query<{ outcome: InvitationCommandResult }>(
             `SELECT iam_app.issue_invitation_command(
-              $1, $2, $3::uuid, $4::uuid, $5::uuid, $6, $7::text[], $8::uuid[],
-              $9, $10, $11::uuid, $12::uuid
+              $1, $2, $3::uuid, $4::uuid, $5::uuid, $6, $7, $8::text[], $9::uuid[],
+              $10, $11::uuid, $12, $13::uuid, $14::uuid
             ) AS outcome`,
             [
               ownerPrincipal.issuer,
@@ -643,9 +995,11 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
               replacementInvitationId,
               replacementMembershipId,
               raceAddress,
+              canonicalInvitationAddress(raceAddress),
               ['center_manager'],
               [centerA],
               hashCredential(replacementCredential),
+              randomUUID(),
               `invite-race-reissue-${suffix}`,
               original.invitationId,
               reissueCorrelationId,
@@ -906,7 +1260,7 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
     expect(replacements).toHaveLength(1);
     expect(replacements[0]).toMatchObject({
       credential: expect.any(String),
-      deliveryStatus: 'queued',
+      deliveryStatus: 'pending',
       status: 'pending',
     });
     expect(results).toContainEqual({
@@ -1142,7 +1496,7 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
     });
     expect(reissued).toMatchObject({
       created: true,
-      deliveryStatus: 'queued',
+      deliveryStatus: 'pending',
       status: 'pending',
     });
     if ('deniedReason' in reissued || !reissued.credential) {
@@ -1160,7 +1514,7 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
     });
     expect(reissueRetry).toMatchObject({
       created: false,
-      deliveryStatus: 'queued',
+      deliveryStatus: 'pending',
       invitationId: reissued.invitationId,
       membershipId: reissued.membershipId,
       status: 'pending',
@@ -1445,8 +1799,8 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
     await expect(
       appPool.query(
         `SELECT iam_app.issue_invitation_command(
-          $1,$2,$3::uuid,$4::uuid,$5::uuid,$6,$7::text[],$8::uuid[],
-          $9,$10,$11::uuid,$12::uuid
+          $1,$2,$3::uuid,$4::uuid,$5::uuid,$6,$7,$8::text[],$9::uuid[],
+          $10,$11::uuid,$12,$13::uuid,$14::uuid
         )`,
         [
           ownerPrincipal.issuer,
@@ -1455,9 +1809,11 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
           newInvitationId,
           newMembershipId,
           'atomic-reissue@example.test',
+          canonicalInvitationAddress('atomic-reissue@example.test'),
           ['center_manager'],
           [centerA],
           hashCredential('atomic-reissue-credential'),
+          randomUUID(),
           'invite-atomic-reissue-new',
           original.invitationId,
           reissueCorrelationId,
@@ -1530,8 +1886,8 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
     await expect(
       appPool.query(
         `SELECT iam_app.issue_invitation_command(
-          $1,$2,$3::uuid,$4::uuid,$5::uuid,$6,$7::text[],$8::uuid[],
-          $9,$10,NULL,$11::uuid
+          $1,$2,$3::uuid,$4::uuid,$5::uuid,$6,$7,$8::text[],$9::uuid[],
+          $10,$11::uuid,$12,NULL,$13::uuid
         )`,
         [
           ownerPrincipal.issuer,
@@ -1540,9 +1896,11 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
           invitationId,
           membershipId,
           targetAddress,
+          canonicalInvitationAddress(targetAddress),
           ['center_manager'],
           [centerA],
           hashCredential('atomic-credential'),
+          randomUUID(),
           'invite-atomic',
           randomUUID(),
         ],
