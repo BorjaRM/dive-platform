@@ -88,7 +88,11 @@ async function routeRequest(request: NextRequest, event?: NextFetchEvent) {
             return new NextResponse(null, { status: 404 });
           if (path.startsWith('/bootstrap'))
             return new NextResponse(null, { status: 404 });
-          if (path.startsWith('/sign-in')) {
+          if (
+            path.startsWith('/sign-in') &&
+            !request.nextUrl.searchParams.has('redirect_url') &&
+            !request.nextUrl.searchParams.has('__clerk_redirect_url')
+          ) {
             const signIn = new URL(
               '/sign-in',
               applicationConfig.authenticationOrigin,
@@ -130,7 +134,11 @@ async function routeRequest(request: NextRequest, event?: NextFetchEvent) {
         const response = await clerkMiddleware(next, {
           signInUrl: `${applicationConfig.authenticationOrigin}/sign-in`,
           ...(surface.kind === 'center'
-            ? { isSatellite: true, domain: new URL(surface.origin).hostname }
+            ? {
+                isSatellite: true,
+                domain: new URL(surface.origin).hostname,
+                satelliteAutoSync: true,
+              }
             : {}),
         })(request, event as NextFetchEvent);
         return response || next();

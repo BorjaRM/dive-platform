@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import {
+  applicationRedirectOrigins,
   classifyApplicationHost,
   readApplicationHostConfig,
 } from '@/lib/application-hosts';
@@ -28,9 +29,10 @@ export default async function ApplicationLayout({
       ? `${surface.origin}/dashboard`
       : (requestHeaders.get('x-dive-platform-return') ??
         requestHeaders.get('x-dive-center-return'));
-  const allowedRedirectOrigins = [hostConfig.authenticationOrigin];
-  if (applicationReturnUrl)
-    allowedRedirectOrigins.push(new URL(applicationReturnUrl).origin);
+  const allowedRedirectOrigins = applicationRedirectOrigins(
+    hostConfig,
+    applicationReturnUrl ?? undefined,
+  );
   return (
     <html
       lang="en"

@@ -326,6 +326,30 @@ describe('public product proxy', () => {
     ).toBe(404);
   });
 
+  it.each(['redirect_url', '__clerk_redirect_url'])(
+    'lets Clerk process a satellite sign-in callback with %s on the center host',
+    async (parameter) => {
+      vi.stubEnv('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY', 'pk_test_fixture');
+      vi.mocked(clerkMiddleware).mockClear();
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': 'https://alpha.app.example.test',
+          },
+        }),
+      );
+      const response = await proxy(
+        new NextRequest(
+          `https://alpha.app.example.test/sign-in?${parameter}=https%3A%2F%2Falpha.app.example.test%2Fdashboard`,
+        ),
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get('location')).toBeNull();
+      expect(clerkMiddleware).toHaveBeenCalled();
+    },
+  );
+
   it('mounts Clerk only for canonical hosts and leaves dashboard mapping authorization to API', async () => {
     vi.mocked(clerkMiddleware).mockClear();
     vi.stubEnv('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY', 'pk_test_fixture');
@@ -351,6 +375,7 @@ describe('public product proxy', () => {
     ).toBe(200);
     expect(clerkMiddleware).toHaveBeenCalledWith(expect.any(Function), {
       isSatellite: true,
+      satelliteAutoSync: true,
       domain: 'alpha.app.example.test',
       signInUrl: 'https://auth.example.test/sign-in',
     });

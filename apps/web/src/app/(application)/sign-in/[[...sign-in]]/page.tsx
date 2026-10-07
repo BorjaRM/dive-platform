@@ -2,7 +2,10 @@ import { SignIn } from '@clerk/nextjs';
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import styles from '@/components/ui/access.module.css';
-import { readApplicationHostConfig } from '@/lib/application-hosts';
+import {
+  classifyApplicationHost,
+  readApplicationHostConfig,
+} from '@/lib/application-hosts';
 
 export const metadata: Metadata = {
   title: 'Sign in | BlueCurrent',
@@ -14,10 +17,17 @@ export default async function SignInPage() {
     return <AuthConfigurationMissing />;
   }
   const requestHeaders = await headers();
+  const hostConfig = readApplicationHostConfig();
+  const surface = classifyApplicationHost(
+    requestHeaders.get('host'),
+    hostConfig,
+  );
   const returnUrl =
     requestHeaders.get('x-dive-platform-return') ??
     requestHeaders.get('x-dive-center-return') ??
-    `${readApplicationHostConfig().authenticationOrigin}/dashboard`;
+    (surface.kind === 'center'
+      ? `${surface.origin}/dashboard`
+      : `${hostConfig.authenticationOrigin}/dashboard`);
   return (
     <main className={styles.shell}>
       <section className={styles.intro} aria-labelledby="sign-in-title">

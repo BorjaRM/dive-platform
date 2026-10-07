@@ -244,6 +244,81 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
     ).resolves.toEqual({ deniedReason: 'permission_missing' });
   });
 
+  it('protects an owner membership after a mistakenly accepted owner invitation (DIVE-IAM-REQ-018, DIVE-IAM-REQ-025)', async () => {
+    const issued = await issueIamInvitation(appPool, ownerPrincipal, {
+      tenantId: tenantA,
+      targetAddress,
+      roles: ['tenant_owner'],
+      centerIds: [centerA],
+      idempotencyKey: 'accepted-owner-invite',
+      correlationId: randomUUID(),
+    });
+    if (
+      'deniedReason' in issued ||
+      !issued.credential ||
+      !issued.invitationId
+    ) {
+      throw new Error('Expected a newly issued owner invitation');
+    }
+
+    await expect(
+      respondToIamInvitation(appPool, inviteeAssertion, {
+        tenantId: tenantA,
+        credential: issued.credential,
+        decision: 'accepted',
+        correlationId: randomUUID(),
+      }),
+    ).resolves.toMatchObject({
+      invitationId: issued.invitationId,
+      membershipId: issued.membershipId,
+      status: 'accepted',
+    });
+
+    const acceptedOwner = await adminPool.query(
+      `SELECT status, roles
+       FROM iam_app.memberships
+       WHERE tenant_id=$1 AND id=$2`,
+      [tenantA, issued.membershipId],
+    );
+    expect(acceptedOwner.rows).toEqual([
+      { status: 'active', roles: ['tenant_owner'] },
+    ]);
+
+    await expect(
+      revokeIamInvitation(appPool, ownerPrincipal, {
+        tenantId: tenantA,
+        invitationId: issued.invitationId,
+        correlationId: randomUUID(),
+        allowOwnerInvitation: true,
+      }),
+    ).resolves.toEqual({ deniedReason: 'permission_missing' });
+    await expect(
+      revokeIamInvitation(appPool, adminPrincipal, {
+        tenantId: tenantA,
+        invitationId: issued.invitationId,
+        correlationId: randomUUID(),
+        allowOwnerInvitation: true,
+      }),
+    ).resolves.toEqual({ deniedReason: 'permission_missing' });
+    await expect(
+      disableIamMembership(appPool, ownerPrincipal, {
+        tenantId: tenantA,
+        membershipId: issued.membershipId,
+        correlationId: randomUUID(),
+      }),
+    ).resolves.toEqual({ deniedReason: 'permission_missing' });
+
+    const unchangedOwner = await adminPool.query(
+      `SELECT status, roles
+       FROM iam_app.memberships
+       WHERE tenant_id=$1 AND id=$2`,
+      [tenantA, issued.membershipId],
+    );
+    expect(unchangedOwner.rows).toEqual([
+      { status: 'active', roles: ['tenant_owner'] },
+    ]);
+  });
+
   it('creates one immutable unbound pending membership with seven-day expiry and no pending access', async () => {
     const input = {
       tenantId: tenantA,
@@ -357,6 +432,9 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
       deliveryStatus: 'pending',
     });
     expect(retryResults[0]).not.toHaveProperty('credential');
+    if ('deniedReason' in first || 'deniedReason' in second) {
+      throw new Error('Expected successful idempotent invitation results');
+    }
     expect(first).toMatchObject({
       invitationId: second.invitationId,
       membershipId: second.membershipId,
@@ -1233,7 +1311,6 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
             {
               issuer: 'test',
               subject: suffix,
-              verifiedAddresses: [raceAddress],
             },
             tenantA,
           ),
@@ -1313,7 +1390,7 @@ describe('IAM invitation lifecycle (DIVE-IAM-REQ-005, DIVE-IAM-REQ-017, DIVE-IAM
     await expect(
       respondToIamInvitation(
         appPool,
-        inviteePrincipal as AuthenticatedPrincipal,
+        inviteePrincipal as unknown as AuthenticatedPrincipal,
         {
           tenantId: tenantA,
           credential: issued.credential,

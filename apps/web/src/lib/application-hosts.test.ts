@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  applicationRedirectOrigins,
   CenterOriginUnavailableError,
   centerDashboardUrl,
   classifyApplicationHost,
@@ -213,6 +214,30 @@ describe('application host boundary (DIVE-IAM-REQ-032)', () => {
         'http://localhost:3001',
       ),
     ).resolves.toBeNull();
+  });
+
+  it('allows authentication to redirect to local center origins', () => {
+    const localConfig = readApplicationHostConfig({
+      NODE_ENV: 'development',
+      AUTHENTICATION_ORIGIN: 'http://localhost:3000',
+      CENTER_APP_BASE_DOMAIN: 'app.localhost',
+      CENTER_APP_BASE_ORIGIN: 'http://app.localhost:3000',
+    });
+
+    expect(applicationRedirectOrigins(localConfig)).toEqual([
+      'http://localhost:3000',
+      'http://*.app.localhost:3000',
+    ]);
+    expect(
+      applicationRedirectOrigins(
+        localConfig,
+        'http://test-center.app.localhost:3000/dashboard',
+      ),
+    ).toEqual([
+      'http://localhost:3000',
+      'http://*.app.localhost:3000',
+      'http://test-center.app.localhost:3000',
+    ]);
   });
 
   it.each(['production', 'staging', 'test'])(

@@ -124,6 +124,19 @@ export function centerDashboardUrl(
   return destination.toString();
 }
 
+export function applicationRedirectOrigins(
+  config: ApplicationHostConfig,
+  applicationReturnUrl?: string,
+): string[] {
+  const centerBaseOrigin = new URL(
+    config.centerAppBaseOrigin ?? `https://${config.centerAppBaseDomain}`,
+  );
+  const centerOriginPattern = `${centerBaseOrigin.protocol}//*.${config.centerAppBaseDomain}${centerBaseOrigin.port ? `:${centerBaseOrigin.port}` : ''}`;
+  const origins = [config.authenticationOrigin, centerOriginPattern];
+  if (applicationReturnUrl) origins.push(new URL(applicationReturnUrl).origin);
+  return origins;
+}
+
 export async function isActiveCenterOrigin(
   origin: string,
   apiBaseUrl: string,
