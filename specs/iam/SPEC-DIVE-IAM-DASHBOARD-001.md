@@ -1,7 +1,7 @@
 # SPEC-DIVE-IAM-DASHBOARD-001 - Dashboard context and center entry
 
 - **Status:** Ready to start
-- **Version:** 0.14
+- **Version:** 0.15
 - **Last reviewed:** 2026-10-01
 - **Owner:** Product / Security
 - **Approval reference:** Requirements and original approvals extracted from SPEC-DIVE-IAM-001 at commit `86e9d97`; documentation split requested 2026-09-30. The product owner explicitly confirmed on 2026-09-30 that the current center-application restriction is Documented, applies despite same-organization permissions, and preserves future permission-checked multi-center administration. Product-owner decisions on 2026-09-30 select the simple BFF, omission-prevention controls and the subsequent HTTPS/service-credential and bootstrap closure below. A subsequent explicit approval in the implementation-planning chat selects the protocol, credential procedure and browser boundary recorded below and authorizes local BFF implementation without an issue or Development Brief. The product owner explicitly approved the listed exception classifications in the BFF conformance and agent-configuration review chat on 2026-10-01. Deployment configuration and proof remain incomplete. No artifact status promotion, publication permission or conformance is inferred.
@@ -97,7 +97,7 @@
 - Which existing routes are genuinely organization-global, and how will each center-data route enforce scope, including list endpoints without `centerId` and indirect resource ownership? Their explicit contracts must prevent accidental exemptions without inventing restrictions for authentication or organization administration.
 - What explicit scope contract will govern configured non-center origins and approved scripts/server-to-server clients? Existing tenant-context issuance remains as documented in ADR-DIVE-008/017; this clarification does not silently revoke it or authorize a new administrative surface.
 
-**Documented:** these unresolved implementation contracts remain gates. Future implementation must not infer a scope from a client-selected mode, change handle lifetime, add roles or permissions, or claim application-wide security from CORS or the existing catalog tests alone. No new TTL, center shutdown state or Clerk satellite configuration is authorized.
+**Documented:** these unresolved implementation contracts remain gates. Future implementation must not infer a scope from a client-selected mode, change handle lifetime, add roles or permissions, or claim application-wide security from CORS or the existing catalog tests alone. No new TTL or center shutdown state is authorized. Clerk satellite configuration is owned by [ADR-DIVE-017](../architecture/adrs/ADR-DIVE-017.md#clerk-satellite-configuration), whose 2026-10-08 decision limits satellite mode to development hosts without a shared root domain.
 
 ## Proposed application-scope contract
 

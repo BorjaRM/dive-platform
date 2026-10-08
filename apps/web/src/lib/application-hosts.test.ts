@@ -5,8 +5,10 @@ import {
   CenterOriginUnavailableError,
   centerDashboardUrl,
   classifyApplicationHost,
+  clerkSatelliteOptions,
   isActiveCenterOrigin,
   readApplicationHostConfig,
+  sharesAuthenticationRootDomain,
   validatedCenterReturnUrl,
 } from './application-hosts';
 
@@ -216,7 +218,7 @@ describe('application host boundary (DIVE-IAM-REQ-032)', () => {
     ).resolves.toBeNull();
   });
 
-  it('allows authentication to redirect to local center origins', () => {
+  it('allows authentication to redirect only to the resolved local center origin', () => {
     const localConfig = readApplicationHostConfig({
       NODE_ENV: 'development',
       AUTHENTICATION_ORIGIN: 'http://localhost:3000',
@@ -226,7 +228,6 @@ describe('application host boundary (DIVE-IAM-REQ-032)', () => {
 
     expect(applicationRedirectOrigins(localConfig)).toEqual([
       'http://localhost:3000',
-      'http://*.app.localhost:3000',
     ]);
     expect(
       applicationRedirectOrigins(
@@ -235,10 +236,83 @@ describe('application host boundary (DIVE-IAM-REQ-032)', () => {
       ),
     ).toEqual([
       'http://localhost:3000',
-      'http://*.app.localhost:3000',
       'http://test-center.app.localhost:3000',
     ]);
+    expect(
+      applicationRedirectOrigins(
+        localConfig,
+        'http://localhost:3000/platform/invitations',
+      ),
+    ).toEqual(['http://localhost:3000']);
   });
+
+  it('uses Clerk satellites only for development hosts without a shared root domain', () => {
+    const center = {
+      kind: 'center' as const,
+      centerKey: 'alpha',
+      origin: 'https://alpha.app.example.test',
+    };
+    expect(sharesAuthenticationRootDomain(config)).toBe(true);
+    expect(clerkSatelliteOptions(center, config)).toEqual({});
+    expect(
+      sharesAuthenticationRootDomain({
+        authenticationOrigin: 'https://example.test',
+        centerAppBaseDomain: 'app.example.test',
+      }),
+    ).toBe(true);
+    for (const centerAppBaseDomain of [
+      'app.other.test',
+      'app.example.test.evil.test',
+      'app.notexample.test',
+    ]) {
+      expect(
+        sharesAuthenticationRootDomain({
+          authenticationOrigin: 'https://auth.example.test',
+          centerAppBaseDomain,
+        }),
+      ).toBe(false);
+    }
+
+    const localConfig = readApplicationHostConfig({
+      NODE_ENV: 'development',
+      AUTHENTICATION_ORIGIN: 'http://localhost:3000',
+      CENTER_APP_BASE_DOMAIN: 'app.localhost',
+      CENTER_APP_BASE_ORIGIN: 'http://app.localhost:3000',
+    });
+    expect(
+      clerkSatelliteOptions(
+        {
+          kind: 'center',
+          centerKey: 'alpha',
+          origin: 'http://alpha.app.localhost:3000',
+        },
+        localConfig,
+      ),
+    ).toEqual({
+      isSatellite: true,
+      domain: 'alpha.app.localhost',
+      satelliteAutoSync: true,
+    });
+    expect(
+      clerkSatelliteOptions(
+        { kind: 'authentication', origin: 'http://localhost:3000' },
+        localConfig,
+      ),
+    ).toEqual({});
+  });
+
+  it.each(['production', 'staging', 'test', undefined])(
+    'rejects hosts that would need Clerk satellites in %s',
+    (environment) => {
+      expect(() =>
+        readApplicationHostConfig({
+          NODE_ENV: environment,
+          AUTHENTICATION_ORIGIN: 'https://auth.example.test',
+          CENTER_APP_BASE_DOMAIN: 'app.other.test',
+        }),
+      ).toThrow('Invalid AUTHENTICATION_ORIGIN');
+    },
+  );
 
   it.each(['production', 'staging', 'test'])(
     'rejects local HTTP center configuration in %s',

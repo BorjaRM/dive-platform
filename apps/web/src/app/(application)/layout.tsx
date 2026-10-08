@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import {
   applicationRedirectOrigins,
   classifyApplicationHost,
+  clerkSatelliteOptions,
   readApplicationHostConfig,
 } from '@/lib/application-hosts';
 import { geistMono, geistSans } from '../fonts';
@@ -48,13 +49,7 @@ export default async function ApplicationLayout({
               `${hostConfig.authenticationOrigin}/dashboard`
             }
             allowedRedirectOrigins={allowedRedirectOrigins}
-            {...(surface.kind === 'center'
-              ? {
-                  isSatellite: true,
-                  domain: new URL(surface.origin).hostname,
-                  satelliteAutoSync: true,
-                }
-              : {})}
+            {...clerkSatelliteOptions(surface, hostConfig)}
           >
             {children}
           </ClerkProvider>

@@ -8,7 +8,9 @@ import { readPublicProductConfig } from './features/marketing/public-config';
 import {
   CenterOriginUnavailableError,
   classifyApplicationHost,
+  clerkSatelliteOptions,
   isActiveCenterOrigin,
+  isActiveCenterSatelliteReturnUrl,
   readApplicationHostConfig,
   validatedCenterReturnUrl,
 } from './lib/application-hosts';
@@ -74,6 +76,26 @@ async function routeRequest(request: NextRequest, event?: NextFetchEvent) {
           return new NextResponse(null, { status: 404 });
         if (path.startsWith('/platform') && surface.kind !== 'authentication')
           return new NextResponse(null, { status: 404 });
+        // Clerk development instances redirect here server-side, outside allowedRedirectOrigins.
+        const satelliteReturns = request.nextUrl.searchParams.getAll(
+          '__clerk_redirect_url',
+        );
+        if (
+          surface.kind === 'authentication' &&
+          satelliteReturns.length > 0 &&
+          (satelliteReturns.length > 1 ||
+            !(await isActiveCenterSatelliteReturnUrl(
+              satelliteReturns[0] ?? '',
+              applicationConfig,
+              apiBaseUrl,
+              originCheckSignal(),
+            )))
+        )
+          return new NextResponse(null, { status: 404 });
+        const satelliteOptions = clerkSatelliteOptions(
+          surface,
+          applicationConfig,
+        );
         if (surface.kind === 'center') {
           const isExistingDashboardRoute =
             path === '/dashboard' || path.startsWith('/dashboard/');
@@ -88,11 +110,11 @@ async function routeRequest(request: NextRequest, event?: NextFetchEvent) {
             return new NextResponse(null, { status: 404 });
           if (path.startsWith('/bootstrap'))
             return new NextResponse(null, { status: 404 });
-          if (
-            path.startsWith('/sign-in') &&
-            !request.nextUrl.searchParams.has('redirect_url') &&
-            !request.nextUrl.searchParams.has('__clerk_redirect_url')
-          ) {
+          const isSatelliteSignInCallback =
+            'isSatellite' in satelliteOptions &&
+            (request.nextUrl.searchParams.has('redirect_url') ||
+              request.nextUrl.searchParams.has('__clerk_redirect_url'));
+          if (path.startsWith('/sign-in') && !isSatelliteSignInCallback) {
             const signIn = new URL(
               '/sign-in',
               applicationConfig.authenticationOrigin,
@@ -133,13 +155,7 @@ async function routeRequest(request: NextRequest, event?: NextFetchEvent) {
         if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) return next();
         const response = await clerkMiddleware(next, {
           signInUrl: `${applicationConfig.authenticationOrigin}/sign-in`,
-          ...(surface.kind === 'center'
-            ? {
-                isSatellite: true,
-                domain: new URL(surface.origin).hostname,
-                satelliteAutoSync: true,
-              }
-            : {}),
+          ...satelliteOptions,
         })(request, event as NextFetchEvent);
         return response || next();
       }

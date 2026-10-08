@@ -74,10 +74,47 @@ export function readApplicationHostConfig(
   ) {
     throw new Error('Invalid AUTHENTICATION_ORIGIN');
   }
-  return {
+  const config = {
     authenticationOrigin,
     centerAppBaseDomain,
     ...(centerAppBaseOrigin ? { centerAppBaseOrigin } : {}),
+  };
+  if (
+    environment.NODE_ENV !== 'development' &&
+    !sharesAuthenticationRootDomain(config)
+  ) {
+    throw new Error('Invalid AUTHENTICATION_ORIGIN');
+  }
+  return config;
+}
+
+export function sharesAuthenticationRootDomain(
+  config: ApplicationHostConfig,
+): boolean {
+  const authenticationHost = new URL(config.authenticationOrigin).hostname;
+  // Single-label hosts such as localhost cannot carry a shared cookie domain.
+  if (!authenticationHost.includes('.')) return false;
+  const authenticationParent = authenticationHost.slice(
+    authenticationHost.indexOf('.') + 1,
+  );
+  return (
+    config.centerAppBaseDomain.endsWith(`.${authenticationHost}`) ||
+    (authenticationParent.includes('.') &&
+      (config.centerAppBaseDomain === authenticationParent ||
+        config.centerAppBaseDomain.endsWith(`.${authenticationParent}`)))
+  );
+}
+
+export function clerkSatelliteOptions(
+  surface: ApplicationSurface,
+  config: ApplicationHostConfig,
+) {
+  if (surface.kind !== 'center' || sharesAuthenticationRootDomain(config))
+    return {};
+  return {
+    isSatellite: true as const,
+    domain: new URL(surface.origin).hostname,
+    satelliteAutoSync: true,
   };
 }
 
@@ -128,12 +165,11 @@ export function applicationRedirectOrigins(
   config: ApplicationHostConfig,
   applicationReturnUrl?: string,
 ): string[] {
-  const centerBaseOrigin = new URL(
-    config.centerAppBaseOrigin ?? `https://${config.centerAppBaseDomain}`,
-  );
-  const centerOriginPattern = `${centerBaseOrigin.protocol}//*.${config.centerAppBaseDomain}${centerBaseOrigin.port ? `:${centerBaseOrigin.port}` : ''}`;
-  const origins = [config.authenticationOrigin, centerOriginPattern];
-  if (applicationReturnUrl) origins.push(new URL(applicationReturnUrl).origin);
+  const origins = [config.authenticationOrigin];
+  if (applicationReturnUrl) {
+    const returnOrigin = new URL(applicationReturnUrl).origin;
+    if (!origins.includes(returnOrigin)) origins.push(returnOrigin);
+  }
   return origins;
 }
 
@@ -180,6 +216,25 @@ export class CenterOriginUnavailableError extends Error {
     super('Center origin verification unavailable', { cause });
     this.name = 'CenterOriginUnavailableError';
   }
+}
+
+export async function isActiveCenterSatelliteReturnUrl(
+  value: string,
+  config: ApplicationHostConfig,
+  apiBaseUrl: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  if (!URL.canParse(value)) return false;
+  const url = new URL(value);
+  const surface = classifyApplicationHost(url.host, config);
+  if (
+    surface.kind !== 'center' ||
+    url.origin !== surface.origin ||
+    url.username ||
+    url.password
+  )
+    return false;
+  return isActiveCenterOrigin(url.origin, apiBaseUrl, signal);
 }
 
 export async function validatedCenterReturnUrl(

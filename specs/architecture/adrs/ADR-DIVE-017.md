@@ -1,10 +1,10 @@
 # ADR-DIVE-017 - Center-entry mappings, origins, and application hosts
 
 - **Status:** Ready to start
-- **Version:** 0.4
+- **Version:** 0.5
 - **Date:** 2026-09-30
 - **Deciders:** Product / Security / Architecture
-- **Approval reference:** Unchanged decisions extracted from ADR-DIVE-008 v0.14 at commit `86e9d97`; original explicit approvals 2026-09-27 and 2026-09-29 retained. Structural division requested 2026-09-30; no new promotion.
+- **Approval reference:** Unchanged decisions extracted from ADR-DIVE-008 v0.14 at commit `86e9d97`; original explicit approvals 2026-09-27 and 2026-09-29 retained. Structural division requested 2026-09-30; no new promotion. Clerk satellite-scope decision explicitly approved by the product owner in the commit-review chat on 2026-10-08; no status promotion.
 
 ## Provenance
 
@@ -18,6 +18,7 @@
 | Clerk authentication uses one authentication host per environment; after login the user returns to the center-application subdomain. Center subdomains are not registered as N Clerk applications | `Proposed` | Product confirmation by the product owner on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | The same `centerKey` is reused across environments; each environment has its own `<domain>` and therefore a distinct host namespace | `Proposed` | Product confirmation by the product owner on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
 | `POST /v1/me/center-entry-contexts` requires a browser `Origin` in the MVP. Clients without `Origin` are not authorized to call it | `Proposed` | Product confirmation by the product owner on 2026-09-27 | Approved by product owner 2026-09-27; Ready to start |
+| Center hosts sharing a root domain with the authentication host use Clerk's standard cross-subdomain session, not satellite mode; satellite mode remains only for development hosts without a shared root domain, and that configuration fails closed outside development | `Proposed` | [Clerk satellite configuration](#clerk-satellite-configuration); product-owner approval in the commit-review chat on 2026-10-08 | Approved by product owner 2026-10-08; deployment evidence pending |
 | Require `center.read` plus current center scope when issuing a center-entry context; successful setup redirects by absolute URL to the first center's `/dashboard`, where the center-entry endpoint issues the handle | `Proposed` | Product direction to close issue #73 residual decisions on 2026-09-29; constrained by `DIVE-IAM-REQ-003`, `006`, `023`, `032` and `DIVE-ONB-REQ-035`, `042` | Approved by product owner 2026-09-29; Ready to start |
 | Use active PostgreSQL `centerKey` mappings as the source of truth for exact center origins; retain configured exact origins only for non-center surfaces and never reflect or suffix-allow an arbitrary `Origin` | `Proposed` | Product direction to close issue #73 residual decisions on 2026-09-29; resolves the runtime-allocation gap in the approved generated-CORS decision | Approved by product owner 2026-09-29; Ready to start |
 | Require `CENTER_APP_BASE_DOMAIN` and `AUTHENTICATION_ORIGIN` per deployed environment, with no code default; exact FQDN values are deployment inputs and readiness gates rather than product defaults | `Proposed` | Product direction to close issue #73 residual decisions on 2026-09-29; constrained by the approved environment namespace and authentication-host decisions | Approved by product owner 2026-09-29; Ready to start |
@@ -161,9 +162,9 @@ Each environment has one authentication host, distinct from center-application s
 
 One Next.js application build and deployment serves that authentication host and the canonical `*.app.<domain>` center hosts. Request-host routing may select the authentication or center presentation, but it MUST first validate the host against `AUTHENTICATION_ORIGIN` or the configured center-domain shape and active mapping. Unknown hosts fail closed and MUST NOT render another center or the authentication surface. This deployment choice does not make `Host` authoritative and does not create a Clerk application per center.
 
-#### Clerk satellite configuration: pending deployment review
+#### Clerk satellite configuration
 
-**Documented implementation observation, 2026-09-30:** [the current application layout](../../../apps/web/src/app/(application)/layout.tsx) sets `isSatellite: true` and `domain` to each center hostname, without an explicit `proxyUrl` alternative. The installed `@clerk/shared@4.36.0` `parsePublishableKey` implementation, pinned by [the dependency lock](../../../pnpm-lock.yaml), resolves the production Frontend API to `clerk.<domain>` for that configuration. This is SDK address selection, not proof that Clerk, DNS or certificates are provisioned for the resulting address. Development-key behavior is different and cannot establish production readiness.
+**Documented historical observation, 2026-09-30:** [the current application layout](../../../apps/web/src/app/(application)/layout.tsx) sets `isSatellite: true` and `domain` to each center hostname, without an explicit `proxyUrl` alternative. The installed `@clerk/shared@4.36.0` `parsePublishableKey` implementation, pinned by [the dependency lock](../../../pnpm-lock.yaml), resolves the production Frontend API to `clerk.<domain>` for that configuration. This is SDK address selection, not proof that Clerk, DNS or certificates are provisioned for the resulting address. Development-key behavior is different and cannot establish production readiness.
 
 **Derived, Draft review risk:** allocating a platform center hostname does not by itself provision the separate Clerk Frontend API hostname selected by this SDK configuration. Without working DNS/routing, TLS and Clerk instance/domain configuration, the operations application can load while authentication initialization or session synchronization fails. The same Clerk application can remain in use; this observation does not imply a separate Clerk application or tenant per center.
 
@@ -184,6 +185,34 @@ An ordinary wildcard TLS certificate for `*.app.example.test` covers `puerto.app
 - How will environment activation demonstrate login, return to the same center and session synchronization for more than one center?
 
 **Documented scope boundary:** the product-owner request on 2026-09-30 authorizes documenting this problem and an example for review, explicitly not changing this satellite configuration yet. The existing approved decisions and artifact status are unchanged; the questions above remain open and do not grant deployment readiness.
+
+**Documented -- Status of the questions above:** the 2026-10-08 decision below resolves them for deployments whose authentication and center hosts share a root domain. They remain open only for future custom center domains, which stay outside the MVP.
+
+##### Decision: satellites only for development hosts without a shared root domain
+
+**Proposed, explicitly approved -- Source:** in the commit-review chat on 2026-10-08, the product owner approved the recommendation to remove Clerk satellite mode where the authentication host and center hosts share a root domain, keeping it only in development when required, and requested this documentation. The approval selects this configuration; it does not promote artifact status, provide deployment evidence or authorize custom center domains.
+
+| Configuration | Behavior |
+|---|---|
+| The authentication host and `CENTER_APP_BASE_DOMAIN` share a parent domain, for example `auth.<domain>` and `<centerKey>.app.<domain>` | Center hosts use Clerk's standard session shared across subdomains. No `isSatellite`, satellite `domain` or `satelliteAutoSync` is configured, and a center-host `/sign-in` always redirects to the authentication host. |
+| No shared parent domain and `NODE_ENV=development`, for example `localhost` and `*.app.localhost` | Center hosts remain Clerk satellites with automatic synchronization. A single-label host such as `localhost` never counts as a shared parent domain. |
+| No shared parent domain outside development | Web host configuration is rejected as invalid; satellite mode is never activated silently. |
+
+**Derived -- Rationale:** [Clerk documents satellite domains](https://clerk.com/docs/guides/dashboard/dns-domains/satellite-domains) for sessions across different root domains and states that sessions are shared across subdomains by default. In production, the previous configuration required each center to be registered as a Clerk satellite and served a separate `clerk.<centerKey>.app.<domain>` Frontend API whose DNS and TLS the `*.app.<domain>` wildcard certificate does not cover. That contradicts the no-manual-per-center-allocation decision above and can leave a new center loading without working login. Satellite mode adds no tenant isolation: authorization remains per-request membership, permission, center scope, exact CORS and BFF admission. Removing it also avoids the `satelliteAutoSync` first-visit redirect.
+
+**Documented -- Implementation:** `sharesAuthenticationRootDomain` and `clerkSatelliteOptions` in [application-hosts.ts](../../../apps/web/src/lib/application-hosts.ts), consumed by [proxy.ts](../../../apps/web/src/proxy.ts) and [the application layout](../../../apps/web/src/app/(application)/layout.tsx). Executable checks: [application-hosts.test.ts](../../../apps/web/src/lib/application-hosts.test.ts) and [proxy.test.ts](../../../apps/web/src/proxy.test.ts). These tests do not prove live Clerk behavior.
+
+##### Qué hay que vigilar al quitarlo
+
+**Derived -- What to watch after removing satellite mode, and why:**
+
+- **The session covers the whole shared root domain.** Why: any host under that domain can receive Clerk cookies scoped to it. A host not served by the platform, such as a third-party service, provider-hosted page or dangling DNS record, or an XSS on any center host, could therefore read or use the session for every center. Keep only platform-controlled hosts under the root domain and remove stale DNS records.
+- **The Clerk production instance must use that shared root domain.** Why: if Clerk is configured for another domain, center hosts do not receive a valid session and login may loop or fail.
+- **Shared authentication is not shared authorization.** Why: identity is global, so one session is valid on centers of different tenants. Access must keep depending on per-request membership, permission, center scope, exact CORS and BFF checks; no change may treat the session as authorization for a center.
+- **The shared-root check is a parent-domain comparison, not a Public Suffix List lookup.** Why: an authentication host placed directly under a public suffix, such as `auth.co.uk`, would be misclassified as sharing a root with unrelated domains. Use an authentication host under the platform's own registered domain.
+- **Logout ends the session on every center host.** Why: there is one shared session. This is expected, but it must be verified.
+- **Local development still uses satellites.** Why: local hosts do not share a usable cookie domain, so their behavior is not evidence of production behavior. The development `__clerk_redirect_url` handshake remains limited by the proxy to active center origins.
+- **Activation evidence is still pending.** Why: unit tests mock Clerk. Before activation, verify in a pre-production environment with two centers of different tenants that login returns to the same center, moving between centers keeps the session without reauthentication, a user without membership is denied, and logout applies to every center. Not executed.
 
 #### Environment namespace
 

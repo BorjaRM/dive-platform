@@ -174,6 +174,13 @@ development, with a `.localhost` hostname matching the configured base domain.
 The configured port is matched exactly; mismatched protocols, ports and domains
 are rejected. Deployed center origins remain HTTPS without a non-default port.
 
+Center hosts are Clerk satellites only in this local setup, because
+`localhost` and `*.app.localhost` do not share a cookie domain. Deployed
+environments must place `AUTHENTICATION_ORIGIN` and `CENTER_APP_BASE_DOMAIN`
+under the same root domain, which uses Clerk's shared subdomain session;
+otherwise the host configuration is rejected outside development. See
+[ADR-DIVE-017](../../specs/architecture/adrs/ADR-DIVE-017.md#clerk-satellite-configuration).
+
 After bootstrap, the allocated `centerKey` determines the destination, for
 example `http://test-center.app.localhost:3000/dashboard` or
 `http://ocean-north.app.localhost:3000/dashboard`. Neither key is hardcoded or

@@ -1,7 +1,7 @@
 # TRACE-DIVE-MVP-001 — Artifact map and coverage
 
 - **Status:** Ready to start
-- **Version:** 0.124
+- **Version:** 0.125
 - **Purpose:** locate every SDD artifact and track coverage without copying requirement text.
 
 ## Artifact map
@@ -16,7 +16,7 @@
 | Foundation — SDD | `specs/foundation/sdd-specs-traceability.md` | Ready to start | 0.4 |
 | Adoption profile | `specs/multitenancy/adoption-profile.md` | Draft | 0.6 |
 | ADR-DIVE-001 | `specs/architecture/adrs/ADR-DIVE-001.md` | Ready to start | 0.2 |
-| ADR-DIVE-002 | `specs/architecture/adrs/ADR-DIVE-002.md` | Ready to start | 0.4 |
+| ADR-DIVE-002 | `specs/architecture/adrs/ADR-DIVE-002.md` | Ready to start | 0.5 |
 | ADR-DIVE-003 | `specs/architecture/adrs/ADR-DIVE-003.md` | Ready to start | 0.2 |
 | ADR-DIVE-004 | `specs/architecture/adrs/ADR-DIVE-004.md` | Ready to start | 1.6 |
 | ADR-DIVE-005 | `specs/architecture/adrs/ADR-DIVE-005.md` | Draft | 0.4 |
@@ -42,17 +42,17 @@
 | SPIKE-DIVE-002 | `specs/spikes/SPIKE-DIVE-002/` | Deferred | see spike files |
 | SPIKE-DIVE-003 | `specs/spikes/SPIKE-DIVE-003/` | Draft / not executed | see spike files |
 | SPIKE-DIVE-004 | `specs/spikes/SPIKE-DIVE-004/` | Draft / executed 2026-09-29 (Documented: spike results and dated provider evidence) | see spike files |
-| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.124 |
-| ADR-DIVE-017 | `specs/architecture/adrs/ADR-DIVE-017.md` | Ready to start | 0.4 |
+| This map | `specs/traceability/TRACE-DIVE-MVP-001.md` | Ready to start | 0.125 |
+| ADR-DIVE-017 | `specs/architecture/adrs/ADR-DIVE-017.md` | Ready to start | 0.5 |
 | SPEC-DIVE-BOOKING-CAPABILITIES-001 | `specs/booking/SPEC-DIVE-BOOKING-CAPABILITIES-001.md` | Draft | 0.4 |
 | SPEC-DIVE-BOOKING-CATALOG-001 | `specs/booking/SPEC-DIVE-BOOKING-CATALOG-001.md` | Draft | 0.15 |
 | SPEC-DIVE-BOOKING-PUBLIC-001 | `specs/booking/SPEC-DIVE-BOOKING-PUBLIC-001.md` | Draft | 0.2 |
 | SPEC-DIVE-BOOKING-SCHEDULING-001 | `specs/booking/SPEC-DIVE-BOOKING-SCHEDULING-001.md` | Accepted | 0.14 |
 | SPEC-DIVE-BOOKING-WIDGET-001 | `specs/booking/SPEC-DIVE-BOOKING-WIDGET-001.md` | Draft | 0.2 |
-| SPEC-DIVE-IAM-DASHBOARD-001 | `specs/iam/SPEC-DIVE-IAM-DASHBOARD-001.md` | Ready to start | 0.14 |
+| SPEC-DIVE-IAM-DASHBOARD-001 | `specs/iam/SPEC-DIVE-IAM-DASHBOARD-001.md` | Ready to start | 0.15 |
 | SPEC-DIVE-IAM-INVITATIONS-001 | `specs/iam/SPEC-DIVE-IAM-INVITATIONS-001.md` | Ready to start | 1.3 |
 | SPEC-DIVE-IAM-SUPPORT-001 | `specs/iam/SPEC-DIVE-IAM-SUPPORT-001.md` | Ready to start | 0.1 |
-| SPEC-DIVE-ONBOARDING-ADMIN-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-ADMIN-001.md` | Ready to start | 0.4 |
+| SPEC-DIVE-ONBOARDING-ADMIN-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-ADMIN-001.md` | Ready to start | 0.5 |
 | SPEC-DIVE-ONBOARDING-DELIVERY-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-DELIVERY-001.md` | Ready to start | 0.3 |
 | SPEC-DIVE-ONBOARDING-GUIDANCE-001 | `specs/onboarding/SPEC-DIVE-ONBOARDING-GUIDANCE-001.md` | Deferred | 0.1 |
 
@@ -236,7 +236,7 @@ The Proposed reconciliation for original-emission credential replay (`DIVE-BOOK-
 | Authenticated self-bootstrap command, closed setup input, verified-email grant resolution, atomic tenant/center/Owner creation, idempotency, concurrency, redemption rate limit, center-key mapping, completion audit, and safe completion event | `DIVE-ONB-REQ-004`, `006`, `008..009`, `012`, `018..021`, `041..042`, `047` | Partial: `apps/api/src/onboarding/tenant-bootstrap.validation.spec.ts`, `apps/api/src/onboarding/tenant-bootstrap.service.spec.ts`, `apps/api/test/onboarding.e2e-spec.ts`, `packages/database/test/integration/onboarding-invitations.integration.test.ts`, `packages/database/test/integration/product-security.integration.test.ts`; rollback and terminal/wrong-kind denial assertions exist in onboarding-invitations.integration.test.ts; `apps/web/src/features/bootstrap/bootstrap-setup.test.tsx` covers the absolute first-center web handoff; deployed readiness remains open |
 | Official raw-body webhook verification plus database tenant resolution, idempotency, no grants, no authorization mutation, audit, and safe outbox signals | `DIVE-IAM-REQ-021` | `packages/identity/src/clerk-webhook.spec.ts`, `packages/database/test/integration/iam-identity-webhooks.integration.test.ts` |
 | Dashboard tenant-context contract and frontend consumer boundary | `DIVE-IAM-REQ-029..031` | `ADR-DIVE-008` tenant-context contract; `ADR-DIVE-009` frontend state boundary; server authorization proof: `apps/api/test/iam.e2e-spec.ts`, `packages/database/test/integration/iam-api.integration.test.ts`, `packages/database/test/integration/migrations.integration.test.ts`; web consumer proof: `apps/web/src/features/dashboard/tenant-context.test.ts`, `apps/web/src/features/dashboard/dashboard-tenant-context.test.tsx` |
-| Center-host web routing, initial handle issuance without workspace enumeration, single returned-center read, session/context cleanup and preserved sign-in destination | `DIVE-IAM-REQ-029..032` | Documented: `apps/web/src/proxy.test.ts`, `apps/web/src/lib/application-hosts.test.ts`, `apps/web/src/features/dashboard/tenant-context.test.ts`, `apps/web/src/features/dashboard/dashboard-tenant-context.test.tsx`, `apps/web/src/features/dashboard/clerk-dashboard-session.test.tsx`; the host test also exercises the installed Clerk redirect generator, while proxy tests distinguish resolver unavailability from denied mappings. These checks do not prove live Clerk or deployed DNS/TLS; the unresolved satellite configuration is recorded in ADR-DIVE-017 |
+| Center-host web routing, initial handle issuance without workspace enumeration, single returned-center read, session/context cleanup and preserved sign-in destination | `DIVE-IAM-REQ-029..032` | Documented: `apps/web/src/proxy.test.ts`, `apps/web/src/lib/application-hosts.test.ts`, `apps/web/src/features/dashboard/tenant-context.test.ts`, `apps/web/src/features/dashboard/dashboard-tenant-context.test.tsx`, `apps/web/src/features/dashboard/clerk-dashboard-session.test.tsx`; the host test also exercises the installed Clerk redirect generator, while proxy tests distinguish resolver unavailability from denied mappings. These checks do not prove live Clerk or deployed DNS/TLS; satellite mode limited to development hosts without a shared root domain is recorded in [ADR-DIVE-017](../architecture/adrs/ADR-DIVE-017.md#clerk-satellite-configuration), with cross-center session evidence pending |
 | BFF-associated center and catalog resource correspondence for multi-center identities, non-disclosing denial and absence of denied-write effects | `DIVE-IAM-REQ-032` | Documented: `apps/api/src/catalog/catalog-access.service.spec.ts`, `apps/api/src/iam/tenant-context/tenant-context.service.spec.ts`, `apps/api/test/iam.e2e-spec.ts`; HTTP/PostgreSQL cases cover same-tenant A-to-B and cross-tenant denial across settings, activities, slots and channels without changing tenant-scoped handles. Scope authority: [selected dashboard BFF contract](../iam/SPEC-DIVE-IAM-DASHBOARD-001.md#simple-bff-contract). |
 | Dashboard permission projection for the resolved center | `DIVE-IAM-REQ-030..032` | Documented: product-owner approval of the concrete capability HTTP contract and bounded local continuation on 2026-10-01 in the home-planning conversation (VS Code session `0243d54d-0bf1-42fa-b4d0-a2befc6d694e`); executable pointers: `apps/api/src/catalog/catalog-access.service.spec.ts`, `apps/api/src/app/openapi.spec.ts`, `apps/api/test/iam.e2e-spec.ts`, `apps/api/test/bff-next.e2e-spec.ts`, `apps/web/src/lib/dashboard-bff.test.ts`. Coverage is the permission projection and BFF transport, not implementation or mobile/visual verification of the home. |
 | Center home consumer, future-session projection and permission-aware navigation | `DIVE-IAM-REQ-030..032`; `DIVE-BOOK-REQ-049` | Documented: [approved center home scope](../iam/SPEC-DIVE-IAM-DASHBOARD-001.md#center-application-home). Partial consumer coverage: `apps/web/src/features/dashboard/dashboard-home.test.tsx`, `apps/web/src/features/dashboard/calendar-data.test.ts`, `apps/web/src/features/dashboard/catalog-api.test.ts`, `apps/web/src/features/dashboard/catalog-panel.test.tsx`, `apps/web/src/features/dashboard/dashboard-tenant-context.test.tsx`; these checks cover the local home increment and its existing scoped catalog boundary, not the whole scheduling contract. Live authentication and responsive visual verification remain unproven by these tests. |
