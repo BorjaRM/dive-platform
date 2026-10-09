@@ -1,19 +1,3 @@
-.page {
-  --color-text: #193437;
-  --color-text-muted: #627579;
-  --color-surface: #fbf8f0;
-  --color-border: #cfd9d2;
-  --color-accent: #2e8f82;
-  --color-warning: #d89b3d;
-  --color-action: var(--color-text);
-  --color-action-hover: var(--color-accent);
-  --color-on-action: var(--color-surface);
-  --color-focus: var(--color-warning);
-  --text-button: 0.78rem;
-  --button-padding-block: var(--space-2);
-  --button-padding-inline: var(--space-3);
-}
-
 .sectionKicker {
   composes: sectionKicker from "../../components/ui/primitives.module.css";
 }
@@ -23,15 +7,13 @@
 }
 
 .page {
-  background: var(--color-surface);
   color: var(--color-text);
 }
 
 .frame {
   container: catalog / inline-size;
-  width: min(100% - var(--space-6), 61.25rem);
-  margin: 0 auto;
-  padding: var(--space-8) 0 var(--space-20);
+  width: 100%;
+  padding: 0 0 var(--space-16);
 }
 
 .header {
@@ -39,9 +21,12 @@
   flex-direction: column;
   align-items: start;
   justify-content: space-between;
-  gap: var(--space-8);
-  padding-bottom: var(--space-8);
-  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 .header > div {
@@ -53,21 +38,22 @@
 .slotForm h4 {
   margin: var(--space-2) 0 0;
   font-weight: var(--weight-section-title);
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
 }
 
 .header h2 {
   max-width: 38.75rem;
-  font-size: 2.35rem;
-  line-height: 1;
+  font-size: var(--text-page-title);
+  line-height: 1.2;
   text-wrap: balance;
   overflow-wrap: anywhere;
 }
 
 .header p:not(.sectionKicker) {
   max-width: 36.25rem;
-  margin: var(--space-4) 0 0;
+  margin: var(--space-2) 0 0;
   color: var(--color-text-muted);
+  font-size: var(--text-sm);
   line-height: 1.55;
 }
 
@@ -101,13 +87,16 @@
   container: content-section / inline-size;
   min-width: 0;
   position: relative;
-  margin-top: var(--space-8);
-  padding-top: var(--space-6);
-  border-top: 3px solid var(--color-text);
+  margin-top: var(--space-6);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 .section h4 {
-  font-size: 1.2rem;
+  font-size: var(--text-base);
 }
 
 .filter {
@@ -136,12 +125,14 @@
   min-height: 4.5rem;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border);
-  background: rgba(255, 253, 247, 0.82);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-muted);
 }
 
 .row.isSelected {
   border-color: var(--color-accent);
-  box-shadow: inset 4px 0 0 var(--color-accent);
+  background: var(--color-surface);
+  box-shadow: inset 3px 0 0 var(--color-accent);
 }
 
 .rowSelect {
@@ -173,8 +164,8 @@
 }
 
 .rowSelect strong {
-  font-size: 0.98rem;
-  font-weight: 650;
+  font-size: var(--text-base);
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
@@ -253,12 +244,8 @@
 
 @container catalog (min-width: 40rem) {
   .header {
-    align-items: end;
+    align-items: center;
     flex-direction: row;
-  }
-
-  .header h2 {
-    font-size: 2.8rem;
   }
 
   .control {
@@ -270,7 +257,7 @@
 @container catalog (min-width: 50rem) {
   .grid {
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-    gap: var(--space-8);
+    gap: var(--space-6);
   }
 }
 

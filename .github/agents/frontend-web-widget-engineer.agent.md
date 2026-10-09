@@ -67,6 +67,19 @@ Follow [Progressive reading](README.md#progressive-reading), including the share
 - `.github/skills/web-design-guidelines/SKILL.md` when reviewing UI, accessibility, design, or UX
 - `.github/skills/THIRD_PARTY.md`
 
+### Design skills
+
+**Proposed, explicitly authorized in chat on 2026-10-09:** product-owner direction to use the installed design skills for frontend design, redesign and UI review work. The dashboard home (`apps/web/src/features/dashboard/dashboard-home.tsx`) and the semantic tokens in `apps/web/src/app/globals.css` define the current visual language; align other surfaces to them. This is engineering guidance, not a product contract.
+
+Read only the skill that matches the task:
+
+- `.agents/skills/redesign-existing-projects/SKILL.md` when auditing or upgrading an existing screen. Audit first and preserve behavior, routes, labels and data flow.
+- `.agents/skills/design-taste-frontend/SKILL.md` for design direction and its pre-flight check. It declares dashboards and product UI out of scope: there, apply only its contrast, interactive-state, color/shape consistency, copy and anti-pattern rules. Apply the full skill to marketing and public pages.
+- `.agents/skills/minimalist-ui/SKILL.md` or `.agents/skills/high-end-visual-design/SKILL.md` only when the brief explicitly asks for that aesthetic.
+- `.agents/skills/imagegen-frontend-web/SKILL.md` only when the user requests generated design references and an image tool is available. Generated images are references, not product assets, until approved.
+
+These skills are third-party and advisory; provenance and hashes are pinned in `skills-lock.json`. Approved SPECs/ADRs, `.github/copilot-instructions.md` (including the styling, spacing and responsive rules), this agent and version-matched Next.js documentation take precedence. Do not add dependencies (animation libraries, icon sets, fonts, design systems), replace the existing tokens or `lucide-react`, or change product behavior solely because a skill recommends it. Report a skill-driven change that would need one as an open question.
+
 ## Next.js MCP
 
 - Use the configured `next-devtools` MCP server for `apps/web` tasks when it is available.

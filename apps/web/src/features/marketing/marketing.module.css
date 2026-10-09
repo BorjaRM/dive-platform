@@ -6,6 +6,10 @@
   --color-border: rgba(16, 42, 44, 0.2);
   --color-accent: #57c7b3;
   --color-focus: #ef806d;
+  --color-label-accent: #2c746b;
+  --text-xs: 0.7rem;
+  --text-sm: 0.78rem;
+  --radius-sm: 0.125rem;
 }
 
 .page {

@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "turbo run build",
+    "predev": "docker compose -f infra/docker/postgres/docker-compose.yml up -d --wait postgres && pnpm db:bootstrap && pnpm db:migrate",
     "dev": ". \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" && nvm use --silent && node --env-file=.env.example --env-file-if-exists=.env.local ./node_modules/turbo/bin/turbo run dev",
     "dev:fresh": "pnpm db:reset:local && pnpm dev",
     "swagger": "pnpm --filter @dive-center/api swagger:local --open",

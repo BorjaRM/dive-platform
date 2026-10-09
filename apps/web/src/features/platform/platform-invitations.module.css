@@ -1,30 +1,27 @@
 .page {
-  --color-surface: #ffffff;
-  --color-text: #171717;
-  --tracking-label: 0;
   display: grid;
-  gap: var(--space-8);
+  gap: var(--space-6);
   width: 100%;
   max-width: 72rem;
   min-height: 100vh;
   align-content: start;
   margin: 0 auto;
   padding: var(--space-8) var(--space-4);
-  background: var(--color-surface);
   color: var(--color-text);
 }
 
 .heading {
   display: grid;
   gap: var(--space-2);
-  padding-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
   border-bottom: 1px solid var(--color-border);
 }
 
 .heading h1 {
   margin: 0;
-  font-size: var(--text-section-title);
+  font-size: var(--text-page-title);
   font-weight: var(--weight-section-title);
+  letter-spacing: -0.01em;
 }
 
 .brand {
@@ -36,7 +33,7 @@
 .workspace {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
-  gap: var(--space-12);
+  gap: var(--space-6);
 }
 
 .section {
@@ -44,6 +41,11 @@
   align-content: start;
   gap: var(--space-6);
   min-width: 0;
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 .section h2 {

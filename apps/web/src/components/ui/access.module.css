@@ -1,32 +1,3 @@
-.shell,
-.statusPage {
-  --color-text: #17383b;
-  --color-text-muted: #60777a;
-  --color-surface: #fbfaf5;
-  --color-accent: #267f74;
-  --color-warning: #d9993e;
-  --color-action: var(--color-text);
-  --color-action-hover: var(--color-accent);
-  --color-on-action: #fffef9;
-  --color-input: #fff;
-  --color-border: #c8d5cf;
-  --color-focus: var(--color-warning);
-  --color-warning-surface: rgba(217, 153, 62, 0.11);
-  --color-label-accent: var(--color-accent);
-  --radius-control: var(--radius-md);
-  --text-input: 0.95rem;
-  --text-label: 0.73rem;
-  --weight-label: 750;
-  --tracking-label: 0.06em;
-  --text-panel-title: 1.7rem;
-  --control-height: 2.875rem;
-  --control-padding-block: var(--space-3);
-  --control-padding-inline: var(--space-3);
-  --button-height: 2.75rem;
-  --button-padding-block: var(--space-3);
-  --opacity-disabled: 0.6;
-}
-
 .shell {
   display: grid;
   min-height: 100svh;
@@ -43,39 +14,40 @@
   overflow: hidden;
   gap: var(--space-10);
   padding: var(--space-8) var(--space-6);
-  background-color: #dfeae5;
-  background-image:
-    linear-gradient(rgba(23, 56, 59, 0.075) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(23, 56, 59, 0.075) 1px, transparent 1px);
-  background-size: 44px 44px;
+  background: var(--color-navy);
+  color: #ffffff;
 }
 
 .brand,
 .kicker,
 .caption {
   margin: 0;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .brand {
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
 }
 
 .kicker {
-  color: var(--color-accent);
+  color: var(--color-aqua);
   font-size: var(--text-xs);
+}
+
+.workspace .kicker,
+.statusPage .kicker {
+  color: var(--color-label-accent);
 }
 
 .intro h1 {
   max-width: 40.625rem;
   margin: var(--space-4) 0 0;
-  font-family: var(--font-display);
-  font-size: 2.7rem;
-  font-weight: 500;
-  line-height: 0.98;
-  letter-spacing: 0;
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
   text-wrap: balance;
   overflow-wrap: anywhere;
 }
@@ -83,13 +55,13 @@
 .intro p:not(.brand, .kicker, .caption) {
   max-width: 31.875rem;
   margin: var(--space-6) 0 0;
-  color: var(--color-text-muted);
+  color: rgb(255 255 255 / 0.75);
   line-height: 1.65;
 }
 
 .caption {
-  color: var(--color-text-muted);
-  font-size: 0.64rem;
+  color: rgb(255 255 255 / 0.7);
+  font-size: var(--text-xs);
 }
 
 .workspace {
@@ -98,7 +70,7 @@
   min-height: 58svh;
   place-items: center;
   padding: var(--space-8) var(--space-6) var(--space-12);
-  background: #fffef9;
+  background: var(--color-surface);
 }
 
 .statusPage {
@@ -106,21 +78,24 @@
   min-height: 100svh;
   place-items: center;
   padding: var(--space-6);
-  background: #dfeae5;
+  background: var(--color-canvas);
   color: var(--color-text);
 }
 
 .notice {
   width: min(100%, 32.5rem);
-  border-top: 4px solid #17383b;
-  padding-top: var(--space-6);
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 .notice h1 {
-  margin: var(--space-2) 0 var(--space-6);
+  margin: var(--space-2) 0 var(--space-4);
   font-size: var(--text-panel-title);
-  font-weight: 620;
-  letter-spacing: 0;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
 
@@ -130,11 +105,6 @@
 }
 
 @media (min-width: 47.5rem) {
-  .shell,
-  .statusPage {
-    --text-panel-title: 2.35rem;
-  }
-
   .shell {
     grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
   }
@@ -146,7 +116,7 @@
   }
 
   .intro h1 {
-    font-size: 4.2rem;
+    font-size: 3rem;
   }
 
   .workspace {

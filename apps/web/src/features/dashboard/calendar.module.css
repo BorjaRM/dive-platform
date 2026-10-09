@@ -1,7 +1,12 @@
 .page {
   container: calendar-panel / inline-size;
   min-width: 0;
-  padding-block: var(--space-6);
+  margin-block: 0 var(--space-6);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
   color: var(--color-text);
 }
 
@@ -23,7 +28,8 @@
 }
 
 .page a {
-  color: var(--color-action);
+  color: var(--color-label-accent);
+  font-weight: 600;
   text-decoration: underline;
   overflow-wrap: anywhere;
 }
@@ -74,9 +80,24 @@
   --fc-event-bg-color: var(--color-action);
   --fc-event-border-color: var(--color-action);
   --fc-event-text-color: var(--color-on-action);
-  --fc-today-bg-color: var(--color-success-surface);
+  --fc-today-bg-color: color-mix(in srgb, var(--color-seafoam) 45%, white);
   min-width: 0;
   font-size: var(--text-input);
+}
+
+.calendar [class~="fc-scrollgrid"] {
+  overflow: hidden;
+  border-radius: var(--radius-control);
+}
+
+.calendar [class~="fc-col-header-cell"] {
+  background: var(--color-surface-muted);
+}
+
+.calendar [class~="fc-col-header-cell-cushion"] {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
 }
 
 .calendar [class~="fc-toolbar"] {
@@ -88,6 +109,7 @@
 
 .calendar [class~="fc-toolbar-title"] {
   font-size: var(--text-section-title);
+  font-weight: var(--weight-section-title);
   overflow-wrap: anywhere;
 }
 
@@ -96,6 +118,8 @@
   padding: var(--control-padding-block) var(--control-padding-inline);
   border-radius: var(--radius-control);
   font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
 }
 
 .calendar [class~="fc-button"]:disabled {

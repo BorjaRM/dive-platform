@@ -4,6 +4,10 @@ packages:
   - "tests/*"
 catalog:
   typescript: "6.0.3"
+# Temporary Tailwind CSS 4.0 pin: keep internal packages on the same release.
+overrides:
+  '@tailwindcss/node': 4.0.0
+  '@tailwindcss/oxide': 4.0.0
 allowBuilds:
   # telemetry-only postinstall script pulled in by swagger-ui-dist; do not run it
   '@scarf/scarf': false

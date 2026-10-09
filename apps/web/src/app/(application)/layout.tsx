@@ -8,7 +8,7 @@ import {
   clerkSatelliteOptions,
   readApplicationHostConfig,
 } from '@/lib/application-hosts';
-import { geistMono, geistSans } from '../fonts';
+import { dmSans } from '../fonts';
 import '../globals.css';
 
 const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -35,10 +35,7 @@ export default async function ApplicationLayout({
     applicationReturnUrl ?? undefined,
   );
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="en" className={`${dmSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         {clerkPublishableKey ? (
           <ClerkProvider

@@ -36,7 +36,7 @@ and [the invitation processor](../../apps/worker/src/bootstrap-invitation-worker
 
 | Command | What it does |
 | --- | --- |
-| `pnpm dev` | Loads the example and local environment, selects the repository Node version and starts web, API and the worker's source watcher. Does not reset the database. |
+| `pnpm dev` | Starts the local PostgreSQL service when Docker is available, waits for it to become healthy, prepares roles and migrations, then loads the example and local environment, selects the repository Node version and starts web, API and the worker's source watcher. It does not reset the database. |
 | `pnpm dev:fresh` | Requires a confirmed local database reset, then starts `dev` only if the reset succeeds. |
 | `pnpm email:send` | Loads the example and local environment and runs the existing invitation worker once. May send real invitation emails through the configured Clerk instance. |
 | `pnpm db:reset:local` | Confirms and recreates only the configured local `dive_spike` database, prepares roles and applies migrations. Deletes all data in that database. |

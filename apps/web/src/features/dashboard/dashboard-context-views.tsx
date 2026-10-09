@@ -144,14 +144,6 @@ export function DashboardShell({
 }) {
   return (
     <main className={styles.page}>
-      <div
-        className={`${styles.orbit} ${styles.orbitOne}`}
-        aria-hidden="true"
-      />
-      <div
-        className={`${styles.orbit} ${styles.orbitTwo}`}
-        aria-hidden="true"
-      />
       <div className={styles.frame}>
         <header className={styles.header}>
           <div>

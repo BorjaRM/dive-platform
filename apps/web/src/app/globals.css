@@ -1,37 +1,72 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --color-canvas: #f4f7f8;
+  --color-surface-muted: #f8fafb;
+  --color-ink: #13242e;
+  --color-muted: #5d6d76;
+  --color-line: #e2e9eb;
+  --color-line-strong: #cbd5da;
+  --color-navy: #0c2633;
+  --color-teal: #087f83;
+  --color-teal-dark: #056b6e;
+  --color-aqua: #61ddd6;
+  --color-seafoam: #e4f7f4;
+  --color-mint: #65d4b0;
+  --color-coral: #ed725e;
+  --color-coral-strong: #c4503d;
+  --color-coral-soft: #fff0ec;
+  --color-blue: #3879bd;
+  --color-blue-strong: #2b64a0;
+  --color-blue-soft: #edf5ff;
+  --color-violet: #7666c5;
+  --color-violet-strong: #5b4bb0;
+  --color-violet-soft: #f2efff;
+  --shadow-soft: 0 1px 2px rgb(16 38 50 / 0.04);
+  --shadow-card: 0 8px 30px rgb(16 38 50 / 0.045);
+  --shadow-button: 0 5px 14px rgb(8 127 131 / 0.2);
+  --shadow-ocean: 0 16px 30px rgb(5 80 96 / 0.2);
+  --shadow-modal: 0 24px 70px rgb(12 38 51 / 0.2);
+  --shadow-glow: 0 5px 16px rgb(97 221 214 / 0.2);
+}
+
+/* Semantic tokens consumed by CSS Modules; values follow the dashboard home. */
 :root {
+  --color-text: var(--color-ink);
+  --color-text-muted: var(--color-muted);
   --color-surface: #ffffff;
-  --color-text: #171717;
-  --color-text-muted: #607376;
-  --color-border: #d7dfd8;
-  --color-action: #102a2c;
-  --color-action-hover: #2c746b;
+  --color-border: var(--color-line);
+  --color-input: #ffffff;
+  --color-placeholder: var(--color-muted);
+  --color-accent: var(--color-teal);
+  --color-label-accent: var(--color-teal-dark);
+  --color-action: var(--color-teal);
+  --color-action-hover: var(--color-teal-dark);
   --color-on-action: #ffffff;
-  --color-input: #fffdf7;
-  --color-placeholder: #98a4a2;
-  --color-focus: #f2c879;
-  --color-success: #2e8f82;
-  --color-success-surface: rgba(46, 143, 130, 0.1);
+  --color-focus: var(--color-teal);
+  --color-success: var(--color-teal-dark);
+  --color-success-surface: var(--color-seafoam);
   --color-warning: #d89b3d;
-  --color-warning-text: #9a681c;
-  --color-warning-surface: rgba(216, 155, 61, 0.1);
+  --color-warning-text: #8a5a12;
+  --color-warning-surface: #fff7e8;
   --color-error: #b42318;
-  --color-label-accent: #2c746b;
-  --font-body: var(--font-geist-sans), sans-serif;
-  --font-display: Georgia, "Times New Roman", serif;
-  --text-xs: 0.7rem;
-  --text-sm: 0.78rem;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
   --text-base: 1rem;
-  --text-button: 0.84rem;
-  --text-input: 0.9rem;
-  --text-label: 0.72rem;
-  --weight-label: 700;
-  --tracking-label: 0.08em;
-  --text-section-title: 1.55rem;
-  --weight-section-title: 600;
-  --line-height-helper: 1.45;
-  --weight-button: 400;
+  --text-button: 0.875rem;
+  --text-input: 0.875rem;
+  --text-label: 0.75rem;
+  --text-section-title: 1.25rem;
+  --text-panel-title: 1.5rem;
+  --text-page-title: 1.5rem;
+  --weight-label: 600;
+  --weight-section-title: 700;
+  --weight-button: 600;
+  --tracking-label: 0;
+  --line-height-helper: 1.5;
+
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -47,35 +82,47 @@
   --space-18: 4.5rem;
   --space-20: 5rem;
   --space-24: 6rem;
-  --radius-sm: 0.125rem;
-  --radius-md: 0.1875rem;
+
+  --radius-control: 0.75rem;
+  --radius-card: 1rem;
   --radius-pill: 999px;
-  --radius-control: var(--radius-sm);
-  --control-height: 2.625rem;
+  --control-height: 2.5rem;
   --control-padding-block: var(--space-2);
   --control-padding-inline: var(--space-3);
-  --button-height: 0;
-  --button-padding-block: var(--space-3);
+  --button-height: 2.5rem;
+  --button-padding-block: var(--space-2);
   --button-padding-inline: var(--space-4);
-  --opacity-disabled: 0.45;
+  --focus-offset: 2px;
+  --opacity-disabled: 0.5;
 }
 
-@theme inline {
-  --color-background: var(--color-surface);
-  --color-foreground: var(--color-text);
-  --font-sans: var(--font-body);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-surface: #0a0a0a;
-    --color-text: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-family: var(--font-body);
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: var(--focus-offset);
+  }
 }

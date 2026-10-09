@@ -1,5 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardContextProvider } from './dashboard-context';
 import { DashboardHome } from './dashboard-home';
@@ -50,6 +57,24 @@ function createApi() {
         },
       ],
       hasNext: false,
+    }),
+    listCalendarSlots: vi.fn().mockResolvedValue({
+      items: [
+        {
+          id: 'slot-a',
+          activityId: 'activity-a',
+          startsAt: '2026-10-01T10:00:00Z',
+          durationMinutes: 60,
+          capacity: 8,
+          status: 'Available',
+          activity: { name: { es: 'Buceo' }, baseLocale: 'es' },
+          confirmedSeats: 2,
+          heldSeats: 1,
+          remainingSeats: 5,
+        },
+      ],
+      hasNext: false,
+      asOf: '2026-10-01T09:00:00.000001Z',
     }),
   };
 }
@@ -130,7 +155,7 @@ describe('center home (DIVE-IAM-REQ-030..032, DIVE-BOOK-REQ-049)', () => {
     expect(
       screen.getByRole('link', { name: 'Schedule session' }),
     ).toHaveAttribute('href', '/dashboard/activities?center=center-a');
-    expect(screen.getByRole('link', { name: 'Calendar' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'View calendar' })).toHaveAttribute(
       'href',
       '/dashboard/calendar?center=center-a',
     );
@@ -142,6 +167,47 @@ describe('center home (DIVE-IAM-REQ-030..032, DIVE-BOOK-REQ-049)', () => {
       { page: 1, pageSize: 5, from: '2026-10-01T09:00:00.000Z' },
       expect.any(AbortSignal),
     );
+    expect(
+      JSON.stringify(
+        queryClient
+          .getQueryCache()
+          .getAll()
+          .map((query) => query.queryKey),
+      ),
+    ).not.toContain('ctx-private');
+  });
+
+  it('shows visible-period sessions and occupancy from the calendar read', async () => {
+    const api = createApi();
+    const { queryClient } = renderHome(api);
+    await waitFor(() => expect(api.listCalendarSlots).toHaveBeenCalled());
+    expect(api.listCalendarSlots).toHaveBeenCalledWith(
+      'ctx-private',
+      'center-a',
+      expect.objectContaining({
+        from: expect.any(String),
+        to: expect.any(String),
+        page: 1,
+        pageSize: 50,
+      }),
+      expect.any(AbortSignal),
+    );
+
+    fireEvent.click(
+      await screen.findByText('Buceo', { selector: '.fc-event-title' }),
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'Buceo' });
+    expect(
+      within(dialog).getByText('Remaining seats').parentElement,
+    ).toHaveTextContent('5');
+    expect(
+      within(dialog).getByRole('link', { name: 'Manage in calendar' }),
+    ).toHaveAttribute(
+      'href',
+      '/dashboard/calendar?center=center-a&calendarView=timeGridDay&calendarDate=2026-10-01',
+    );
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(
       JSON.stringify(
         queryClient

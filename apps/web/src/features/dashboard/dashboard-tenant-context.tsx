@@ -21,6 +21,7 @@ import {
   OperatorSelection,
   StatusPanel,
 } from './dashboard-context-views';
+import { DashboardWorkspace } from './dashboard-workspace';
 import {
   createBrowserTenantContextStorage,
   createDashboardApi,
@@ -582,20 +583,29 @@ export function DashboardTenantContext({
   }
 
   return renderWithDashboardContext(
-    <DashboardShell
-      eyebrow="Authenticated dashboard"
-      title="Your dive operation"
-      action={
-        <div className={styles.actions}>
+    <DashboardWorkspace
+      hasCenterRoute={children !== undefined}
+      actions={
+        <>
           {!centerKey && (
-            <Button type="button" onClick={() => void changeWorkspace()}>
+            <Button
+              type="button"
+              variant="secondary"
+              size="compact"
+              onClick={() => void changeWorkspace()}
+            >
               Change workspace
             </Button>
           )}
-          <Button type="button" onClick={() => void logout()}>
+          <Button
+            type="button"
+            variant="secondary"
+            size="compact"
+            onClick={() => void logout()}
+          >
             Log out
           </Button>
-        </div>
+        </>
       }
     >
       {children ?? (
@@ -605,6 +615,6 @@ export function DashboardTenantContext({
           error={centersQuery.error}
         />
       )}
-    </DashboardShell>,
+    </DashboardWorkspace>,
   );
 }
