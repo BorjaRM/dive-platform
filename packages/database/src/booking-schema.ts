@@ -20,6 +20,16 @@ export const bookingApp = pgSchema('booking_app');
 export const ACTIVITY_STATUSES = ['Draft', 'Published', 'Disabled'] as const;
 export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
 
+export const ACTIVITY_CATEGORY_CODES = [
+  'introductory',
+  'guided_dive',
+  'course',
+  'snorkel',
+  'freediving',
+  'other',
+] as const;
+export type ActivityCategoryCode = (typeof ACTIVITY_CATEGORY_CODES)[number];
+
 export const SLOT_STATUSES = [
   'Available',
   'Full',
@@ -94,6 +104,8 @@ export const bookingActivities = bookingApp.table(
     name: jsonb('name').$type<LocalizedText>().notNull(),
     description: jsonb('description').$type<LocalizedText>(),
     defaultCapacity: integer('default_capacity'),
+    categoryCode: text('category_code').$type<ActivityCategoryCode>(),
+    otherDescription: jsonb('other_description').$type<LocalizedText>(),
     revision: bigint('revision', { mode: 'bigint' }).notNull().default(sql`1`),
     status: text('status').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
@@ -120,6 +132,14 @@ export const bookingActivities = bookingApp.table(
     check(
       'activities_default_capacity_positive',
       sql`default_capacity IS NULL OR default_capacity > 0`,
+    ),
+    check(
+      'activities_category_code_known',
+      sql`category_code IS NULL OR category_code IN ('introductory', 'guided_dive', 'course', 'snorkel', 'freediving', 'other')`,
+    ),
+    check(
+      'activities_other_description_matches_category',
+      sql`(category_code IS NOT NULL AND category_code = 'other' AND COALESCE(jsonb_typeof(other_description) = 'object' AND jsonb_typeof(other_description -> base_locale) = 'string', false)) OR (category_code IS DISTINCT FROM 'other' AND other_description IS NULL)`,
     ),
     index('activities_center_status_created_id_idx').on(
       table.tenantId,

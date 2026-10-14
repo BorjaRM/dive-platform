@@ -39,6 +39,7 @@ import {
   ActivityDto,
   ActivityListDto,
   CatalogActivityInputDto,
+  CatalogCommercialEditDto,
   CatalogCommonEditDto,
   CatalogListQueryDto,
   CatalogSettingsDto,
@@ -72,6 +73,7 @@ import { SlotCatalogService } from './slots/slot-catalog.service.js';
 @ApiBearerAuth()
 @ApiExtraModels(
   CatalogActivityInputDto,
+  CatalogCommercialEditDto,
   CatalogCommonEditDto,
   CatalogTranslationEditDto,
   CatalogListQueryDto,
@@ -181,6 +183,7 @@ export class CatalogController {
       oneOf: [
         { $ref: getSchemaPath(CatalogTranslationEditDto) },
         { $ref: getSchemaPath(CatalogCommonEditDto) },
+        { $ref: getSchemaPath(CatalogCommercialEditDto) },
       ],
     },
   })
@@ -203,7 +206,7 @@ export class CatalogController {
 
   @Patch('activities/:activityId/publish')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Publish an activity' })
+  @ApiOperation({ summary: 'Publish or re-enable an activity' })
   @ApiNoContentResponse()
   publishActivity(
     @CenterApplicationScope() scope: ResolvedCenterApplicationScope,

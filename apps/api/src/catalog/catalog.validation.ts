@@ -1,4 +1,8 @@
 import {
+  ACTIVITY_CATEGORY_CODES,
+  type ActivityCategoryCode,
+} from '@dive-center/database';
+import {
   positiveInteger,
   rejectUnknownFields,
   uuid,
@@ -18,6 +22,7 @@ export { positiveInteger, rejectUnknownFields, uuid };
 const PAGE_DEFAULT = 1;
 const PAGE_SIZE_DEFAULT = 20;
 const PAGE_SIZE_MAX = 50;
+const OTHER_DESCRIPTION_MAX_LENGTH = 500;
 
 export function pagination(query: CatalogListQueryInput) {
   const page = query.page === undefined ? PAGE_DEFAULT : Number(query.page);
@@ -119,8 +124,19 @@ export function statusFilter(value: unknown, allowed: readonly string[]) {
 export function parseCatalogActivityInput(
   value: unknown,
 ): CatalogActivityInput {
-  rejectUnknownFields(value, ['name', 'description', 'defaultCapacity']);
+  rejectUnknownFields(value, [
+    'name',
+    'description',
+    'defaultCapacity',
+    'category',
+    'otherDescription',
+  ]);
   const input = value as Record<string, unknown>;
+  const hasCommercialValues =
+    input.category !== undefined || input.otherDescription !== undefined;
+  const commercial = hasCommercialValues
+    ? parseCatalogCommercialValues(input.category, input.otherDescription)
+    : undefined;
   return {
     name: localized(input.name, 'name', true),
     description: localized(input.description, 'description', false),
@@ -128,6 +144,12 @@ export function parseCatalogActivityInput(
       input.defaultCapacity === undefined
         ? undefined
         : positiveInteger(input.defaultCapacity, 'defaultCapacity'),
+    ...(commercial
+      ? {
+          category: commercial.category,
+          otherDescription: commercial.otherDescription,
+        }
+      : {}),
   };
 }
 
@@ -186,7 +208,78 @@ export function parseCatalogActivityEditInput(
       },
     };
   }
+  if (input.group === 'commercial') {
+    rejectUnknownFields(input, ['group', 'values']);
+    rejectUnknownFields(input.values, ['category', 'otherDescription']);
+    const values = input.values as Record<string, unknown>;
+    const commercial = parseCatalogCommercialValues(
+      values.category,
+      values.otherDescription,
+    );
+    return {
+      group: 'commercial',
+      values: commercial,
+    };
+  }
   throw new CatalogProblemException(422, 'validation_error');
+}
+
+function parseCatalogCommercialValues(
+  categoryValue: unknown,
+  otherDescriptionValue: unknown,
+): {
+  category: ActivityCategoryCode | null;
+  otherDescription: { es?: string; en?: string };
+} {
+  if (
+    categoryValue !== null &&
+    !(ACTIVITY_CATEGORY_CODES as readonly unknown[]).includes(categoryValue)
+  ) {
+    throw new CatalogProblemException(
+      422,
+      'validation_error',
+      'category must be a supported category code or null',
+    );
+  }
+  if (otherDescriptionValue === undefined) {
+    throw new CatalogProblemException(
+      422,
+      'validation_error',
+      'otherDescription must be an object',
+    );
+  }
+  rejectUnknownFields(otherDescriptionValue, ['es', 'en']);
+  const description = otherDescriptionValue as Record<string, unknown>;
+  const otherDescription: { es?: string; en?: string } = {};
+  for (const locale of ['es', 'en'] as const) {
+    const text = description[locale];
+    if (text === undefined) continue;
+    if (
+      typeof text !== 'string' ||
+      [...text].length > OTHER_DESCRIPTION_MAX_LENGTH
+    ) {
+      throw new CatalogProblemException(
+        422,
+        'validation_error',
+        `otherDescription.${locale} must be text of at most ${OTHER_DESCRIPTION_MAX_LENGTH} characters`,
+      );
+    }
+    otherDescription[locale] = text;
+  }
+  if (
+    categoryValue !== 'other' &&
+    Object.values(otherDescription).some((text) => text.trim() !== '')
+  ) {
+    throw new CatalogProblemException(
+      422,
+      'validation_error',
+      'otherDescription is only allowed for category other',
+    );
+  }
+  return {
+    category: categoryValue as ActivityCategoryCode | null,
+    otherDescription,
+  };
 }
 
 export function activityEtag(activityId: string, revision: bigint) {

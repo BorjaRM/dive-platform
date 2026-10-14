@@ -110,6 +110,34 @@ describe('dashboard catalog API boundary', () => {
     });
   });
 
+  it('sends the commercial category form unchanged with its revision (DIVE-BOOK-REQ-074)', async () => {
+    const etag = '"activity-alpha-r2"';
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(null, {
+        status: 204,
+        headers: { ETag: '"activity-alpha-r3"' },
+      }),
+    );
+    const api = createDashboardApi({
+      baseUrl: '/api/dashboard',
+      session: { getToken: async () => 'token' },
+    });
+    const body = {
+      group: 'commercial' as const,
+      values: {
+        category: 'other' as const,
+        otherDescription: { es: 'Limpieza de fondos' },
+      },
+    };
+    await expect(
+      api.updateActivity('ctx_alpha', 'center-alpha', 'alpha', body, etag),
+    ).resolves.toBe('"activity-alpha-r3"');
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    expect(init?.method).toBe('PUT');
+    expect(new Headers(init?.headers).get('If-Match')).toBe(etag);
+    expect(JSON.parse(init?.body as string)).toEqual(body);
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -210,6 +238,8 @@ describe('dashboard catalog API boundary', () => {
       name: { es: 'Buceo' },
       description: { en: 'Diving' },
       defaultCapacity: 8,
+      category: 'course',
+      otherDescription: {},
       tenantId: 'tenant-secret',
       centerId: 'center-other',
       status: 'Published',
@@ -241,6 +271,8 @@ describe('dashboard catalog API boundary', () => {
       name: { es: 'Buceo' },
       description: { en: 'Diving' },
       defaultCapacity: 8,
+      category: 'course',
+      otherDescription: {},
     });
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
       startsAt: '2026-10-01T10:00:00Z',

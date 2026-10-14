@@ -145,7 +145,7 @@ describe('dashboard tenant-context boundary', () => {
         api.createActivity(
           'ctx_alpha',
           'center-alpha',
-          { name },
+          { name, category: null, otherDescription: {} },
           caller.signal,
         ),
       ).rejects.toBe(serializationError);

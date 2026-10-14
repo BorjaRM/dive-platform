@@ -4,32 +4,50 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button, Input, Notice, Select } from '../../components/ui/controls';
 import styles from './catalog.module.css';
-import type {
-  CatalogActivityDetail,
-  CatalogLocale,
-  UpdateCatalogActivityInput,
+import {
+  ACTIVITY_CATEGORIES,
+  ACTIVITY_CATEGORY_LABELS,
+  type ActivityCategory,
+  type CatalogActivityDetail,
+  type CatalogLocale,
+  type LocalizedText,
+  OTHER_DESCRIPTION_MAX_LENGTH,
+  type UpdateCatalogActivityInput,
 } from './catalog-api';
 import { describeCatalogError } from './catalog-feedback';
+import { StatusBadge } from './catalog-sections';
 import { useDashboardContext } from './dashboard-context';
 import { DashboardApiError } from './tenant-context';
+
+const LOCALE_LABELS: Record<CatalogLocale, string> = {
+  es: 'Spanish',
+  en: 'English',
+};
 
 export function EditCatalogActivity({
   detail,
   centerId,
   canEditActivity,
+  canDisableActivity,
   onReload,
 }: {
   detail: CatalogActivityDetail;
   centerId: string;
   canEditActivity: boolean;
+  canDisableActivity: boolean;
   onReload: () => Promise<CatalogActivityDetail | null>;
 }) {
   const [loadedDetail, setLoadedDetail] = useState(detail);
   const [reloadVersion, setReloadVersion] = useState(0);
   const [isReloading, setIsReloading] = useState(false);
   const [reloadError, setReloadError] = useState<Error | null>(null);
+  const { activity } = loadedDetail;
   return (
-    <>
+    <section className={styles.section} aria-labelledby="edit-activity-heading">
+      <div className={styles.sectionHeading}>
+        <h3 id="edit-activity-heading">Activity details</h3>
+        <StatusBadge status={activity.status} />
+      </div>
       {canEditActivity ? (
         <ActivityEditForms
           key={reloadVersion}
@@ -44,7 +62,25 @@ export function EditCatalogActivity({
       {reloadError && (
         <Notice role="alert">{describeCatalogError(reloadError)}</Notice>
       )}
-    </>
+      {canDisableActivity && activity.status === 'Published' && (
+        <DisableActivityAction
+          key={reloadVersion}
+          activityId={activity.id}
+          centerId={centerId}
+          isReloading={isReloading}
+          onDisabled={reload}
+        />
+      )}
+      {canDisableActivity && activity.status === 'Disabled' && (
+        <EnableActivityAction
+          key={reloadVersion}
+          activityId={activity.id}
+          centerId={centerId}
+          isReloading={isReloading}
+          onEnabled={reload}
+        />
+      )}
+    </section>
   );
 
   async function reload() {
@@ -72,30 +108,30 @@ export function EditCatalogActivity({
 
 function ReadOnlyActivity({ detail }: { detail: CatalogActivityDetail }) {
   const { activity } = detail;
+  const base = activity.baseLocale;
   return (
-    <section
-      className={styles.section}
-      aria-labelledby="activity-details-heading"
-    >
-      <div className={styles.sectionHeading}>
-        <h3 id="activity-details-heading">Activity details</h3>
-        <span>{activity.status}</span>
-      </div>
+    <div className={styles.form}>
       <p>
-        <strong>Name</strong>:{' '}
-        {activity.name.es ?? activity.name.en ?? 'Unnamed activity'}
+        <strong>Name</strong>: {activity.name[base] ?? 'Unnamed activity'}
       </p>
       <p>
         <strong>Description</strong>:{' '}
-        {activity.description?.es ??
-          activity.description?.en ??
-          'No description'}
+        {activity.description?.[base] ?? 'No description'}
       </p>
       <p>
         <strong>Default capacity</strong>:{' '}
         {activity.defaultCapacity ?? 'Not set'}
       </p>
-    </section>
+      <p>
+        <strong>Category</strong>:{' '}
+        {activity.category
+          ? ACTIVITY_CATEGORY_LABELS[activity.category]
+          : 'Not set'}
+        {activity.category === 'other' &&
+          activity.otherDescription?.[base] &&
+          ` · ${activity.otherDescription[base]}`}
+      </p>
+    </div>
   );
 }
 
@@ -113,8 +149,17 @@ function ActivityEditForms({
   const { api, tenantContext, handleSessionExpired } = useDashboardContext();
   const queryClient = useQueryClient();
   const { activity } = detail;
+  const baseLocale = activity.baseLocale;
+  const otherLocale: CatalogLocale = baseLocale === 'es' ? 'en' : 'es';
   const [etag, setEtag] = useState(detail.etag);
-  const [locale, setLocale] = useState<CatalogLocale>(activity.baseLocale);
+  const [locale, setLocale] = useState<CatalogLocale>(baseLocale);
+  const [isTranslationOpen, setIsTranslationOpen] = useState(
+    Boolean(
+      activity.name[otherLocale] ||
+        activity.description?.[otherLocale] ||
+        activity.otherDescription?.[otherLocale],
+    ),
+  );
   const [translations, setTranslations] = useState({
     es: {
       name: activity.name.es ?? '',
@@ -128,6 +173,15 @@ function ActivityEditForms({
   const [capacity, setCapacity] = useState(
     activity.defaultCapacity?.toString() ?? '',
   );
+  const [category, setCategory] = useState<ActivityCategory | ''>(
+    activity.category ?? '',
+  );
+  const [otherDescription, setOtherDescription] = useState<
+    Record<CatalogLocale, string>
+  >({
+    es: activity.otherDescription?.es ?? '',
+    en: activity.otherDescription?.en ?? '',
+  });
   const [validationError, setValidationError] = useState<string | null>(null);
   const mutation = useMutation({
     mutationFn: (input: UpdateCatalogActivityInput) => {
@@ -159,23 +213,44 @@ function ActivityEditForms({
   });
   const isBusy = mutation.isPending || isReloading;
   return (
-    <section className={styles.section} aria-labelledby="edit-activity-heading">
-      <div className={styles.sectionHeading}>
-        <h3 id="edit-activity-heading">Activity details</h3>
-        <span>{activity.status}</span>
+    <>
+      <div className={styles.languageBar}>
+        {isTranslationOpen ? (
+          <label className={styles.field} htmlFor="edit-activity-language">
+            <span>Language</span>
+            <Select
+              id="edit-activity-language"
+              value={locale}
+              disabled={isBusy}
+              onChange={(event) =>
+                setLocale(event.target.value as CatalogLocale)
+              }
+            >
+              <option value={baseLocale}>
+                {LOCALE_LABELS[baseLocale]} (base language)
+              </option>
+              <option value={otherLocale}>{LOCALE_LABELS[otherLocale]}</option>
+            </Select>
+          </label>
+        ) : (
+          <>
+            <p className={styles.fieldHint}>
+              Writing in {LOCALE_LABELS[baseLocale]}, the catalog language.
+            </p>
+            <Button
+              variant="secondary"
+              size="compact"
+              disabled={isBusy}
+              onClick={() => {
+                setIsTranslationOpen(true);
+                setLocale(otherLocale);
+              }}
+            >
+              Add {LOCALE_LABELS[otherLocale]} translation
+            </Button>
+          </>
+        )}
       </div>
-      <label className={styles.field} htmlFor="edit-activity-language">
-        <span>Language</span>
-        <Select
-          id="edit-activity-language"
-          value={locale}
-          disabled={isBusy}
-          onChange={(event) => setLocale(event.target.value as CatalogLocale)}
-        >
-          <option value="es">Spanish</option>
-          <option value="en">English</option>
-        </Select>
-      </label>
       <form
         className={styles.form}
         aria-label="Activity translation"
@@ -272,6 +347,94 @@ function ActivityEditForms({
           Save common facts
         </Button>
       </form>
+      <form
+        className={styles.form}
+        aria-label="Activity category"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (isBusy) return;
+          setValidationError(null);
+          if (category === 'other') {
+            if (!otherDescription[baseLocale].trim()) {
+              setValidationError(
+                `Describe the other category in ${LOCALE_LABELS[baseLocale]}.`,
+              );
+              return;
+            }
+            if (
+              Object.values(otherDescription).some(
+                (text) => [...text].length > OTHER_DESCRIPTION_MAX_LENGTH,
+              )
+            ) {
+              setValidationError(
+                `The other category description is limited to ${OTHER_DESCRIPTION_MAX_LENGTH} characters.`,
+              );
+              return;
+            }
+          }
+          mutation.mutate({
+            group: 'commercial',
+            values: {
+              category: category || null,
+              otherDescription:
+                category === 'other' ? authoredText(otherDescription) : {},
+            },
+          });
+        }}
+      >
+        <fieldset
+          className={`${styles.form} ${styles.formFields}`}
+          disabled={isBusy}
+        >
+          <label className={styles.field} htmlFor="edit-activity-category">
+            <span>Category</span>
+            <Select
+              id="edit-activity-category"
+              value={category}
+              onChange={(event) =>
+                setCategory(event.target.value as ActivityCategory | '')
+              }
+            >
+              <option value="">No category</option>
+              {ACTIVITY_CATEGORIES.map((code) => (
+                <option key={code} value={code}>
+                  {ACTIVITY_CATEGORY_LABELS[code]}
+                </option>
+              ))}
+            </Select>
+          </label>
+          {category === 'other' && (
+            <div className={styles.field}>
+              <label htmlFor="edit-activity-other-description">
+                Other category description
+              </label>
+              <Input
+                id="edit-activity-other-description"
+                value={otherDescription[locale]}
+                required={locale === baseLocale}
+                aria-describedby="edit-activity-other-description-hint"
+                onChange={(event) => {
+                  const text = event.target.value;
+                  setOtherDescription((current) => ({
+                    ...current,
+                    [locale]: text,
+                  }));
+                }}
+              />
+              <span
+                id="edit-activity-other-description-hint"
+                className={styles.fieldHint}
+              >
+                In {LOCALE_LABELS[locale]}. Required in{' '}
+                {LOCALE_LABELS[baseLocale]}.
+              </span>
+            </div>
+          )}
+          <Button type="submit" disabled={isBusy}>
+            Save category
+          </Button>
+        </fieldset>
+      </form>
       {validationError && <Notice role="alert">{validationError}</Notice>}
       {mutation.isSuccess && (
         <Notice tone="success" role="status">
@@ -290,6 +453,152 @@ function ActivityEditForms({
       >
         Reload current activity
       </Button>
-    </section>
+    </>
+  );
+}
+
+function authoredText(values: Record<CatalogLocale, string>): LocalizedText {
+  return Object.fromEntries(
+    Object.entries(values).filter(([, text]) => text.trim() !== ''),
+  );
+}
+
+function focusOnMount(node: HTMLElement | null) {
+  node?.focus();
+}
+
+function DisableActivityAction({
+  activityId,
+  centerId,
+  isReloading,
+  onDisabled,
+}: {
+  activityId: string;
+  centerId: string;
+  isReloading: boolean;
+  onDisabled: () => Promise<void>;
+}) {
+  const { api, tenantContext, handleSessionExpired } = useDashboardContext();
+  const queryClient = useQueryClient();
+  const [isConfirming, setIsConfirming] = useState(false);
+  const mutation = useMutation({
+    mutationFn: () => {
+      if (!tenantContext)
+        throw new Error('An authorized center context is required.');
+      return api.disableActivity(tenantContext, centerId, activityId);
+    },
+    onSuccess: async () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['dashboard', 'catalog', 'activities'],
+        refetchType: 'none',
+      });
+      await onDisabled();
+    },
+    onError: (error) => {
+      if (
+        error instanceof DashboardApiError &&
+        error.kind === 'session-expired'
+      )
+        handleSessionExpired();
+    },
+    retry: false,
+  });
+  const isBusy = mutation.isPending || isReloading;
+  return (
+    <div className={styles.disableAction}>
+      {isConfirming ? (
+        <Notice
+          role="group"
+          aria-labelledby="disable-activity-title"
+          aria-describedby="disable-activity-detail"
+        >
+          <strong id="disable-activity-title">Disable this activity?</strong>
+          <span id="disable-activity-detail">
+            New sessions and bookings will stop. Existing sessions and bookings
+            stay as they are and must be managed separately. Unsaved changes are
+            discarded when the activity reloads.
+          </span>
+          <span className={styles.inlineActions}>
+            <Button disabled={isBusy} onClick={() => mutation.mutate()}>
+              Confirm disable
+            </Button>
+            <Button
+              ref={focusOnMount}
+              variant="secondary"
+              disabled={isBusy}
+              onClick={() => {
+                mutation.reset();
+                setIsConfirming(false);
+              }}
+            >
+              Keep published
+            </Button>
+          </span>
+        </Notice>
+      ) : (
+        <Button
+          variant="secondary"
+          disabled={isBusy}
+          onClick={() => setIsConfirming(true)}
+        >
+          Disable activity
+        </Button>
+      )}
+      {mutation.error && (
+        <Notice role="alert">{describeCatalogError(mutation.error)}</Notice>
+      )}
+    </div>
+  );
+}
+
+function EnableActivityAction({
+  activityId,
+  centerId,
+  isReloading,
+  onEnabled,
+}: {
+  activityId: string;
+  centerId: string;
+  isReloading: boolean;
+  onEnabled: () => Promise<void>;
+}) {
+  const { api, tenantContext, handleSessionExpired } = useDashboardContext();
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: () => {
+      if (!tenantContext)
+        throw new Error('An authorized center context is required.');
+      return api.publishActivity(tenantContext, centerId, activityId);
+    },
+    onSuccess: async () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['dashboard', 'catalog', 'activities'],
+        refetchType: 'none',
+      });
+      await onEnabled();
+    },
+    onError: (error) => {
+      if (
+        error instanceof DashboardApiError &&
+        error.kind === 'session-expired'
+      )
+        handleSessionExpired();
+    },
+    retry: false,
+  });
+  const isBusy = mutation.isPending || isReloading;
+  return (
+    <div className={styles.disableAction}>
+      <Button
+        variant="secondary"
+        disabled={isBusy}
+        onClick={() => mutation.mutate()}
+      >
+        Enable activity
+      </Button>
+      {mutation.error && (
+        <Notice role="alert">{describeCatalogError(mutation.error)}</Notice>
+      )}
+    </div>
   );
 }

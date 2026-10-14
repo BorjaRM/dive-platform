@@ -370,6 +370,224 @@ SELECT id FROM iam_app.tenants;
     ]);
   });
 
+  it('adds activity categories to populated activities without defaults or backfill (DIVE-BOOK-REQ-074)', async () => {
+    const populatedDatabaseName = `dive_migrate_category_${migrationTestRun}`;
+    const tempFolder = mkdtempSync(join(tmpdir(), 'dive-migrate-category-'));
+    const metaDir = join(tempFolder, 'meta');
+    mkdirSync(metaDir, { recursive: true });
+    const journal = JSON.parse(
+      readFileSync(join(productMigrationsFolder, 'meta/_journal.json'), 'utf8'),
+    ) as { entries: Array<{ tag: string }> };
+    const categoryIndex = journal.entries.findIndex(
+      (entry) => entry.tag === '0001_activity_category',
+    );
+    expect(categoryIndex).toBeGreaterThan(0);
+    journal.entries = journal.entries.slice(0, categoryIndex);
+    writeFileSync(
+      join(metaDir, '_journal.json'),
+      `${JSON.stringify(journal, null, 2)}\n`,
+    );
+    for (const entry of journal.entries) {
+      writeFileSync(
+        join(tempFolder, `${entry.tag}.sql`),
+        readFileSync(join(productMigrationsFolder, `${entry.tag}.sql`), 'utf8'),
+      );
+    }
+
+    const maintenance = new Pool({
+      connectionString: spikeAdminDatabaseUrl(),
+      max: 1,
+    });
+    let populatedPool: Pool | undefined;
+    try {
+      await dropDatabase(maintenance, populatedDatabaseName);
+      await maintenance.query(
+        `CREATE DATABASE ${quoteIdentifier(populatedDatabaseName)}`,
+      );
+      await maintenance.query(
+        `GRANT CONNECT, CREATE ON DATABASE ${quoteIdentifier(populatedDatabaseName)} TO dive_migration`,
+      );
+      const migrationUrl = urlForDatabase(
+        migrationDatabaseUrl(),
+        populatedDatabaseName,
+      );
+      await migrateProduct(tempFolder, migrationUrl);
+      populatedPool = new Pool({
+        connectionString: urlForDatabase(
+          spikeAdminDatabaseUrl(),
+          populatedDatabaseName,
+        ),
+        max: 1,
+      });
+      await populatedPool.query(
+        `INSERT INTO iam_app.tenants(id, name) VALUES ($1, 'Operator')`,
+        [tenantA],
+      );
+      await populatedPool.query(
+        `INSERT INTO iam_app.centers(id, tenant_id, name) VALUES ($1, $2, 'Center')`,
+        [centerA1, tenantA],
+      );
+      await populatedPool.query(
+        `INSERT INTO booking_app.activities(id, tenant_id, center_id, base_locale, name, status)
+         VALUES (gen_random_uuid(), $1, $2, 'es', '{"es":"Draft"}', 'Draft'),
+                (gen_random_uuid(), $1, $2, 'en', '{"en":"Published"}', 'Published'),
+                (gen_random_uuid(), $1, $2, 'es', '{"es":"Disabled"}', 'Disabled')`,
+        [tenantA, centerA1],
+      );
+
+      await migrateProduct(productMigrationsFolder, migrationUrl);
+
+      const rows = await populatedPool.query(
+        `SELECT status, category_code, other_description, revision::text
+         FROM booking_app.activities ORDER BY status`,
+      );
+      expect(rows.rows).toEqual(
+        ['Disabled', 'Draft', 'Published'].map((status) => ({
+          status,
+          category_code: null,
+          other_description: null,
+          revision: '1',
+        })),
+      );
+      const columns = await populatedPool.query(
+        `SELECT column_name, data_type, is_nullable, column_default
+         FROM information_schema.columns
+         WHERE table_schema = 'booking_app' AND table_name = 'activities'
+           AND column_name IN ('category_code', 'other_description')
+         ORDER BY column_name`,
+      );
+      expect(columns.rows).toEqual([
+        {
+          column_name: 'category_code',
+          data_type: 'text',
+          is_nullable: 'YES',
+          column_default: null,
+        },
+        {
+          column_name: 'other_description',
+          data_type: 'jsonb',
+          is_nullable: 'YES',
+          column_default: null,
+        },
+      ]);
+      const constraints = await populatedPool.query(
+        `SELECT conname, convalidated FROM pg_constraint
+         WHERE conrelid = 'booking_app.activities'::regclass
+           AND conname IN ('activities_category_code_known', 'activities_other_description_matches_category')
+         ORDER BY conname`,
+      );
+      expect(constraints.rows).toEqual([
+        { conname: 'activities_category_code_known', convalidated: true },
+        {
+          conname: 'activities_other_description_matches_category',
+          convalidated: true,
+        },
+      ]);
+    } finally {
+      await populatedPool?.end();
+      await dropDatabase(maintenance, populatedDatabaseName);
+      await maintenance.end();
+      rmSync(tempFolder, { recursive: true, force: true });
+    }
+  });
+
+  it('constrains activity category codes and Other descriptions (DIVE-BOOK-REQ-074)', async () => {
+    const client = await requireEmptyAdminPool(emptyAdminPool).connect();
+    const insert = (
+      baseLocale: string,
+      categoryCode: string | null,
+      otherDescription: string | null,
+    ) =>
+      client.query(
+        `INSERT INTO booking_app.activities(id, tenant_id, center_id, base_locale, name, status, category_code, other_description)
+         VALUES (gen_random_uuid(), $1, $2, $3, '{"es":"Activity","en":"Activity"}', 'Draft', $4, $5::jsonb)`,
+        [tenantA, centerA1, baseLocale, categoryCode, otherDescription],
+      );
+    const expectViolation = async (
+      constraint: string,
+      ...args: Parameters<typeof insert>
+    ) => {
+      await client.query('SAVEPOINT category_case');
+      await expect(insert(...args)).rejects.toMatchObject({
+        code: '23514',
+        constraint,
+      });
+      await client.query('ROLLBACK TO SAVEPOINT category_case');
+    };
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO iam_app.tenants(id, name) VALUES ($1, 'Operator')`,
+        [tenantA],
+      );
+      await client.query(
+        `INSERT INTO iam_app.centers(id, tenant_id, name) VALUES ($1, $2, 'Center')`,
+        [centerA1, tenantA],
+      );
+      for (const code of [
+        'introductory',
+        'guided_dive',
+        'course',
+        'snorkel',
+        'freediving',
+        null,
+      ]) {
+        await insert('es', code, null);
+      }
+      await insert('es', 'other', '{"es":"Limpieza de fondos"}');
+      await insert('en', 'other', '{"en":"Reef cleanup","es":"Limpieza"}');
+
+      for (const code of ['wreck', 'Snorkel', 'OTHER', '']) {
+        await expectViolation(
+          'activities_category_code_known',
+          'es',
+          code,
+          null,
+        );
+      }
+      const mismatch = 'activities_other_description_matches_category';
+      await expectViolation(mismatch, 'en', 'other', '{"es":"Limpieza"}');
+      await expectViolation(mismatch, 'es', 'snorkel', '{"es":"Limpieza"}');
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+  });
+
+  it.each([
+    ['other', null],
+    [null, '{"es":"Limpieza"}'],
+  ])(
+    'rejects category %s with description %s despite SQL NULL logic (DIVE-BOOK-REQ-074)',
+    async (categoryCode, otherDescription) => {
+      const client = await requireEmptyAdminPool(emptyAdminPool).connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(
+          `INSERT INTO iam_app.tenants(id, name) VALUES ($1, 'Operator')`,
+          [tenantA],
+        );
+        await client.query(
+          `INSERT INTO iam_app.centers(id, tenant_id, name) VALUES ($1, $2, 'Center')`,
+          [centerA1, tenantA],
+        );
+        await expect(
+          client.query(
+            `INSERT INTO booking_app.activities(id, tenant_id, center_id, base_locale, name, status, category_code, other_description)
+             VALUES (gen_random_uuid(), $1, $2, 'es', '{"es":"Activity"}', 'Draft', $3, $4::jsonb)`,
+            [tenantA, centerA1, categoryCode, otherDescription],
+          ),
+        ).rejects.toMatchObject({
+          code: '23514',
+          constraint: 'activities_other_description_matches_category',
+        });
+      } finally {
+        await client.query('ROLLBACK');
+        client.release();
+      }
+    },
+  );
+
   it('keeps Drizzle product columns aligned with PostgreSQL', async () => {
     const migratedPool = requireEmptyAdminPool(emptyAdminPool);
     for (const table of [...iamTables, ...bookingTables, ...onboardingTables]) {

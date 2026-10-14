@@ -63,6 +63,121 @@ describe('catalog runtime validation', () => {
     },
   );
 
+  it.each([
+    'introductory',
+    'guided_dive',
+    'course',
+    'snorkel',
+    'freediving',
+    null,
+  ])(
+    'accepts commercial category %s without a description (DIVE-BOOK-REQ-074)',
+    (category) => {
+      const input = {
+        group: 'commercial',
+        values: { category, otherDescription: {} },
+      };
+      expect(parseCatalogActivityEditInput(input)).toEqual(input);
+    },
+  );
+
+  it('accepts other with a description and blank values for any category (DIVE-BOOK-REQ-074)', () => {
+    const other = {
+      group: 'commercial',
+      values: {
+        category: 'other',
+        otherDescription: { es: 'Limpieza de fondos', en: '' },
+      },
+    };
+    expect(parseCatalogActivityEditInput(other)).toEqual(other);
+    const blank = {
+      group: 'commercial',
+      values: { category: null, otherDescription: { es: '  ', en: '' } },
+    };
+    expect(parseCatalogActivityEditInput(blank)).toEqual(blank);
+  });
+
+  it('counts the description bound in Unicode code points (DIVE-BOOK-REQ-074)', () => {
+    const astral = '🐠'.repeat(500);
+    expect(
+      parseCatalogActivityEditInput({
+        group: 'commercial',
+        values: { category: 'other', otherDescription: { es: astral } },
+      }),
+    ).toEqual({
+      group: 'commercial',
+      values: { category: 'other', otherDescription: { es: astral } },
+    });
+    expect(() =>
+      parseCatalogActivityEditInput({
+        group: 'commercial',
+        values: {
+          category: 'other',
+          otherDescription: { es: 'a'.repeat(501) },
+        },
+      }),
+    ).toThrow(expect.objectContaining({ status: 422 }));
+  });
+
+  it.each([
+    ['unknown code', { category: 'wreck', otherDescription: {} }],
+    ['label instead of code', { category: 'Snorkel', otherDescription: {} }],
+    ['uppercase code', { category: 'OTHER', otherDescription: { es: 'x' } }],
+    ['missing category', { otherDescription: {} }],
+    ['missing otherDescription', { category: null }],
+    ['null otherDescription', { category: null, otherDescription: null }],
+    ['array otherDescription', { category: null, otherDescription: [] }],
+    [
+      'unsupported description locale',
+      { category: 'other', otherDescription: { es: 'x', fr: 'y' } },
+    ],
+    [
+      'non-string description',
+      { category: 'other', otherDescription: { es: 5 } },
+    ],
+    [
+      'description with non-other category',
+      { category: 'snorkel', otherDescription: { es: 'Limpieza' } },
+    ],
+    [
+      'description with null category',
+      { category: null, otherDescription: { en: 'Cleanup' } },
+    ],
+    [
+      'extra values field',
+      { category: null, otherDescription: {}, defaultCapacity: 5 },
+    ],
+  ])(
+    'rejects commercial form with %s (DIVE-BOOK-REQ-056, 074)',
+    (_case, values) => {
+      expect(() =>
+        parseCatalogActivityEditInput({ group: 'commercial', values }),
+      ).toThrow(expect.objectContaining({ status: 422 }));
+    },
+  );
+
+  it.each([
+    {
+      group: 'commercial',
+      locale: 'es',
+      values: { category: null, otherDescription: {} },
+    },
+    {
+      group: 'commercial',
+      values: { category: null, otherDescription: {} },
+      tenantId: 'untrusted',
+    },
+    { group: 'commercial' },
+    { group: 'commercial', values: null },
+  ])(
+    'rejects commercial envelope with locale, extra or missing fields (DIVE-BOOK-REQ-056, 074)',
+    (input) => {
+      expect(() => parseCatalogActivityEditInput(input)).toThrow(
+        expect.objectContaining({ status: 422 }),
+      );
+    },
+  );
+
   it('preserves BIGINT revision precision in ETags (DIVE-BOOK-REQ-078)', () => {
     const activityId = 'aaaaaaaa-1001-4001-8001-000000000001';
     const revision = 9_223_372_036_854_775_807n;
@@ -152,6 +267,58 @@ describe('catalog runtime validation', () => {
       }),
     ).toThrow(CatalogProblemException);
   });
+
+  it.each([
+    'introductory',
+    'guided_dive',
+    'course',
+    'snorkel',
+    'freediving',
+    'other',
+  ] as const)(
+    'accepts commercial fields on activity creation: %s',
+    (category) => {
+      const input = {
+        name: { es: 'Buceo' },
+        category,
+        otherDescription:
+          category === 'other' ? { es: 'Limpieza de fondos' } : {},
+      };
+      expect(parseCatalogActivityInput(input)).toEqual(input);
+    },
+  );
+
+  it('accepts an explicit empty commercial description on activity creation', () => {
+    expect(
+      parseCatalogActivityInput({
+        name: { es: 'Buceo' },
+        category: null,
+        otherDescription: { es: '  ', en: '' },
+      }),
+    ).toEqual({
+      name: { es: 'Buceo' },
+      description: undefined,
+      defaultCapacity: undefined,
+      category: null,
+      otherDescription: { es: '  ', en: '' },
+    });
+  });
+
+  it.each([
+    ['unknown category', { category: 'wreck', otherDescription: {} }],
+    [
+      'description with another category',
+      { category: 'snorkel', otherDescription: { es: 'Limpieza' } },
+    ],
+    ['missing otherDescription', { category: 'other' }],
+  ])(
+    'rejects invalid commercial fields on activity creation: %s',
+    (_, fields) => {
+      expect(() =>
+        parseCatalogActivityInput({ name: { es: 'Buceo' }, ...fields }),
+      ).toThrow(CatalogProblemException);
+    },
+  );
 
   it('rejects malformed slot values before persistence', () => {
     expect(() =>

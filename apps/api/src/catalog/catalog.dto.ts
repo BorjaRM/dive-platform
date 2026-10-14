@@ -1,3 +1,7 @@
+import {
+  ACTIVITY_CATEGORY_CODES,
+  type ActivityCategoryCode,
+} from '@dive-center/database';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class DashboardCapabilitiesDto {
@@ -46,6 +50,12 @@ export class ActivityDto {
 
   @ApiPropertyOptional()
   defaultCapacity?: number;
+
+  @ApiPropertyOptional({ enum: ACTIVITY_CATEGORY_CODES })
+  category?: ActivityCategoryCode;
+
+  @ApiPropertyOptional({ type: LocalizedTextDto })
+  otherDescription?: LocalizedTextDto;
 
   @ApiProperty()
   createdAt: string;
@@ -113,6 +123,12 @@ export class CatalogActivityInputDto {
 
   @ApiPropertyOptional()
   defaultCapacity?: number;
+
+  @ApiPropertyOptional({ enum: ACTIVITY_CATEGORY_CODES, nullable: true })
+  category?: ActivityCategoryCode | null;
+
+  @ApiPropertyOptional({ type: LocalizedTextDto })
+  otherDescription?: Record<string, string>;
 }
 
 export class CatalogSettingsDto {
@@ -133,6 +149,18 @@ export class CatalogCommonValuesDto {
   defaultCapacity: number | null;
 }
 
+export class CatalogCommercialValuesDto {
+  @ApiProperty({ enum: ACTIVITY_CATEGORY_CODES, nullable: true })
+  category: ActivityCategoryCode | null;
+
+  @ApiProperty({
+    type: LocalizedTextDto,
+    description:
+      'Complete localized form; empty values clear. Required in the base locale only for category other',
+  })
+  otherDescription: LocalizedTextDto;
+}
+
 export class CatalogTranslationEditDto {
   @ApiProperty({ enum: ['translation'] })
   group: 'translation';
@@ -150,6 +178,14 @@ export class CatalogCommonEditDto {
 
   @ApiProperty({ type: CatalogCommonValuesDto })
   values: CatalogCommonValuesDto;
+}
+
+export class CatalogCommercialEditDto {
+  @ApiProperty({ enum: ['commercial'] })
+  group: 'commercial';
+
+  @ApiProperty({ type: CatalogCommercialValuesDto })
+  values: CatalogCommercialValuesDto;
 }
 
 export class CatalogSettingsInputDto {
@@ -189,6 +225,8 @@ export type CatalogActivityInput = Readonly<{
   name?: unknown;
   description?: unknown;
   defaultCapacity?: unknown;
+  category?: unknown;
+  otherDescription?: unknown;
 }>;
 
 export type CatalogActivityEditInput =
@@ -200,6 +238,13 @@ export type CatalogActivityEditInput =
   | Readonly<{
       group: 'common';
       values: { defaultCapacity: number | null };
+    }>
+  | Readonly<{
+      group: 'commercial';
+      values: {
+        category: ActivityCategoryCode | null;
+        otherDescription: { es?: string; en?: string };
+      };
     }>;
 
 export type CatalogSettingsInput = Readonly<{

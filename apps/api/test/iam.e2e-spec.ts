@@ -3113,6 +3113,254 @@ describe('IAM/API vertical (e2e)', () => {
     ).toBe(current.headers.etag);
   });
 
+  it('saves the activity category as one common fact across forms (DIVE-BOOK-REQ-050, 056, 074, 078)', async () => {
+    const activityId = randomUUID();
+    await admin.query(
+      `INSERT INTO booking_app.activities (id,tenant_id,center_id,base_locale,name,default_capacity,status) VALUES ($1,$2,$3,'en','{"en":"Cleanup","es":"Limpieza"}',5,'Published')`,
+      [activityId, tenantA, centerA1],
+    );
+    const path = `/v1/centers/${centerA1}/activities/${activityId}`;
+    const headers = {
+      authorization: 'Bearer owner-a-token',
+      'x-tenant-context': await contextFor('owner-a-token'),
+    };
+    const commercial = (
+      category: string | null,
+      otherDescription: Record<string, string>,
+    ) => ({ group: 'commercial', values: { category, otherDescription } });
+    const current = await bffRequest().get(path).set(headers).expect(200);
+    expect(current.body).not.toHaveProperty('category');
+    expect(current.body).not.toHaveProperty('otherDescription');
+
+    await bffRequest()
+      .put(path)
+      .set(headers)
+      .set('if-match', activityEtagHeader(current))
+      .send(commercial('other', { es: 'Limpieza de fondos', en: '  ' }))
+      .expect(422);
+    const saved = await bffRequest()
+      .put(path)
+      .set(headers)
+      .set('if-match', activityEtagHeader(current))
+      .send(commercial('other', { en: 'Reef cleanup', es: '  ' }))
+      .expect(204)
+      .expect('ETag', `"activity-${activityId}-r2"`);
+    const other = await bffRequest().get(path).set(headers).expect(200);
+    expect(other.body).toMatchObject({
+      status: 'Published',
+      baseLocale: 'en',
+      name: { en: 'Cleanup', es: 'Limpieza' },
+      defaultCapacity: 5,
+      category: 'other',
+      otherDescription: { en: 'Reef cleanup' },
+    });
+    expect(other.body.otherDescription).toEqual({ en: 'Reef cleanup' });
+    const list = await bffRequest()
+      .get(`/v1/centers/${centerA1}/activities?status=Published&pageSize=50`)
+      .set(headers)
+      .expect(200);
+    expect(
+      list.body.items.find((item: { id: string }) => item.id === activityId),
+    ).toMatchObject({
+      category: 'other',
+      otherDescription: { en: 'Reef cleanup' },
+    });
+
+    await bffRequest()
+      .put(path)
+      .set(headers)
+      .set('if-match', activityEtagHeader(saved))
+      .send(commercial('other', { en: 'Reef cleanup', es: '' }))
+      .expect(204)
+      .expect('ETag', activityEtagHeader(saved));
+    const translated = await bffRequest()
+      .put(path)
+      .set(headers)
+      .set('if-match', activityEtagHeader(saved))
+      .send({
+        group: 'translation',
+        locale: 'es',
+        values: { name: 'Limpieza submarina', description: '' },
+      })
+      .expect(204);
+    const common = await bffRequest()
+      .put(path)
+      .set(headers)
+      .set('if-match', activityEtagHeader(translated))
+      .send({ group: 'common', values: { defaultCapacity: 7 } })
+      .expect(204);
+    const preserved = await bffRequest().get(path).set(headers).expect(200);
+    expect(preserved.body).toMatchObject({
+      name: { en: 'Cleanup', es: 'Limpieza submarina' },
+      defaultCapacity: 7,
+      category: 'other',
+      otherDescription: { en: 'Reef cleanup' },
+    });
+
+    await bffRequest()
+      .put(path)
+      .set(headers)
+      .set('if-match', activityEtagHeader(saved))
+      .send(commercial('snorkel', {}))
+      .expect(412);
+    await bffRequest()
+      .put(path)
+      .set(headers)
+      .set('if-match', activityEtagHeader(common))
+      .send(commercial('snorkel', { en: 'Reef cleanup' }))
+      .expect(422);
+    const snorkel = await bffRequest()
+      .put(path)
+      .set(headers)
+      .set('if-match', activityEtagHeader(common))
+      .send(commercial('snorkel', { en: ' ' }))
+      .expect(204);
+    const reclassified = await bffRequest().get(path).set(headers).expect(200);
+    expect(reclassified.body.category).toBe('snorkel');
+    expect(reclassified.body).not.toHaveProperty('otherDescription');
+    await bffRequest()
+      .put(path)
+      .set(headers)
+      .set('if-match', activityEtagHeader(snorkel))
+      .send(commercial(null, {}))
+      .expect(204)
+      .expect('ETag', `"activity-${activityId}-r6"`);
+    const cleared = await bffRequest().get(path).set(headers).expect(200);
+    expect(cleared.body).not.toHaveProperty('category');
+    expect(cleared.body).not.toHaveProperty('otherDescription');
+    expect(cleared.body.status).toBe('Published');
+    expect(
+      (
+        await admin.query(
+          'SELECT category_code, other_description FROM booking_app.activities WHERE tenant_id=$1 AND id=$2',
+          [tenantA, activityId],
+        )
+      ).rows,
+    ).toEqual([{ category_code: null, other_description: null }]);
+
+    const effects = await admin.query(
+      `SELECT action, source_metadata FROM iam_app.audit_records WHERE tenant_id=$1 AND resource_id=$2 ORDER BY created_at`,
+      [tenantA, activityId],
+    );
+    expect(
+      effects.rows.map(
+        (row: { action: string; source_metadata: { group: string } }) => [
+          row.action,
+          row.source_metadata.group,
+        ],
+      ),
+    ).toEqual([
+      ['booking.activity.updated', 'commercial'],
+      ['booking.activity.updated', 'translation'],
+      ['booking.activity.updated', 'common'],
+      ['booking.activity.updated', 'commercial'],
+      ['booking.activity.updated', 'commercial'],
+    ]);
+    expect(effects.rows[0].source_metadata).toEqual({
+      activityId,
+      centerId: centerA1,
+      group: 'commercial',
+    });
+    expect(
+      (
+        await admin.query(
+          `SELECT count(*)::int AS count FROM iam_app.outbox_events WHERE tenant_id=$1 AND payload->>'activityId'=$2`,
+          [tenantA, activityId],
+        )
+      ).rows[0].count,
+    ).toBe(0);
+  });
+
+  it('denies commercial activity edits outside scope without disclosure or effects (DIVE-BOOK-REQ-050, 056, 074, MT-REQ-004, MT-REQ-010)', async () => {
+    const activityId = randomUUID();
+    const foreignId = randomUUID();
+    const otherCenterId = randomUUID();
+    await admin.query(
+      `INSERT INTO booking_app.activities (id,tenant_id,center_id,base_locale,name,status) VALUES ($1,$2,$3,'es','{"es":"Buceo"}','Draft'), ($4,$5,$6,'es','{"es":"Foreign"}','Draft'), ($7,$2,$8,'es','{"es":"Other center"}','Draft')`,
+      [
+        activityId,
+        tenantA,
+        centerA1,
+        foreignId,
+        tenantB,
+        centerB1,
+        otherCenterId,
+        centerA2,
+      ],
+    );
+    const headers = {
+      authorization: 'Bearer owner-a-token',
+      'x-tenant-context': await contextFor('owner-a-token'),
+    };
+    const body = {
+      group: 'commercial',
+      values: { category: 'course', otherDescription: {} },
+    };
+    for (const inaccessibleId of [foreignId, otherCenterId]) {
+      const response = await bffRequest()
+        .put(`/v1/centers/${centerA1}/activities/${inaccessibleId}`)
+        .set(headers)
+        .set('if-match', `"activity-${inaccessibleId}-r1"`)
+        .send(body)
+        .expect(404);
+      expect(JSON.stringify(response.body)).not.toContain(inaccessibleId);
+    }
+    await bffRequest()
+      .put(`/v1/centers/${centerB1}/activities/${foreignId}`)
+      .set(headers)
+      .set('if-match', `"activity-${foreignId}-r1"`)
+      .send(body)
+      .expect(404);
+    const path = `/v1/centers/${centerA1}/activities/${activityId}`;
+    await bffRequest()
+      .put(path)
+      .set('authorization', 'Bearer auditor-a-token')
+      .set('x-tenant-context', await contextFor('auditor-a-token'))
+      .set('if-match', `"activity-${activityId}-r1"`)
+      .send(body)
+      .expect(403);
+    await bffRequest().put(path).set(headers).send(body).expect(428);
+    for (const invalid of [
+      { ...body, locale: 'es' },
+      {
+        group: 'commercial',
+        values: { category: 'wreck', otherDescription: {} },
+      },
+      { group: 'commercial', values: { category: 'course' } },
+      {
+        group: 'commercial',
+        values: { category: 'course', otherDescription: {}, tenantId: tenantB },
+      },
+    ]) {
+      await bffRequest()
+        .put(path)
+        .set(headers)
+        .set('if-match', `"activity-${activityId}-r1"`)
+        .send(invalid)
+        .expect(422);
+    }
+    expect(
+      (
+        await admin.query(
+          'SELECT id, revision::text, category_code FROM booking_app.activities WHERE id = ANY($1::uuid[]) ORDER BY id',
+          [[activityId, foreignId, otherCenterId]],
+        )
+      ).rows,
+    ).toEqual(
+      [activityId, foreignId, otherCenterId]
+        .sort()
+        .map((id) => ({ id, revision: '1', category_code: null })),
+    );
+    expect(
+      (
+        await admin.query(
+          `SELECT count(*)::int AS count FROM iam_app.audit_records WHERE resource_id = ANY($1::uuid[])`,
+          [[activityId, foreignId, otherCenterId]],
+        )
+      ).rows[0].count,
+    ).toBe(0);
+  });
+
   it('serializes contending activity edits with one winner (DIVE-BOOK-REQ-078)', async () => {
     const activityId = randomUUID();
     await admin.query(
@@ -3631,13 +3879,31 @@ describe('IAM/API vertical (e2e)', () => {
         name: { es: 'Buceo', en: 'Diving' },
         description: { es: 'Descripción', en: 'Description' },
         defaultCapacity: 8,
+        category: 'other',
+        otherDescription: { es: 'Limpieza de fondos', en: 'Reef cleaning' },
       })
       .expect(201);
     expect(activity.body).toMatchObject({
       status: 'Draft',
       name: { es: 'Buceo', en: 'Diving' },
       defaultCapacity: 8,
+      category: 'other',
+      otherDescription: { es: 'Limpieza de fondos', en: 'Reef cleaning' },
     });
+
+    const persistedActivity = await admin.query(
+      `SELECT category_code, other_description FROM booking_app.activities WHERE tenant_id=$1 AND center_id=$2 AND id=$3`,
+      [tenantA, centerA1, activity.body.id],
+    );
+    expect(persistedActivity.rows).toEqual([
+      {
+        category_code: 'other',
+        other_description: {
+          en: 'Reef cleaning',
+          es: 'Limpieza de fondos',
+        },
+      },
+    ]);
 
     const defaultActivities = await bffRequest()
       .get(`/v1/centers/${centerA1}/activities`)
@@ -3856,7 +4122,7 @@ describe('IAM/API vertical (e2e)', () => {
       .expect(409);
   });
 
-  it('rejects incompatible activity and slot transitions while allowing idempotent commands', async () => {
+  it('allows activity reactivation while rejecting incompatible transitions', async () => {
     await selectCatalogLanguage('owner-a-token', centerA1, 'es');
     const catalogHeaders = {
       authorization: 'Bearer owner-a-token',
@@ -3896,7 +4162,16 @@ describe('IAM/API vertical (e2e)', () => {
     await bffRequest()
       .patch(`/v1/centers/${centerA1}/activities/${activity.body.id}/publish`)
       .set(catalogHeaders)
-      .expect(409);
+      .expect(204);
+    await bffRequest()
+      .post(`/v1/centers/${centerA1}/activities/${activity.body.id}/slots`)
+      .set(catalogHeaders)
+      .send({
+        startsAt: '2026-10-01T12:00:00Z',
+        durationMinutes: 60,
+        capacity: 4,
+      })
+      .expect(201);
 
     const concurrentCloses = await Promise.all(
       [1, 2].map(() =>

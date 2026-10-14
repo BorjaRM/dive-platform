@@ -38,10 +38,7 @@ import { PLACEHOLDER_PENDING_BOOKINGS } from './dashboard-placeholders';
 import styles from './home.module.css';
 import type { HomeCalendarRange } from './home-calendar';
 import { type Center, DashboardApiError } from './tenant-context';
-import {
-  CATALOG_SEARCH_PARAMS,
-  useCatalogNavigation,
-} from './use-catalog-navigation';
+import { useCatalogNavigation } from './use-catalog-navigation';
 
 const HomeCalendar = dynamic(() => import('./home-calendar'), {
   ssr: false,
@@ -147,9 +144,7 @@ export function DashboardHome() {
 }
 
 function CenterHome({ center, context }: { center: Center; context: string }) {
-  const { api, authorizedCenters, handleSessionExpired } =
-    useDashboardContext();
-  const { updateSearchParams } = useCatalogNavigation();
+  const { api, handleSessionExpired } = useDashboardContext();
   const [calendarRange, setCalendarRange] = useState<HomeCalendarRange | null>(
     null,
   );
@@ -232,21 +227,7 @@ function CenterHome({ center, context }: { center: Center; context: string }) {
   }, [sessionExpired, handleSessionExpired]);
 
   const centerQuery = `center=${encodeURIComponent(center.id)}`;
-  const catalogHref = `/dashboard/activities?${centerQuery}`;
   const calendarHref = `/dashboard/calendar?${centerQuery}`;
-  const canScheduleSession =
-    capabilities?.canScheduleSession === true &&
-    canReadCatalog &&
-    validTimeZone &&
-    activitiesQuery.isSuccess &&
-    activities.length > 0;
-  const currentDate =
-    capabilitiesQuery.dataUpdatedAt > 0 && validTimeZone
-      ? new Intl.DateTimeFormat('en', {
-          timeZone: center.timeZone as string,
-          dateStyle: 'full',
-        }).format(new Date(capabilitiesQuery.dataUpdatedAt))
-      : null;
   const activityNames = new Map(
     activities.map((activity) => [
       activity.id,
@@ -340,68 +321,6 @@ function CenterHome({ center, context }: { center: Center; context: string }) {
   return (
     <section className="@container text-ink" aria-labelledby="home-heading">
       <div className="@container min-w-0 space-y-6">
-        <header className="flex flex-wrap items-start gap-4 rounded-2xl border border-line bg-white p-5 shadow-card">
-          <div className="min-w-0 flex-1 basis-64">
-            <h2
-              id="home-heading"
-              className="text-lg font-bold tracking-tight sm:text-xl"
-            >
-              {center.name}
-            </h2>
-            {currentDate && (
-              <p className="mt-1 flex flex-wrap items-baseline gap-2 text-sm text-muted">
-                {currentDate}{' '}
-                <span className="text-xs text-muted">{center.timeZone}</span>
-              </p>
-            )}
-          </div>
-          {authorizedCenters.length > 1 && (
-            <label className="grid min-w-0 gap-1.5" htmlFor="home-center">
-              <span className="text-xs font-semibold text-muted">Center</span>
-              <Select
-                id="home-center"
-                value={center.id}
-                onChange={(event) =>
-                  updateSearchParams({
-                    [CATALOG_SEARCH_PARAMS.centerId]: event.target.value,
-                  })
-                }
-              >
-                {authorizedCenters.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </Select>
-            </label>
-          )}
-          {(capabilities?.canCreateActivity || canScheduleSession) && (
-            <div className="flex w-full flex-wrap gap-2 @2xl:w-auto">
-              {capabilities?.canCreateActivity && (
-                <Link
-                  href={`/dashboard/activities/new?${centerQuery}`}
-                  className="flex items-center gap-2 rounded-xl bg-teal px-3.5 py-2 text-sm font-semibold text-white shadow-button transition hover:bg-teal-dark"
-                >
-                  <Plus
-                    className="size-4"
-                    strokeWidth={2.5}
-                    aria-hidden="true"
-                  />
-                  Create activity
-                </Link>
-              )}
-              {canScheduleSession && (
-                <Link
-                  href={catalogHref}
-                  className="rounded-xl border border-line bg-white px-3 py-2 text-sm font-semibold text-muted hover:border-slate-300 hover:text-ink"
-                >
-                  Schedule session
-                </Link>
-              )}
-            </div>
-          )}
-        </header>
-
         <section
           aria-label="Center summary"
           className="grid gap-4 @lg:grid-cols-2 @4xl:grid-cols-4"

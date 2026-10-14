@@ -133,28 +133,13 @@ describe('center home (DIVE-IAM-REQ-030..032, DIVE-BOOK-REQ-049)', () => {
     vi.useRealTimers();
   });
 
-  it('shows the center, local date/time, permitted actions and separate calendar navigation', async () => {
+  it('shows separate calendar navigation', async () => {
     const api = createApi();
     const { queryClient } = renderHome(api);
     expect(await screen.findByRole('link', { name: 'Buceo' })).toHaveAttribute(
       'href',
       '/dashboard/activities/activity-a/edit?center=center-a',
     );
-    expect(
-      screen.getByRole('heading', { name: 'Center A' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Thursday, October 1, 2026/)).toHaveTextContent(
-      'Europe/Madrid',
-    );
-    expect(
-      screen.getByText(/Oct 1, 2026, 12:00 UTC\+02:00/),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: 'Create activity' }),
-    ).toHaveAttribute('href', '/dashboard/activities/new?center=center-a');
-    expect(
-      screen.getByRole('link', { name: 'Schedule session' }),
-    ).toHaveAttribute('href', '/dashboard/activities?center=center-a');
     expect(screen.getByRole('link', { name: 'View calendar' })).toHaveAttribute(
       'href',
       '/dashboard/calendar?center=center-a',
@@ -277,8 +262,8 @@ describe('center home (DIVE-IAM-REQ-030..032, DIVE-BOOK-REQ-049)', () => {
     renderHome(scheduled);
     await screen.findByText('No upcoming sessions');
     expect(
-      screen.getByRole('link', { name: 'Schedule session' }),
-    ).toBeInTheDocument();
+      screen.queryByRole('link', { name: 'Schedule session' }),
+    ).not.toBeInTheDocument();
   });
 
   it('does not turn denied read permissions into an empty center', async () => {

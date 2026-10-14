@@ -134,9 +134,11 @@ describe('product database security contract', () => {
         .filter(({ allowed }) => allowed)
         .map(({ column_name }) => column_name),
     ).toEqual([
+      'category_code',
       'default_capacity',
       'description',
       'name',
+      'other_description',
       'revision',
       'status',
     ]);

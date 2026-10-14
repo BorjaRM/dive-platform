@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
+  type ActivityCategoryCode,
   bookingActivities,
   bookingCatalogSettings,
 } from '@dive-center/database';
@@ -49,6 +50,10 @@ export class ActivityCatalogService {
       ...(row.defaultCapacity === null
         ? {}
         : { defaultCapacity: row.defaultCapacity }),
+      ...(row.categoryCode === null ? {} : { category: row.categoryCode }),
+      ...(row.otherDescription
+        ? { otherDescription: row.otherDescription }
+        : {}),
       createdAt: row.createdAt.toISOString(),
     };
   }
@@ -102,13 +107,37 @@ export class ActivityCatalogService {
       applicationScope,
       'booking_service.create',
       async ({ context, center, db, recordMutation }) => {
-        rejectUnknownFields(input, ['name', 'description', 'defaultCapacity']);
+        rejectUnknownFields(input, [
+          'name',
+          'description',
+          'defaultCapacity',
+          'category',
+          'otherDescription',
+        ]);
         const name = localized(input?.name, 'name', true);
         const description = localized(input?.description, 'description', false);
         const defaultCapacity =
           input?.defaultCapacity === undefined
             ? undefined
             : positiveInteger(input.defaultCapacity, 'defaultCapacity');
+        const categoryCode = input?.category as
+          | ActivityCategoryCode
+          | null
+          | undefined;
+        const otherDescriptionValues =
+          typeof input?.otherDescription === 'object' &&
+          input.otherDescription !== null
+            ? (input.otherDescription as { es?: string; en?: string })
+            : undefined;
+        const authoredOtherDescription = Object.fromEntries(
+          Object.entries(otherDescriptionValues ?? {}).filter(
+            ([, text]) => text.trim() !== '',
+          ),
+        );
+        const otherDescription =
+          Object.keys(authoredOtherDescription).length === 0
+            ? null
+            : authoredOtherDescription;
         const [settings] = await db
           .select()
           .from(bookingCatalogSettings)
@@ -132,6 +161,16 @@ export class ActivityCatalogService {
             'name must contain the center catalog language',
           );
         }
+        if (
+          categoryCode === 'other' &&
+          !otherDescription?.[settings.defaultActivityLocale]?.trim()
+        ) {
+          throw new CatalogProblemException(
+            422,
+            'validation_error',
+            'otherDescription must contain the activity base language for category other',
+          );
+        }
         const [row] = await db
           .insert(bookingActivities)
           .values({
@@ -142,6 +181,9 @@ export class ActivityCatalogService {
             name,
             description,
             defaultCapacity,
+            ...(categoryCode === undefined
+              ? {}
+              : { categoryCode, otherDescription }),
             status: 'Draft',
           })
           .returning();
@@ -225,8 +267,29 @@ export class ActivityCatalogService {
         let name = activity.name;
         let description = activity.description;
         let defaultCapacity = activity.defaultCapacity;
+        let categoryCode = activity.categoryCode;
+        let otherDescription = activity.otherDescription;
         if (edit.group === 'common') {
           defaultCapacity = edit.values.defaultCapacity;
+        } else if (edit.group === 'commercial') {
+          categoryCode = edit.values.category;
+          const authored = Object.fromEntries(
+            Object.entries(edit.values.otherDescription).filter(
+              ([, text]) => text.trim() !== '',
+            ),
+          );
+          otherDescription =
+            Object.keys(authored).length === 0 ? null : authored;
+          if (
+            categoryCode === 'other' &&
+            !otherDescription?.[activity.baseLocale]
+          ) {
+            throw new CatalogProblemException(
+              422,
+              'validation_error',
+              'otherDescription must contain the activity base language for category other',
+            );
+          }
         } else {
           name = { ...activity.name };
           description = { ...activity.description };
@@ -254,7 +317,10 @@ export class ActivityCatalogService {
           name.en === activity.name.en &&
           description?.es === activity.description?.es &&
           description?.en === activity.description?.en &&
-          defaultCapacity === activity.defaultCapacity;
+          defaultCapacity === activity.defaultCapacity &&
+          categoryCode === activity.categoryCode &&
+          otherDescription?.es === activity.otherDescription?.es &&
+          otherDescription?.en === activity.otherDescription?.en;
         if (unchanged) return activityEtag(activity.id, activity.revision);
         await db
           .update(bookingActivities)
@@ -262,6 +328,8 @@ export class ActivityCatalogService {
             name,
             description,
             defaultCapacity,
+            categoryCode,
+            otherDescription,
             revision: sql`${bookingActivities.revision} + 1`,
           })
           .where(
@@ -324,7 +392,11 @@ export class ActivityCatalogService {
             );
           }
         }
-        if (target === 'Published' && activity.status !== 'Draft')
+        if (
+          target === 'Published' &&
+          activity.status !== 'Draft' &&
+          activity.status !== 'Disabled'
+        )
           throw new CatalogProblemException(409, 'resource_state_conflict');
         if (target === 'Disabled' && activity.status !== 'Published')
           throw new CatalogProblemException(409, 'resource_state_conflict');
@@ -347,7 +419,7 @@ export class ActivityCatalogService {
           resourceType: 'activity',
           resourceId: activityId,
           payload: { activityId, centerId: center.id, status: target },
-          idempotencyKey: `booking.activity.status:${activityId}:${target}`,
+          idempotencyKey: `booking.activity.status:${activityId}:${activity.revision}:${target}`,
         });
       },
     );

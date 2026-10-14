@@ -1,10 +1,10 @@
 # SPEC-DIVE-BOOKING-CATALOG-001 - Activity catalog, public profiles and HTTP
 
 - **Status:** Draft
-- **Version:** 0.15
-- **Last reviewed:** 2026-10-01
+- **Version:** 0.20
+- **Last reviewed:** 2026-10-14
 - **Owner:** Product / Booking
-- **Approval reference:** Original requirements and approvals extracted from SPEC-DIVE-BOOKING-001 at commit `86e9d97`; documentation split requested 2026-09-30. Language-policy, initial-configuration and commercial-profile approvals on 2026-09-30, and the activity-editing decisions accepted in chat on 2026-10-01, are recorded below. No artifact promotion or implementation conformance is inferred.
+- **Approval reference:** Original requirements and approvals extracted from SPEC-DIVE-BOOKING-001 at commit `86e9d97`; documentation split requested 2026-09-30. Language-policy, initial-configuration and commercial-profile approvals on 2026-09-30, activity-editing decisions accepted in chat on 2026-10-01, and the bounded UX refinements recorded in issue #91 on 2026-10-09 are recorded below. No artifact promotion or implementation conformance is inferred.
 
 ## Normative authority
 
@@ -26,12 +26,17 @@
 | Empty existing activity catalog for the language migration | `Documented` | Product-owner statement on 2026-09-30: "no existen actividades existentes aun" | Reported migration premise, not executed database evidence; no existing-activity language assignment is needed under that premise |
 | `DIVE-BOOK-REQ-073..DIVE-BOOK-REQ-079` | `Proposed` | Product-owner request on 2026-09-30: "aplica los cambios propuestos sobre la documentacion", approving the preceding center/activity field analysis and inconsistency-resolution proposals | Approved product direction and ownership boundaries; detailed transport, persistence, publication-readiness and edit contracts remain open; no runtime coverage claimed |
 | Activity editing and preload under `DIVE-BOOK-REQ-050`, `056`, `078` | `Proposed` | Product-owner decisions in this chat on 2026-10-01 permitting editing in every activity state, accepting preload and revision-based concurrency, requesting separate language forms, and accepting the separation of shared facts from translations; subsequent request to update the documents | Explicitly approved direction and interaction contract below; replaces Draft-only editing and partial-field submission. The subsequent acceptance below closes grouped-write, clearing, no-op and retry behavior; no artifact promotion or implementation proof |
+| Activity disabling UX under `DIVE-BOOK-REQ-018`, `053`, `054`, `078` | `Proposed` | Product-owner approval recorded in the 2026-10-09 update to [issue #91](https://github.com/BorjaRM/dive-platform/issues/91); existing requirements and catalog command contract | Explicitly approved bounded UX direction for the current editor; reuses the existing disable command and status, with no new state or cascade. Reactivation was outside that bounded UX direction and is recorded separately below. No runtime proof |
+| Activity reactivation under `DIVE-BOOK-REQ-053`, `054`, `056` | `Proposed` | Product-owner request on 2026-10-14 to restore Disabled activities through the existing publication capability | Explicitly approved bounded lifecycle direction: the existing publish command accepts `Disabled → Published`, keeps the existing permission and center/tenant scope, remains idempotent, and does not cancel or recreate slots. No new lifecycle state or permission is introduced |
 | Concrete editing contract under `DIVE-BOOK-REQ-050`, `056`, `078` | `Proposed` | Product-owner explicit acceptance in this chat on 2026-10-01 of the preceding seven-part proposal for grouped PUT bodies, clearing, persisted revision initialization, strong preconditions, unchanged saves, retries, transactional audit and current-field extension | Accepted bounded contract in Activity editing; approval applies to that proposal, not the whole artifact, unresolved physical migration details, future commercial fields or implementation coverage |
 | Revision storage and migration closure under `DIVE-BOOK-REQ-050`, `056`, `078` | `Proposed` | Product-owner direction in this chat on 2026-10-01 to close the immediately preceding technical proposal: BIGINT revision initialized to 1, serialization without JavaScript Number, identity/revision ETag, additive transactional migration and dependent-code-first rollback | Explicitly approved bounded technical closure below; supersedes the former open storage/migration choices. No artifact promotion, executed migration, deployment or product-code claim |
 | Current-field scope and future extension under `DIVE-BOOK-REQ-009`, `011`, `074..078` | `Proposed` | Product-owner clarification in this chat on 2026-10-01 requesting applicability to future activity fields where feasible, otherwise use of the current model, followed by the document-update request | Current editable fields first; future fields reuse common/localized ownership only after their own contracts are defined. No arbitrary-property editor or implicit commercial-field implementation |
 | Commercial refinements under `DIVE-BOOK-REQ-073..079` | `Proposed` | Product-owner acceptance in this chat on 2026-10-01 of the preceding area-by-area recommendations for contacts/location, teaching languages, prerequisites, category/modality, images, inclusion templates, price, cancellation, public readiness and editing, followed by authorization to update documentation | Explicitly approved refinements in the commercial profile contract below; no artifact promotion, product implementation or executed coverage. Scheduling and executable cancellation refinements remain with their respective owners |
 | Incremental contract closure and delivery under `DIVE-BOOK-REQ-050`, `056`, `073..081` | `Proposed` | Product-owner acceptance in this chat on 2026-10-01 of the preceding seven-block recommendations and profile-first contract preparation, followed by authorization to update documentation | Accepted delivery sequence and per-block gates below; reuses the existing concrete editing contract. Approval does not select absent profile API/permissions, storage, currency, cancellation or scheduling contracts, waive the implementation issue gate, authorize product code or promote artifacts |
 | Seven-block technical refinements under `DIVE-BOOK-REQ-050`, `056`, `073..079` | `Proposed` | Product-owner acceptance in this chat on 2026-10-01 of the preceding recommendations for each open delivery block, followed by authorization to document them | Approved bounded profile, content, media, money and public-readiness refinements below; existing editing closure is retained. IAM grants, history, cancellation and scheduling remain with their owners. Conditional deployment/legal choices and absent detailed contracts are not approved by implication; no artifact promotion or executed coverage |
+| Category vocabulary refinement under `DIVE-BOOK-REQ-074` | `Proposed` | Product-owner approval recorded in the 2026-10-09 update to [issue #91](https://github.com/BorjaRM/dive-platform/issues/91) and the linked decision source | Approved future product direction only; the category labels and `Apnea` remain outside issue #91's current-field editor increment. The backend contract below records the implementation boundary; wire codes, validation, grouped-save transport and persistence remain open until separately approved |
+| Category wire-code mapping under `DIVE-BOOK-REQ-074` | `Proposed` | Explicit bounded chat acceptance recorded on 2026-10-09 for the category-code proposal linked to [issue #91](https://github.com/BorjaRM/dive-platform/issues/91) | Mapping is approved for the backend increment. No artifact promotion is inferred |
+| Category backend contract under `DIVE-BOOK-REQ-074` | `Proposed` | Product-owner chat authorization on 2026-10-09 to implement the categories in backend and to resolve remaining open questions with documented justification | Explicitly approved category-only contract: nullability, `commercial` PUT group, `Otra` description, persistence, migration and grants as documented in [Activity category backend contract](#activity-category-backend-contract). Modalities and other commercial fields remain open; no artifact promotion |
 
 ## Requirements
 
@@ -68,7 +73,7 @@ PATCH  /v1/centers/:centerId/slots/:slotId/cancel
 
 `:centerId`, `:activityId`, and `:slotId` are selectors, never authorization. Paths MUST NOT include a tenant identifier. A request MUST NOT list, create, or mutate resources of another center, even when the actor has access to that other center.
 
-**Proposed, explicitly approved:** the 2026-10-01 editing acceptances in the provenance table replace the original editing PATCH proposal with individual read and complete-form PUT saves. [Activity editing](#activity-editing) owns the accepted `group` request selector, language/common separation and revision contract. This inventory does not claim implementation; publication and disabling retain their separate PATCH commands.
+**Proposed, explicitly approved:** the 2026-10-01 editing acceptances in the provenance table replace the original editing PATCH proposal with individual read and complete-form PUT saves. [Activity editing](#activity-editing) owns the accepted `group` request selector, language/common separation and revision contract. This inventory does not claim implementation; publication/reactivation and disabling retain their separate PATCH commands.
 
 The catalog-settings routes implement only the explicitly approved [initial center catalog-language contract](#initial-center-catalog-language-contract); they do not expose the Draft commercial profile or expanded scheduling settings.
 
@@ -76,9 +81,9 @@ The catalog-settings routes implement only the explicitly approved [initial cent
 
 - **DIVE-BOOK-REQ-052:** `POST /v1/centers/:centerId/activities/:activityId/slots` is allowed only when that activity is `Published`. The created slot is `Available`. The client sends `startsAt`, positive `durationMinutes`, and positive `capacity`. Tenant and center are taken from the authorized path and activity. The client MUST NOT send `tenantId`, another `centerId`, `status`, `end`, or remaining seats.
 
-- **DIVE-BOOK-REQ-053:** `PATCH .../publish` requires a valid `baseLocale` and a non-blank `name[baseLocale]`; it does not require both languages or a description. Additional translations are optional at creation and publication. Presentation resolves each localized field through requested locale then activity base locale; missing optional description is omitted. `PATCH .../disable` stops new use of the activity and does not cancel existing slots.
+- **DIVE-BOOK-REQ-053:** `PATCH .../publish` requires a valid `baseLocale` and a non-blank `name[baseLocale]`; it does not require both languages or a description. Additional translations are optional at creation and publication. The command transitions `Draft → Published` and re-enables `Disabled → Published`; it uses the existing publication permission and preserves the activity identity and existing slots. Presentation resolves each localized field through requested locale then activity base locale; missing optional description is omitted. `PATCH .../disable` stops new use of the activity and does not cancel existing slots.
 
-- **DIVE-BOOK-REQ-054:** Repeating `publish`, `disable`, `close`, or `cancel` when the resource is already in the resulting state is idempotent success (`204`). An incompatible transition returns `409`.
+- **DIVE-BOOK-REQ-054:** Repeating `publish`, `disable`, `close`, or `cancel` when the resource is already in the resulting state is idempotent success (`204`). `Disabled → Published` is a compatible reactivation transition; other incompatible transitions return `409`.
 
 - **DIVE-BOOK-REQ-055:** A slot may transition `Closed → Cancelled`.
 
@@ -168,9 +173,52 @@ Teaching languages use normalized language codes and multiple selection, indepen
 
 #### Prerequisites, category and modality
 
-Prerequisites use optional structured minimum age and accepted certification fields, with localized experience clarification. Certification names are shown in full; no automatic agency-equivalence or eligibility engine is introduced, and participant medical/certification documents remain outside this profile. Category has one primary value from introductory dive, guided dive, course, snorkel or other; other requires a description. Entry modality permits one or more of boat, shore and pool, separately from category; alternative modalities require the effective execution modality to be shown. Exact field validation remains open; boat and staff assignment remain excluded.
+Prerequisites use optional structured minimum age and accepted certification fields, with localized experience clarification. Certification names are shown in full; no automatic agency-equivalence or eligibility engine is introduced, and participant medical/certification documents remain outside this profile.
 
-**Proposed, explicitly approved:** accepted certifications identify agency and full certification name; minimum age is optional and experience initially uses localized clarification rather than an eligibility interpretation. Category and modalities are common facts; descriptive prerequisite content and included/excluded items are localized. Save only the selected group. Reuse catalog authorization for commercial content, not policy management or channel enablement. Exact certification structure, age bounds, category/modality wire codes, field bounds and extension to the grouped-save envelope remain open.
+**Proposed, explicitly approved:** the future commercial category choices are `Bautismo / Iniciación`, `Inmersión guiada`, `Curso`, `Snorkel`, `Apnea` and `Otra`. The first label is not limited to scuba equipment and may describe initiation to scuba, snorkel or freediving. Category remains one primary common value; `Otra` requires a description. This vocabulary is outside the current-field editor increment in issue #91. Category wire codes are closed below; the [category backend contract](#activity-category-backend-contract) closes category validation and transport. Entry modality permits one or more of boat, shore and pool, separately from category; alternative modalities require the effective execution modality to be shown. Boat and staff assignment remain excluded.
+
+**Proposed, explicitly approved:** the stable wire-code mapping for this vocabulary is:
+
+| Product label | Wire code |
+|---|---|
+| Bautismo / Iniciación | `introductory` |
+| Inmersión guiada | `guided_dive` |
+| Curso | `course` |
+| Snorkel | `snorkel` |
+| Apnea | `freediving` |
+| Otra | `other` |
+
+Wire codes are machine values for API and persistence, not user-facing labels. Labels may be translated or renamed without changing stored codes. Unknown codes must be rejected rather than silently mapped to `other`.
+
+#### Activity category backend contract
+
+**Proposed, explicitly approved:** the 2026-10-09 chat authorization to implement categories and to decide the remaining open questions with documented justification owns this subsection; see the provenance table. It closes the category-only increment, not modalities or the rest of the simple commercial-content block, and does not promote this Draft artifact.
+
+**Proposed, explicitly approved:** the category is one common activity fact, stored once per activity and never duplicated per translation. A category value does not assign a boat, shore/pool resource, instructor, execution, slot or booking rule. Entry modality remains a separate future common field.
+
+**Proposed, explicitly approved -- lifecycle and nullability:** `category` is optional for existing and new activities in `Draft`, `Published` and `Disabled`. POST creation and the activity-publication gate are unchanged. *Justification:* making it mandatory would break existing creation/publication and require a fabricated backfill; the approved public-offer readiness owner can require it later.
+
+**Proposed, explicitly approved -- transport:** `PUT /v1/centers/:centerId/activities/:activityId` accepts a closed complete-form `group: "commercial"` body whose `values` contain both `category` (an approved code or `null`) and `otherDescription` (an object whose optional `es`/`en` keys are strings). Missing keys, unknown fields, unknown codes, `locale` and mixed groups return `422 validation_error`. The save reuses `If-Match`/`412`/`428`, revision increment, `204` with the current `ETag`, `booking.activity.updated` audit with `group: "commercial"`, unchanged-save behavior and non-disclosing `booking_service.update` scope checks. *Justification:* a separate group keeps the current translation/common forms backward-compatible and gives the remaining simple commercial fields one extensible owner.
+
+```json
+{
+	"group": "commercial",
+	"values": {
+		"category": "other",
+		"otherDescription": { "es": "Limpieza de fondos", "en": "" }
+	}
+}
+```
+
+**Proposed, explicitly approved -- `Otra` description:** empty or whitespace-only values are removed, as in translation forms. With `other`, the activity base-locale description is required and the other language is optional. Any non-blank description with another category or `null` returns `422`; saving another category or `null` therefore clears the stored description. Each value is at most 500 Unicode code points. No automatic translation or fallback copy is stored. *Justification:* this reuses the accepted base-language policy and keeps a bounded, explicit clarification.
+
+**Proposed, explicitly approved -- read model:** individual and list activity DTOs return `category` and `otherDescription` only when stored, as raw codes and authored translations; presentation labels belong to the client.
+
+**Proposed, explicitly approved -- persistence and migration:** `booking_app.activities` gains nullable `category_code text` with a `CHECK` for the six approved codes and nullable `other_description jsonb`, plus a `CHECK` requiring, exactly when the code is `other`, a JSON object whose base-locale value is a string, and `NULL` otherwise; the expression is written so SQL `NULL` operands evaluate to rejection rather than pass. `dive_app` receives only column `UPDATE` on both columns; existing forced RLS and tenant/center keys apply unchanged. The additive migration `0001_activity_category` has no default and no backfill, so existing rows remain valid. Rollback follows the [migration policy](../../packages/database/drizzle/README.md): deploy compatible earlier code that ignores the columns; no destructive down migration. *Justification:* a text `CHECK` is simpler to evolve than a PostgreSQL enum, and an additive migration avoids rewriting a baseline that a shared database might already depend on.
+
+**Proposed, explicitly approved:** category changes do not publish, disable, reactivate or alter slots, executions, accepted booking conditions, public-channel eligibility or reservations, and add no public event. Expected checks: validation, API behavior, revision conflicts, unchanged saves, cross-tenant/cross-center denial, database constraints, column grants and migration from a populated activity table.
+
+**Proposed, explicitly approved:** accepted certifications identify agency and full certification name; minimum age is optional and experience initially uses localized clarification rather than an eligibility interpretation. Category and modalities are common facts; descriptive prerequisite content and included/excluded items are localized. Save only the selected group. Reuse catalog authorization for commercial content, not policy management or channel enablement. Exact certification structure, age bounds, modality wire codes, field bounds and extension to the grouped-save envelope remain open.
 
 #### Images
 
@@ -236,7 +284,7 @@ This interface is for the authenticated center application. Public widget and ho
 | `POST /v1/centers/:centerId/activities` | Create a Draft activity in that center |
 | `GET /v1/centers/:centerId/activities/:activityId` | Read current stored activity values and revision for editing |
 | `PUT /v1/centers/:centerId/activities/:activityId` | Complete-form save for one independently edited language or the common fields, selected by the accepted `group` body below |
-| `PATCH /v1/centers/:centerId/activities/:activityId/publish` | Publish that activity |
+| `PATCH /v1/centers/:centerId/activities/:activityId/publish` | Publish a Draft activity or re-enable a Disabled activity |
 | `PATCH /v1/centers/:centerId/activities/:activityId/disable` | Disable new use of that activity |
 | `GET /v1/centers/:centerId/activities/:activityId/slots` | List slots of that activity and center |
 | `POST /v1/centers/:centerId/activities/:activityId/slots` | Schedule a slot on a Published activity |
@@ -322,6 +370,8 @@ PUT /v1/centers/:centerId/activities/:activityId
 
 **Proposed, explicitly approved:** the first implementation uses current fields: localized `name` and `description`, and common optional positive `defaultCapacity`. Capacity has one stored value across languages; changing the default does not change an existing slot's capacity or derived available seats. Public-content editability is an extension direction for future activity fields, not permission to add fields without their own validation, persistence and commercial contracts.
 
+**Proposed, explicitly approved:** the current editor exposes disabling and reactivation as separate actions from saving content. Disabling uses the existing `PATCH /v1/centers/:centerId/activities/:activityId/disable` command and requires explicit confirmation that disabling prevents new use while existing executions and bookings require separate handling. Reactivation uses the existing `PATCH /v1/centers/:centerId/activities/:activityId/publish` command and restores `Published` without cancelling or recreating slots. A disabled activity remains readable to authorized center users with its server-provided `Disabled` status. The UI does not delete the activity, introduce `Archived`, cancel slots or bookings, or broaden permissions. The server remains authoritative for the transition and its existing idempotency and scope behavior.
+
 **Documented:** `DIVE-BOOK-REQ-009`, `051`, `053` and [the language policy](#activity-languages-and-fallback) distinguish authored translations from presentation fallback and require a non-blank base-language name. Identity, authority, publication state, `baseLocale` and derived capacity are not editable content inputs in this increment. No new role grants or language-change operation is inferred.
 
 #### Preload and independent forms
@@ -386,7 +436,7 @@ PUT /v1/centers/:centerId/activities/:activityId
 
 #### Expected validation
 
-**Proposed, explicitly approved:** these are expected tests, not executed proof: authorized edits in all three states; current-value preload and failed-load protection; one visible language form and unsaved-draft preservation; complete selected-language replacement and clear behavior without changes to other languages/common facts; independent common save and shared capacity; missing, unknown and mixed-group body rejection; required base name and forbidden identity/authority/state fields; same-center permissions and cross-tenant/cross-center non-disclosure; missing, malformed and stale preconditions; concurrent-save conflicts and content/state revision ordering; unchanged saves with no revision/audit increment; lost-response retry returning `412` without duplicated effects; conflict draft preservation; initial revision `1` for existing/new activities; exact ETag handling above JavaScript's safe-integer range; no committed effects on revision overflow; preservation of activity data during upgrade/rollback; dependent-code-first rollback; unchanged identity, state, existing slots, bookings and accepted conditions; and atomic mutation/revision/audit rollback. No such check is claimed as executed by this documentation change.
+**Proposed, explicitly approved:** these are expected tests, not executed proof: authorized edits in all three states; current-value preload and failed-load protection; one visible language form and unsaved-draft preservation; complete selected-language replacement and clear behavior without changes to other languages/common facts; independent common save and shared capacity; missing, unknown and mixed-group body rejection; required base name and forbidden identity/authority/state fields; the separate disable action, confirmation, server-provided `Disabled` status and preservation of existing executions/bookings; same-center permissions and cross-tenant/cross-center non-disclosure; missing, malformed and stale preconditions; concurrent-save conflicts and content/state revision ordering; unchanged saves with no revision/audit increment; lost-response retry returning `412` without duplicated effects; conflict draft preservation; initial revision `1` for existing/new activities; exact ETag handling above JavaScript's safe-integer range; no committed effects on revision overflow; preservation of activity data during upgrade/rollback; dependent-code-first rollback; unchanged identity, state, existing slots, bookings and accepted conditions; and atomic mutation/revision/audit rollback. No such check is claimed as executed by this documentation change.
 
 ## Dependencies and verification
 
@@ -400,6 +450,8 @@ PUT /v1/centers/:centerId/activities/:activityId
 
 **Documented:** [the accepted revision storage and migration contract](#accepted-revision-storage-and-migration) closes the technical choices for current-field editing. Implementation and its expected validation remain pending; the trusted center-timezone response contract and separate expanded-field gates are not closed by this approval. Existing-field editing must not be described as implemented by this documentation update.
 
+**Proposed, explicitly approved:** the wire-code mapping for `DIVE-BOOK-REQ-074` and the [category backend contract](#activity-category-backend-contract) are closed by the dated approvals in the provenance table. Modality codes, prerequisites, teaching languages, included/excluded items and their grouped-save extension remain open in the simple commercial-content block.
+
 **Documented:** [the initial center catalog-language contract](#initial-center-catalog-language-contract) records approval of read/write routes, existing permissions, missing/locked errors, persistence ownership and concurrent initial selection/creation. It replaces the earlier configuration blockers for that bounded increment. Later center-preference changes remain excluded; activity-content editing now has its separately accepted contract above, without a base-language change, automatic rewrite or legacy-language default. Exact new audit/event names were not part of the initial-configuration proposal; additional public event contracts remain subject to ADR-DIVE-002. The reported empty activity catalog is still a premise to check, not executed evidence.
 
 ### Implementation verification
@@ -412,6 +464,10 @@ PUT /v1/centers/:centerId/activities/:activityId
 - The empty-catalog migration premise is recorded above; it removes the need for existing-activity language assignment, not the schema migration or checks. **Documented:** [migration tests](../../packages/database/test/integration/migrations.integration.test.ts) cover an empty database and atomic refusal of a synthetic nonempty upgrade. Initial-configuration API/persistence/web coverage is linked above; deployed-database checks remain pending.
 
 **Documented implementation authorization:** the product owner's subsequent 2026-09-30 request "Implementa los cambios, incluido el idioma del catalogo" retains the issue-free authorization for the bounded catalog-language and already-approved center-entry work discussed in this chat. The later acceptance "se acepta la propuesta, documentalo" additionally approves the initial-configuration contract above, not the other Draft proposals, subsequent preference changes, status promotion or publication. The implementation owner is Backend for catalog API/persistence; Frontend owns the dependent configuration/activity UI and presentation plus the already-approved center-entry web flow. Coordination remains governed by [the agent contract](../../.github/agents/README.md).
+
+**Documented:** an explicit bounded chat authorization recorded on 2026-10-09 permits implementation of the current-field activity-editing increment described by [issue #91](https://github.com/BorjaRM/dive-platform/issues/91), including the separately confirmed disable action. The authorization is limited to the existing localized `name`/`description` forms, shared optional `defaultCapacity`, one visible language at a time, optional authored translations, draft preservation, preload, independent saves, the accepted revision/error behavior and the existing disable command under `DIVE-BOOK-REQ-009`, `011`, `018`, `050`, `051`, `053`, `054`, `056` and `078`. It does not promote this Draft artifact, authorize the future category vocabulary, new commercial fields, permissions, events, schema changes outside the accepted revision migration, publication, deployment or merge. Frontend owns the bounded web increment; remaining checks and review gates continue to apply.
+
+**Documented:** the product owner's 2026-10-09 chat authorization also permits implementing the [category backend contract](#activity-category-backend-contract) under `DIVE-BOOK-REQ-074`, followed by Test Engineer and Frontend continuation for the category editor. It does not authorize modalities, other commercial fields, publication, deployment or merge.
 
 ### Proposed completion contracts
 

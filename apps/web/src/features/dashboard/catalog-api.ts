@@ -22,6 +22,28 @@ export type DashboardCapabilities = {
 
 export type ActivityStatus = 'Draft' | 'Published' | 'Disabled';
 
+export const ACTIVITY_CATEGORIES = [
+  'introductory',
+  'guided_dive',
+  'course',
+  'snorkel',
+  'freediving',
+  'other',
+] as const;
+
+export type ActivityCategory = (typeof ACTIVITY_CATEGORIES)[number];
+
+export const ACTIVITY_CATEGORY_LABELS: Record<ActivityCategory, string> = {
+  introductory: 'Introductory / try dive',
+  guided_dive: 'Guided dive',
+  course: 'Course',
+  snorkel: 'Snorkel',
+  freediving: 'Freediving',
+  other: 'Other',
+};
+
+export const OTHER_DESCRIPTION_MAX_LENGTH = 500;
+
 export type SlotStatus = 'Available' | 'Full' | 'Closed' | 'Cancelled';
 
 export type CatalogActivity = {
@@ -31,6 +53,8 @@ export type CatalogActivity = {
   name: LocalizedText;
   description?: LocalizedText;
   defaultCapacity?: number;
+  category?: ActivityCategory;
+  otherDescription?: LocalizedText;
   createdAt: string;
 };
 
@@ -73,6 +97,8 @@ export type CreateCatalogActivityInput = {
   name: LocalizedText;
   description?: LocalizedText;
   defaultCapacity?: number;
+  category: ActivityCategory | null;
+  otherDescription: LocalizedText;
 };
 
 export type CreateCatalogSlotInput = {
@@ -87,7 +113,14 @@ export type UpdateCatalogActivityInput =
       locale: CatalogLocale;
       values: { name: string; description: string };
     }
-  | { group: 'common'; values: { defaultCapacity: number | null } };
+  | { group: 'common'; values: { defaultCapacity: number | null } }
+  | {
+      group: 'commercial';
+      values: {
+        category: ActivityCategory | null;
+        otherDescription: LocalizedText;
+      };
+    };
 
 export type CatalogActivityDetail = { activity: CatalogActivity; etag: string };
 
@@ -130,6 +163,8 @@ function activityInputBody(input: CreateCatalogActivityInput) {
     ...(input.defaultCapacity === undefined
       ? {}
       : { defaultCapacity: input.defaultCapacity }),
+    category: input.category,
+    otherDescription: input.otherDescription,
   };
 }
 

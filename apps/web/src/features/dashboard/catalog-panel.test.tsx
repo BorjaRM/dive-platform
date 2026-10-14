@@ -212,7 +212,7 @@ describe('dashboard catalog panel', () => {
     const api = createApi();
     renderCatalog(api, vi.fn(), 'Europe/Madrid', { kind: 'list' });
     await screen.findByText('Buceo nocturno');
-    expect(screen.queryByLabelText('Name · ES')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
     expect(api.listSlots).not.toHaveBeenCalled();
     expect(api.getCatalogSettings).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Create activity' }));
@@ -269,6 +269,24 @@ describe('dashboard catalog panel', () => {
       screen.queryByRole('button', { name: 'Cancel' }),
     ).not.toBeInTheDocument();
     expect(api.updateActivity).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when a direct create route lacks create permission', async () => {
+    const api = createApi();
+    api.getDashboardCapabilities.mockResolvedValue({
+      canReadActivities: true,
+      canReadSessions: true,
+      canCreateActivity: false,
+      canUpdateActivity: true,
+      canPublishActivity: false,
+      canScheduleSession: false,
+    });
+    renderCatalog(api);
+    expect(
+      await screen.findByText('Activity creation unavailable'),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
+    expect(api.getCatalogSettings).not.toHaveBeenCalled();
   });
 
   it('waits for current values and revision when reopening a saved activity', async () => {
@@ -350,7 +368,7 @@ describe('dashboard catalog panel', () => {
     api.createActivity.mockResolvedValue({ id: 'activity-alpha' });
     renderCatalog(api);
     await screen.findByText('Catalog language: Spanish');
-    fireEvent.change(screen.getByLabelText('Name · ES'), {
+    fireEvent.change(screen.getByLabelText('Name'), {
       target: { value: 'Nueva actividad' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Create activity' }));
@@ -368,9 +386,11 @@ describe('dashboard catalog panel', () => {
     fireEvent.change(screen.getByLabelText('Name'), {
       target: { value: 'Borrador ES' },
     });
-    fireEvent.change(screen.getByLabelText('Language'), {
-      target: { value: 'en' },
-    });
+    expect(screen.queryByLabelText('Language')).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add English translation' }),
+    );
+    expect(screen.getByLabelText('Language')).toHaveValue('en');
     expect(screen.getByLabelText('Name')).toHaveValue('');
     expect(screen.getAllByLabelText('Name')).toHaveLength(1);
     fireEvent.change(screen.getByLabelText('Name'), {
@@ -791,16 +811,10 @@ describe('dashboard catalog panel', () => {
       'en',
     );
     expect(screen.queryByLabelText('Catalog language')).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Name · ES'), {
-      target: { value: 'Traduccion' },
-    });
     fireEvent.click(screen.getByRole('button', { name: 'Create activity' }));
     await screen.findByText('Add the activity name in English.');
     expect(api.createActivity).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByLabelText('Name · ES'), {
-      target: { value: '' },
-    });
-    fireEvent.change(screen.getByLabelText('Name · EN'), {
+    fireEvent.change(screen.getByLabelText('Name'), {
       target: { value: 'Diving' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Create activity' }));
@@ -808,7 +822,11 @@ describe('dashboard catalog panel', () => {
       expect(api.createActivity).toHaveBeenCalledWith(
         'ctx_alpha',
         'center-alpha',
-        { name: { en: 'Diving' } },
+        {
+          name: { en: 'Diving' },
+          category: null,
+          otherDescription: {},
+        },
       ),
     );
   });
@@ -846,14 +864,14 @@ describe('dashboard catalog panel', () => {
     );
     renderCatalog(api);
     await screen.findByText('Catalog language: Spanish');
-    fireEvent.change(screen.getByLabelText('Name · ES'), {
+    fireEvent.change(screen.getByLabelText('Name'), {
       target: { value: 'Old draft' },
     });
     fireEvent.change(screen.getByLabelText('Center'), {
       target: { value: 'center-beta' },
     });
     expect(await screen.findByLabelText('Catalog language')).toHaveValue('');
-    expect(screen.getByLabelText('Name · ES')).toHaveValue('');
+    expect(screen.getByLabelText('Name')).toHaveValue('');
     expect(
       screen.getByRole('button', { name: 'Create activity' }),
     ).toBeDisabled();
@@ -951,7 +969,7 @@ describe('dashboard catalog panel', () => {
     renderCatalog(api);
 
     await screen.findByText('Catalog language: Spanish');
-    fireEvent.change(screen.getByLabelText('Name · ES'), {
+    fireEvent.change(screen.getByLabelText('Name'), {
       target: { value: 'Curso de apnea' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Create activity' }));
@@ -960,16 +978,59 @@ describe('dashboard catalog panel', () => {
       expect(api.createActivity).toHaveBeenCalledWith(
         'ctx_alpha',
         'center-alpha',
-        { name: { es: 'Curso de apnea' } },
+        {
+          name: { es: 'Curso de apnea' },
+          category: null,
+          otherDescription: {},
+        },
       );
     });
     expect(await screen.findByText('Activity created.')).toBeInTheDocument();
-    expect(screen.getByLabelText('Name · ES')).toHaveValue('');
+    expect(screen.getByLabelText('Name')).toHaveValue('');
     fireEvent.change(screen.getByLabelText('Center'), {
       target: { value: 'center-beta' },
     });
     await screen.findByText('Catalog language: Spanish');
     expect(screen.queryByText('Activity created.')).not.toBeInTheDocument();
+  });
+
+  it('shows one creation language at a time and preserves translation drafts', async () => {
+    const api = createApi();
+    renderCatalog(api);
+    await screen.findByText('Catalog language: Spanish');
+
+    expect(screen.getByLabelText('Name')).toHaveValue('');
+    expect(screen.queryByLabelText('Name · ES')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Name · EN')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Buceo nocturno' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add English translation' }),
+    );
+
+    expect(screen.getByLabelText('Language')).toHaveValue('en');
+    expect(screen.getByLabelText('Name')).toHaveValue('');
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Night dive' },
+    });
+    fireEvent.change(screen.getByLabelText('Language'), {
+      target: { value: 'es' },
+    });
+    expect(screen.getByLabelText('Name')).toHaveValue('Buceo nocturno');
+    fireEvent.click(screen.getByRole('button', { name: 'Create activity' }));
+
+    await waitFor(() =>
+      expect(api.createActivity).toHaveBeenCalledWith(
+        'ctx_alpha',
+        'center-alpha',
+        {
+          name: { es: 'Buceo nocturno', en: 'Night dive' },
+          category: null,
+          otherDescription: {},
+        },
+      ),
+    );
   });
 
   it('validates activity drafts before sending commands', async () => {
@@ -983,6 +1044,61 @@ describe('dashboard catalog panel', () => {
       await screen.findByText('Add the activity name in Spanish.'),
     ).toBeInTheDocument();
     expect(api.createActivity).not.toHaveBeenCalled();
+  });
+
+  it('creates the commercial fields with the same category contract as editing', async () => {
+    const api = createApi();
+    renderCatalog(api);
+    await screen.findByText('Catalog language: Spanish');
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Curso de apnea' },
+    });
+    fireEvent.change(screen.getByLabelText('Category'), {
+      target: { value: 'other' },
+    });
+    fireEvent.change(screen.getByLabelText('Other category description'), {
+      target: { value: 'Limpieza de fondos' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add English translation' }),
+    );
+    fireEvent.change(screen.getByLabelText('Other category description'), {
+      target: { value: 'Reef cleaning' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create activity' }));
+    await waitFor(() =>
+      expect(api.createActivity).toHaveBeenCalledWith(
+        'ctx_alpha',
+        'center-alpha',
+        {
+          name: { es: 'Curso de apnea' },
+          category: 'other',
+          otherDescription: { es: 'Limpieza de fondos', en: 'Reef cleaning' },
+        },
+      ),
+    );
+  });
+
+  it('returns a create-only user to the activity list instead of opening edit', async () => {
+    const api = createApi();
+    api.getDashboardCapabilities.mockResolvedValue({
+      canReadActivities: true,
+      canReadSessions: true,
+      canCreateActivity: true,
+      canUpdateActivity: false,
+      canPublishActivity: false,
+      canScheduleSession: false,
+    });
+    api.createActivity.mockResolvedValue({ id: 'activity-new' });
+    renderCatalog(api);
+    await screen.findByText('Catalog language: Spanish');
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Solo crear' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create activity' }));
+    await screen.findByText('Activity created.');
+    expect(window.location.pathname).toBe('/dashboard/activities');
+    expect(api.getActivity).not.toHaveBeenCalled();
   });
 
   it.each(['Duration · minutes', 'Capacity'])(
@@ -1062,12 +1178,12 @@ describe('dashboard catalog panel', () => {
     );
     renderCatalog(api);
     await screen.findByText('Catalog language: Spanish');
-    fireEvent.change(screen.getByLabelText('Name · ES'), {
+    fireEvent.change(screen.getByLabelText('Name'), {
       target: { value: 'Curso de apnea' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Create activity' }));
     await screen.findByText('validation_error');
-    expect(screen.getByLabelText('Name · ES')).toHaveValue('Curso de apnea');
+    expect(screen.getByLabelText('Name')).toHaveValue('Curso de apnea');
   });
 
   it('keeps pagination and status filters in the activity list request', async () => {
@@ -1199,6 +1315,36 @@ describe('dashboard catalog panel', () => {
     });
   });
 
+  it('re-enables disabled activities from the list through the publish command', async () => {
+    const api = createApi();
+    api.listActivities.mockResolvedValue({
+      items: [
+        {
+          id: 'activity-alpha',
+          status: 'Disabled',
+          baseLocale: 'es',
+          name: { es: 'Buceo nocturno' },
+          createdAt: '2026-09-27T10:00:00Z',
+        },
+      ],
+      page: 1,
+      pageSize: 10,
+      hasNext: false,
+    });
+    renderCatalog(api, vi.fn(), 'Europe/Madrid', { kind: 'list' });
+
+    await screen.findByText('Buceo nocturno');
+    fireEvent.click(screen.getByRole('button', { name: 'Enable' }));
+
+    await waitFor(() => {
+      expect(api.publishActivity).toHaveBeenCalledWith(
+        'ctx_alpha',
+        'center-alpha',
+        'activity-alpha',
+      );
+    });
+  });
+
   it('creates a slot by converting the entered center-local time to an instant', async () => {
     const api = createApi();
     renderSlotCatalog(api);
@@ -1285,4 +1431,294 @@ describe('dashboard catalog panel', () => {
       await waitFor(() => expect(api.createSlot).toHaveBeenCalledOnce());
     },
   );
+});
+
+describe('activity editor language, category and disabling', () => {
+  afterEach(() => {
+    cleanup();
+    window.history.replaceState(null, '', '/dashboard');
+  });
+
+  function publishedDetail(
+    activity: Partial<
+      Awaited<ReturnType<DashboardApi['getActivity']>>['activity']
+    > = {},
+  ) {
+    return {
+      activity: {
+        id: 'activity-alpha',
+        status: 'Published' as const,
+        baseLocale: 'es' as const,
+        name: { es: 'Buceo nocturno' },
+        createdAt: '2026-09-27T10:00:00Z',
+        ...activity,
+      },
+      etag: '"activity-alpha-r1"',
+    };
+  }
+
+  it('shows only the base language until a translation is added (DIVE-BOOK-REQ-009, 078)', async () => {
+    const api = createApi();
+    renderSlotCatalog(api);
+    await screen.findByLabelText('Name');
+    expect(screen.getAllByLabelText('Name')).toHaveLength(1);
+    expect(screen.queryByLabelText('Language')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Writing in Spanish, the catalog language.'),
+    ).toBeInTheDocument();
+  });
+
+  it('opens the language selector when a stored translation exists', async () => {
+    const api = createApi();
+    api.getActivity.mockResolvedValue(
+      publishedDetail({ name: { es: 'Buceo nocturno', en: 'Night dive' } }),
+    );
+    renderSlotCatalog(api);
+    expect(await screen.findByLabelText('Language')).toHaveValue('es');
+    expect(
+      screen.queryByRole('button', { name: 'Add English translation' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: 'Spanish (base language)' }),
+    ).toBeInTheDocument();
+  });
+
+  it('saves a category as one common fact with raw codes (DIVE-BOOK-REQ-074)', async () => {
+    const api = createApi();
+    renderSlotCatalog(api);
+    await screen.findByLabelText('Category');
+    expect(screen.getByLabelText('Category')).toHaveValue('');
+    fireEvent.change(screen.getByLabelText('Category'), {
+      target: { value: 'freediving' },
+    });
+    expect(
+      screen.queryByLabelText('Other category description'),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save category' }));
+    await waitFor(() =>
+      expect(api.updateActivity).toHaveBeenCalledWith(
+        'ctx_alpha',
+        'center-alpha',
+        'activity-alpha',
+        {
+          group: 'commercial',
+          values: { category: 'freediving', otherDescription: {} },
+        },
+        '"activity-alpha-r1"',
+      ),
+    );
+    await screen.findByText('Activity saved.');
+  });
+
+  it('requires the base-language description for other and keeps translation drafts', async () => {
+    const api = createApi();
+    renderSlotCatalog(api);
+    await screen.findByLabelText('Category');
+    fireEvent.change(screen.getByLabelText('Category'), {
+      target: { value: 'other' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add English translation' }),
+    );
+    fireEvent.change(screen.getByLabelText('Other category description'), {
+      target: { value: 'Reef clean-up' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save category' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Describe the other category in Spanish.',
+    );
+    expect(api.updateActivity).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Language'), {
+      target: { value: 'es' },
+    });
+    expect(screen.getByLabelText('Other category description')).toHaveValue('');
+    fireEvent.change(screen.getByLabelText('Other category description'), {
+      target: { value: 'Limpieza de fondos' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save category' }));
+    await waitFor(() =>
+      expect(api.updateActivity).toHaveBeenCalledWith(
+        'ctx_alpha',
+        'center-alpha',
+        'activity-alpha',
+        {
+          group: 'commercial',
+          values: {
+            category: 'other',
+            otherDescription: {
+              es: 'Limpieza de fondos',
+              en: 'Reef clean-up',
+            },
+          },
+        },
+        '"activity-alpha-r1"',
+      ),
+    );
+  });
+
+  it('preloads and clears a stored category without sending stale descriptions', async () => {
+    const api = createApi();
+    api.getActivity.mockResolvedValue(
+      publishedDetail({
+        category: 'other',
+        otherDescription: { es: 'Limpieza de fondos' },
+      }),
+    );
+    renderSlotCatalog(api);
+    expect(await screen.findByLabelText('Category')).toHaveValue('other');
+    expect(screen.getByLabelText('Other category description')).toHaveValue(
+      'Limpieza de fondos',
+    );
+    fireEvent.change(screen.getByLabelText('Category'), {
+      target: { value: '' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save category' }));
+    await waitFor(() =>
+      expect(api.updateActivity).toHaveBeenCalledWith(
+        'ctx_alpha',
+        'center-alpha',
+        'activity-alpha',
+        {
+          group: 'commercial',
+          values: { category: null, otherDescription: {} },
+        },
+        '"activity-alpha-r1"',
+      ),
+    );
+  });
+
+  it('shows the stored category to read-only members', async () => {
+    const api = createApi();
+    api.getDashboardCapabilities.mockResolvedValue({
+      canReadActivities: true,
+      canReadSessions: true,
+      canCreateActivity: false,
+      canUpdateActivity: false,
+      canPublishActivity: false,
+      canScheduleSession: false,
+    });
+    api.getActivity.mockResolvedValue(
+      publishedDetail({ category: 'guided_dive' }),
+    );
+    renderSlotCatalog(api);
+    expect(await screen.findByText(/Guided dive/)).toHaveTextContent(
+      'Category: Guided dive',
+    );
+    expect(screen.queryByLabelText('Category')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Disable activity' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('disables only after explicit confirmation and shows the server status (DIVE-BOOK-REQ-018, 053, 054)', async () => {
+    const api = createApi();
+    api.getActivity.mockResolvedValueOnce(publishedDetail()).mockResolvedValue({
+      ...publishedDetail({ status: 'Disabled' }),
+      etag: '"activity-alpha-r2"',
+    });
+    renderSlotCatalog(api);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Disable activity' }),
+    );
+    const confirmation = screen.getByRole('group', {
+      name: 'Disable this activity?',
+    });
+    expect(confirmation).toHaveAccessibleDescription(
+      /Existing sessions and bookings stay as they are/,
+    );
+    expect(
+      within(confirmation).getByRole('button', { name: 'Keep published' }),
+    ).toHaveFocus();
+    fireEvent.click(
+      within(confirmation).getByRole('button', { name: 'Keep published' }),
+    );
+    expect(api.disableActivity).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Disable activity' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm disable' }));
+    await waitFor(() =>
+      expect(api.disableActivity).toHaveBeenCalledWith(
+        'ctx_alpha',
+        'center-alpha',
+        'activity-alpha',
+      ),
+    );
+    await waitFor(() => expect(api.getActivity).toHaveBeenCalledTimes(2));
+    const heading = screen.getByRole('heading', { name: 'Activity details' });
+    expect(heading.parentElement).toHaveTextContent('Disabled');
+    expect(
+      screen.queryByRole('button', { name: 'Disable activity' }),
+    ).not.toBeInTheDocument();
+    expect(api.updateActivity).not.toHaveBeenCalled();
+    expect(api.cancelSlot).not.toHaveBeenCalled();
+    expect(api.closeSlot).not.toHaveBeenCalled();
+  });
+
+  it('re-enables disabled activities from the detail view', async () => {
+    const api = createApi();
+    api.getActivity.mockResolvedValueOnce(
+      publishedDetail({ status: 'Disabled' }),
+    );
+    api.getActivity.mockResolvedValueOnce(publishedDetail());
+    renderSlotCatalog(api);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Enable activity' }),
+    );
+
+    await waitFor(() =>
+      expect(api.publishActivity).toHaveBeenCalledWith(
+        'ctx_alpha',
+        'center-alpha',
+        'activity-alpha',
+      ),
+    );
+    await waitFor(() => expect(api.getActivity).toHaveBeenCalledTimes(2));
+    expect(
+      screen.getByRole('heading', { name: 'Activity details' }).parentElement,
+    ).toHaveTextContent('Published');
+    expect(
+      screen.queryByRole('button', { name: 'Enable activity' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps the confirmation open and reports a failed disable', async () => {
+    const api = createApi();
+    api.getActivity.mockResolvedValue(publishedDetail());
+    api.disableActivity.mockRejectedValue(
+      new DashboardApiError(409, 'unknown', {
+        code: 'resource_state_conflict',
+      }),
+    );
+    renderSlotCatalog(api);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Disable activity' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm disable' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'resource_state_conflict',
+    );
+    expect(
+      screen.getByRole('group', { name: 'Disable this activity?' }),
+    ).toBeInTheDocument();
+    expect(api.getActivity).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not offer disabling for drafts or without the publish capability', async () => {
+    const api = createApi();
+    api.getDashboardCapabilities.mockResolvedValue({
+      canReadActivities: true,
+      canReadSessions: true,
+      canCreateActivity: true,
+      canUpdateActivity: true,
+      canPublishActivity: false,
+      canScheduleSession: true,
+    });
+    api.getActivity.mockResolvedValue(publishedDetail());
+    renderSlotCatalog(api);
+    await screen.findByLabelText('Category');
+    expect(
+      screen.queryByRole('button', { name: 'Disable activity' }),
+    ).not.toBeInTheDocument();
+  });
 });

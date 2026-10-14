@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
 import { type UseFormRegisterReturn, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Button, Input, Select } from '../../components/ui/controls';
@@ -12,6 +13,11 @@ import type {
   CreateCatalogSlotInput,
   LocalizedText,
 } from './catalog-api';
+import {
+  ACTIVITY_CATEGORIES,
+  ACTIVITY_CATEGORY_LABELS,
+  OTHER_DESCRIPTION_MAX_LENGTH,
+} from './catalog-api';
 import { CatalogNotice, describeCatalogError } from './catalog-feedback';
 import { slotStartFromLocal } from './catalog-time';
 
@@ -20,6 +26,11 @@ function validPositiveInteger(value: string) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0;
 }
+
+const LOCALE_LABELS: Record<CatalogLocale, string> = {
+  es: 'Spanish',
+  en: 'English',
+};
 
 const activityFormSchema = z.object({
   nameEs: z.string(),
@@ -32,6 +43,9 @@ const activityFormSchema = z.object({
       (value) => !value.trim() || validPositiveInteger(value),
       'Default capacity must be a positive whole number.',
     ),
+  category: z.enum(ACTIVITY_CATEGORIES).or(z.literal('')),
+  otherDescriptionEs: z.string(),
+  otherDescriptionEn: z.string(),
 });
 
 const slotFormSchema = z.object({
@@ -127,6 +141,7 @@ export function CatalogActivityEditor({
         </form>
       )}
       <CreateActivityForm
+        key={baseLocale ?? 'unconfigured'}
         baseLocale={baseLocale}
         disabled={settings.isError || settings.isPending || isBusy}
         onCreate={onCreate}
@@ -154,9 +169,20 @@ function CreateActivityForm({
       descriptionEs: '',
       descriptionEn: '',
       defaultCapacity: '',
+      category: '',
+      otherDescriptionEs: '',
+      otherDescriptionEn: '',
     },
     resolver: zodResolver(activityFormSchema),
   });
+  const [locale, setLocale] = useState<CatalogLocale>(baseLocale ?? 'es');
+  const [isTranslationOpen, setIsTranslationOpen] = useState(false);
+  const otherLocale: CatalogLocale = baseLocale === 'es' ? 'en' : 'es';
+  const selectedCategory = form.watch('category');
+  const nameField = locale === 'es' ? 'nameEs' : 'nameEn';
+  const descriptionField = locale === 'es' ? 'descriptionEs' : 'descriptionEn';
+  const otherDescriptionField =
+    locale === 'es' ? 'otherDescriptionEs' : 'otherDescriptionEn';
 
   const submit = (values: ActivityFormValues) => {
     if (!baseLocale || disabled) return;
@@ -176,6 +202,37 @@ function CreateActivityForm({
       values.descriptionEs,
       values.descriptionEn,
     );
+    const otherDescription = localizedValue(
+      values.otherDescriptionEs,
+      values.otherDescriptionEn,
+    );
+    if (values.category === 'other') {
+      const baseDescription = otherDescription[baseLocale];
+      if (!baseDescription?.trim()) {
+        onInvalid();
+        const field =
+          baseLocale === 'es' ? 'otherDescriptionEs' : 'otherDescriptionEn';
+        form.setError(
+          field,
+          {
+            message: `Describe the other category in ${baseLocale === 'es' ? 'Spanish' : 'English'}.`,
+          },
+          { shouldFocus: true },
+        );
+        return;
+      }
+      if (
+        Object.values(otherDescription).some(
+          (text) => [...text].length > OTHER_DESCRIPTION_MAX_LENGTH,
+        )
+      ) {
+        onInvalid();
+        form.setError('otherDescriptionEs', {
+          message: `The other category description is limited to ${OTHER_DESCRIPTION_MAX_LENGTH} characters.`,
+        });
+        return;
+      }
+    }
     onCreate(
       {
         name: localizedValue(values.nameEs, values.nameEn),
@@ -183,63 +240,118 @@ function CreateActivityForm({
         ...(values.defaultCapacity.trim()
           ? { defaultCapacity: Number(values.defaultCapacity) }
           : {}),
+        category: values.category || null,
+        otherDescription: values.category === 'other' ? otherDescription : {},
       },
-      () => form.reset(),
+      () => {
+        form.reset();
+        setLocale(baseLocale ?? 'es');
+        setIsTranslationOpen(false);
+      },
     );
   };
 
   return (
-    <form
-      className={styles.form}
-      onSubmit={form.handleSubmit(submit, onInvalid)}
-    >
-      <fieldset
-        className={`${styles.form} ${styles.formFields}`}
-        disabled={!baseLocale || disabled}
+    <>
+      {baseLocale && (
+        <div className={styles.languageBar}>
+          {isTranslationOpen ? (
+            <label className={styles.field} htmlFor="activity-language">
+              <span>Language</span>
+              <Select
+                id="activity-language"
+                value={locale}
+                disabled={disabled}
+                onChange={(event) =>
+                  setLocale(event.target.value as CatalogLocale)
+                }
+              >
+                <option value={baseLocale}>
+                  {LOCALE_LABELS[baseLocale]} (base language)
+                </option>
+                <option value={otherLocale}>
+                  {LOCALE_LABELS[otherLocale]}
+                </option>
+              </Select>
+            </label>
+          ) : (
+            <>
+              <p className={styles.fieldHint}>
+                Writing in {LOCALE_LABELS[baseLocale]}, the catalog language.
+              </p>
+              <Button
+                variant="secondary"
+                size="compact"
+                disabled={disabled}
+                onClick={() => {
+                  setIsTranslationOpen(true);
+                  setLocale(otherLocale);
+                }}
+              >
+                Add {LOCALE_LABELS[otherLocale]} translation
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+      <form
+        className={styles.form}
+        onSubmit={form.handleSubmit(submit, onInvalid)}
       >
-        <div className={styles.formFieldGrid}>
+        <fieldset
+          className={`${styles.form} ${styles.formFields}`}
+          disabled={!baseLocale || disabled}
+        >
           <Field
-            id="activity-name-es"
-            label="Name · ES"
-            required={baseLocale === 'es'}
-            registration={form.register('nameEs')}
-            error={form.formState.errors.nameEs?.message}
+            key={nameField}
+            id="activity-name"
+            label="Name"
+            required={locale === baseLocale}
+            registration={form.register(nameField)}
+            error={form.formState.errors[nameField]?.message}
           />
           <Field
-            id="activity-name-en"
-            label="Name · EN"
-            required={baseLocale === 'en'}
-            registration={form.register('nameEn')}
-            error={form.formState.errors.nameEn?.message}
-          />
-        </div>
-        <div className={styles.formFieldGrid}>
-          <Field
-            id="activity-description-es"
-            label="Description · ES"
-            registration={form.register('descriptionEs')}
-            error={form.formState.errors.descriptionEs?.message}
+            key={descriptionField}
+            id="activity-description"
+            label="Description"
+            registration={form.register(descriptionField)}
+            error={form.formState.errors[descriptionField]?.message}
           />
           <Field
-            id="activity-description-en"
-            label="Description · EN"
-            registration={form.register('descriptionEn')}
-            error={form.formState.errors.descriptionEn?.message}
+            id="activity-capacity"
+            label="Default capacity"
+            type="number"
+            min="1"
+            registration={form.register('defaultCapacity')}
+            error={form.formState.errors.defaultCapacity?.message}
           />
-        </div>
-        <Field
-          id="activity-capacity"
-          label="Default capacity"
-          type="number"
-          min="1"
-          registration={form.register('defaultCapacity')}
-          error={form.formState.errors.defaultCapacity?.message}
-        />
-        <Button type="submit" disabled={!baseLocale || disabled}>
-          Create activity
-        </Button>
-      </fieldset>
-    </form>
+          <label className={styles.field} htmlFor="activity-category">
+            <span>Category</span>
+            <Select id="activity-category" {...form.register('category')}>
+              <option value="">No category</option>
+              {ACTIVITY_CATEGORIES.map((code) => (
+                <option key={code} value={code}>
+                  {ACTIVITY_CATEGORY_LABELS[code]}
+                </option>
+              ))}
+            </Select>
+          </label>
+          {selectedCategory === 'other' && (
+            <Field
+              key={otherDescriptionField}
+              id="activity-other-description"
+              label="Other category description"
+              required={locale === baseLocale}
+              registration={form.register(otherDescriptionField)}
+              error={form.formState.errors[otherDescriptionField]?.message}
+            />
+          )}
+          <Button type="submit" disabled={!baseLocale || disabled}>
+            Create activity
+          </Button>
+        </fieldset>
+      </form>
+    </>
   );
 }
 

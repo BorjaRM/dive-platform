@@ -35,12 +35,25 @@ const CATALOG_VIEW_TITLES = {
   edit: 'Edit activity',
 };
 
+function activityCommandSuccessMessage(
+  command: 'publish' | 'enable' | 'disable',
+) {
+  switch (command) {
+    case 'publish':
+      return 'Activity published.';
+    case 'enable':
+      return 'Activity re-enabled.';
+    case 'disable':
+      return 'Activity disabled.';
+  }
+}
+
 type CatalogMutation =
   | { type: 'select-language'; locale: CatalogLocale }
   | { type: 'create-activity'; input: CreateCatalogActivityInput }
   | {
       type: 'activity-command';
-      command: 'publish' | 'disable';
+      command: 'publish' | 'enable' | 'disable';
       activityId: string;
     }
   | {
@@ -134,7 +147,10 @@ function CatalogCenterPanel({
     queryFn: ({ signal }) =>
       api.getCatalogSettings(tenantContext as string, centerId, signal),
     enabled:
-      view.kind === 'create' && isReady && Boolean(tenantContext && centerId),
+      view.kind === 'create' &&
+      capabilities?.canCreateActivity === true &&
+      isReady &&
+      Boolean(tenantContext && centerId),
     retry: false,
   });
 
@@ -253,9 +269,17 @@ function CatalogCenterPanel({
         case 'create-activity':
           return api.createActivity(tenantContext, centerId, action.input);
         case 'activity-command':
-          return action.command === 'publish'
-            ? api.publishActivity(tenantContext, centerId, action.activityId)
-            : api.disableActivity(tenantContext, centerId, action.activityId);
+          if (action.command === 'disable')
+            return api.disableActivity(
+              tenantContext,
+              centerId,
+              action.activityId,
+            );
+          return api.publishActivity(
+            tenantContext,
+            centerId,
+            action.activityId,
+          );
         case 'create-slot':
           return api.createSlot(
             tenantContext,
@@ -311,10 +335,16 @@ function CatalogCenterPanel({
             break;
           case 'create-activity':
             if (result && 'id' in result) {
-              navigate(
-                `/dashboard/activities/${encodeURIComponent(result.id)}/edit`,
-                { [CATALOG_SEARCH_PARAMS.centerId]: centerId },
-              );
+              if (capabilities?.canUpdateActivity) {
+                navigate(
+                  `/dashboard/activities/${encodeURIComponent(result.id)}/edit`,
+                  { [CATALOG_SEARCH_PARAMS.centerId]: centerId },
+                );
+              } else {
+                navigate('/dashboard/activities', {
+                  [CATALOG_SEARCH_PARAMS.centerId]: centerId,
+                });
+              }
             }
             break;
           case 'activity-command':
@@ -455,14 +485,20 @@ function CatalogCenterPanel({
                 onCommand={(activityId, command) =>
                   runMutation(
                     { type: 'activity-command', command, activityId },
-                    command === 'publish'
-                      ? 'Activity published.'
-                      : 'Activity disabled.',
+                    activityCommandSuccessMessage(command),
                   )
                 }
               />
             )}
-            {view.kind === 'create' && (
+            {view.kind === 'create' &&
+              capabilitiesQuery.isSuccess &&
+              !capabilities?.canCreateActivity && (
+                <CatalogNotice
+                  title="Activity creation unavailable"
+                  message="Your current center permissions do not allow creating activities."
+                />
+              )}
+            {view.kind === 'create' && capabilities?.canCreateActivity && (
               <CatalogActivityEditor
                 settings={settingsQuery}
                 isBusy={catalogMutation.isPending}
@@ -500,6 +536,9 @@ function CatalogCenterPanel({
                     detail={activityQuery.data}
                     centerId={centerId}
                     canEditActivity={capabilities?.canUpdateActivity === true}
+                    canDisableActivity={
+                      capabilities?.canPublishActivity === true
+                    }
                     onReload={async () => {
                       const result = await activityQuery.refetch();
                       if (result.error) throw result.error;

@@ -472,6 +472,36 @@ describe('activity editing BFF transport', () => {
     expect(headers.get('x-bff-center-origin')).toBe(origin);
   });
 
+  it('forwards the commercial category form body unchanged (DIVE-BOOK-REQ-074)', async () => {
+    const upstream = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(null, { status: 204, headers: { ETag: etag } }),
+      );
+    const body = {
+      group: 'commercial',
+      values: { category: 'snorkel', otherDescription: {} },
+    };
+    const saved = await handleDashboardBff(
+      incoming(`/${path.join('/')}`, {
+        method: 'PUT',
+        headers: {
+          Origin: origin,
+          'Content-Type': 'application/json',
+          'If-Match': etag,
+        },
+        body: JSON.stringify(body),
+      }),
+      path,
+      { environment, fetch: upstream },
+    );
+    expect(saved.status).toBe(204);
+    expect(saved.headers.get('etag')).toBe(etag);
+    const init = upstream.mock.calls[0]?.[1];
+    expect(new Headers(init?.headers).get('if-match')).toBe(etag);
+    expect(JSON.parse(await new Response(init?.body).text())).toEqual(body);
+  });
+
   it('rejects editing without center context or with an unrelated origin', async () => {
     const upstream = vi.fn<typeof fetch>();
     for (const headers of [

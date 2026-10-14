@@ -38,6 +38,25 @@ type SeedIdentity = Readonly<{
   fallbackSubject: string;
 }>;
 
+type SeedActivity = Readonly<{
+  id: string;
+  centerId: string;
+  baseLocale: 'es' | 'en';
+  name: Readonly<{ es?: string; en?: string }>;
+  description: Readonly<{ es?: string; en?: string }> | null;
+  defaultCapacity: number | null;
+  categoryCode:
+    | 'introductory'
+    | 'guided_dive'
+    | 'course'
+    | 'snorkel'
+    | 'freediving'
+    | 'other'
+    | null;
+  otherDescription: Readonly<{ es?: string; en?: string }> | null;
+  status: 'Draft' | 'Published' | 'Disabled';
+}>;
+
 const seedIdentities: readonly SeedIdentity[] = [
   { id: identities.owner, key: 'OWNER', fallbackSubject: 'demo-owner' },
   {
@@ -54,6 +73,121 @@ const seedIdentities: readonly SeedIdentity[] = [
     id: identities.atlasAdmin,
     key: 'ATLAS_ADMIN',
     fallbackSubject: 'demo-atlas-admin',
+  },
+];
+
+const seedActivities: readonly SeedActivity[] = [
+  {
+    id: '00000000-0000-4000-8000-000000000501',
+    centerId: centers.puertoAzul,
+    baseLocale: 'es',
+    name: { es: 'Bautismo de buceo', en: 'Introductory dive' },
+    description: {
+      es: 'Primera inmersion acompanada en aguas tranquilas.',
+      en: 'First accompanied dive in calm waters.',
+    },
+    defaultCapacity: 6,
+    categoryCode: 'introductory',
+    otherDescription: null,
+    status: 'Published',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000502',
+    centerId: centers.puertoAzul,
+    baseLocale: 'es',
+    name: { es: 'Arrecife de Las Galletas', en: 'Las Galletas reef' },
+    description: {
+      es: 'Inmersion guiada para buceadores certificados.',
+      en: 'Guided dive for certified divers.',
+    },
+    defaultCapacity: 8,
+    categoryCode: 'guided_dive',
+    otherDescription: null,
+    status: 'Draft',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000503',
+    centerId: centers.puertoAzul,
+    baseLocale: 'es',
+    name: { es: 'Curso de aguas abiertas', en: 'Open water course' },
+    description: {
+      es: 'Formacion inicial con sesiones de teoria y mar.',
+      en: 'Entry-level training with classroom and sea sessions.',
+    },
+    defaultCapacity: 4,
+    categoryCode: 'course',
+    otherDescription: null,
+    status: 'Draft',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000504',
+    centerId: centers.puertoAzul,
+    baseLocale: 'es',
+    name: { es: 'Ruta de snorkel costera', en: 'Coastal snorkel route' },
+    description: {
+      es: 'Recorrido de superficie para toda la familia.',
+      en: 'Surface route for the whole family.',
+    },
+    defaultCapacity: 10,
+    categoryCode: 'snorkel',
+    otherDescription: null,
+    status: 'Published',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000505',
+    centerId: centers.puertoAzul,
+    baseLocale: 'es',
+    name: { es: 'Iniciacion al apnea', en: 'Freediving fundamentals' },
+    description: {
+      es: 'Sesion de tecnica y respiracion en aguas abiertas.',
+      en: 'Technique and breathwork session in open water.',
+    },
+    defaultCapacity: 5,
+    categoryCode: 'freediving',
+    otherDescription: null,
+    status: 'Draft',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000506',
+    centerId: centers.puertoAzul,
+    baseLocale: 'es',
+    name: { es: 'Sesion a medida', en: 'Tailored session' },
+    description: {
+      es: 'Actividad configurada segun las necesidades del grupo.',
+      en: 'Activity configured for the group needs.',
+    },
+    defaultCapacity: 6,
+    categoryCode: 'other',
+    otherDescription: {
+      es: 'Experiencia privada de navegacion y fotografia submarina.',
+      en: 'Private navigation and underwater photography experience.',
+    },
+    status: 'Draft',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000507',
+    centerId: centers.puertoAzul,
+    baseLocale: 'es',
+    name: { es: 'Actividad historica', en: 'Legacy activity' },
+    description: null,
+    defaultCapacity: null,
+    categoryCode: null,
+    otherDescription: null,
+    status: 'Disabled',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000508',
+    centerId: centers.arrecifeSur,
+    baseLocale: 'en',
+    name: { en: 'Atlas guided dive', es: 'Inmersion guiada Atlas' },
+    description: {
+      en: 'Tenant-isolated activity for the second demo operator.',
+      es: 'Actividad aislada del segundo operador de demostracion.',
+    },
+    defaultCapacity: 8,
+    categoryCode: 'guided_dive',
+    otherDescription: null,
+    status: 'Published',
   },
 ];
 
@@ -143,6 +277,7 @@ async function seedTenantData(
       roles: readonly string[];
       centerIds: readonly string[] | null;
     }>[];
+    activities?: readonly SeedActivity[];
   }>,
 ): Promise<void> {
   await setTenantContext(client, input.tenantId);
@@ -188,6 +323,37 @@ async function seedTenantData(
         membership.identityId,
         membership.roles,
         membership.centerIds,
+      ],
+    );
+  }
+
+  for (const activity of input.activities ?? []) {
+    await client.query(
+      `INSERT INTO booking_app.activities
+        (id, tenant_id, center_id, base_locale, name, description,
+         default_capacity, category_code, other_description, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT (tenant_id, id) DO UPDATE
+       SET center_id = EXCLUDED.center_id,
+           base_locale = EXCLUDED.base_locale,
+           name = EXCLUDED.name,
+           description = EXCLUDED.description,
+           default_capacity = EXCLUDED.default_capacity,
+           category_code = EXCLUDED.category_code,
+           other_description = EXCLUDED.other_description,
+           revision = 1,
+           status = EXCLUDED.status`,
+      [
+        activity.id,
+        input.tenantId,
+        activity.centerId,
+        activity.baseLocale,
+        activity.name,
+        activity.description,
+        activity.defaultCapacity,
+        activity.categoryCode,
+        activity.otherDescription,
+        activity.status,
       ],
     );
   }
@@ -266,6 +432,11 @@ export async function seedLocalDatabase({
           centerIds: [centers.puertoAzul],
         },
       ],
+      activities: seedActivities.filter(
+        (activity) =>
+          activity.centerId === centers.puertoAzul ||
+          activity.centerId === centers.bahiaLuna,
+      ),
     });
 
     await seedTenantData(client, {
@@ -293,6 +464,9 @@ export async function seedLocalDatabase({
           centerIds: null,
         },
       ],
+      activities: seedActivities.filter(
+        (activity) => activity.centerId === centers.arrecifeSur,
+      ),
     });
 
     await client.query(

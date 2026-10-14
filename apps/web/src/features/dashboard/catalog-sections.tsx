@@ -47,7 +47,10 @@ export function ActivitiesSection({
   canPublishActivity: boolean;
   onStatusChange: (status: string) => void;
   onSelect: (activityId: string) => void;
-  onCommand: (activityId: string, command: 'publish' | 'disable') => void;
+  onCommand: (
+    activityId: string,
+    command: 'publish' | 'enable' | 'disable',
+  ) => void;
 }) {
   const items = query.data?.items ?? [];
   return (
@@ -226,7 +229,7 @@ function ActivityRow({
   isBusy: boolean;
   canPublishActivity: boolean;
   onSelect: () => void;
-  onCommand: (command: 'publish' | 'disable') => void;
+  onCommand: (command: 'publish' | 'enable' | 'disable') => void;
 }) {
   const description = activity.description
     ? resolveCatalogText(activity.description, 'en', activity.baseLocale)
@@ -264,6 +267,15 @@ function ActivityRow({
             onClick={() => onCommand('disable')}
           >
             Disable
+          </Button>
+        )}
+        {canPublishActivity && activity.status === 'Disabled' && (
+          <Button
+            type="button"
+            disabled={isBusy}
+            onClick={() => onCommand('enable')}
+          >
+            Enable
           </Button>
         )}
       </div>
@@ -358,7 +370,7 @@ function Pagination({
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status }: { status: string }) {
   switch (status) {
     case 'Published':
     case 'Available':

@@ -129,6 +129,7 @@ describe('OpenAPI document generation', () => {
             oneOf: [
               { $ref: '#/components/schemas/CatalogTranslationEditDto' },
               { $ref: '#/components/schemas/CatalogCommonEditDto' },
+              { $ref: '#/components/schemas/CatalogCommercialEditDto' },
             ],
           },
         },
