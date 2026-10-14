@@ -78,36 +78,19 @@ export async function loadUpcomingSlots(
   api: DashboardApi,
   context: string,
   centerId: string,
-  activityIds: string[],
   from: string,
   signal: AbortSignal,
 ): Promise<CatalogSlot[]> {
   signal.throwIfAborted();
-  const groups = await Promise.all(
-    activityIds.map(async (activityId) => {
-      signal.throwIfAborted();
-      const response = await api.listSlots(
-        context,
-        centerId,
-        activityId,
-        { page: 1, pageSize: 5, from },
-        signal,
-      );
-      signal.throwIfAborted();
-      for (const slot of response.items) calendarSlotEnd(slot);
-      return response.items;
-    }),
+  const response = await api.listUpcomingSlots(
+    context,
+    centerId,
+    { from },
+    signal,
   );
   signal.throwIfAborted();
-  return groups
-    .flat()
-    .sort((first, second) => {
-      const startOrder =
-        Date.parse(first.startsAt) - Date.parse(second.startsAt);
-      if (startOrder !== 0) return startOrder;
-      return first.id.localeCompare(second.id);
-    })
-    .slice(0, 5);
+  for (const slot of response.items) calendarSlotEnd(slot);
+  return response.items;
 }
 
 export function calendarSlotEnd(slot: CatalogSlot): string {

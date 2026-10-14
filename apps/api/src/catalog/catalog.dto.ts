@@ -264,3 +264,7 @@ export type CatalogListQueryInput = Readonly<{
   from?: unknown;
   to?: unknown;
 }>;
+
+export type CatalogUpcomingQueryInput = Readonly<{
+  from: string;
+}>;

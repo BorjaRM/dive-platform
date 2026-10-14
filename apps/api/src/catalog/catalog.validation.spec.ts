@@ -10,6 +10,7 @@ import {
   parseCatalogListQueryInput,
   parseCatalogSettingsInput,
   parseCatalogSlotInput,
+  parseCatalogUpcomingQueryInput,
   positiveInteger,
   uuid,
 } from './catalog.validation.js';
@@ -346,6 +347,18 @@ describe('catalog runtime validation', () => {
         status: 'Draft',
       }),
     ).toEqual({ page: 2, pageSize: 10, status: 'Draft' });
+  });
+
+  it('accepts only the required upcoming-session instant', () => {
+    expect(
+      parseCatalogUpcomingQueryInput({ from: '2030-10-01T10:00:00Z' }),
+    ).toEqual({ from: '2030-10-01T10:00:00Z' });
+    expect(() =>
+      parseCatalogUpcomingQueryInput({ from: '2030-10-01T10:00:00Z', page: 2 }),
+    ).toThrow(CatalogProblemException);
+    expect(() => parseCatalogUpcomingQueryInput({})).toThrow(
+      CatalogProblemException,
+    );
   });
 
   it('rejects an offset outside the safe integer range', () => {

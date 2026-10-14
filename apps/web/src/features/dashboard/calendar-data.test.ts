@@ -105,64 +105,53 @@ describe('calendar URL recovery (DIVE-BOOK-REQ-043)', () => {
 });
 
 describe('calendar fixed-time data (DIVE-BOOK-REQ-043, 049)', () => {
-  it('selects the next five sessions globally without a weekly horizon or fetching later slot pages', async () => {
-    const listSlots = vi
-      .fn()
-      .mockImplementation(async (_context, _center, activityId) => ({
-        items: Array.from({ length: 5 }, (_, index) => ({
-          ...slot,
-          activityId,
-          id: `${activityId}-${index}`,
-          startsAt: `2030-10-${String(index + (activityId === 'a' ? 1 : 2)).padStart(2, '0')}T10:00:00Z`,
-        })),
-        hasNext: true,
-      }));
+  it('uses one center-level request for the server-ordered next five sessions', async () => {
+    const items = Array.from({ length: 5 }, (_, index) => ({
+      ...slot,
+      id: `slot-${index}`,
+      startsAt: `2030-10-${String(index + 1).padStart(2, '0')}T10:00:00Z`,
+    }));
+    const listUpcomingSlots = vi.fn().mockResolvedValue({
+      items,
+      page: 1,
+      pageSize: 5,
+      hasNext: true,
+    });
     const signal = new AbortController().signal;
     const from = '2026-10-01T09:00:00.000Z';
     const result = await loadUpcomingSlots(
-      { listSlots } as unknown as DashboardApi,
+      { listUpcomingSlots } as unknown as DashboardApi,
       'ctx',
       'center-a',
-      ['a', 'b'],
       from,
       signal,
     );
-    expect(result.map((item) => item.id)).toEqual([
-      'a-0',
-      'a-1',
-      'b-0',
-      'a-2',
-      'b-1',
-    ]);
-    expect(listSlots).toHaveBeenCalledTimes(2);
-    for (const activityId of ['a', 'b'])
-      expect(listSlots).toHaveBeenCalledWith(
-        'ctx',
-        'center-a',
-        activityId,
-        { page: 1, pageSize: 5, from },
-        signal,
-      );
+    expect(result).toEqual(items);
+    expect(listUpcomingSlots).toHaveBeenCalledOnce();
+    expect(listUpcomingSlots).toHaveBeenCalledWith(
+      'ctx',
+      'center-a',
+      { from },
+      signal,
+    );
   });
 
-  it('does not expose a partial upcoming list when one activity request fails', async () => {
-    const listSlots = vi
+  it('does not expose an upcoming list when the center request fails', async () => {
+    const listUpcomingSlots = vi
       .fn()
-      .mockResolvedValueOnce({ items: [slot] })
-      .mockRejectedValueOnce(new Error('Unavailable'));
+      .mockRejectedValue(new Error('Unavailable'));
     await expect(
       loadUpcomingSlots(
-        { listSlots } as unknown as DashboardApi,
+        { listUpcomingSlots } as unknown as DashboardApi,
         'ctx',
         'center-a',
-        ['a', 'b'],
         '2026-10-01T00:00:00Z',
         new AbortController().signal,
       ),
     ).rejects.toThrow('Unavailable');
   });
 
-  it('orders instants rather than local date strings and returns fewer than five when available', async () => {
+  it('preserves the server order and all internal statuses when fewer than five are available', async () => {
     const earlier = {
       ...slot,
       id: 'earlier',
@@ -175,47 +164,33 @@ describe('calendar fixed-time data (DIVE-BOOK-REQ-043, 049)', () => {
       startsAt: '2026-10-01T09:00:00-02:00',
       status: 'Cancelled' as const,
     };
-    const listSlots = vi
-      .fn()
-      .mockResolvedValue({ items: [earlier, later], hasNext: false });
+    const listUpcomingSlots = vi.fn().mockResolvedValue({
+      items: [earlier, later],
+      page: 1,
+      pageSize: 5,
+      hasNext: false,
+    });
     const result = await loadUpcomingSlots(
-      { listSlots } as unknown as DashboardApi,
+      { listUpcomingSlots } as unknown as DashboardApi,
       'ctx',
       'center-a',
-      ['activity-a'],
       '2026-10-01T08:00:00Z',
       new AbortController().signal,
     );
     expect(result).toEqual([earlier, later]);
   });
 
-  it('does not request slots when there are no activities', async () => {
-    const listSlots = vi.fn();
-    await expect(
-      loadUpcomingSlots(
-        { listSlots } as unknown as DashboardApi,
-        'ctx',
-        'center-a',
-        [],
-        '2026-10-01T08:00:00Z',
-        new AbortController().signal,
-      ),
-    ).resolves.toEqual([]);
-    expect(listSlots).not.toHaveBeenCalled();
-  });
-
   it('discards an upcoming response after cancellation', async () => {
     const controller = new AbortController();
-    const listSlots = vi.fn().mockImplementation(async () => {
+    const listUpcomingSlots = vi.fn().mockImplementation(async () => {
       controller.abort();
-      return { items: [slot] };
+      return { items: [slot], page: 1, pageSize: 5, hasNext: false };
     });
     await expect(
       loadUpcomingSlots(
-        { listSlots } as unknown as DashboardApi,
+        { listUpcomingSlots } as unknown as DashboardApi,
         'ctx',
         'center-a',
-        ['a'],
         '2026-10-01T00:00:00Z',
         controller.signal,
       ),

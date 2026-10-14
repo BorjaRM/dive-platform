@@ -93,6 +93,10 @@ export type CatalogSlotListQuery = {
   to?: string;
 };
 
+export type CatalogUpcomingSlotsQuery = {
+  from: string;
+};
+
 export type CreateCatalogActivityInput = {
   name: LocalizedText;
   description?: LocalizedText;
@@ -132,13 +136,18 @@ function requireActivityEtag(etag: string | null) {
 
 function withListQuery(
   path: string,
-  query: CatalogActivityListQuery | CatalogSlotListQuery,
+  query:
+    | CatalogActivityListQuery
+    | CatalogSlotListQuery
+    | CatalogUpcomingSlotsQuery,
 ) {
   const search = new URLSearchParams();
-  if (query.page !== undefined) search.set('page', String(query.page));
-  if (query.pageSize !== undefined)
+  if ('page' in query && query.page !== undefined)
+    search.set('page', String(query.page));
+  if ('pageSize' in query && query.pageSize !== undefined)
     search.set('pageSize', String(query.pageSize));
-  if (query.status !== undefined) search.set('status', query.status);
+  if ('status' in query && query.status !== undefined)
+    search.set('status', query.status);
   if ('from' in query && query.from !== undefined)
     search.set('from', query.from);
   if ('to' in query && query.to !== undefined) search.set('to', query.to);
@@ -152,6 +161,10 @@ function activityPath(centerId: string) {
 
 function slotsPath(centerId: string, activityId: string) {
   return `${activityPath(centerId)}/${encodeURIComponent(activityId)}/slots`;
+}
+
+function upcomingSlotsPath(centerId: string) {
+  return `/v1/centers/${encodeURIComponent(centerId)}/upcoming-slots`;
 }
 
 function activityInputBody(input: CreateCatalogActivityInput) {
@@ -318,6 +331,16 @@ export function createCatalogApi({ request }: { request: DashboardRequest }) {
     ) =>
       request<CatalogSlotList>(
         withListQuery(slotsPath(centerId, activityId), query),
+        { context: tenantContext, signal },
+      ),
+    listUpcomingSlots: (
+      tenantContext: string,
+      centerId: string,
+      query: CatalogUpcomingSlotsQuery,
+      signal?: AbortSignal,
+    ) =>
+      request<CatalogSlotList>(
+        withListQuery(upcomingSlotsPath(centerId), query),
         { context: tenantContext, signal },
       ),
     createSlot: (

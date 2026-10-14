@@ -1033,6 +1033,19 @@ describe('IAM/API vertical (e2e)', () => {
         .get(`/v1/centers/${centerA1}/activities/${ownActivity.body.id}/slots`)
         .set(headers)
         .expect(200);
+      const upcoming = await bffRequest()
+        .get(`/v1/centers/${centerA1}/upcoming-slots?from=2030-09-01T00:00:00Z`)
+        .set(headers)
+        .expect(200);
+      expect(upcoming.body).toMatchObject({ page: 1, pageSize: 5 });
+      expect(upcoming.body.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            activityId: ownActivity.body.id,
+            status: 'Available',
+          }),
+        ]),
+      );
 
       const foreignResources = [];
       for (const [tenantId, centerId, actor] of [
@@ -1135,6 +1148,7 @@ describe('IAM/API vertical (e2e)', () => {
           ['patch', `activities/${activityId}/publish`, undefined],
           ['patch', `activities/${activityId}/disable`, undefined],
           ['get', `activities/${activityId}/slots`, undefined],
+          ['get', 'upcoming-slots', undefined],
           [
             'post',
             `activities/${activityId}/slots`,

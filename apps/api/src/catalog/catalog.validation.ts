@@ -13,6 +13,7 @@ import type {
   CatalogListQueryInput,
   CatalogSettingsInput,
   CatalogSlotInput,
+  CatalogUpcomingQueryInput,
 } from './catalog.dto.js';
 import { CatalogProblemException } from './catalog.errors.js';
 import { parseCatalogInstant } from './catalog.time.js';
@@ -349,4 +350,20 @@ export function parseCatalogListQueryInput(
     from: input.from,
     to: input.to,
   };
+}
+
+export function parseCatalogUpcomingQueryInput(
+  value: unknown,
+): CatalogUpcomingQueryInput {
+  rejectUnknownFields(value, ['from']);
+  const input = value as Record<string, unknown>;
+  if (typeof input.from !== 'string') {
+    throw new CatalogProblemException(
+      422,
+      'validation_error',
+      'from must be an RFC3339 instant',
+    );
+  }
+  parseCatalogInputInstant(input.from, 'from');
+  return { from: input.from };
 }

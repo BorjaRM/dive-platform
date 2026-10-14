@@ -82,6 +82,9 @@ describe('OpenAPI document generation', () => {
       document.paths['/v1/centers/{centerId}/calendar/slots']?.get,
     ).toBeDefined();
     expect(
+      document.paths['/v1/centers/{centerId}/upcoming-slots']?.get,
+    ).toBeDefined();
+    expect(
       document.paths['/v1/centers/{centerId}/slots/{slotId}/bookings']?.get,
     ).toBeDefined();
     expect(

@@ -1,0 +1,1 @@
+CREATE INDEX "slots_center_starts_id_idx" ON "booking_app"."slots" USING btree ("tenant_id","center_id","starts_at","id");

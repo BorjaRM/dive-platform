@@ -45,7 +45,7 @@ function createApi() {
       ],
       hasNext: false,
     }),
-    listSlots: vi.fn().mockResolvedValue({
+    listUpcomingSlots: vi.fn().mockResolvedValue({
       items: [
         {
           id: 'slot-a',
@@ -145,11 +145,10 @@ describe('center home (DIVE-IAM-REQ-030..032, DIVE-BOOK-REQ-049)', () => {
       '/dashboard/calendar?center=center-a',
     );
     expect(screen.queryByLabelText('Center')).not.toBeInTheDocument();
-    expect(api.listSlots).toHaveBeenCalledWith(
+    expect(api.listUpcomingSlots).toHaveBeenCalledWith(
       'ctx-private',
       'center-a',
-      'activity-a',
-      { page: 1, pageSize: 5, from: '2026-10-01T09:00:00.000Z' },
+      { from: '2026-10-01T09:00:00.000Z' },
       expect.any(AbortSignal),
     );
     expect(
@@ -238,7 +237,7 @@ describe('center home (DIVE-IAM-REQ-030..032, DIVE-BOOK-REQ-049)', () => {
     expect(screen.getByText('No center is available')).toBeInTheDocument();
     expect(api.getDashboardCapabilities).not.toHaveBeenCalled();
     expect(api.listActivities).not.toHaveBeenCalled();
-    expect(api.listSlots).not.toHaveBeenCalled();
+    expect(api.listUpcomingSlots).not.toHaveBeenCalled();
     expect(
       screen.queryByRole('link', { name: 'Create activity' }),
     ).not.toBeInTheDocument();
@@ -252,13 +251,16 @@ describe('center home (DIVE-IAM-REQ-030..032, DIVE-BOOK-REQ-049)', () => {
     api.listActivities.mockResolvedValue({ items: [], hasNext: false });
     renderHome(api);
     await screen.findByText('No activities yet');
-    expect(api.listSlots).not.toHaveBeenCalled();
+    expect(api.listUpcomingSlots).not.toHaveBeenCalled();
     expect(
       screen.queryByRole('link', { name: 'Schedule session' }),
     ).not.toBeInTheDocument();
     cleanup();
     const scheduled = createApi();
-    scheduled.listSlots.mockResolvedValue({ items: [], hasNext: false });
+    scheduled.listUpcomingSlots.mockResolvedValue({
+      items: [],
+      hasNext: false,
+    });
     renderHome(scheduled);
     await screen.findByText('No upcoming sessions');
     expect(
@@ -278,13 +280,15 @@ describe('center home (DIVE-IAM-REQ-030..032, DIVE-BOOK-REQ-049)', () => {
     renderHome(api);
     await screen.findByText('Activity access is unavailable');
     expect(api.listActivities).not.toHaveBeenCalled();
-    expect(api.listSlots).not.toHaveBeenCalled();
+    expect(api.listUpcomingSlots).not.toHaveBeenCalled();
     expect(screen.queryByText('No activities yet')).not.toBeInTheDocument();
   });
 
   it('reports failures without displaying an empty or partial list', async () => {
     const api = createApi();
-    api.listSlots.mockRejectedValue(new DashboardApiError(503, 'unavailable'));
+    api.listUpcomingSlots.mockRejectedValue(
+      new DashboardApiError(503, 'unavailable'),
+    );
     renderHome(api);
     await screen.findByText('Upcoming sessions could not be loaded');
     expect(screen.queryByText('No upcoming sessions')).not.toBeInTheDocument();
@@ -301,7 +305,7 @@ describe('center home (DIVE-IAM-REQ-030..032, DIVE-BOOK-REQ-049)', () => {
     renderHome(api);
     await screen.findByText('Workspace permissions could not be loaded');
     expect(api.listActivities).not.toHaveBeenCalled();
-    expect(api.listSlots).not.toHaveBeenCalled();
+    expect(api.listUpcomingSlots).not.toHaveBeenCalled();
     expect(
       screen.queryByRole('link', { name: 'Create activity' }),
     ).not.toBeInTheDocument();
@@ -317,7 +321,7 @@ describe('center home (DIVE-IAM-REQ-030..032, DIVE-BOOK-REQ-049)', () => {
     );
     renderHome(api);
     await screen.findByText('Activities could not be loaded');
-    expect(api.listSlots).not.toHaveBeenCalled();
+    expect(api.listUpcomingSlots).not.toHaveBeenCalled();
     expect(screen.queryByText('No activities yet')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: 'Schedule session' }),
@@ -356,7 +360,7 @@ describe('center home (DIVE-IAM-REQ-030..032, DIVE-BOOK-REQ-049)', () => {
     const api = createApi();
     renderHome(api, { timeZone: null });
     await screen.findByText('Center time zone is not configured');
-    expect(api.listSlots).not.toHaveBeenCalled();
+    expect(api.listUpcomingSlots).not.toHaveBeenCalled();
     expect(
       screen.queryByRole('link', { name: 'Schedule session' }),
     ).not.toBeInTheDocument();

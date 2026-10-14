@@ -13,6 +13,7 @@ import type { ResolvedCenterApplicationScope } from '../../common/auth/http-admi
 import type {
   CatalogListQueryInput,
   CatalogSlotInput,
+  CatalogUpcomingQueryInput,
 } from '../catalog.dto.js';
 import { CatalogProblemException } from '../catalog.errors.js';
 import { formatCatalogInstant } from '../catalog.time.js';
@@ -129,6 +130,45 @@ export class SlotCatalogService {
             .slice(0, pageSize)
             .map((row: SlotRow) => this.slotDto(row, timeZone)),
           page,
+          pageSize,
+          hasNext: rows.length > pageSize,
+        };
+      },
+    );
+  }
+
+  async listUpcomingSlots(
+    applicationScope: ResolvedCenterApplicationScope,
+    query: CatalogUpcomingQueryInput,
+  ) {
+    return this.access.authorized(
+      applicationScope,
+      'availability.read',
+      async ({ context, center, db }) => {
+        const from = parseCatalogInputInstant(query.from, 'from');
+        const rows = await db
+          .select()
+          .from(bookingSlots)
+          .where(
+            and(
+              eq(bookingSlots.tenantId, context.tenantId),
+              eq(bookingSlots.centerId, center.id),
+              gte(
+                bookingSlots.startsAt,
+                new Date(Number(from.epochMilliseconds)),
+              ),
+            ),
+          )
+          .orderBy(asc(bookingSlots.startsAt), asc(bookingSlots.id))
+          .limit(6);
+        const pageSize = 5;
+        return {
+          items: rows
+            .slice(0, pageSize)
+            .map((row: SlotRow) =>
+              this.slotDto(row, this.access.centerTimeZone(center.timeZone)),
+            ),
+          page: 1,
           pageSize,
           hasNext: rows.length > pageSize,
         };

@@ -8,12 +8,14 @@ import type {
   CatalogListQueryInput,
   CatalogSettingsInput,
   CatalogSlotInput,
+  CatalogUpcomingQueryInput,
 } from './catalog.dto.js';
 import {
   parseCatalogActivityInput,
   parseCatalogListQueryInput,
   parseCatalogSettingsInput,
   parseCatalogSlotInput,
+  parseCatalogUpcomingQueryInput,
   uuid,
 } from './catalog.validation.js';
 
@@ -57,5 +59,14 @@ export class CatalogListQueryPipe
 {
   transform(value: unknown): CatalogListQueryInput {
     return parseCatalogListQueryInput(value);
+  }
+}
+
+@Injectable()
+export class CatalogUpcomingQueryPipe
+  implements PipeTransform<unknown, CatalogUpcomingQueryInput>
+{
+  transform(value: unknown): CatalogUpcomingQueryInput {
+    return parseCatalogUpcomingQueryInput(value);
   }
 }

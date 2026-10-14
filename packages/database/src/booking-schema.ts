@@ -214,6 +214,12 @@ export const bookingSlots = bookingApp.table(
       table.startsAt,
       table.id,
     ),
+    index('slots_center_starts_id_idx').on(
+      table.tenantId,
+      table.centerId,
+      table.startsAt,
+      table.id,
+    ),
   ],
 );
 

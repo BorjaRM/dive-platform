@@ -86,6 +86,13 @@ const operations = [
     query: ['page', 'pageSize', 'status', 'from', 'to'],
   },
   {
+    method: 'GET',
+    path: new RegExp(`^${center}/upcoming-slots$`),
+    scope: 'center',
+    query: ['from'],
+    cacheControl: 'private, no-store',
+  },
+  {
     method: 'POST',
     path: new RegExp(`^${center}/activities/${uuid}/slots$`),
     scope: 'center',

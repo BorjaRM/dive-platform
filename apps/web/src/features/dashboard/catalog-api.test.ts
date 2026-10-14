@@ -200,6 +200,26 @@ describe('dashboard catalog API boundary', () => {
     expect(headers.get('X-Tenant-Context')).toBe('ctx_secret');
   });
 
+  it('builds one scoped upcoming-session request without a client-side horizon', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        jsonResponse({ items: [], page: 1, pageSize: 5, hasNext: false }),
+      );
+    const api = createDashboardApi({
+      baseUrl: '/api/dashboard',
+      session: { getToken: async () => 'session-secret' },
+    });
+
+    await api.listUpcomingSlots('ctx_secret', 'center/alpha', {
+      from: '2030-10-01T10:00:00Z',
+    });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/dashboard/v1/centers/center%2Falpha/upcoming-slots?from=2030-10-01T10%3A00%3A00Z',
+    );
+  });
+
   it('sends only catalog fields and handles successful 204 commands', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')

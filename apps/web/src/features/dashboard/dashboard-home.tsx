@@ -172,18 +172,12 @@ function CenterHome({ center, context }: { center: Center; context: string }) {
   const validTimeZone =
     formatSlotStart(new Date().toISOString(), 'en', center.timeZone) !== null;
   const slotsQuery = useQuery({
-    queryKey: [
-      ...HOME_QUERY_ROOT,
-      'sessions',
-      center.id,
-      activities.map((activity) => activity.id),
-    ],
+    queryKey: [...HOME_QUERY_ROOT, 'sessions', center.id],
     queryFn: ({ signal }) =>
       loadUpcomingSlots(
         api,
         context,
         center.id,
-        activities.map((activity) => activity.id),
         new Date().toISOString(),
         signal,
       ),

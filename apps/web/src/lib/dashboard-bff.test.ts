@@ -44,6 +44,10 @@ describe('calendar read BFF inventory (DIVE-BOOK-REQ-043; DIVE-IAM-REQ-030..032)
       '?from=2026-10-01T00%3A00%3A00Z&to=2026-10-02T00%3A00%3A00Z&slotStatus=Closed&page=1&pageSize=20',
     ],
     [
+      `/v1/centers/${centerId}/upcoming-slots`,
+      '?from=2026-10-01T00%3A00%3A00Z',
+    ],
+    [
       `/v1/centers/${centerId}/slots/${resourceId}/bookings`,
       '?bookingStatus=Pending&page=2&pageSize=20',
     ],

@@ -25,6 +25,7 @@ import {
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
   getSchemaPath,
 } from '@nestjs/swagger';
@@ -46,6 +47,7 @@ import {
   CatalogSettingsInputDto,
   CatalogSlotInputDto,
   CatalogTranslationEditDto,
+  type CatalogUpcomingQueryInput,
   DashboardCapabilitiesDto,
   SlotDto,
   SlotListDto,
@@ -56,6 +58,7 @@ import {
   CatalogListQueryPipe,
   CatalogSettingsInputPipe,
   CatalogSlotInputPipe,
+  CatalogUpcomingQueryPipe,
   CatalogUuidPipe,
 } from './catalog.validation.pipe.js';
 import { CatalogAccessService } from './catalog-access.service.js';
@@ -260,6 +263,18 @@ export class CatalogController {
     @Body(CatalogSlotInputPipe) input: CatalogSlotInputDto,
   ) {
     return this.slots.createSlot(scope, activityId, input);
+  }
+
+  @Get('upcoming-slots')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: 'List the next five slots across one center' })
+  @ApiOkResponse({ type: SlotListDto })
+  @ApiQuery({ name: 'from', required: true, type: String })
+  listUpcomingSlots(
+    @CenterApplicationScope() scope: ResolvedCenterApplicationScope,
+    @Query(CatalogUpcomingQueryPipe) query: CatalogUpcomingQueryInput,
+  ) {
+    return this.slots.listUpcomingSlots(scope, query);
   }
 
   @Patch('slots/:slotId/close')

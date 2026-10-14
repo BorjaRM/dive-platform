@@ -106,6 +106,12 @@ function createApi() {
       pageSize: 10,
       hasNext: false,
     }),
+    listUpcomingSlots: vi.fn().mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 5,
+      hasNext: false,
+    }),
     createActivity: vi.fn().mockResolvedValue({}),
     getActivity: vi.fn().mockResolvedValue({
       activity: {
