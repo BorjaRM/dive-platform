@@ -109,6 +109,7 @@ function renderHome(
                   : options.timeZone,
             },
           ],
+          centerSelectionMode: 'url',
           sessionState: 'available',
           isReady: options.ready ?? true,
           invalidateDashboardCache: vi.fn(),

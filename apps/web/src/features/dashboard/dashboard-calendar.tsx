@@ -34,15 +34,11 @@ const CalendarView = dynamic(() => import('./calendar-view'), {
 const CATALOG_QUERY_ROOT = ['dashboard', 'catalog'] as const;
 
 export function DashboardCalendar() {
-  const { authorizedCenters, isReady, tenantContext } = useDashboardContext();
+  const { isReady, tenantContext } = useDashboardContext();
   const navigation = useCatalogNavigation();
-  const center =
-    authorizedCenters.find(
-      (item) => item.id === navigation.requestedCenterId,
-    ) ?? authorizedCenters[0];
-  if (!isReady) return null;
-  if (!center || !tenantContext)
-    return <CatalogNotice title="No center is available" />;
+  if (!isReady || navigation.centerSelection.kind !== 'selected') return null;
+  if (!tenantContext) return null;
+  const center = navigation.centerSelection.center;
   return (
     <CenterCalendar
       key={`${tenantContext}:${center.id}`}
@@ -62,9 +58,9 @@ function CenterCalendar({
   timeZone: string | null;
   context: string;
 }) {
-  const { api, authorizedCenters, handleSessionExpired } =
+  const { api, authorizedCenters, centerSelectionMode, handleSessionExpired } =
     useDashboardContext();
-  const { updateSearchParams } = useCatalogNavigation();
+  const { buildHref, updateSearchParams } = useCatalogNavigation();
   const queryClient = useQueryClient();
   const queryScope = useId();
   const [range, setRange] = useState<CalendarRange | null>(null);
@@ -237,35 +233,31 @@ function CenterCalendar({
         >
           Refresh
         </Button>
-        <Link href={`/dashboard?center=${encodeURIComponent(centerId)}`}>
-          Home
-        </Link>
-        <Link
-          href={`/dashboard/activities?center=${encodeURIComponent(centerId)}`}
-        >
-          Manage activities
-        </Link>
+        <Link href={buildHref('/dashboard')}>Home</Link>
+        <Link href={buildHref('/dashboard/activities')}>Manage activities</Link>
       </header>
       <div className={styles.filters}>
-        <label className={styles.filter} htmlFor="calendar-center">
-          <span>Center</span>
-          <Select
-            id="calendar-center"
-            value={centerId}
-            onChange={(event) =>
-              updateSearchParams({
-                [CATALOG_SEARCH_PARAMS.centerId]: event.target.value,
-                [CATALOG_SEARCH_PARAMS.activityId]: null,
-              })
-            }
-          >
-            {authorizedCenters.map((center) => (
-              <option key={center.id} value={center.id}>
-                {center.name}
-              </option>
-            ))}
-          </Select>
-        </label>
+        {centerSelectionMode === 'url' && (
+          <label className={styles.filter} htmlFor="calendar-center">
+            <span>Center</span>
+            <Select
+              id="calendar-center"
+              value={centerId}
+              onChange={(event) =>
+                updateSearchParams({
+                  [CATALOG_SEARCH_PARAMS.centerId]: event.target.value,
+                  [CATALOG_SEARCH_PARAMS.activityId]: null,
+                })
+              }
+            >
+              {authorizedCenters.map((center) => (
+                <option key={center.id} value={center.id}>
+                  {center.name}
+                </option>
+              ))}
+            </Select>
+          </label>
+        )}
         <label className={styles.filter} htmlFor="calendar-activity">
           <span>Activity</span>
           <Select
@@ -419,7 +411,9 @@ function CenterCalendar({
                 </p>
                 <div className={styles.actions}>
                   <Link
-                    href={`/dashboard/activities/${encodeURIComponent(selectedSlot.activityId)}/edit?center=${encodeURIComponent(centerId)}`}
+                    href={buildHref(
+                      `/dashboard/activities/${encodeURIComponent(selectedSlot.activityId)}/edit`,
+                    )}
                   >
                     Manage activity
                   </Link>

@@ -77,14 +77,10 @@ export function CatalogPanel({
 }: {
   view?: CatalogView;
 }) {
-  const { authorizedCenters, isReady, tenantContext } = useDashboardContext();
+  const { isReady, tenantContext } = useDashboardContext();
   const navigation = useCatalogNavigation();
-  const centerId = authorizedCenters.some(
-    (center) => center.id === navigation.requestedCenterId,
-  )
-    ? navigation.requestedCenterId
-    : (authorizedCenters[0]?.id ?? '');
-  if (!isReady) return null;
+  if (!isReady || navigation.centerSelection.kind !== 'selected') return null;
+  const centerId = navigation.centerSelection.center.id;
   return (
     <CatalogCenterPanel
       key={`${tenantContext}:${centerId}`}
@@ -107,13 +103,13 @@ function CatalogCenterPanel({
   const {
     api,
     authorizedCenters,
+    centerSelectionMode,
     handleSessionExpired,
     isReady,
     tenantContext,
   } = useDashboardContext();
   const queryClient = useQueryClient();
   const {
-    requestedCenterId,
     activityStatus,
     slotStatus,
     activityPage,
@@ -194,33 +190,12 @@ function CatalogCenterPanel({
         signal,
       ),
     enabled:
-      view.kind === 'edit' &&
-      isReady &&
-      centerId === requestedCenterId &&
-      Boolean(tenantContext && centerId),
+      view.kind === 'edit' && isReady && Boolean(tenantContext && centerId),
     gcTime: 0,
     retry: false,
   });
   const selectedActivity = activityQuery.data?.activity ?? null;
   const effectiveActivityId = activityId;
-
-  useEffect(() => {
-    if (authorizedCenters.length === 0) return;
-    if (centerId !== requestedCenterId) {
-      updateSearchParams({
-        [CATALOG_SEARCH_PARAMS.centerId]: centerId,
-        [CATALOG_SEARCH_PARAMS.activityId]: null,
-        [CATALOG_SEARCH_PARAMS.activityPage]: null,
-        [CATALOG_SEARCH_PARAMS.slotPage]: null,
-      });
-      return;
-    }
-  }, [
-    authorizedCenters.length,
-    centerId,
-    requestedCenterId,
-    updateSearchParams,
-  ]);
 
   const effectiveSlotPage = slotPage;
 
@@ -249,7 +224,6 @@ function CatalogCenterPanel({
       isReady &&
       view.kind === 'edit' &&
       activityQuery.isSuccess &&
-      centerId === requestedCenterId &&
       Boolean(tenantContext && centerId && effectiveActivityId),
     retry: false,
   });
@@ -417,35 +391,37 @@ function CatalogCenterPanel({
               )}
             </div>
           </div>
-          <label className={styles.control} htmlFor="catalog-center">
-            <span>Center</span>
-            <Select
-              id="catalog-center"
-              value={centerId}
-              disabled={catalogMutation.isPending}
-              onChange={(event) => {
-                if (view.kind === 'edit') {
-                  navigate('/dashboard/activities', {
+          {centerSelectionMode === 'url' && (
+            <label className={styles.control} htmlFor="catalog-center">
+              <span>Center</span>
+              <Select
+                id="catalog-center"
+                value={centerId}
+                disabled={catalogMutation.isPending}
+                onChange={(event) => {
+                  if (view.kind === 'edit') {
+                    navigate('/dashboard/activities', {
+                      [CATALOG_SEARCH_PARAMS.centerId]: event.target.value,
+                      [CATALOG_SEARCH_PARAMS.activityPage]: null,
+                    });
+                    return;
+                  }
+                  updateSearchParams({
                     [CATALOG_SEARCH_PARAMS.centerId]: event.target.value,
+                    [CATALOG_SEARCH_PARAMS.activityId]: null,
                     [CATALOG_SEARCH_PARAMS.activityPage]: null,
+                    [CATALOG_SEARCH_PARAMS.slotPage]: null,
                   });
-                  return;
-                }
-                updateSearchParams({
-                  [CATALOG_SEARCH_PARAMS.centerId]: event.target.value,
-                  [CATALOG_SEARCH_PARAMS.activityId]: null,
-                  [CATALOG_SEARCH_PARAMS.activityPage]: null,
-                  [CATALOG_SEARCH_PARAMS.slotPage]: null,
-                });
-              }}
-            >
-              {authorizedCenters.map((center) => (
-                <option key={center.id} value={center.id}>
-                  {center.name}
-                </option>
-              ))}
-            </Select>
-          </label>
+                }}
+              >
+                {authorizedCenters.map((center) => (
+                  <option key={center.id} value={center.id}>
+                    {center.name}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          )}
         </header>
 
         {authorizedCenters.length === 0 ? (

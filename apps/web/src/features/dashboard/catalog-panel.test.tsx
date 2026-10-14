@@ -149,7 +149,8 @@ function renderCatalog(
       : view.kind === 'create'
         ? '/dashboard/activities/new'
         : '/dashboard/activities';
-  window.history.replaceState(null, '', `${path}${window.location.search}`);
+  const search = window.location.search || '?center=center-alpha';
+  window.history.replaceState(null, '', `${path}${search}`);
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -165,6 +166,7 @@ function renderCatalog(
             { id: 'center-alpha', name: 'Alpha Center', timeZone },
             { id: 'center-beta', name: 'Beta Center', timeZone },
           ],
+          centerSelectionMode: 'url',
           sessionState: 'available',
           isReady: true,
           invalidateDashboardCache: vi.fn(),
@@ -758,7 +760,7 @@ describe('dashboard catalog panel', () => {
     );
   });
 
-  it('normalizes an unauthorized center without querying its deep-linked slots', async () => {
+  it('does not render catalog content for an unauthorized center', () => {
     const api = createApi();
     window.history.replaceState(
       null,
@@ -766,23 +768,9 @@ describe('dashboard catalog panel', () => {
       '/dashboard?center=center-foreign&activity=activity-foreign&activityPage=4&slotPage=3',
     );
     renderCatalog(api, vi.fn(), 'Europe/Madrid', { kind: 'list' });
-    await screen.findByText('Buceo nocturno');
-    await waitFor(() => {
-      const params = new URLSearchParams(window.location.search);
-      expect(params.get('center')).toBe('center-alpha');
-      expect(params.has('activity')).toBe(false);
-      expect(params.has('activityPage')).toBe(false);
-      expect(params.has('slotPage')).toBe(false);
-      expect(api.listSlots).not.toHaveBeenCalled();
-    });
-    for (const call of api.listSlots.mock.calls) {
-      expect(call.slice(0, 3)).toEqual([
-        'ctx_alpha',
-        'center-alpha',
-        'activity-alpha',
-      ]);
-      expect(call[3]).toEqual({ page: 1, pageSize: 10 });
-    }
+    expect(screen.queryByText('Center unavailable')).not.toBeInTheDocument();
+    expect(api.listActivities).not.toHaveBeenCalled();
+    expect(api.listSlots).not.toHaveBeenCalled();
   });
 
   it('requires an explicit center language before creating a monolingual activity (DIVE-BOOK-REQ-009, 051)', async () => {

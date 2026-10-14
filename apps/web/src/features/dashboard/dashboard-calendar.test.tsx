@@ -111,6 +111,7 @@ function renderCalendar(
             { id: 'center-a', name: 'Center A', timeZone },
             { id: 'center-b', name: 'Center B', timeZone },
           ],
+          centerSelectionMode: 'url',
           sessionState: 'available',
           isReady: true,
           invalidateDashboardCache: vi.fn(),
@@ -128,7 +129,7 @@ function renderCalendar(
 describe('main dashboard calendar (DIVE-BOOK-REQ-043 fixed-time phase)', () => {
   beforeEach(() => {
     vi.setSystemTime(new Date('2026-10-01T09:00:00Z'));
-    window.history.replaceState(null, '', '/dashboard');
+    window.history.replaceState(null, '', '/dashboard?center=center-a');
   });
   afterEach(() => {
     cleanup();
@@ -200,7 +201,7 @@ describe('main dashboard calendar (DIVE-BOOK-REQ-043 fixed-time phase)', () => {
     expect(container.querySelector('.fc-event')).toBeNull();
   });
 
-  it('uses only listed activities and authorized centers, and scopes status filters', async () => {
+  it('does not render calendar content for an unauthorized center', () => {
     const api = createApi();
     window.history.replaceState(
       null,
@@ -208,36 +209,9 @@ describe('main dashboard calendar (DIVE-BOOK-REQ-043 fixed-time phase)', () => {
       '/dashboard?center=foreign&activity=foreign',
     );
     renderCalendar(api);
-    await waitFor(() => expect(api.listCalendarSlots).toHaveBeenCalled());
-    expect(screen.getByLabelText('Center')).toHaveValue('center-a');
-    expect(screen.getByLabelText('Activity')).toHaveValue('');
-    fireEvent.change(screen.getByLabelText('Status'), {
-      target: { value: 'Full' },
-    });
-    await waitFor(() =>
-      expect(api.listCalendarSlots).toHaveBeenLastCalledWith(
-        'ctx-private',
-        'center-a',
-        expect.objectContaining({ slotStatus: 'Full' }),
-        expect.any(AbortSignal),
-      ),
-    );
-    fireEvent.change(screen.getByLabelText('Center'), {
-      target: { value: 'center-b' },
-    });
-    await waitFor(() =>
-      expect(api.listCalendarSlots).toHaveBeenLastCalledWith(
-        'ctx-private',
-        'center-b',
-        expect.any(Object),
-        expect.any(AbortSignal),
-      ),
-    );
-    expect(
-      api.listCalendarSlots.mock.calls.every(
-        (call) => call[1] !== 'foreign' && call[2] !== 'foreign',
-      ),
-    ).toBe(true);
+    expect(screen.queryByText('Center unavailable')).not.toBeInTheDocument();
+    expect(api.listCalendarSlots).not.toHaveBeenCalled();
+    expect(api.listActivities).not.toHaveBeenCalled();
   });
 
   it('opens slot details and reuses scoped close/cancel commands', async () => {
@@ -335,7 +309,7 @@ describe('main dashboard calendar (DIVE-BOOK-REQ-043 fixed-time phase)', () => {
     window.history.replaceState(
       null,
       '',
-      `/dashboard?calendarView=listWeek&calendarDate=2026-10-01&activity=${selected}&slotStatus=Closed&unrelated=retained`,
+      `/dashboard?center=center-a&calendarView=listWeek&calendarDate=2026-10-01&activity=${selected}&slotStatus=Closed&unrelated=retained`,
     );
     api.listCalendarSlots.mockRejectedValue(
       new DashboardApiError(404, 'unknown', { code: 'resource_not_found' }),
@@ -377,7 +351,7 @@ describe('main dashboard calendar (DIVE-BOOK-REQ-043 fixed-time phase)', () => {
       window.history.replaceState(
         null,
         '',
-        '/dashboard?calendarView=timeGridWeek&calendarDate=2026-10-15',
+        '/dashboard?center=center-a&calendarView=timeGridWeek&calendarDate=2026-10-15',
       );
       window.dispatchEvent(new PopStateEvent('popstate'));
     });

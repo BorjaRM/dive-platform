@@ -428,15 +428,16 @@ export function DashboardTenantContext({
     tenantContext,
     authorizedCenters:
       contextIsCurrent && recovery === null ? (centersQuery.data ?? []) : [],
+    centerSelectionMode: centerKey ? ('host' as const) : ('url' as const),
     sessionState,
     isReady:
       contextIsCurrent &&
       storageReady &&
       sessionState === 'available' &&
       tenantContext !== null &&
+      centersQuery.isSuccess &&
       recovery === null &&
-      (!centerKey ||
-        (centersQuery.isSuccess && centersQuery.data?.length === 1)),
+      (!centerKey || centersQuery.data?.length === 1),
     invalidateDashboardCache: clearDashboardCache,
     handleSessionExpired: expireSession,
     clearTenantContext: () => clearContext(),

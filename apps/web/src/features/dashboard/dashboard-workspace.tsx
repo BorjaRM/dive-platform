@@ -17,15 +17,16 @@ import {
   X,
 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { type ReactNode, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { type ReactNode, useEffect, useState } from 'react';
 import { dashboardCapabilitiesQuery } from './dashboard-capabilities';
 import { useDashboardContext } from './dashboard-context';
+import { CenterSelectionPanel } from './dashboard-context-views';
 import {
   PLACEHOLDER_PENDING_BOOKINGS,
   PLACEHOLDER_USER,
 } from './dashboard-placeholders';
-import { CATALOG_SEARCH_PARAMS } from './use-catalog-navigation';
+import { useCatalogNavigation } from './use-catalog-navigation';
 
 export function DashboardWorkspace({
   actions,
@@ -36,22 +37,23 @@ export function DashboardWorkspace({
   hasCenterRoute: boolean;
   children: ReactNode;
 }) {
-  const { api, authorizedCenters, isReady, tenantContext } =
-    useDashboardContext();
+  const {
+    api,
+    authorizedCenters,
+    centerSelectionMode,
+    isReady,
+    tenantContext,
+  } = useDashboardContext();
   const pathname = usePathname() ?? '';
-  const requestedCenterId =
-    useSearchParams()?.get(CATALOG_SEARCH_PARAMS.centerId) ?? null;
+  const navigation = useCatalogNavigation();
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const { centerSelection, requestedCenterId, updateSearchParams } = navigation;
   const center =
-    authorizedCenters.find((item) => item.id === requestedCenterId) ??
-    authorizedCenters[0];
+    centerSelection.kind === 'selected' ? centerSelection.center.id : null;
   const capabilitiesQuery = useQuery({
-    ...dashboardCapabilitiesQuery(api, tenantContext ?? '', center?.id ?? ''),
+    ...dashboardCapabilitiesQuery(api, tenantContext ?? '', center ?? ''),
     enabled:
-      hasCenterRoute &&
-      isReady &&
-      tenantContext !== null &&
-      center !== undefined,
+      hasCenterRoute && isReady && tenantContext !== null && center !== null,
   });
   const capabilities = capabilitiesQuery.isError
     ? undefined
@@ -59,7 +61,50 @@ export function DashboardWorkspace({
   const canReadCatalog = capabilities?.canReadActivities === true;
   const canReadCalendar =
     canReadCatalog && capabilities?.canReadSessions === true;
-  const centerQuery = center ? `?center=${encodeURIComponent(center.id)}` : '';
+  useEffect(() => {
+    if (centerSelectionMode === 'host' && requestedCenterId) {
+      const clearDependentParams =
+        center !== null && center !== requestedCenterId;
+      updateSearchParams({
+        center: null,
+        ...(clearDependentParams
+          ? { activity: null, activityPage: null, slotPage: null }
+          : {}),
+      });
+      return;
+    }
+    if (centerSelection.kind !== 'selected' || !centerSelection.repair) return;
+    updateSearchParams({
+      center: centerSelection.center.id,
+      ...(centerSelection.repair === 'invalid'
+        ? { activity: null, activityPage: null, slotPage: null }
+        : {}),
+    });
+  }, [
+    center,
+    centerSelection,
+    centerSelectionMode,
+    requestedCenterId,
+    updateSearchParams,
+  ]);
+
+  const routeContent =
+    !isReady || !hasCenterRoute || centerSelection.kind === 'selected' ? (
+      children
+    ) : (
+      <CenterSelectionPanel
+        centers={authorizedCenters}
+        selection={centerSelection}
+        onSelectCenter={(centerId) =>
+          updateSearchParams({
+            center: centerId,
+            activity: null,
+            activityPage: null,
+            slotPage: null,
+          })
+        }
+      />
+    );
   const closeNavigation = () => setNavigationOpen(false);
 
   return (
@@ -95,7 +140,7 @@ export function DashboardWorkspace({
           </div>
           <ul className="space-y-1">
             <NavigationLink
-              href={`/dashboard${centerQuery}`}
+              href={navigation.buildHref('/dashboard')}
               icon={LayoutDashboard}
               current={pathname === '/dashboard'}
               onNavigate={closeNavigation}
@@ -104,7 +149,7 @@ export function DashboardWorkspace({
             </NavigationLink>
             {canReadCalendar && (
               <NavigationLink
-                href={`/dashboard/calendar${centerQuery}`}
+                href={navigation.buildHref('/dashboard/calendar')}
                 icon={CalendarDays}
                 current={pathname.startsWith('/dashboard/calendar')}
                 onNavigate={closeNavigation}
@@ -120,7 +165,7 @@ export function DashboardWorkspace({
             </NavigationLink>
             {canReadCatalog && (
               <NavigationLink
-                href={`/dashboard/activities${centerQuery}`}
+                href={navigation.buildHref('/dashboard/activities')}
                 icon={Waves}
                 current={pathname.startsWith('/dashboard/activities')}
                 onNavigate={closeNavigation}
@@ -223,7 +268,7 @@ export function DashboardWorkspace({
           </div>
         </header>
         <main className="mx-auto w-full max-w-[96rem] px-4 py-6 sm:px-6 lg:px-8">
-          {children}
+          {routeContent}
         </main>
       </div>
     </div>

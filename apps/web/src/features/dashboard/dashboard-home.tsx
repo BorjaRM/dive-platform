@@ -126,14 +126,12 @@ const PLACEHOLDER_SEA_CONDITIONS = [
 ];
 
 export function DashboardHome() {
-  const { authorizedCenters, isReady, tenantContext } = useDashboardContext();
-  const { requestedCenterId } = useCatalogNavigation();
-  const center =
-    authorizedCenters.find((item) => item.id === requestedCenterId) ??
-    authorizedCenters[0];
+  const { isReady, tenantContext } = useDashboardContext();
+  const { centerSelection } = useCatalogNavigation();
   if (!isReady) return null;
-  if (!center || !tenantContext)
+  if (centerSelection.kind !== 'selected' || !tenantContext)
     return <CatalogNotice title="No center is available" />;
+  const center = centerSelection.center;
   return (
     <CenterHome
       key={`${tenantContext}:${center.id}`}
@@ -145,6 +143,7 @@ export function DashboardHome() {
 
 function CenterHome({ center, context }: { center: Center; context: string }) {
   const { api, handleSessionExpired } = useDashboardContext();
+  const navigation = useCatalogNavigation();
   const [calendarRange, setCalendarRange] = useState<HomeCalendarRange | null>(
     null,
   );
@@ -226,8 +225,7 @@ function CenterHome({ center, context }: { center: Center; context: string }) {
     if (sessionExpired) handleSessionExpired();
   }, [sessionExpired, handleSessionExpired]);
 
-  const centerQuery = `center=${encodeURIComponent(center.id)}`;
-  const calendarHref = `/dashboard/calendar?${centerQuery}`;
+  const calendarHref = navigation.buildHref('/dashboard/calendar');
   const activityNames = new Map(
     activities.map((activity) => [
       activity.id,
@@ -296,7 +294,9 @@ function CenterHome({ center, context }: { center: Center; context: string }) {
               </div>
               <div className="min-w-0 flex-1">
                 <Link
-                  href={`/dashboard/activities/${encodeURIComponent(slot.activityId)}/edit?${centerQuery}`}
+                  href={navigation.buildHref(
+                    `/dashboard/activities/${encodeURIComponent(slot.activityId)}/edit`,
+                  )}
                   className="block truncate text-sm font-semibold hover:text-teal"
                 >
                   {activityNames.get(slot.activityId)}
@@ -524,7 +524,7 @@ function CenterHome({ center, context }: { center: Center; context: string }) {
         <SlotDetailDialog
           slot={selectedSlot}
           timeZone={center.timeZone as string}
-          centerQuery={centerQuery}
+          buildHref={navigation.buildHref}
           canUpdateActivity={capabilities?.canUpdateActivity === true}
           onClose={() => setSelectedSlotId(null)}
         />
@@ -693,13 +693,16 @@ function DialogFrame({
 function SlotDetailDialog({
   slot,
   timeZone,
-  centerQuery,
+  buildHref,
   canUpdateActivity,
   onClose,
 }: {
   slot: CalendarObservation;
   timeZone: string;
-  centerQuery: string;
+  buildHref: (
+    path: string,
+    updates?: Record<string, string | number | null>,
+  ) => string;
   canUpdateActivity: boolean;
   onClose: () => void;
 }) {
@@ -707,7 +710,10 @@ function SlotDetailDialog({
     .toZonedDateTimeISO(timeZone)
     .toPlainDate()
     .toString();
-  const dayCalendarHref = `/dashboard/calendar?${centerQuery}&${CALENDAR_SEARCH_PARAMS.view}=timeGridDay&${CALENDAR_SEARCH_PARAMS.date}=${localDate}`;
+  const dayCalendarHref = buildHref('/dashboard/calendar', {
+    [CALENDAR_SEARCH_PARAMS.view]: 'timeGridDay',
+    [CALENDAR_SEARCH_PARAMS.date]: localDate,
+  });
 
   return (
     <DialogFrame
@@ -751,7 +757,9 @@ function SlotDetailDialog({
         </Link>
         {canUpdateActivity && (
           <Link
-            href={`/dashboard/activities/${encodeURIComponent(slot.activityId)}/edit?${centerQuery}`}
+            href={buildHref(
+              `/dashboard/activities/${encodeURIComponent(slot.activityId)}/edit`,
+            )}
             className="flex flex-1 items-center justify-center rounded-xl border border-line py-3 text-sm font-semibold text-muted hover:text-ink"
           >
             Edit activity

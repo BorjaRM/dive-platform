@@ -1,7 +1,55 @@
 import type { ReactNode } from 'react';
-import { Badge } from '../../components/ui/controls';
+import { Badge, Select } from '../../components/ui/controls';
 import styles from './dashboard.module.css';
 import type { Center, Operator } from './tenant-context';
+import type { DashboardCenterSelection } from './use-catalog-navigation';
+
+export function CenterSelectionPanel({
+  centers,
+  selection,
+  onSelectCenter,
+}: {
+  centers: Center[];
+  selection: Exclude<DashboardCenterSelection, { kind: 'selected' }>;
+  onSelectCenter: (centerId: string) => void;
+}) {
+  const isInvalid = selection.kind === 'invalid';
+
+  return (
+    <section
+      className={styles.section}
+      aria-labelledby="center-selection-heading"
+    >
+      <StatusPanel
+        title={isInvalid ? 'Center unavailable' : 'Choose a center'}
+        message={
+          isInvalid
+            ? 'This center is not available in the current workspace. Choose an authorized center to continue.'
+            : 'Choose an authorized center to continue to this dashboard area.'
+        }
+      />
+      {centers.length > 0 && (
+        <label className={styles.centerSelector} htmlFor="dashboard-center">
+          <span id="center-selection-heading">Center</span>
+          <Select
+            id="dashboard-center"
+            value=""
+            onChange={(event) => onSelectCenter(event.target.value)}
+          >
+            <option value="" disabled>
+              Select a center
+            </option>
+            {centers.map((center) => (
+              <option key={center.id} value={center.id}>
+                {center.name}
+              </option>
+            ))}
+          </Select>
+        </label>
+      )}
+    </section>
+  );
+}
 
 export function CentersSection({
   centers,

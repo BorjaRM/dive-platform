@@ -17,6 +17,12 @@ import {
   type SessionTokenSource,
 } from './tenant-context';
 
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/dashboard',
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+}));
+
 function memoryStorage() {
   const values = new Map<string, string>();
   return {

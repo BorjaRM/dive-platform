@@ -14,12 +14,15 @@ export type DashboardSessionState =
   | 'unavailable'
   | 'logged-out';
 
+export type DashboardCenterSelectionMode = 'host' | 'url';
+
 export type DashboardContextValue = {
   api: DashboardApi;
   apiBaseUrl: string;
   session: SessionTokenSource;
   tenantContext: string | null;
   authorizedCenters: Center[];
+  centerSelectionMode: DashboardCenterSelectionMode;
   sessionState: DashboardSessionState;
   isReady: boolean;
   invalidateDashboardCache: () => void;
