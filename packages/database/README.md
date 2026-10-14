@@ -70,7 +70,11 @@ performance has not been measured.
 pnpm db:bootstrap   # admin: create the six product roles
 pnpm db:migrate     # dive_migration: apply drizzle/
 pnpm db:generate    # Drizzle Kit schema diff → new SQL under drizzle/
+pnpm db:test:prepare # create and migrate the separate local dive_test database
 ```
+
+Integration tests load `.env.test.example` and use `dive_test`; prepare it
+before running them. They refuse the local development database `dive_spike`.
 
 `drizzle/0000_baseline.sql` is the pre-release baseline. During isolated
 development it may be revised and consolidated until a shared or published

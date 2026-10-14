@@ -28,6 +28,7 @@
     "db:migrate": "pnpm --filter @dive-center/database db:migrate",
     "db:seed:local": "pnpm --filter @dive-center/database db:seed:local",
     "db:reset:local": "node --env-file=.env.example --env-file-if-exists=.env.local scripts/reset-local-database.mjs",
+    "db:test:prepare": "node --env-file=.env.example --env-file=.env.test.example scripts/prepare-test-database.mjs",
     "db:generate": "pnpm --filter @dive-center/database db:generate"
   },
   "devDependencies": {

@@ -137,10 +137,15 @@ production ingress, real Clerk continuity or rollout.
 ## Local commands
 
 ```bash
+pnpm db:test:prepare
 pnpm --filter @dive-center/api test
 pnpm --filter @dive-center/api test:e2e
 pnpm --filter @dive-center/api typecheck
 ```
+
+The API E2E suite uses the disposable local `dive_test` database configured by
+`.env.test.example`. Prepare it before running the suite; it must never point
+at the seeded development database `dive_spike`.
 
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>

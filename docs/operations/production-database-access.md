@@ -24,6 +24,8 @@ data from that role.
   `packages/database/src/bootstrap-roles.ts`.
 - Product migrations use `MIGRATION_DATABASE_URL`; administrative credentials
   are used only to bootstrap roles in the synthetic local and CI harness.
+- Runtime database URL helpers reject local hosts and the `dive_spike` / `dive_test`
+  database names when `NODE_ENV=production`.
 - `iam_app.identity_tenants` is an internal cross-tenant directory populated by
   a controlled trigger. `dive_app` has no direct table privileges; reviewed
   command functions owned by `dive_migration` are its access boundary.

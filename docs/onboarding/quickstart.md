@@ -40,6 +40,7 @@ and [the invitation processor](../../apps/worker/src/bootstrap-invitation-worker
 | `pnpm dev:fresh` | Requires a confirmed local database reset, then starts `dev` only if the reset succeeds. |
 | `pnpm email:send` | Loads the example and local environment and runs the existing invitation worker once. May send real invitation emails through the configured Clerk instance. |
 | `pnpm db:reset:local` | Confirms and recreates only the configured local `dive_spike` database, prepares roles and applies migrations. Deletes all data in that database. |
+| `pnpm db:test:prepare` | Creates the separate local `dive_test` database if needed, prepares roles and applies migrations. It does not reset or seed test data. |
 | `pnpm db:bootstrap` | Prepares restricted database roles and permissions using admin credentials. Does not reset or migrate the schema. |
 | `pnpm db:migrate` | Applies versioned product migrations using migration credentials. Does not drop the database. |
 | `pnpm db:seed:local` | Loads reproducible local tenants, centers and database-side test identities. Requires the local `dive_spike` database and does not create Clerk accounts. |
@@ -49,7 +50,7 @@ and [the invitation processor](../../apps/worker/src/bootstrap-invitation-worker
 | `pnpm check` | Checks formatting/lint and runs workspace typechecks without fixing files. |
 | `pnpm check:fix` | Applies Biome fixes. Does not fix typecheck or test failures. |
 | `pnpm test` | Runs workspace unit tests through Turbo. Does not replace integration tests or the standalone reset-script tests below. |
-| `pnpm test:integration` | Runs database integration and API e2e, including deterministic Next.js/API/PostgreSQL BFF integration, against the configured harness. Use a disposable test database; this is not a browser/real-Clerk run. |
+| `pnpm test:integration` | Runs database integration and API e2e, including deterministic Next.js/API/PostgreSQL BFF integration, against the separate `dive_test` harness. Run `pnpm db:test:prepare` first. This is not a browser/real-Clerk run. |
 
 The seed creates four synthetic database identities by default. To link them to
 users that already exist in Clerk, set the issuer and the four Clerk subjects

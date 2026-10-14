@@ -19,8 +19,28 @@ function requiredPositiveIntegerEnv(name: string): number {
   return parsed;
 }
 
+function runtimeDatabaseUrl(name: string): string {
+  const value = requiredEnv(name);
+  if (process.env.NODE_ENV !== 'production') return value;
+
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return value;
+  }
+  const localHost = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  const testDatabase = ['/dive_spike', '/dive_test'].includes(url.pathname);
+  if (localHost || testDatabase) {
+    throw new Error(
+      `${name} must not target a local or test database in production.`,
+    );
+  }
+  return value;
+}
+
 export function appDatabaseUrl(): string {
-  return requiredEnv('APP_DATABASE_URL');
+  return runtimeDatabaseUrl('APP_DATABASE_URL');
 }
 
 function runtimePoolConfig(): Omit<PoolConfig, 'connectionString'> {
@@ -47,7 +67,7 @@ export function appDatabasePoolConfig(): PoolConfig {
 }
 
 export function workerDatabaseUrl(): string {
-  return requiredEnv('WORKER_DATABASE_URL');
+  return runtimeDatabaseUrl('WORKER_DATABASE_URL');
 }
 
 export function workerDatabasePoolConfig(): PoolConfig {
@@ -58,7 +78,7 @@ export function workerDatabasePoolConfig(): PoolConfig {
 }
 
 export function migrationDatabaseUrl(): string {
-  return requiredEnv('MIGRATION_DATABASE_URL');
+  return runtimeDatabaseUrl('MIGRATION_DATABASE_URL');
 }
 
 export function spikeAdminDatabaseUrl(): string {

@@ -7,7 +7,10 @@ export default defineConfig({
   test: {
     globals: true,
     root: './',
-    setupFiles: ['./test/bff-test-fixture.ts'],
+    setupFiles: [
+      './test/bff-test-fixture.ts',
+      './test/test-database-safety.mjs',
+    ],
     include: ['**/*.e2e-spec.ts'],
     exclude: [
       '**/node_modules/**',
